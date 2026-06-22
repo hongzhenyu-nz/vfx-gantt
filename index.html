@@ -77,6 +77,17 @@
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,199,89,.5)}70%{box-shadow:0 0 0 7px rgba(52,199,89,0)}100%{box-shadow:0 0 0 0 rgba(52,199,89,0)}}
 
   .board{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;}
+  /* 左侧信息栏与时间轴分界：可拖拽手柄（双击=自动适配内容宽度） */
+  .lw-grip{position:absolute;top:0;bottom:0;left:var(--left-w);width:11px;transform:translateX(-50%);z-index:9;cursor:col-resize;display:flex;align-items:center;justify-content:center;}
+  .lw-grip .lw-bar{width:2px;height:100%;background:transparent;transition:background .12s,width .12s;}
+  .lw-grip:hover .lw-bar,.lw-grip.drag .lw-bar{background:var(--blue);width:3px;box-shadow:0 0 0 1px rgba(51,112,255,.25);}
+  .lw-grip::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:5px;height:34px;border-radius:3px;background:#c2c8d0;opacity:0;transition:opacity .12s;}
+  .lw-grip:hover::after,.lw-grip.drag::after{opacity:.9;background:var(--blue);}
+  body.lw-resizing{cursor:col-resize!important;user-select:none!important;}
+  /* 自动适配测量态：临时让信息栏按内容自然宽度展开、各分组人名不换行，用于量取最宽行 */
+  .lw-measure .cell-left{width:max-content!important;min-width:max-content!important;}
+  .lw-measure .who-grp,.lw-measure .who-grp .grp-chips,.lw-measure .req .nm{flex-wrap:nowrap!important;}
+  .lw-measure .cell-left .nm{white-space:nowrap!important;}
   /* 可拉伸高度的双向滚动容器：纵向滚动条=绿框诉求；横向滚动条冻结在容器底部≈屏幕下方；表头随之冻结。
      resize:vertical 让用户拖右下角自由调整看板高度 */
   .scroll{overflow:auto;height:calc(100vh - 250px);min-height:280px;max-height:calc(100vh - 140px);position:relative;resize:vertical;}
@@ -452,6 +463,7 @@
       <span class="vc-val" id="zoomVal">100%</span>
       <button class="vc-reset" onclick="setZoom(100,true)" title="恢复默认条宽">↺</button>
     </span>
+    <button class="ubtn" onclick="autoFitLeftW()" title="自动加宽左侧信息栏，让人名标签尽量不换行、各行宽度一致、版面整齐（也可拖动栏右侧分界线手动调，或双击分界线自动适配）">⇆ 适配栏宽</button>
     <button class="reset" onclick="resetData()">重置</button>
   </div>
 
@@ -465,6 +477,7 @@
     <div class="scroll" id="scroll">
       <div class="grid" id="grid"></div>
     </div>
+    <div class="lw-grip" id="lwGrip" title="拖动调整左侧信息栏宽度　·　双击自动适配内容"><span class="lw-bar"></span></div>
     <div class="resize-hint" title="拖此处可上下拉伸看板高度"></div>
   </div>
 
@@ -1859,6 +1872,39 @@ function initZoom(){
   const val=document.getElementById('zoomVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('zoomRange'); if(rng)rng.value=v;
 }
+
+/* ===== 左侧信息栏宽度：可拖拽手柄(手动) + 双击自动适配内容(自动) ===== */
+const LEFTW_KEY='gantt_leftw';
+const LEFTW_MIN=240, LEFTW_MAX=620, LEFTW_DEF=340;
+function setLeftW(px,save){
+  px=Math.max(LEFTW_MIN,Math.min(LEFTW_MAX,Math.round(px)));
+  document.documentElement.style.setProperty('--left-w',px+'px');
+  if(save!==false){ try{localStorage.setItem(LEFTW_KEY,px);}catch(_){} }
+  return px;
+}
+function initLeftW(){
+  let px=LEFTW_DEF; try{const s=localStorage.getItem(LEFTW_KEY); if(s)px=+s;}catch(_){}
+  setLeftW(px,false);
+  const grip=document.getElementById('lwGrip'); if(!grip)return;
+  // 手动拖拽
+  let startX=0,startW=0,dragging=false;
+  const onMove=e=>{ if(!dragging)return; const dx=(e.touches?e.touches[0].clientX:e.clientX)-startX; setLeftW(startW+dx); };
+  const onUp=()=>{ if(!dragging)return; dragging=false; grip.classList.remove('drag'); document.body.classList.remove('lw-resizing'); document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); document.removeEventListener('touchmove',onMove); document.removeEventListener('touchend',onUp); };
+  const onDown=e=>{ dragging=true; startX=(e.touches?e.touches[0].clientX:e.clientX); startW=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-w'))||LEFTW_DEF; grip.classList.add('drag'); document.body.classList.add('lw-resizing'); document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp); document.addEventListener('touchmove',onMove,{passive:false}); document.addEventListener('touchend',onUp); e.preventDefault(); };
+  grip.addEventListener('mousedown',onDown);
+  grip.addEventListener('touchstart',onDown,{passive:false});
+  // 双击=自动适配内容最宽行
+  grip.addEventListener('dblclick',()=>{ autoFitLeftW(); });
+}
+/* 自动适配：临时解除换行约束，量取所有信息栏的最大自然宽度，取其作为新栏宽 */
+function autoFitLeftW(){
+  const grid=document.getElementById('grid'); if(!grid)return;
+  document.body.classList.add('lw-measure');
+  let maxW=0;
+  grid.querySelectorAll('.row:not(.head) .cell-left').forEach(el=>{ const w=el.scrollWidth; if(w>maxW)maxW=w; });
+  document.body.classList.remove('lw-measure');
+  if(maxW>0){ const px=setLeftW(maxW+6); toast('信息栏已自动适配至 '+px+'px'); }
+}
 function updateLegend(){
   const el=document.getElementById('legend');
   if(colorMode==='status'){
@@ -1871,6 +1917,7 @@ function updateLegend(){
 buildMeSel();
 initVivid();
 initZoom();
+initLeftW();
 // 分享链接优先：URL 带 #s= 时用链接里的排期；否则读本机缓存
 if(loadFromHash()){ toast('已载入分享链接中的排期'); }
 else { loadSaved(); }
