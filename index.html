@@ -13,7 +13,10 @@
     --amber:#ff9f0a; --amber-l:#fff1da;
     --red:#f5413f; --red-l:#ffe5e4;
     --row-h:46px; --day-w:30px; --left-w:340px;
+    --vivid:1;   /* 全局色彩强度：1=原色，越小越柔和不刺眼 */
   }
+  /* 色彩强度作用区：看板与 KPI 卡（饱和度随滑块联动，叠加轻微亮度补偿避免发灰发暗） */
+  .board,.kpis{filter:saturate(var(--vivid)) brightness(calc(1 + (1 - var(--vivid))*0.06));transition:filter .15s ease;}
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--tx);font-size:13px;line-height:1.5;}
   .wrap{max-width:min(1980px,97vw);margin:0 auto;padding:18px 22px 40px;}
@@ -35,6 +38,15 @@
   .legend{display:flex;gap:14px;align-items:center;color:var(--tx2);font-size:12px;flex-wrap:wrap;}
   .dot{display:inline-flex;align-items:center;gap:5px;}
   .dot i{width:11px;height:11px;border-radius:3px;display:inline-block;}
+  /* 色彩强度滑块 */
+  .vivid-ctrl{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 11px;font-size:12px;color:var(--tx2);}
+  .vivid-ctrl .vc-ic{font-size:13px;}
+  .vivid-ctrl input[type=range]{-webkit-appearance:none;appearance:none;width:96px;height:5px;border-radius:3px;background:linear-gradient(90deg,#c7cdd6,#3370ff);outline:none;cursor:pointer;}
+  .vivid-ctrl input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid #3370ff;box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:pointer;}
+  .vivid-ctrl input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#fff;border:2px solid #3370ff;box-shadow:0 1px 3px rgba(0,0,0,.25);cursor:pointer;}
+  .vivid-ctrl .vc-val{font-weight:700;color:var(--blue);min-width:34px;text-align:right;font-variant-numeric:tabular-nums;}
+  .vivid-ctrl .vc-reset{border:none;background:transparent;color:var(--tx3);cursor:pointer;font-size:11px;padding:0 2px;border-radius:4px;}
+  .vivid-ctrl .vc-reset:hover{color:var(--blue);}
   .reset{border:1px solid var(--line);background:#fff;color:var(--tx2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500;}
   .reset:hover{background:#f5f6f8;border-color:#d4d7dc;}
   .undo-grp{display:inline-flex;gap:4px;}
@@ -399,6 +411,12 @@
     </div>
     <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
     <button class="ubtn sync-btn" onclick="exportSync()" title="导出当前排期为同步包(.json)，发给我即可写回企微表">⬆ 导出同步包</button>
+    <span class="vivid-ctrl" title="调节整页颜色的鲜艳强度，看久了觉得刺眼可以调低，让眼睛更舒适">
+      <span class="vc-ic">🎨</span>
+      <input type="range" id="vividRange" min="30" max="100" step="5" value="100" oninput="setVivid(this.value)">
+      <span class="vc-val" id="vividVal">100%</span>
+      <button class="vc-reset" onclick="setVivid(100,true)" title="恢复原始色彩强度">↺</button>
+    </span>
     <button class="reset" onclick="resetData()">重置</button>
   </div>
 
@@ -1706,6 +1724,19 @@ function updateHint(){
   }
 }
 function setColor(c,btn){colorMode=c;document.querySelectorAll('.bar .tabs')[1].querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();rerender();}
+/* 全局色彩强度：滑块联动 CSS --vivid（saturate），看久觉刺眼可调低，设置记本机 */
+const VIVID_KEY='gantt_vivid';
+function setVivid(v,sync){
+  v=Math.max(30,Math.min(100,Math.round(+v/5)*5));
+  document.documentElement.style.setProperty('--vivid',(v/100).toFixed(2));
+  const val=document.getElementById('vividVal'); if(val)val.textContent=v+'%';
+  const rng=document.getElementById('vividRange'); if(rng&&(sync||+rng.value!==v))rng.value=v;
+  try{localStorage.setItem(VIVID_KEY,v);}catch(_){}
+}
+function initVivid(){
+  let v=100; try{const s=localStorage.getItem(VIVID_KEY); if(s)v=+s;}catch(_){}
+  setVivid(v,true);
+}
 function updateLegend(){
   const el=document.getElementById('legend');
   if(colorMode==='status'){
@@ -1716,6 +1747,7 @@ function updateLegend(){
 }
 
 buildMeSel();
+initVivid();
 // 分享链接优先：URL 带 #s= 时用链接里的排期；否则读本机缓存
 if(loadFromHash()){ toast('已载入分享链接中的排期'); }
 else { loadSaved(); }
