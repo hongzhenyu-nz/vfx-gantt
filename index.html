@@ -969,17 +969,30 @@ function renderPerson(){
     // 分配泳道（用天索引判重叠）；s/e 仅作排序索引，seg 对象保存在 sg
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
-    // 自适应条高：1 条占满行高（饱满）；并行越多，每条自动变窄；窄到下限就撑高行高。
-    const innerSingle=ROW_BASE-PADV*2;                                  // 单泳道时条的高度（占满）
-    let barH=Math.round((innerSingle-(laneCount-1)*LANE_GAP)/laneCount);
-    barH=Math.max(barH,BAR_MIN);                                        // 不低于可读下限
-    const laneH=barH+LANE_GAP;                                          // 泳道步进
-    const rowH=Math.max(ROW_BASE, PADV*2+laneCount*barH+(laneCount-1)*LANE_GAP);
+    /* 自适应条高（关键）：行内按全局并行数划成等高泳道槽位，但每条任务会「向上下扩展」填满
+       自己时间段内相邻的空泳道——也就是说：
+       · 该任务所在时段没有别的条目挤占 → 它纵向占满整行（填满红框，饱满）。
+       · 该任务所在时段确有并行 → 只有真正打架的条目各占一槽、等分高度。
+       这样既消除了「整行很高、单条很细、下方大片空白」的问题，又保持网格对齐一致。 */
+    const needInner = laneCount<=1 ? (ROW_BASE-PADV*2)
+                    : Math.max(ROW_BASE-PADV*2, laneCount*BAR_MIN+(laneCount-1)*LANE_GAP);
+    const innerH = needInner;
+    const slotH  = (innerH-(laneCount-1)*LANE_GAP)/laneCount;   // 单槽高度
+    const laneStep = slotH+LANE_GAP;
+    const rowH = PADV*2 + innerH;
+    // 判断某泳道在 [s,e) 时段是否被别的条目占用
+    const occupied=(lane,s,e)=> laid.items.some(b=> b.lane===lane && b.si0<e && b.ei0>s);
     let bars='';
     laid.items.forEach(it=>{
       const {r,sg,si}=it;
       const x=it.si0*DAY_W, w=(it.ei0-it.si0)*DAY_W;
-      const top=PADV+it.lane*laneH;
+      // 以本条泳道为中心，向上下吞并自己时段内的空泳道
+      let lo=it.lane, hi=it.lane;
+      while(lo>0 && !occupied(lo-1,it.si0,it.ei0)) lo--;
+      while(hi<laneCount-1 && !occupied(hi+1,it.si0,it.ei0)) hi++;
+      const span=hi-lo+1;
+      const top=Math.round(PADV+lo*laneStep);
+      const barH=Math.round(span*slotH+(span-1)*LANE_GAP);
       const risk=reqRisk(r);
       const st=STATUS[sg.status||'doing'];
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
