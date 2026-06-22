@@ -293,7 +293,12 @@
   .bar-task .bar-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* 按需求视图：任务条加高，容纳标题 + 按编制分两行的人名标签 */
   .req-row{min-height:82px;}
-  .req-row .cell-left{align-items:flex-start;padding-top:10px;}
+  .req-row .cell-left{align-items:flex-start;padding-top:10px;position:relative;}
+  /* 风险/缺人徽标移到右上角，腾出整行宽度给人员标签，使其能横排到放不下再换行 */
+  .req-badges{position:absolute;top:9px;right:12px;display:flex;align-items:center;gap:6px;z-index:2;}
+  .req-badges .badge,.req-badges .gap-pill{margin:0;}
+  .req-row .req{padding-right:128px;}   /* 标题行避让右上角徽标 */
+  .req-row .who-groups,.req-row .meta{padding-right:0;}  /* 人员/汇总行用满整宽 */
   .bar-task.req-bar{height:66px;top:8px;flex-direction:column;align-items:flex-start;justify-content:center;padding:6px 10px;border-radius:7px;gap:3px;border-left-width:5px;}
   .bar-task.req-bar .bl-top{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .bar-task.req-bar .bl-mic{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:5px;font-size:10px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.25);}
@@ -993,8 +998,21 @@ function renderReq(){
     const g=HR_GRADE[r.grade]||HR_GRADE[''];
     // 参与本需求的人（去重），带编制信息
     const memObjs=risk.pplNames.map(n=>members.find(m=>m.name===n)).filter(Boolean);
-    const regs=memObjs.filter(m=>m.corp==='reg');
-    const bases=memObjs.filter(m=>m.corp!=='reg');
+    // 组内排序：隶属关系(同带队相邻) → 能力强度(红>金>橙>常规) → 支援关系(本队前/支援后)，离职沉底
+    const GRADE_RANK={'红':3,'金':2,'橙':1,'':0};
+    const sortMem=arr=>[...arr].sort((a,b)=>{
+      const la=a.status==='left'?1:0, lb=b.status==='left'?1:0;
+      if(la!==lb) return la-lb;                                   // 离职沉底
+      const lda=leadOf(a)||'~', ldb=leadOf(b)||'~';
+      if(lda!==ldb) return lda.localeCompare(ldb,'zh-Hans-CN');   // 隶属分组相邻
+      const ga=GRADE_RANK[a.grade]||0, gb=GRADE_RANK[b.grade]||0;
+      if(ga!==gb) return gb-ga;                                   // 能力强 → 前
+      const sa=a.support?1:0, sb=b.support?1:0;
+      if(sa!==sb) return sa-sb;                                   // 本队 → 前，支援 → 后
+      return (a.name||'').localeCompare(b.name||'','zh-Hans-CN');
+    });
+    const regs=sortMem(memObjs.filter(m=>m.corp==='reg'));
+    const bases=sortMem(memObjs.filter(m=>m.corp!=='reg'));
     const olTip = risk.overloaded.length?`<br><span class='g' style='color:#ff8f8f'>⚠ 超载占用</span> ${risk.overloaded.join('、')}（产能已折损）`:'';
     const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 管线缺人</span> ${lineName(r.line)}缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
     const teamTip = `<br><span class='g'>团队</span> 正编${regs.length}人${regs.length?'（'+regs.map(m=>m.name).join('、')+'）':''} · 基地${bases.length}人${bases.length?'（'+bases.map(m=>m.name).join('、')+'）':''}`;
@@ -1045,8 +1063,7 @@ function renderReq(){
           <div class="who-groups">${chips}</div>
           <div class="meta">${r.estimate}人天 · 完成${prog}% · 剩${risk.left}工作日 · ${teamCount}${addons.length?` · <span style="color:#7c3aed">+联调${addons.reduce((a,x)=>a+x.estimate,0)}人天</span>`:''}</div>
         </div>
-        ${gapBadge}
-        <span class="badge ${risk.cls}">${risk.lvl}风险</span>
+        <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
       </div>
       <div class="timeline" style="width:${DAYS*DAY_W}px">
         <div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${x}px;width:${w}px;border-left-color:${MM.c}"
