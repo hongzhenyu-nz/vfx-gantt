@@ -254,6 +254,19 @@
   .bar-task.req-bar .bl-mic{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:5px;font-size:10px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.25);}
   .bar-task.req-bar .bl-mod{font-size:10px;font-weight:700;border-radius:4px;padding:0 6px;flex-shrink:0;}
   .bar-task.req-bar .bl-sub{font-size:10px;font-weight:500;opacity:.92;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* 条内迷你人名标签：白底胶囊，适配蓝条深色背景；语义同左侧（圆点=隶属带队 / 👑=正编 / 支=跨队支援 / 新·临=状态） */
+  .bar-task.req-bar .bl-chips{display:flex;align-items:center;gap:3px;width:100%;overflow:hidden;white-space:nowrap;}
+  .bar-task.req-bar .bl-cnt{font-size:9px;font-weight:700;color:#fff;opacity:.85;flex-shrink:0;margin-right:1px;}
+  .bar-task.req-bar .bl-chip{display:inline-flex;align-items:center;gap:2px;flex-shrink:0;background:rgba(255,255,255,.92);color:#1f2329;border:1px solid rgba(255,255,255,.5);border-radius:4px;padding:0 4px;height:15px;font-size:9px;font-weight:700;line-height:15px;}
+  .bar-task.req-bar .bl-chip.reg{color:#6d28d9;}
+  .bar-task.req-bar .bl-chip.is-sup{background:#fff5e9;border:1px dashed #f08c00;color:#b45309;}
+  .bar-task.req-bar .bl-chip.is-left{text-decoration:line-through;opacity:.7;}
+  .bar-task.req-bar .bl-chip .bl-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 1px rgba(0,0,0,.12);}
+  .bar-task.req-bar .bl-chip .bl-cr{font-size:8px;font-style:normal;}
+  .bar-task.req-bar .bl-chip .bl-mk{font-size:7px;font-style:normal;font-weight:700;border-radius:2px;padding:0 2px;line-height:1.4;}
+  .bar-task.req-bar .bl-chip .bl-mk.s{background:#f08c00;color:#fff;}
+  .bar-task.req-bar .bl-chip .bl-mk.n{background:#2563eb;color:#fff;}
+  .bar-task.req-bar .bl-chip .bl-mk.t{background:#64748b;color:#fff;}
   .bar-task.req-bar .qa-flag{font-size:11px;font-weight:700;color:#e8eaed;letter-spacing:.5px;padding-left:14px;}
   .bar-task.req-bar .prog{height:5px;border-radius:0 4px 0 0;}
   .bar-task.req-bar .sdot{position:absolute;left:8px;top:8px;}
@@ -928,6 +941,24 @@ function renderReq(){
     const chips = memObjs.length
       ? memObjs.map(chip).join('')
       : `<span class="who-chip none">未排人</span>`;
+    // 条内迷你标签：同一套语义（圆点=隶属带队 / 👑=正编 / 支=跨队支援 / 新·临=状态），白底胶囊适配蓝条
+    const blChip=m=>{
+      const seg=(r.segs||[]).find(s=>s.m===m.id);
+      const myLead=leadOf(m);
+      const crossTeam=!!(reqLead&&myLead&&myLead!==reqLead);
+      const isSup=!!((seg&&seg.support)||m.support||crossTeam);
+      const cls=`bl-chip ${m.corp==='reg'?'reg':''}${isSup?' is-sup':''}${m.status==='left'?' is-left':''}`;
+      const dot=myLead?`<i class="bl-dot" style="background:${leadColor(myLead)}"></i>`:'';
+      const crown=m.corp==='reg'?'<i class="bl-cr">👑</i>':'';
+      let mk='';
+      if(isSup) mk+='<i class="bl-mk s">支</i>';
+      if(m.status==='new') mk+='<i class="bl-mk n">新</i>';
+      else if(m.tmp) mk+='<i class="bl-mk t">临</i>';
+      return `<span class="${cls}">${crown}${dot}${m.name}${mk}</span>`;
+    };
+    const blChips = memObjs.length
+      ? `<span class="bl-cnt">正${regs.length}/基${bases.length}</span>`+memObjs.map(blChip).join('')
+      : '<span class="bl-cnt">未排人</span>';
     const teamCount = `<span class="team-cnt"><b style="color:#7c3aed">正编${regs.length}</b> · <b style="color:#5a626e">基地${bases.length}</b></span>`;
     const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="该管线人力缺口，已计入风险">缺${risk.gapPpl}人</span>`:'';
     const MM = modMeta(r.mod);
@@ -949,7 +980,7 @@ function renderReq(){
           <div class="prog" style="width:${prog}%"></div>
           <i class="sdot"></i>
           ${r.kind==='qa'?'':`<div class="bl-top"><span class="bl-mic" style="background:${MM.c}">${MM.ic}</span>${r.char||r.name}<span class="bl-mod" style="color:#fff;background:${MM.c}cc">${MM.s}</span></div>
-          <div class="bl-sub">正编${regs.length}/基地${bases.length} · ${memObjs.map(m=>m.name).join('、')||'未排'}</div>`}
+          <div class="bl-sub"><div class="bl-chips">${blChips}</div></div>`}
           <i class="grip gl"></i><i class="grip gr"></i></div>
       </div>
     </div>`;
