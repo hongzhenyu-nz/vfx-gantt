@@ -1123,7 +1123,7 @@ function renderReq(){
           const aS=Math.min(...a.segs.map(s=>idx(s.s))),aE=Math.max(...a.segs.map(s=>idx(s.e)));
           const ax=aS*DAY_W,aw=Math.max((aE-aS)*DAY_W,46);
           const atip=`<b>${a.name}</b>（本体附属）<br><span class='g'>类型</span> 联调（特效完成后进入）<br><span class='g'>工作量</span> ${a.estimate}人天<br><span class='g'>窗口</span> ${fmt(i2d(aS))} → ${fmt(i2d(aE))}<br><span class='g' style='color:#7da0ff'>附属于「${charShort(r.char)} ${MM.s}」</span>`;
-          return `<div class="bar-addon" data-req="${a.id}" style="left:${ax}px;width:${aw}px;background:${modMeta(a.mod).c}" onmousemove="showTip(event,\`${atip}\`)" onmouseleave="hideTip()"><i class="ax-ic">🔗</i>${modMeta(a.mod).s}</div>`;
+          return `<div class="bar-addon" data-req="${a.id}" style="left:${ax}px;width:${aw}px;background:rgba(126,99,181,.78)" onmousemove="showTip(event,\`${atip}\`)" onmouseleave="hideTip()"><i class="ax-ic">🔗</i>${modMeta(a.mod).s}</div>`;
         }).join('')}
       </div>
     </div>`;
