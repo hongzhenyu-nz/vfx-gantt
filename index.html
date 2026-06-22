@@ -206,6 +206,7 @@
   .hr-flag.sup{color:#0e7490;background:#cffafe;border-color:#67e8f9;}
   /* 已离职：整行信息统一灰化（姓名/品级/标签/负载都转灰），仅「已离职」徽标保持醒目，一眼看出此人已离场 */
   .row.is-left{background:#f6f7f9;}
+  .row.is-left .cell-left{background:#f1f2f5;}   /* 左侧信息栏（sticky 白底）也跟着灰化，整行一致 */
   .row.is-left .who .nm{color:#9aa1ab;text-decoration:line-through;text-decoration-color:#bcc2cb;}
   .row.is-left .gdot-grade{filter:grayscale(1);opacity:.5;}
   .row.is-left .tags .ptag,.row.is-left .tags .mtag2,.row.is-left .tags .ltag{filter:grayscale(1);opacity:.6;}
