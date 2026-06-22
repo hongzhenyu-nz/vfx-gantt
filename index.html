@@ -14,6 +14,7 @@
     --red:#f5413f; --red-l:#ffe5e4;
     --row-h:46px; --day-w:30px; --left-w:340px;
     --vivid:1;   /* 全局色彩强度：1=原色，越小越柔和不刺眼 */
+    --bar-h:22px;  /* 按人视图任务条厚度（条高滑块联动） */
   }
   /* 色彩强度作用区：仅任务条（标签）底色（饱和度随滑块联动，叠加轻微亮度补偿避免发灰发暗） */
   .bar-task,.bar-addon{filter:saturate(var(--vivid)) brightness(calc(1 + (1 - var(--vivid))*0.06));}
@@ -127,7 +128,7 @@
   .vline.we{background:#fafbfc;width:var(--day-w);}
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
 
-  .bar-task{position:absolute;height:22px;top:12px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20);user-select:none;touch-action:none;transition:box-shadow .12s,opacity .12s,top .15s;border-left:3px solid rgba(0,0,0,.24);}
+  .bar-task{position:absolute;height:var(--bar-h);top:12px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20);user-select:none;touch-action:none;transition:box-shadow .12s,opacity .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
   .bar-task .prog{position:absolute;left:0;bottom:0;height:4px;background:rgba(255,255,255,.92);border-radius:0 3px 0 0;pointer-events:none;}
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
@@ -435,6 +436,12 @@
       <input type="range" id="zoomRange" min="100" max="320" step="10" value="100" oninput="setZoom(this.value)">
       <span class="vc-val" id="zoomVal">100%</span>
       <button class="vc-reset" onclick="setZoom(100,true)" title="恢复默认条宽">↺</button>
+    </span>
+    <span class="vivid-ctrl" title="调节任务条厚度（高度），觉得条太扁/太细可调高，方便看清">
+      <span class="vc-ic">↕</span>
+      <input type="range" id="barhRange" min="18" max="48" step="2" value="22" oninput="setBarH(this.value)">
+      <span class="vc-val" id="barhVal">22</span>
+      <button class="vc-reset" onclick="setBarH(22,true)" title="恢复默认条高">↺</button>
     </span>
     <button class="reset" onclick="resetData()">重置</button>
   </div>
@@ -926,7 +933,7 @@ function headerHTML(){
 }
 
 /* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
-const LANE_H=28, LANE_TOP=9, BAR_H=22;
+let BAR_H=22, LANE_H=28; const LANE_TOP=9;  // BAR_H 随条高滑块变，LANE_H=BAR_H+6
 function assignLanes(items){               // items: [{s,e,...}]，s/e 为天索引
   const arr=items.slice().sort((a,b)=>a.s-b.s||a.e-b.e);
   const laneEnd=[];                        // 每条泳道当前占用到的结束索引
@@ -1817,6 +1824,27 @@ function initZoom(){
   const val=document.getElementById('zoomVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('zoomRange'); if(rng)rng.value=v;
 }
+/* 条高 / 任务条厚度：滑块控制按人视图任务条高度（18~48px），CSS 变量 --bar-h + 泳道常量 BAR_H/LANE_H 联动，记本机 */
+const BARH_KEY='gantt_barh';
+function applyBarH(v){
+  BAR_H=v; LANE_H=v+6;                       // 泳道间距随条高同步，避免多泳道重叠
+  document.documentElement.style.setProperty('--bar-h', v+'px');
+}
+function setBarH(v,sync){
+  v=Math.max(18,Math.min(48,Math.round(+v/2)*2));
+  applyBarH(v);
+  const val=document.getElementById('barhVal'); if(val)val.textContent=v;
+  const rng=document.getElementById('barhRange'); if(rng&&(sync||+rng.value!==v))rng.value=v;
+  try{localStorage.setItem(BARH_KEY,v);}catch(_){}
+  if(typeof rerender==='function') rerender();
+}
+function initBarH(){
+  let v=22; try{const s=localStorage.getItem(BARH_KEY); if(s)v=+s;}catch(_){}
+  v=Math.max(18,Math.min(48,Math.round(+v/2)*2));
+  applyBarH(v);
+  const val=document.getElementById('barhVal'); if(val)val.textContent=v;
+  const rng=document.getElementById('barhRange'); if(rng)rng.value=v;
+}
 function updateLegend(){
   const el=document.getElementById('legend');
   if(colorMode==='status'){
@@ -1829,6 +1857,7 @@ function updateLegend(){
 buildMeSel();
 initVivid();
 initZoom();
+initBarH();
 // 分享链接优先：URL 带 #s= 时用链接里的排期；否则读本机缓存
 if(loadFromHash()){ toast('已载入分享链接中的排期'); }
 else { loadSaved(); }
