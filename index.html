@@ -977,17 +977,15 @@ function renderPerson(){
     // 分配泳道（用天索引判重叠）；s/e 仅作排序索引，seg 对象保存在 sg
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
-    /* 自适应条高（关键）：行内按全局并行数划成等高泳道槽位，但每条任务会「向上下扩展」填满
-       自己时间段内相邻的空泳道——也就是说：
-       · 该任务所在时段没有别的条目挤占 → 它纵向占满整行（填满红框，饱满）。
-       · 该任务所在时段确有并行 → 只有真正打架的条目各占一槽、等分高度。
-       这样既消除了「整行很高、单条很细、下方大片空白」的问题，又保持网格对齐一致。 */
-    const needInner = laneCount<=1 ? (ROW_BASE-PADV*2)
-                    : Math.max(ROW_BASE-PADV*2, laneCount*BAR_MIN+(laneCount-1)*LANE_GAP);
-    const innerH = needInner;
-    const slotH  = (innerH-(laneCount-1)*LANE_GAP)/laneCount;   // 单槽高度
-    const laneStep = slotH+LANE_GAP;
-    const rowH = PADV*2 + innerH;
+    /* 自适应条高（关键）：纵向位置/高度全部用「行实际高度的百分比」表达，而不是固定像素。
+       这样无论左侧信息栏把行撑多高，蓝条都会自动充满整行：
+       · 某条任务所在时段没有别的条目挤占 → 它向上下吞并相邻空泳道，纵向占满整行（填满红框）。
+       · 某条任务所在时段确有并行 → 只有真正打架的条目各占一槽、等高等分。
+       槽位用 (lo/laneCount ~ hi/laneCount) 的百分比切分，bar 内插 GAP_PX 间距留缝。 */
+    const GAP_PX=4;                                  // 相邻条之间的视觉间距(像素，上下各 GAP_PX/2 略大留 4)
+    // 行最小高度：单泳道维持基础行高；多泳道时保证每条不低于可读下限（左侧更高时会再被撑高）
+    const rowH = laneCount<=1 ? ROW_BASE
+               : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
     // 判断某泳道在 [s,e) 时段是否被别的条目占用
     const occupied=(lane,s,e)=> laid.items.some(b=> b.lane===lane && b.si0<e && b.ei0>s);
     let bars='';
@@ -999,12 +997,15 @@ function renderPerson(){
       while(lo>0 && !occupied(lo-1,it.si0,it.ei0)) lo--;
       while(hi<laneCount-1 && !occupied(hi+1,it.si0,it.ei0)) hi++;
       const span=hi-lo+1;
-      const top=Math.round(PADV+lo*laneStep);
-      const barH=Math.round(span*slotH+(span-1)*LANE_GAP);
+      // 百分比切分：本条占据 [lo, lo+span) 段，并内缩 GAP_PX 留缝
+      const topPct=(lo/laneCount*100).toFixed(3);
+      const hPct=(span/laneCount*100).toFixed(3);
+      const frac=span/laneCount;                     // 本条占整行内高的比例（估算是否纤细）
+      const slimCls = frac<0.34 ? ' slim' : '';
       const risk=reqRisk(r);
       const st=STATUS[sg.status||'doing'];
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
-      bars+=`<div class="bar-task ${barCls(r,sg)}${barH<=22?' slim':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${top}px;height:${barH}px;border-left-color:${modMeta(r.mod).c}"
+      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:calc(${topPct}% + ${GAP_PX}px);height:calc(${hPct}% - ${GAP_PX*2}px);border-left-color:${modMeta(r.mod).c}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}</span>
         <div class="prog" style="width:${Math.round(sg.prog*100)}%"></div>
