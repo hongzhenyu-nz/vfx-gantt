@@ -142,7 +142,13 @@
   /* 泛白后底色变浅，文字加深色描边保持可读（白蒙版越浓描边越明显） */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
-  .bar-task .prog{position:absolute;left:0;bottom:0;height:4px;background:rgba(255,255,255,.92);border-radius:0 3px 0 0;pointer-events:none;}
+  /* 进度表现（自解释、永不遮挡）：左侧「已完成」段保持满色，右侧「未完成」段蒙一层淡白显得更浅，
+     交界处一根细高亮竖线标记当前进度位置。整体铺满条体、绘制在文字下层(z-index:0)、不响应鼠标。 */
+  .bar-task .prog{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
+    background:linear-gradient(90deg, transparent 0 calc(var(--p,0)*1%), rgba(255,255,255,.26) calc(var(--p,0)*1%) 100%);}
+  .bar-task .prog::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--p,0)*1%);width:2px;
+    background:rgba(255,255,255,.92);box-shadow:0 0 0 .5px rgba(0,0,0,.18);}
+  .bar-task .prog[style*="--p:0"]::after,.bar-task .prog[style*="--p:100"]::after{display:none;}  /* 0%/100% 不显竖线，避免贴边突兀 */
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
   .bar-task.dragging{cursor:grabbing;opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32);z-index:30;}
@@ -336,16 +342,17 @@
   .bar-task.req-bar{top:10%;bottom:10%;height:auto;flex-direction:column;align-items:flex-start;justify-content:center;padding:6px 10px;border-radius:7px;gap:3px;border-left-width:5px;}
   /* 联调附属条：与主任务条一致地纵向撑满整行，二者等高，文字垂直居中 */
   .req-row .bar-addon{top:10%;bottom:10%;height:auto;border-radius:7px;font-size:11px;padding:0 12px;display:flex;align-items:center;}
-  .bar-task.req-bar .bl-top{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar-task.req-bar .bl-top{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;z-index:1;}
   .bar-task.req-bar .bl-mic{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:5px;font-size:10px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.25);}
   .bar-task.req-bar .bl-mod{font-size:10px;font-weight:700;border-radius:4px;padding:0 6px;flex-shrink:0;}
-  .bar-task.req-bar .bl-sub{font-size:10px;font-weight:500;opacity:.92;width:100%;overflow:hidden;}
+  .bar-task.req-bar .bl-pct{margin-left:auto;font-size:11px;font-weight:800;color:#fff;flex-shrink:0;padding-left:8px;letter-spacing:.3px;text-shadow:0 1px 2px rgba(0,0,0,.3);}
+  .bar-task.req-bar .bl-sub{font-size:10px;font-weight:500;opacity:.92;width:100%;overflow:hidden;position:relative;z-index:1;}
   /* 条内人名标签：直接复用 .ptag.mini（与左侧同一套视觉，深底自适应），按编制分两行 */
   .bar-task.req-bar .bl-rows{display:flex;flex-direction:column;gap:3px;width:100%;overflow:hidden;}
   .bar-task.req-bar .bl-row{display:flex;align-items:center;gap:4px;width:100%;overflow:hidden;white-space:nowrap;}
   .bar-task.req-bar .bl-cnt{font-size:9px;font-weight:800;color:#fff;opacity:.9;flex-shrink:0;width:26px;}
   .bar-task.req-bar .qa-flag{font-size:11px;font-weight:700;color:#e8eaed;letter-spacing:.5px;padding-left:14px;}
-  .bar-task.req-bar .prog{height:5px;border-radius:0 4px 0 0;}
+  .bar-task.req-bar .prog{inset:0;height:auto;border-radius:inherit;}  /* 需求条进度沿用全高蒙版方案 */
   .bar-task.req-bar .sdot{position:absolute;left:8px;top:8px;}
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:18px;}
@@ -1025,10 +1032,10 @@ function renderPerson(){
       const risk=reqRisk(r);
       const st=STATUS[sg.status||'doing'];
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
-      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${modMeta(r.mod).c}"
+      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}</span>
-        <div class="prog" style="width:${Math.round(sg.prog*100)}%"></div>
+        <div class="prog" style="--p:${Math.round(sg.prog*100)}"></div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
     const focusCls = focusMode==='hl' ? (fr==='self'?' me-self':fr==='team'?' me-team':' dim') : (fr==='self'?' me-self':fr==='team'?' me-team':'');
@@ -1154,11 +1161,11 @@ function renderReq(){
         <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
       </div>
       <div class="timeline" style="width:${DAYS*DAY_W}px">
-        <div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${x}px;width:${w}px;border-left-color:${MM.c}"
+        <div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${x}px;width:${w}px;border-left-color:${gCol}"
           onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-          <div class="prog" style="width:${prog}%"></div>
+          <div class="prog" style="--p:${prog}"></div>
           <i class="sdot"></i>
-          <div class="bl-top"><span class="bl-mic" style="background:${MM.c}">${MM.ic}</span>${charShort(r.char)||r.name}<span class="bl-mod" style="color:#fff;background:${MM.c}cc">${MM.s}</span></div>
+          <div class="bl-top"><span class="bl-mic" style="background:${MM.c}">${MM.ic}</span>${charShort(r.char)||r.name}<span class="bl-mod" style="color:#fff;background:${MM.c}cc">${MM.s}</span><span class="bl-pct">${prog}%</span></div>
           <div class="bl-sub"><div class="bl-rows">${blChips}</div></div>
           <i class="grip gl"></i><i class="grip gr"></i></div>
         ${addons.map(a=>{
