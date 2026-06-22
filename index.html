@@ -293,7 +293,15 @@
   .bar-task .bar-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* 按需求视图：任务条加高，容纳标题 + 按编制分两行的人名标签 */
   .req-row{min-height:82px;}
-  .req-row .cell-left{align-items:flex-start;padding-top:10px;position:relative;}
+  .req-row .cell-left{align-items:flex-start;padding-top:10px;padding-left:32px;position:relative;}
+  /* ===== 左侧三层嵌套竖带：品级 ⊃ 角色 ⊃ 模块 ===== */
+  .cell-left.has-bands{padding-left:32px;}
+  .lv-bands{position:absolute;left:0;top:0;bottom:0;display:flex;gap:2px;padding-left:5px;z-index:2;pointer-events:none;}
+  .lv-bands .lv{width:5px;border-radius:3px;align-self:stretch;margin:5px 0;box-shadow:0 0 0 1px rgba(255,255,255,.55);}
+  .lv-bands .lv-mod{width:6px;}                 /* 内层(模块)略宽，作为主识别条 */
+  /* 同品级/同角色相邻行：竖带去圆角并上下溢出，连成一整条，体现包含关系 */
+  .lv-bands .lv.j-up{border-top-left-radius:0;border-top-right-radius:0;margin-top:-1px;}
+  .lv-bands .lv.j-down{border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:-1px;}
   /* 风险/缺人徽标移到右上角，腾出整行宽度给人员标签，使其能横排到放不下再换行 */
   .req-badges{position:absolute;top:9px;right:12px;display:flex;align-items:center;gap:6px;z-index:2;}
   .req-badges .badge,.req-badges .gap-pill{margin:0;}
@@ -758,6 +766,19 @@ const MOD_META = {
 };
 const modMeta = mod => MOD_META[mod] || {ic:'✦', c:'#646a73', s:mod||'其他'};
 
+/* 角色配色：每个角色一个固定色，用于左侧竖带的「角色层」。与品级色、模块色错开色相，避免混淆。 */
+const CHAR_COLOR = {
+  '露西亚':'#6366f1', '比安卡':'#0ea5e9', '七十':'#d97706', '红蔻':'#db2777',
+  'Cyndi':'#0891b2', '白老板':'#65a30d', '荷光者':'#7c3aed', '阿尔法':'#0d9488',
+  '女指挥官':'#dc2626', '武器':'#64748b',
+};
+const CHAR_PALETTE=['#4f46e5','#0284c7','#ca8a04','#be185d','#0e7490','#4d7c0f','#6d28d9','#0f766e','#b91c1c','#475569','#9333ea','#c2410c'];
+function charColor(cs){
+  if(CHAR_COLOR[cs]) return CHAR_COLOR[cs];
+  let h=0; for(let i=0;i<cs.length;i++) h=(h*31+cs.charCodeAt(i))>>>0;
+  return CHAR_PALETTE[h%CHAR_PALETTE.length];
+}
+
 /* ============ 统一需求名称规范（两视图共用）============
    角色短名：去掉品级线/联动CP尾巴，保留主角色名（如「露西亚·誓焰 X 安琪儿」→「露西亚」）。
    完整角色名(含联动CP)作为副信息/悬停保留。 */
@@ -985,8 +1006,11 @@ function renderPerson(){
 /* ============ 视图2：按需求 ============ */
 function renderReq(){
   let rows='';
-  reqs.forEach(r=>{
-    if(r.attached) return;   // 联调=本体附属，不单独成行（随本体条一起显示）
+  // 可见需求行（联调附属不单独成行）。用数组+索引，便于判断上一行/下一行是否同品级、同角色，
+  // 从而让左侧三层竖带「同组连成整条」。
+  const vis=reqs.filter(r=>!r.attached);
+  vis.forEach((r,vi)=>{
+    const prevR=vis[vi-1], nextR=vis[vi+1];
     const risk=reqRisk(r);
     // 本需求的联调附属(可能多条)
     const addons=(r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
@@ -1055,8 +1079,23 @@ function renderReq(){
     const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="该管线人力缺口，已计入风险">缺${risk.gapPpl}人</span>`:'';
     const MM = modMeta(r.mod);
     const modTag = `<span class="mod-tag" style="background:${MM.c}1f;color:${MM.c};border-color:${MM.c}66"><i>${MM.ic}</i>${MM.s}</span>`;
+    // ===== 左侧三层嵌套竖带：品级 ⊃ 角色 ⊃ 模块 =====
+    // 同品级/同角色的相邻行，对应竖带去掉圆角并向上下溢出 1px，视觉上连成一整条 → 体现「这几行同属一个品级/角色」的包含关系。
+    const csCur=charShort(r.char)||r.name;
+    const gKey=r.grade||'', gCol=g.col, chCol=charColor(csCur);
+    const sameGradeUp   = prevR && (prevR.grade||'')===gKey;
+    const sameGradeDown = nextR && (nextR.grade||'')===gKey;
+    const sameCharUp    = prevR && (charShort(prevR.char)||prevR.name)===csCur && (prevR.grade||'')===gKey;
+    const sameCharDown  = nextR && (charShort(nextR.char)||nextR.name)===csCur && (nextR.grade||'')===gKey;
+    const contCls=(up,down)=> (up?' j-up':'')+(down?' j-down':'');
+    const bands=`<span class="lv-bands" aria-hidden="true">`
+      +`<i class="lv lv-grade${contCls(sameGradeUp,sameGradeDown)}" style="background:${gCol}" title="品级：${g.label}"></i>`
+      +`<i class="lv lv-char${contCls(sameCharUp,sameCharDown)}" style="background:${chCol}" title="角色：${csCur}"></i>`
+      +`<i class="lv lv-mod" style="background:${MM.c}" title="模块：${MM.s}"></i>`
+      +`</span>`;
     rows+=`<div class="row req-row" data-req-row="${r.id}">
-      <div class="cell-left" style="box-shadow:inset 4px 0 0 ${MM.c}">
+      <div class="cell-left has-bands">
+        ${bands}
         <span class="gdot-grade" style="background:${g.col}" title="${g.label}级"></span>
         <div class="req" style="flex:1;min-width:0">
           <div class="nm">${reqTitleHTML(r)}${addons.map(a=>`<span class="addon-mk" title="附属：${a.name}（${a.estimate}人天，特效完成后进入）"><i>🔗</i>${modMeta(a.mod).s}</span>`).join('')}</div>
@@ -1740,7 +1779,7 @@ function setView(v,btn){view=v;document.querySelectorAll('.bar .tabs')[0].queryS
 function updateHint(){
   const h=document.getElementById('hintBar'); if(!h)return;
   if(view==='req'){
-    h.innerHTML='💡 人名标签：<b style="color:#fff;background:#7c3aed;padding:0 6px;border-radius:8px">👑正编</b> 实心紫 / <span style="color:#39455a;background:#fbfcfe;border:1px solid #cdd6e3;padding:0 6px;border-radius:8px">基地</span> 浅白，按编制分行 · 左圆点=隶属带队 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · <b style="color:#7c3aed">🔗联调</b>=本体附属 · 拖动标签改派 · 任务条 Ctrl+C/X/V';
+    h.innerHTML='💡 左侧竖带（三层包含）：<b>外=品级</b>(金/橙/红) · <b>中=角色</b>(每角色一色) · <b>内=模块</b>，同品级/同角色相邻行连成整条 · 人名标签：<b style="color:#fff;background:#7c3aed;padding:0 6px;border-radius:8px">👑正编</b> 实心紫 / <span style="color:#39455a;background:#fbfcfe;border:1px solid #cdd6e3;padding:0 6px;border-radius:8px">基地</span> 浅白，左圆点=隶属带队 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
   }else if(view==='person'){
     h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态 · 选中任务条后 Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求';
   }else{
