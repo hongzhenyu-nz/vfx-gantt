@@ -148,7 +148,7 @@
   .bar-task.dragging{cursor:grabbing;opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32);z-index:30;}
   .bar-task.flash{animation:barflash .9s ease;}
   @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6)}100%{box-shadow:0 1px 3px rgba(0,0,0,.20)}}
-  .b-blue{background:#2f6bff;} .b-green{background:#16a34a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#7d92b3;}
+  .b-blue{background:#4d80ff;} .b-green{background:#16a34a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#7d92b3;}
   .grip{position:absolute;top:0;bottom:0;width:9px;cursor:ew-resize;z-index:3;}
   .grip.gl{left:0;border-radius:6px 0 0 6px;}
   .grip.gr{right:0;border-radius:0 6px 6px 0;}
@@ -523,7 +523,7 @@ let DAY_W = 8;                        // 实际每天宽度 = 基准 × 缩放�
 /* ============ 状态字典 ============ */
 const STATUS = {
   todo:   {label:'未开始', cls:'b-gray',  col:'#7d92b3'},
-  doing:  {label:'进行中', cls:'b-blue',  col:'#3370ff'},
+  doing:  {label:'进行中', cls:'b-blue',  col:'#4d80ff'},
   review: {label:'待评审', cls:'b-amber', col:'#e08c00'},
   done:   {label:'已完成', cls:'b-green', col:'#1fae5a'},
   blocked:{label:'卡住',   cls:'b-red',   col:'#f5413f'},
