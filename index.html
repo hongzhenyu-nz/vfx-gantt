@@ -188,12 +188,19 @@
   .tmp-tag{display:inline-block;font-size:9px;font-weight:700;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:middle;}
   .corp-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
   .hr-flag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:5px;vertical-align:middle;border:1px solid transparent;}
-  .hr-flag.left{color:#fff;background:#9097a0;}
+  .hr-flag.left{color:#fff;background:#6b7280;border-color:#586070;font-size:9.5px;padding:1px 7px;box-shadow:0 1px 2px rgba(0,0,0,.18);letter-spacing:.5px;}
   .hr-flag.new{color:#1d4ed8;background:#dbeafe;border-color:#93c5fd;}
   .hr-flag.sup{color:#0e7490;background:#cffafe;border-color:#67e8f9;}
-  .row.is-left{opacity:.55;}
+  /* 已离职：整行信息统一灰化（姓名/品级/标签/负载都转灰），仅「已离职」徽标保持醒目，一眼看出此人已离场 */
+  .row.is-left{background:#f6f7f9;}
+  .row.is-left .who .nm{color:#9aa1ab;text-decoration:line-through;text-decoration-color:#bcc2cb;}
+  .row.is-left .gdot-grade{filter:grayscale(1);opacity:.5;}
+  .row.is-left .tags .ptag,.row.is-left .tags .mtag2,.row.is-left .tags .ltag{filter:grayscale(1);opacity:.6;}
+  .row.is-left .emp-badge{filter:grayscale(1);opacity:.72;}
+  .row.is-left .load{filter:grayscale(1);opacity:.6;}
+  .row.is-left .bar-task{filter:grayscale(.85);opacity:.55;}
+  .row.is-left .hr-flag.left,.row.is-left .tmp-tag{text-decoration:none;filter:none;opacity:1;}  /* 离职/临 徽标不被灰化，保持醒目 */
   .row.is-left .av{filter:grayscale(1);}
-  .row.is-left .bar-task{filter:grayscale(.7);opacity:.7;}
   .gap-pill{font-size:10px;font-weight:700;color:#d32320;background:var(--red-l);border:1px solid #ffc4c2;border-radius:5px;padding:2px 7px;margin-left:6px;flex-shrink:0;}
   .badge{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;margin-left:8px;flex-shrink:0;}
   .rk-low{background:var(--green-l);color:#1a8a3c;}
@@ -1776,7 +1783,12 @@ function buildMeSel(){
   sel.innerHTML=members.map(m=>`<option value="${m.id}" ${m.id===meId?'selected':''}>${m.name}（${m.role}）</option>`).join('');
   const fs=document.getElementById('focusSel'); if(fs) fs.value=focusMode;
 }
-function changeMe(){meId=document.getElementById('meSel').value;localStorage.setItem('gantt_me',meId);toast('已切换身份：'+memName(meId));if(focusMode!=='off'&&view==='person')rerender();}
+function changeMe(){
+  meId=document.getElementById('meSel').value;
+  localStorage.setItem('gantt_me',meId);
+  toast('已切换身份：'+memName(meId));
+  rerender();   // 始终重渲染，保证「我/我的团队」高亮与底部标签同步更新（不再受 focusMode 限制）
+}
 function changeFocus(){
   focusMode=document.getElementById('focusSel').value;
   localStorage.setItem('gantt_focus',focusMode);
