@@ -208,12 +208,13 @@
   /* 模块类型标签：图标+短名+主题色，强化区分同角色不同模块 */
   .mod-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;vertical-align:middle;line-height:1.5;}
   .mod-tag i{font-style:normal;font-size:11px;line-height:1;}
-  /* 统一需求标题家族（两视图共用）：模块图标徽 + 角色短名 + 模块短名标签 */
+  /* 统一需求标题家族（两视图共用）：角色短名(主体) + 合并的「图标+模块短名」类型标签 */
   .rt-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:5px;font-size:10px;line-height:1;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.2);}
   .rt-nm{font-weight:700;}
-  .rt-mod{font-size:10px;font-weight:700;border:1px solid;border-radius:5px;padding:0 6px;line-height:1.5;flex-shrink:0;}
-  /* 按人看：条内统一标题（深色条上：图标徽保留色块，文字与模块标签转白系） */
-  .bar-task .rt-line{display:inline-flex;align-items:center;gap:4px;position:relative;z-index:1;overflow:hidden;pointer-events:none;}
+  .rt-mod{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border:1px solid;border-radius:5px;padding:0 6px 0 5px;line-height:1.5;flex-shrink:0;}
+  .rt-mod .rt-mi{font-style:normal;font-size:10px;line-height:1;}
+  /* 按人看：条内统一标题（深色条上：模块标签转白系；图标随标签一体） */
+  .bar-task .rt-line{display:inline-flex;align-items:center;gap:5px;position:relative;z-index:1;overflow:hidden;pointer-events:none;}
   .bar-task .rt-line .rt-nm{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.22);}
   .bar-task .rt-line .rt-mod{color:#fff!important;background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.45)!important;}
   /* 联调附属小条：虚线胶囊，挂在本体条之后 */
@@ -787,15 +788,15 @@ function charColor(cs){
    角色短名：去掉品级线/联动CP尾巴，保留主角色名（如「露西亚·誓焰 X 安琪儿」→「露西亚」）。
    完整角色名(含联动CP)作为副信息/悬停保留。 */
 const charShort = char => String(char||'').split(/\s*[X×]\s*/)[0].split(/[·（(]/)[0].trim();
-/* 统一规范的需求标题 HTML：模块图标徽 + 角色短名 + 模块短名标签。两视图调用同一函数，保证显示一致。 */
+/* 统一规范的需求标题 HTML：角色短名(主体，居前) + 单个「图标+模块短名」合并标签(类型，居后)。
+   合并后只剩一个标签：图标内嵌于标签左侧，避免「色块图标 + 文字胶囊」两件东西重复、抢占主体名称。 */
 function reqTitleHTML(r, opt){
   opt=opt||{};
   const MM=modMeta(r.mod);
   const short=charShort(r.char)||r.name;
-  const ic=`<span class="rt-ic" style="background:${MM.c}">${MM.ic}</span>`;
   const nm=`<span class="rt-nm">${short}</span>`;
-  const mt=`<span class="rt-mod" style="color:${MM.c};background:${MM.c}1a;border-color:${MM.c}66">${MM.s}</span>`;
-  return `${ic}${nm}${mt}`;
+  const mt=`<span class="rt-mod" style="color:${MM.c};background:${MM.c}1a;border-color:${MM.c}66"><i class="rt-mi">${MM.ic}</i>${MM.s}</span>`;
+  return `${nm}${mt}`;
 }
 
 /* ============ 计算工具 ============ */
