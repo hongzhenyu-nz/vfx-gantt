@@ -13,7 +13,7 @@
     --amber:#ff9f0a; --amber-l:#fff1da;
     --red:#f5413f; --red-l:#ffe5e4;
     --row-h:46px; --day-w:30px; --left-w:340px;
-    --wash:0;   /* 任务条标签泛白/淡化程度：0=原色，越大越往白褪色、变淡柔和护眼 */
+    --wash:0;   /* 任务条色彩浓度的「淡化量」：0=原色浓郁，1=完全泛白。由滑块的“浓度%”反推：wash=(100-浓度)/100 */
   }
   /* 淡化作用区：仅任务条（标签）底色（降饱和+提亮组合，往右拖越泛白变淡，看久不刺眼） */
   .bar-task,.bar-addon{filter:saturate(calc(1 - var(--wash)*0.8)) brightness(calc(1 + var(--wash)*0.26));}
@@ -436,11 +436,11 @@
     </div>
     <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
     <button class="ubtn sync-btn" onclick="exportSync()" title="导出当前排期为同步包(.json)，发给我即可写回企微表">⬆ 导出同步包</button>
-    <span class="vivid-ctrl" title="调节任务条（标签）底色的淡化程度，看久了觉得颜色太浓太刺眼，往右拖让底色泛白变淡、更柔和护眼">
-      <span class="vc-ic">🌫️</span>
-      <input type="range" id="vividRange" min="0" max="100" step="5" value="0" oninput="setVivid(this.value)">
-      <span class="vc-val" id="vividVal">0%</span>
-      <button class="vc-reset" onclick="setVivid(0,true)" title="恢复原始浓度">↺</button>
+    <span class="vivid-ctrl" title="调节任务条底色的色彩浓度：往左拖越淡（泛白柔和护眼），往右拖越浓（原色鲜明）。仅作用于时间轴任务条。">
+      <span class="vc-ic">🎨</span>
+      <input type="range" id="vividRange" min="0" max="100" step="5" value="100" oninput="setVivid(this.value)">
+      <span class="vc-val" id="vividVal">100%</span>
+      <button class="vc-reset" onclick="setVivid(100,true)" title="恢复原色浓度">↺</button>
     </span>
     <span class="vivid-ctrl" title="调节时间轴密度 / 任务条宽度，觉得条太细可调宽，方便看清">
       <span class="vc-ic">↔</span>
@@ -1820,17 +1820,19 @@ function updateHint(){
   }
 }
 function setColor(c,btn){colorMode=c;document.querySelectorAll('.bar .tabs')[1].querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();rerender();}
-/* 任务条标签淡化：滑块联动 CSS --wash（降饱和+提亮组合），往右拖越泛白变淡、柔和护眼，设置记本机 */
-const VIVID_KEY='gantt_wash';
+/* 任务条色彩浓度滑块：百分比=浓度（与截图一致：左端0%最淡泛白 → 右端100%原色最浓）。
+   内部用 --wash 表示“淡化量”=(100-浓度)/100：浓度越低越泛白。设置记本机。 */
+const VIVID_KEY='gantt_vivid';
 function setVivid(v,sync){
   v=Math.max(0,Math.min(100,Math.round(+v/5)*5));
-  document.documentElement.style.setProperty('--wash',(v/100).toFixed(2));
+  const wash=((100-v)/100).toFixed(2);
+  document.documentElement.style.setProperty('--wash',wash);
   const val=document.getElementById('vividVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('vividRange'); if(rng&&(sync||+rng.value!==v))rng.value=v;
   try{localStorage.setItem(VIVID_KEY,v);}catch(_){}
 }
 function initVivid(){
-  let v=0; try{const s=localStorage.getItem(VIVID_KEY); if(s)v=+s;}catch(_){}
+  let v=100; try{const s=localStorage.getItem(VIVID_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
   setVivid(v,true);
 }
 /* 条宽 / 时间轴密度：滑块缩放 DAY_W（100%~320%），觉得任务条太细可调宽，设置记本机 */
