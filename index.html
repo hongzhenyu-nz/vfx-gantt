@@ -194,6 +194,21 @@
   /* 模块类型标签：图标+短名+主题色，强化区分同角色不同模块 */
   .mod-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;vertical-align:middle;line-height:1.5;}
   .mod-tag i{font-style:normal;font-size:11px;line-height:1;}
+  /* 统一需求标题家族（两视图共用）：模块图标徽 + 角色短名 + 模块短名标签 */
+  .rt-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:5px;font-size:10px;line-height:1;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.2);}
+  .rt-nm{font-weight:700;}
+  .rt-mod{font-size:10px;font-weight:700;border:1px solid;border-radius:5px;padding:0 6px;line-height:1.5;flex-shrink:0;}
+  /* 按人看：条内统一标题（深色条上：图标徽保留色块，文字与模块标签转白系） */
+  .bar-task .rt-line{display:inline-flex;align-items:center;gap:4px;position:relative;z-index:1;overflow:hidden;pointer-events:none;}
+  .bar-task .rt-line .rt-nm{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.22);}
+  .bar-task .rt-line .rt-mod{color:#fff!important;background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.45)!important;}
+  /* 联调附属小条：虚线胶囊，挂在本体条之后 */
+  .bar-addon{position:absolute;height:20px;top:22px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18);cursor:grab;z-index:2;user-select:none;touch-action:none;}
+  .bar-addon .ax-ic{font-size:9px;}
+  .bar-addon:hover{filter:brightness(1.06);}
+  .bar-addon.dragging{opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32);z-index:30;}
+  /* 按需求看：左侧主名行内联调附属徽标 */
+  .req .nm .addon-mk{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#7c3aed;background:#f1e9fd;border:1px dashed #c4a9f5;border-radius:5px;padding:0 6px;margin-left:2px;}
   .who-chips{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 2px;}
   /* 统一标签家族：底色=编制(正编/基地)，左圆点=隶属带队，橙虚线框=跨队支援，角标=状态。
      刻意只用两种编制底色，差异通过"点/边框/小角标"叠加，避免一人一种花色。 */
@@ -613,6 +628,19 @@ const reqs = [
     segs:[{m:'yhz',s:DT(2026,12,28),e:DT(2027,1,15),prog:0,status:'todo'}]},
 ];
 
+/* ============ 需求预处理：删除全量测试(qa) + 联调(lt)降为本体附属(不单独成行) ============ */
+(function prepReqs(){
+  // 1) 删除全部"全量测试"需求 —— 不再以独立需求存在
+  for(let i=reqs.length-1;i>=0;i--){ if(reqs[i].kind==='qa') reqs.splice(i,1); }
+  // 2) 联调 = 同角色"本体需求"的附属(出场_cc 优先，否则该角色首个特效需求)。
+  //    仍保留在 reqs 中(负载/拖拽/复制等交互不变)，仅标记 attached：渲染时不单独成行，挂在本体条之后一起显示。
+  reqs.filter(r=>r.kind==='lt').forEach(lt=>{
+    const host = reqs.find(r=>r.char===lt.char && r.kind==='fx' && /_cc$/.test(r.id))
+              || reqs.find(r=>r.char===lt.char && r.kind==='fx');
+    if(host){ lt.attached=host.id; (host.children=host.children||[]).push(lt.id); }
+  });
+})();
+
 /* ============ 人力分配数据（来源：当前人力分配脑图 / 企微表「当前人力分配」子表） ============ */
 /* 结论：目前基地总人数 14 人，未来常规管线共缺 11 人（金角4人 / 橙角1号5人 / 橙角2号5人 / 红角11人） */
 const HR_GRADE = {
@@ -690,6 +718,21 @@ const MOD_META = {
   '全量测试':         {ic:'🐞', c:'#2b2f36', s:'全量测试'},
 };
 const modMeta = mod => MOD_META[mod] || {ic:'✦', c:'#646a73', s:mod||'其他'};
+
+/* ============ 统一需求名称规范（两视图共用）============
+   角色短名：去掉品级线/联动CP尾巴，保留主角色名（如「露西亚·誓焰 X 安琪儿」→「露西亚」）。
+   完整角色名(含联动CP)作为副信息/悬停保留。 */
+const charShort = char => String(char||'').split(/\s*[X×]\s*/)[0].split(/[·（(]/)[0].trim();
+/* 统一规范的需求标题 HTML：模块图标徽 + 角色短名 + 模块短名标签。两视图调用同一函数，保证显示一致。 */
+function reqTitleHTML(r, opt){
+  opt=opt||{};
+  const MM=modMeta(r.mod);
+  const short=charShort(r.char)||r.name;
+  const ic=`<span class="rt-ic" style="background:${MM.c}">${MM.ic}</span>`;
+  const nm=`<span class="rt-nm">${short}</span>`;
+  const mt=`<span class="rt-mod" style="color:${MM.c};background:${MM.c}1a;border-color:${MM.c}66">${MM.s}</span>`;
+  return `${ic}${nm}${mt}`;
+}
 
 /* ============ 计算工具 ============ */
 const dayMs=864e5;
@@ -870,7 +913,7 @@ function renderPerson(){
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       bars+=`<div class="bar-task ${barCls(r,sg)}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${top}px;border-left-color:${modMeta(r.mod).c}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i>${r.kind==='qa'?'':`<span>${modMeta(r.mod).ic} ${r.name}</span>`}
+        <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}</span>
         <div class="prog" style="width:${Math.round(sg.prog*100)}%"></div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
@@ -904,7 +947,10 @@ function renderPerson(){
 function renderReq(){
   let rows='';
   reqs.forEach(r=>{
+    if(r.attached) return;   // 联调=本体附属，不单独成行（随本体条一起显示）
     const risk=reqRisk(r);
+    // 本需求的联调附属(可能多条)
+    const addons=(r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
     const allS=Math.min(...r.segs.map(s=>idx(s.s)));
     const allE=Math.max(...r.segs.map(s=>idx(s.e)));
     const x=allS*DAY_W,w=(allE-allS)*DAY_W;
@@ -967,9 +1013,9 @@ function renderReq(){
       <div class="cell-left" style="box-shadow:inset 4px 0 0 ${MM.c}">
         <span class="gdot-grade" style="background:${g.col}" title="${g.label}级"></span>
         <div class="req" style="flex:1;min-width:0">
-          <div class="nm"><span class="char-nm">${r.char||r.name}</span>${modTag}${r.kind==='lt'?'<span class="kmk lt">联调</span>':r.kind==='qa'?'<span class="kmk qa">🐞全量测试</span>':''}</div>
+          <div class="nm">${reqTitleHTML(r)}${addons.map(a=>`<span class="addon-mk" title="附属：${a.name}（${a.estimate}人天，特效完成后进入）"><i>🔗</i>${modMeta(a.mod).s}</span>`).join('')}</div>
           <div class="who-chips">${chips}</div>
-          <div class="meta">${r.kind==='qa'?`<span style="color:#868e96">测试/修复里程碑 · 截止${fmt(i2d(allE))}</span>`:`${r.estimate}人天 · 完成${prog}% · 剩${risk.left}工作日 · ${teamCount}`}</div>
+          <div class="meta">${r.estimate}人天 · 完成${prog}% · 剩${risk.left}工作日 · ${teamCount}${addons.length?` · <span style="color:#7c3aed">+联调${addons.reduce((a,x)=>a+x.estimate,0)}人天</span>`:''}</div>
         </div>
         ${gapBadge}
         <span class="badge ${risk.cls}">${risk.lvl}风险</span>
@@ -979,9 +1025,15 @@ function renderReq(){
           onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
           <div class="prog" style="width:${prog}%"></div>
           <i class="sdot"></i>
-          ${r.kind==='qa'?'':`<div class="bl-top"><span class="bl-mic" style="background:${MM.c}">${MM.ic}</span>${r.char||r.name}<span class="bl-mod" style="color:#fff;background:${MM.c}cc">${MM.s}</span></div>
-          <div class="bl-sub"><div class="bl-chips">${blChips}</div></div>`}
+          <div class="bl-top"><span class="bl-mic" style="background:${MM.c}">${MM.ic}</span>${charShort(r.char)||r.name}<span class="bl-mod" style="color:#fff;background:${MM.c}cc">${MM.s}</span></div>
+          <div class="bl-sub"><div class="bl-chips">${blChips}</div></div>
           <i class="grip gl"></i><i class="grip gr"></i></div>
+        ${addons.map(a=>{
+          const aS=Math.min(...a.segs.map(s=>idx(s.s))),aE=Math.max(...a.segs.map(s=>idx(s.e)));
+          const ax=aS*DAY_W,aw=Math.max((aE-aS)*DAY_W,46);
+          const atip=`<b>${a.name}</b>（本体附属）<br><span class='g'>类型</span> 联调（特效完成后进入）<br><span class='g'>工作量</span> ${a.estimate}人天<br><span class='g'>窗口</span> ${fmt(i2d(aS))} → ${fmt(i2d(aE))}<br><span class='g' style='color:#7da0ff'>附属于「${charShort(r.char)} ${MM.s}」</span>`;
+          return `<div class="bar-addon" data-req="${a.id}" style="left:${ax}px;width:${aw}px;background:${modMeta(a.mod).c}" onmousemove="showTip(event,\`${atip}\`)" onmouseleave="hideTip()"><i class="ax-ic">🔗</i>${modMeta(a.mod).s}</div>`;
+        }).join('')}
       </div>
     </div>`;
   });
@@ -1643,7 +1695,7 @@ function setView(v,btn){view=v;document.querySelectorAll('.bar .tabs')[0].queryS
 function updateHint(){
   const h=document.getElementById('hintBar'); if(!h)return;
   if(view==='req'){
-    h.innerHTML='💡 标签底色=编制（<b style="color:#5b21b6">正编</b>/<b style="color:#41506a">基地</b>）· 左侧小圆点=隶属带队 · <b style="color:#f08c00">橙虚线框+支</b>=跨队支援 · <b>拖动人名标签到另一条需求即可改派</b> · 任务条 Ctrl+C/X/V 复制剪切粘贴';
+    h.innerHTML='💡 标签底色=编制（<b style="color:#5b21b6">正编</b>/<b style="color:#41506a">基地</b>）· 左侧小圆点=隶属带队 · <b style="color:#f08c00">橙虚线框+支</b>=跨队支援 · <b style="color:#7c3aed">🔗联调</b>=本体附属（随本体显示）· 拖动人名标签改派 · 任务条 Ctrl+C/X/V';
   }else if(view==='person'){
     h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态 · 选中任务条后 Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求';
   }else{
