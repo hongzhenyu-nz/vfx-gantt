@@ -1,0 +1,1641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>团队需求排期 · 协同甘特图看板</title>
+<style>
+  :root{
+    --bg:#f5f6f8; --panel:#ffffff; --line:#e6e8ec; --line2:#eef0f3;
+    --tx:#1f2329; --tx2:#646a73; --tx3:#8f959e;
+    --blue:#3370ff; --blue-l:#e1ebff;
+    --green:#34c759; --green-l:#e3f7e8;
+    --amber:#ff9f0a; --amber-l:#fff1da;
+    --red:#f5413f; --red-l:#ffe5e4;
+    --row-h:46px; --day-w:30px; --left-w:340px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--tx);font-size:13px;line-height:1.5;}
+  .wrap{max-width:min(1980px,97vw);margin:0 auto;padding:18px 22px 40px;}
+  h1{font-size:20px;font-weight:600;}
+  .sub{color:var(--tx2);font-size:13px;margin-top:4px;}
+
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:18px 0;}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .kpi .lab{color:var(--tx2);font-size:12px;}
+  .kpi .val{font-size:26px;font-weight:600;margin-top:6px;}
+  .kpi .val.s{color:var(--green);} .kpi .val.w{color:var(--amber);} .kpi .val.d{color:var(--red);}
+
+  .bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .tabs{display:inline-flex;background:#eceef1;border-radius:9px;padding:3px;}
+  .tabs button{border:none;background:transparent;color:var(--tx2);padding:6px 14px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;}
+  .tabs button.on{background:#fff;color:var(--tx);box-shadow:0 1px 2px rgba(0,0,0,.06);}
+  .hint{color:var(--tx3);font-size:12px;}
+  .spacer{flex:1;}
+  .legend{display:flex;gap:14px;align-items:center;color:var(--tx2);font-size:12px;flex-wrap:wrap;}
+  .dot{display:inline-flex;align-items:center;gap:5px;}
+  .dot i{width:11px;height:11px;border-radius:3px;display:inline-block;}
+  .reset{border:1px solid var(--line);background:#fff;color:var(--tx2);padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500;}
+  .reset:hover{background:#f5f6f8;border-color:#d4d7dc;}
+  .undo-grp{display:inline-flex;gap:4px;}
+  .ubtn{border:1px solid var(--line);background:#fff;color:var(--tx);padding:6px 11px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;transition:.12s;}
+  .ubtn:hover:not(:disabled){background:#eef3ff;border-color:#9dbcff;color:var(--blue);}
+  .ubtn:disabled{opacity:.4;cursor:not-allowed;}
+  .share-btn{border-color:#37b24d!important;color:#2f9e44!important;background:#ebfbee!important;}
+  .share-btn:hover{background:#d3f9d8!important;border-color:#2f9e44!important;}
+  .sync-btn{border-color:#3b82f6!important;color:#1d6fd6!important;background:#e7f0ff!important;}
+  .sync-btn:hover{background:#d0e3ff!important;border-color:#1d6fd6!important;}
+  .share-box{position:fixed;inset:0;background:rgba(20,24,32,.5);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;}
+  .share-box.show{display:flex;}
+  .share-box .sb-card{background:#fff;border-radius:14px;max-width:620px;width:100%;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+  .share-box .sb-h{font-size:17px;font-weight:800;color:#2f9e44;margin-bottom:8px;}
+  .share-box .sb-tip{font-size:13px;color:#4a515c;line-height:1.6;margin-bottom:12px;}
+  .share-box .sb-url{width:100%;height:88px;border:1px solid #c7ceda;border-radius:9px;padding:9px 11px;font-size:11px;font-family:ui-monospace,Menlo,Consolas,monospace;color:#333;resize:none;word-break:break-all;background:#f7f9fc;box-sizing:border-box;}
+  .share-box .sb-row{display:flex;gap:10px;margin-top:12px;}
+  .share-box .sb-copy{flex:1;background:#37b24d;color:#fff;border:none;padding:10px;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;}
+  .share-box .sb-copy:hover{background:#2f9e44;}
+  .share-box .sb-close{background:#fff;border:1px solid #c7ceda;color:#4a515c;padding:10px 18px;border-radius:9px;font-size:14px;cursor:pointer;}
+  .share-box .sb-foot{font-size:11px;color:#8a929e;line-height:1.5;margin-top:12px;border-top:1px dashed #e3e7ee;padding-top:10px;}
+
+  .collab{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tx2);background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 10px;}
+  .collab .me{display:flex;align-items:center;gap:6px;}
+  .collab select{border:none;background:transparent;font-size:12px;color:var(--tx);font-weight:600;cursor:pointer;outline:none;}
+  .collab .focus-sel{border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:#f7f8fa;margin-left:4px;}
+  .collab .live{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.8s infinite;}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,199,89,.5)}70%{box-shadow:0 0 0 7px rgba(52,199,89,0)}100%{box-shadow:0 0 0 0 rgba(52,199,89,0)}}
+
+  .board{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;}
+  /* 可拉伸高度的双向滚动容器：纵向滚动条=绿框诉求；横向滚动条冻结在容器底部≈屏幕下方；表头随之冻结。
+     resize:vertical 让用户拖右下角自由调整看板高度 */
+  .scroll{overflow:auto;height:calc(100vh - 250px);min-height:280px;max-height:calc(100vh - 140px);position:relative;resize:vertical;}
+  /* 拉伸把手提示（右下角） */
+  .resize-hint{position:absolute;right:2px;bottom:2px;width:16px;height:16px;pointer-events:none;z-index:7;opacity:.5;
+    background:repeating-linear-gradient(135deg,transparent 0 3px,#9097a0 3px 4px);border-radius:0 0 4px 0;}
+  /* 横向滚动条加粗，便于当作"左右移动时间"的滑块 */
+  .scroll::-webkit-scrollbar{width:12px;height:14px;}
+  .scroll::-webkit-scrollbar-track{background:#f2f4f7;}
+  .scroll::-webkit-scrollbar-thumb{background:#c2c8d0;border-radius:7px;border:3px solid #f2f4f7;}
+  .scroll::-webkit-scrollbar-thumb:hover{background:#a6adb8;}
+  .scroll::-webkit-scrollbar-corner{background:#f2f4f7;}
+  .grid{position:relative;min-width:max-content;}
+
+  .row{display:flex;border-bottom:1px solid var(--line2);min-height:var(--row-h);position:relative;transition:background .12s;}
+  .row:last-child{border-bottom:none;}
+  .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);}
+  .row.row-target{background:#eaf1ff;}
+  .row.row-target .cell-left{background:#eaf1ff;box-shadow:inset 4px 0 0 var(--blue);}
+  .row.row-target .timeline{outline:2px dashed #9dbcff;outline-offset:-3px;border-radius:6px;}
+  .row.row-target .cell-left::after{content:'落点';position:absolute;right:10px;top:50%;transform:translateY(-50%);background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;}
+  /* 拖拽落点：全高竖向参考线（标记将要落到的起止日期列） */
+  .drop-guide{position:absolute;top:54px;bottom:0;width:0;border-left:2px dashed var(--blue);z-index:8;pointer-events:none;display:none;}
+  .drop-guide.show{display:block;}
+  .drop-guide.gend{border-left-color:#9dbcff;border-left-style:dotted;}
+  .drop-band{position:absolute;top:54px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}
+  .drop-band.show{display:block;}
+  /* 视角高亮：选中的"我"本人 + 隶属于我的人员行 */
+  .row.me-self .cell-left{background:#fff5e6;box-shadow:inset 4px 0 0 #ff9f0a;}
+  .row.me-self{background:#fffaf2;}
+  .row.me-team .cell-left{background:#fffaf2;box-shadow:inset 4px 0 0 #ffd591;}
+  .row.dim{opacity:.32;filter:grayscale(.4);}
+
+  .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:4;transition:background .12s;}
+  .row.head .cell-left{background:#fafbfc;z-index:6;}
+  .timeline{position:relative;flex:1;}
+
+  .month-head{position:absolute;top:0;height:26px;border-right:2px solid #c2c8d0;font-size:12px;color:#1f2329;display:flex;align-items:center;justify-content:center;font-weight:700;background:#e9edf2;letter-spacing:.5px;}
+  .month-head.alt{background:#f2f5f8;}
+  .week-head{position:absolute;top:26px;height:28px;border-right:1px solid var(--line2);font-size:10px;color:var(--tx2);display:flex;align-items:center;justify-content:center;overflow:hidden;font-weight:500;}
+  .week-head.alt{background:#fafbfc;}
+  .day-head{position:absolute;top:26px;height:28px;font-size:10px;color:var(--tx3);display:flex;align-items:center;justify-content:center;}
+  .day-head.we{background:#fafbfc;color:#c0c4cc;}
+  .day-head.today{color:var(--blue);font-weight:600;}
+
+  .vline{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);}
+  .vline.mono{background:#dfe2e6;width:1px;}
+  .vline.we{background:#fafbfc;width:var(--day-w);}
+  .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
+
+  .bar-task{position:absolute;height:22px;top:12px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20);user-select:none;touch-action:none;transition:box-shadow .12s,opacity .12s,top .15s;border-left:3px solid rgba(0,0,0,.24);}
+  .bar-task .prog{position:absolute;left:0;bottom:0;height:4px;background:rgba(255,255,255,.92);border-radius:0 3px 0 0;pointer-events:none;}
+  .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
+  .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
+  .bar-task.dragging{cursor:grabbing;opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32);z-index:30;}
+  .bar-task.flash{animation:barflash .9s ease;}
+  @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6)}100%{box-shadow:0 1px 3px rgba(0,0,0,.20)}}
+  .b-blue{background:#2f6bff;} .b-green{background:#16a34a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#9097a0;}
+  .grip{position:absolute;top:0;bottom:0;width:9px;cursor:ew-resize;z-index:3;}
+  .grip.gl{left:0;border-radius:6px 0 0 6px;}
+  .grip.gr{right:0;border-radius:0 6px 6px 0;}
+  .bar-task:hover .grip{background:rgba(255,255,255,.35);}
+  /* 联调：斜纹覆盖+虚线边，区别于纯特效条 */
+  .bar-task.k-lt{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.22) 0 6px,rgba(255,255,255,0) 6px 12px);border-left-style:dashed;border-left-color:rgba(255,255,255,.7);}
+  .bar-task.k-lt::after{content:'联调';position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;opacity:.85;z-index:2;}
+  /* 全量测试：黑色里程碑图标（不计负载），菱形条 */
+  .bar-task.k-qa{background:#2b2f36 !important;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.10) 0 4px,transparent 4px 8px) !important;border-left:3px solid #000;color:#e8eaed;}
+  .bar-task.k-qa .prog{display:none;}
+  .bar-task.k-qa .sdot{background:#ffd23f;}
+  .bar-task.k-qa::after{content:'🐞测试';position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;opacity:.9;z-index:2;}
+
+  .av{width:30px;height:30px;border-radius:50%;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;flex-shrink:0;position:relative;}
+  .av .mdot{position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;}
+  /* 编制岗位徽章（替代圆形头像）：一眼区分 正编/基地/支援 + 在职色点 */
+  .emp-badge{position:relative;width:38px;height:38px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1.5px solid;box-sizing:border-box;}
+  .emp-badge .el{font-size:12px;font-weight:800;line-height:1;writing-mode:vertical-rl;letter-spacing:1px;}
+  .emp-badge.reg{background:#f3e8ff;border-color:#c4a5f5;}
+  .emp-badge.reg .el{color:#7c3aed;}
+  .emp-badge.base{background:#eef1f6;border-color:#cdd3dc;}
+  .emp-badge.base .el{color:#5a626e;}
+  .emp-badge.sup{background:#cffafe;border-color:#67e8f9;}
+  .emp-badge.sup .el{color:#0e7490;}
+  .emp-badge .ed{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 .5px rgba(0,0,0,.06);}
+  .emp-badge .olflag{position:absolute;left:-4px;top:-4px;width:15px;height:15px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(245,65,63,.5);}
+  .who{min-width:0;}
+  .who .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;align-items:center;}
+  .ptag{font-size:10px;font-weight:700;border:1px solid;border-radius:5px;padding:1px 6px;background:#fff;white-space:nowrap;}
+  .mtag2{font-size:10px;font-weight:600;color:#3a6df0;background:#eef3ff;border:1px solid #c9dbff;border-radius:5px;padding:1px 6px;white-space:nowrap;}
+  .ltag{font-size:10px;font-weight:600;border-radius:5px;padding:1px 6px;white-space:nowrap;}
+  .ltag.lead{color:#7c3aed;background:#f3e8ff;border:1px solid #d9c2fb;}
+  .ltag.belong{color:#646a73;background:#f2f4f7;border:1px solid #e1e5ea;}
+  .ltag.eff{color:#0a7d3c;background:#e9f8ee;border:1px solid #c2ecd0;}
+  .who .nm{font-weight:600;font-size:13px;} .who .ro{color:var(--tx3);font-size:11px;}
+  .mstat{cursor:pointer;}
+  .emp-badge .ed.mstat:hover{transform:scale(1.35);}
+  .load{margin-left:auto;text-align:right;flex-shrink:0;}
+  .load .bar-l{width:78px;height:6px;border-radius:3px;background:#eef0f3;overflow:hidden;margin-top:3px;position:relative;}
+  .load .bar-l i{display:block;height:100%;border-radius:3px;}
+  .load .bar-l.over{box-shadow:0 0 0 1.5px rgba(245,65,63,.55);}
+  .load .pct{font-size:11px;font-weight:600;}
+  .ol-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#fff;background:var(--red);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle;box-shadow:0 1px 3px rgba(245,65,63,.4);animation:olpulse 1.6s infinite;}
+  @keyframes olpulse{0%{box-shadow:0 0 0 0 rgba(245,65,63,.55)}70%{box-shadow:0 0 0 6px rgba(245,65,63,0)}100%{box-shadow:0 0 0 0 rgba(245,65,63,0)}}
+  .av .olflag{position:absolute;left:-3px;top:-3px;width:15px;height:15px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(245,65,63,.5);}
+
+  .req .nm{font-weight:600;} .req .meta{color:var(--tx3);font-size:11px;}
+  .gdot-grade{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0;vertical-align:middle;box-shadow:0 0 0 2px rgba(0,0,0,.04);}
+  .tmp-tag{display:inline-block;font-size:9px;font-weight:700;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:middle;}
+  .corp-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
+  .hr-flag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:5px;vertical-align:middle;border:1px solid transparent;}
+  .hr-flag.left{color:#fff;background:#9097a0;}
+  .hr-flag.new{color:#1d4ed8;background:#dbeafe;border-color:#93c5fd;}
+  .hr-flag.sup{color:#0e7490;background:#cffafe;border-color:#67e8f9;}
+  .row.is-left{opacity:.55;}
+  .row.is-left .av{filter:grayscale(1);}
+  .row.is-left .bar-task{filter:grayscale(.7);opacity:.7;}
+  .gap-pill{font-size:10px;font-weight:700;color:#d32320;background:var(--red-l);border:1px solid #ffc4c2;border-radius:5px;padding:2px 7px;margin-left:6px;flex-shrink:0;}
+  .badge{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;margin-left:8px;flex-shrink:0;}
+  .rk-low{background:var(--green-l);color:#1a8a3c;}
+  .rk-mid{background:var(--amber-l);color:#b36b00;}
+  .rk-high{background:var(--red-l);color:#d32320;}
+  .assignees{display:flex;margin-left:auto;}
+  .assignees .av{width:24px;height:24px;font-size:10px;margin-left:-6px;border:2px solid #fff;}
+  /* 按需求视图：可读人员标签（区分正编/基地/离职/新人） */
+  .req .rmod{font-size:10px;font-weight:600;color:#3a6df0;background:#eef3ff;border:1px solid #c9dbff;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
+  .req .nm{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  .req .char-nm{font-weight:700;}
+  /* 模块类型标签：图标+短名+主题色，强化区分同角色不同模块 */
+  .mod-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;vertical-align:middle;line-height:1.5;}
+  .mod-tag i{font-style:normal;font-size:11px;line-height:1;}
+  .who-chips{display:flex;flex-wrap:wrap;gap:5px;margin:4px 0 2px;}
+  /* 统一标签家族：底色=编制(正编/基地)，左圆点=隶属带队，橙虚线框=跨队支援，角标=状态。
+     刻意只用两种编制底色，差异通过"点/边框/小角标"叠加，避免一人一种花色。 */
+  .who-chip{position:relative;display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;
+    border-radius:6px;padding:2px 8px 2px 6px;border:1.5px solid;white-space:nowrap;cursor:grab;
+    transition:transform .1s,box-shadow .1s;user-select:none;touch-action:none;}
+  .who-chip:hover{box-shadow:0 2px 7px rgba(0,0,0,.16);transform:translateY(-1px);}
+  .who-chip:active{cursor:grabbing;}
+  .who-chip.dragging{opacity:.35;}
+  .who-chip .nm-txt{font-style:normal;}
+  .who-chip .crown{font-style:normal;font-size:9px;line-height:1;}
+  /* 编制底色（家族主色，仅两种） */
+  .who-chip.reg{color:#5b21b6;background:#f3e8ff;border-color:#cdb4f0;}
+  .who-chip.base{color:#41506a;background:#eef2f7;border-color:#cdd6e3;}
+  /* 隶属带队圆点：颜色映射到该人所属的带队正编 */
+  .who-chip .team-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 1.5px rgba(255,255,255,.9);}
+  /* 跨队支援：橙色虚线框 + “支”角标（叠加在编制底色上，不替换底色） */
+  .who-chip.is-sup{border-style:dashed;border-color:#f08c00;}
+  .who-chip .mk{font-style:normal;font-size:8px;font-weight:700;border-radius:3px;padding:0 3px;line-height:1.55;}
+  .who-chip .mk-sup{background:#f08c00;color:#fff;}
+  .who-chip .mk-new{background:#1d6fd6;color:#fff;}
+  .who-chip .mk-tmp{background:#e08c00;color:#fff;}
+  .who-chip.is-left{opacity:.6;}
+  .who-chip.is-left .nm-txt{text-decoration:line-through;}
+  .who-chip.none{color:#d32320;background:var(--red-l);border-color:#ffc4c2;cursor:default;}
+  .who-chip.none:hover{transform:none;box-shadow:none;}
+  /* 拖拽人名标签：高亮目标需求行 */
+  .req-row.chip-target{background:#fffaf2;}
+  .req-row.chip-target .cell-left{background:#fff3e0;box-shadow:inset 4px 0 0 #f08c00!important;}
+  .req-row.chip-target .cell-left::after{content:'拖到此需求改派';position:absolute;right:10px;top:8px;background:#f08c00;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;z-index:3;}
+  /* 任务条选中（复制/剪切目标） */
+  .bar-task.sel{outline:2.5px solid #1d6fd6;outline-offset:1px;box-shadow:0 0 0 3px rgba(29,111,214,.22),0 2px 8px rgba(0,0,0,.28)!important;z-index:6;}
+  .bar-task.cut-mark{opacity:.45;filter:grayscale(.5);}
+  /* 粘贴目标行高亮 */
+  .row.paste-target .cell-left{background:#e7f7ee;box-shadow:inset 4px 0 0 #1fae5a;}
+  .row.paste-target{background:#f3fcf6;}
+  /* 剪贴板浮条 */
+  #clipchip{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1d2330;color:#fff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.32);display:none;align-items:center;gap:10px;z-index:9998;}
+  #clipchip.show{display:inline-flex;}
+  #clipchip .ck{border-radius:5px;padding:1px 7px;font-size:10px;background:#3370ff;}
+  #clipchip .ck.cut{background:#e08c00;}
+  #clipchip button{background:transparent;border:1px solid rgba(255,255,255,.32);color:#fff;border-radius:6px;padding:3px 9px;font-size:11px;cursor:pointer;font-weight:600;}
+  #clipchip button:hover{background:rgba(255,255,255,.14);}
+  /* 标签图例（按需求视图） */
+  .chip-legend{display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--tx2);}
+  .chip-legend .cl{display:inline-flex;align-items:center;gap:4px;}
+  .chip-legend .sw{display:inline-flex;align-items:center;justify-content:center;border-radius:5px;border:1.5px solid;padding:1px 6px;font-size:10px;font-weight:600;}
+  .kmk{font-size:10px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
+  .kmk.lt{color:#7c3aed;background:#f1e9fd;border:1px dashed #c4a9f5;}
+  .kmk.qa{color:#fff;background:#2b2f36;}
+  .team-cnt{font-size:11px;}
+  .bar-task .bar-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* 按需求视图：任务条加高，充分利用行高，展示角色名+负责人两行 */
+  .req-row{min-height:64px;}
+  .req-row .cell-left{align-items:flex-start;padding-top:10px;}
+  .bar-task.req-bar{height:46px;top:9px;flex-direction:column;align-items:flex-start;justify-content:center;padding:5px 10px;border-radius:7px;gap:2px;border-left-width:5px;}
+  .bar-task.req-bar .bl-top{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar-task.req-bar .bl-mic{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:5px;font-size:10px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.25);}
+  .bar-task.req-bar .bl-mod{font-size:10px;font-weight:700;border-radius:4px;padding:0 6px;flex-shrink:0;}
+  .bar-task.req-bar .bl-sub{font-size:10px;font-weight:500;opacity:.92;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bar-task.req-bar .qa-flag{font-size:11px;font-weight:700;color:#e8eaed;letter-spacing:.5px;padding-left:14px;}
+  .bar-task.req-bar .prog{height:5px;border-radius:0 4px 0 0;}
+  .bar-task.req-bar .sdot{position:absolute;left:8px;top:8px;}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:18px;}
+  .panel h3{font-size:14px;font-weight:600;margin-bottom:10px;}
+  .rules{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  .rule{border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
+  .rule .t{font-weight:600;font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
+  .rule .t i{width:10px;height:10px;border-radius:50%;}
+  .rule p{color:var(--tx2);font-size:12px;line-height:1.6;}
+  code{background:#f0f2f5;padding:1px 5px;border-radius:4px;font-size:11px;color:#d6336c;}
+
+  #tip{position:fixed;background:#1f2329;color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;line-height:1.6;pointer-events:none;opacity:0;transition:opacity .1s;z-index:99;max-width:260px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
+  #tip b{color:#fff;} #tip .g{color:#9aa0a6;}
+  #dlabel{position:fixed;background:var(--blue);color:#fff;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;pointer-events:none;z-index:100;opacity:0;transition:opacity .08s;white-space:nowrap;box-shadow:0 4px 12px rgba(51,112,255,.4);}
+  #menu{position:fixed;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:6px;z-index:200;min-width:150px;opacity:0;pointer-events:none;transform:scale(.96);transition:.1s;transform-origin:top left;}
+  #menu.show{opacity:1;pointer-events:auto;transform:scale(1);}
+  #menu .mtitle{font-size:11px;color:var(--tx3);padding:4px 8px 6px;}
+  #menu .mi{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;font-size:13px;}
+  #menu .mi:hover{background:#f2f4f7;}
+  #menu .mi i{width:11px;height:11px;border-radius:3px;display:inline-block;}
+  #menu .mi.cur{font-weight:600;background:#f2f4f7;}
+  #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;font-size:12px;opacity:0;transition:.2s;z-index:300;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .hide{display:none !important;}
+
+  /* ===== 人力分配视图 ===== */
+  .hr-wrap{padding:18px;}
+  .hr-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+  .hr-sc{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fafbfc;}
+  .hr-sc .lab{color:var(--tx2);font-size:12px;}
+  .hr-sc .val{font-size:24px;font-weight:700;margin-top:6px;}
+  .hr-sc.total .val{color:var(--blue);}
+  .hr-sc.gap .val{color:var(--red);}
+  .hr-grade-bar{display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;padding:12px 16px;background:#fff;border:1px solid var(--line);border-radius:10px;}
+  .hr-grade-bar .gi{display:flex;align-items:center;gap:7px;font-size:13px;}
+  .hr-grade-bar .gi b{font-weight:700;}
+  .hr-grade-bar .gi .gdot{width:12px;height:12px;border-radius:3px;}
+  .hr-legend{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:18px;padding:10px 16px;background:#fafbfc;border:1px dashed var(--line);border-radius:10px;font-size:12px;color:var(--tx2);}
+  .hr-legend .lg-t{font-weight:700;color:var(--tx);}
+  .hr-legend .lg{display:inline-flex;align-items:center;gap:5px;}
+  .hr-legend .lg-div{color:var(--line);margin:0 4px;}
+
+  .hr-mod{margin-bottom:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+  .hr-mod-head{background:#f5f6f8;padding:10px 16px;font-weight:700;font-size:14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--line);}
+  .hr-mod-head .mtag{font-size:11px;font-weight:600;color:var(--tx2);background:#fff;border:1px solid var(--line);border-radius:6px;padding:2px 8px;}
+  .hr-mod-head .mgap{margin-left:auto;font-size:12px;font-weight:600;}
+  .hr-role{display:flex;align-items:center;gap:12px;padding:11px 16px;border-bottom:1px solid var(--line2);}
+  .hr-role:last-child{border-bottom:none;}
+  .hr-role .gdot{width:12px;height:12px;border-radius:3px;flex-shrink:0;}
+  .hr-role .rname{font-weight:600;min-width:120px;flex-shrink:0;}
+  .hr-stat{font-size:11px;font-weight:600;padding:2px 9px;border-radius:6px;flex-shrink:0;}
+  .hr-cnt{display:flex;gap:8px;align-items:center;flex-shrink:0;min-width:128px;}
+  .hr-cnt .cfg{font-size:12px;color:var(--tx2);}
+  .hr-cnt .gapb{font-size:11px;font-weight:700;color:#fff;background:var(--red);border-radius:6px;padding:2px 8px;box-shadow:0 1px 3px rgba(245,65,63,.35);}
+  .hr-cnt .okb{font-size:11px;font-weight:600;color:#1a8a3c;background:var(--green-l);border-radius:6px;padding:2px 8px;}
+  .hr-makers{flex:1;min-width:0;display:flex;flex-wrap:wrap;gap:5px;align-items:center;}
+  .hr-makers .mk{font-size:11px;background:#eef1f6;color:var(--tx);border-radius:12px;padding:2px 9px;white-space:nowrap;}
+  .hr-makers .mk.tmp{background:#fff1da;color:#b36b00;}
+  .hr-makers .mk.left{background:#eceef1;color:#9097a0;text-decoration:line-through;}
+  .hr-makers .mk.new{background:#dbeafe;color:#1d4ed8;}
+  .hr-makers .mk.sup{background:#e0f7fa;color:#0e7490;border:1px solid #9adfe9;}
+  .hr-makers .empty{font-size:11px;color:var(--tx3);font-style:italic;}
+  .hr-note{font-size:11px;color:var(--tx3);margin-left:auto;flex-shrink:0;max-width:200px;text-align:right;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>橙角出场特效 · 排期协同甘特看板</h1>
+  <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lab">出场制作人</div><div class="val" id="kp-mem">—</div></div>
+    <div class="kpi"><div class="lab">在排出场需求</div><div class="val" id="kp-active">—</div></div>
+    <div class="kpi"><div class="lab">高峰负载率</div><div class="val w" id="kp-load">—</div></div>
+    <div class="kpi"><div class="lab">高风险需求</div><div class="val d" id="kp-high">—</div></div>
+    <div class="kpi"><div class="lab">常规管线缺口</div><div class="val d" id="kp-done">—</div></div>
+  </div>
+
+  <div class="bar">
+    <div class="tabs">
+      <button class="on" onclick="setView('person',this)">按人看（谁在做什么）</button>
+      <button onclick="setView('req',this)">按需求看（排期/风险）</button>
+      <button onclick="setView('hr',this)">人力分配（按模块/缺口）</button>
+    </div>
+    <div class="tabs" style="margin-left:2px">
+      <button class="on" onclick="setColor('status',this)">按状态着色</button>
+      <button onclick="setColor('risk',this)">按风险着色</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="collab">
+      <span class="live"></span>
+      <span class="me">我是
+        <select id="meSel" onchange="changeMe()"></select>
+      </span>
+      <select id="focusSel" class="focus-sel" onchange="changeFocus()" title="基于'我是'的视角：高亮或筛选自己与隶属团队">
+        <option value="off">全部成员</option>
+        <option value="hl">🔆 高亮我和我的团队</option>
+        <option value="only">🔎 只看我和我的团队</option>
+      </select>
+    </div>
+    <div class="undo-grp">
+      <button class="ubtn" id="undoBtn" onclick="undo()" title="撤销 (Ctrl+Z)" disabled>↶ 撤销</button>
+      <button class="ubtn" id="redoBtn" onclick="redo()" title="重做 (Ctrl+Y)" disabled>↷ 重做</button>
+    </div>
+    <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
+    <button class="ubtn sync-btn" onclick="exportSync()" title="导出当前排期为同步包(.json)，发给我即可写回企微表">⬆ 导出同步包</button>
+    <button class="reset" onclick="resetData()">重置</button>
+  </div>
+
+  <div class="bar" style="margin-top:-6px">
+    <span class="hint" id="hintBar">💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态 · 选中任务条后 Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求</span>
+    <div class="spacer"></div>
+    <div class="legend" id="legend"></div>
+  </div>
+
+  <div class="board">
+    <div class="scroll" id="scroll">
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="resize-hint" title="拖此处可上下拉伸看板高度"></div>
+  </div>
+
+  <div class="panel">
+    <h3>标准化评估规则（团队统一口径，自动计算）</h3>
+    <div class="rules">
+      <div class="rule">
+        <div class="t"><i style="background:var(--blue)"></i>工作强度 / 负载率</div>
+        <p>负载率 = <code>未来30天已排人天 ÷ 可用人天</code>。人均每日标准产能记为 1 人天。<br>
+        分档：<b style="color:#1a8a3c">≤85% 宽松</b> · <b style="color:#b36b00">85–110% 饱和</b> · <b style="color:#d32320">&gt;110% 超载</b>。</p>
+      </div>
+      <div class="rule">
+        <div class="t"><i style="background:var(--amber)"></i>需求风险（双维度取高）</div>
+        <p><b>维度A 产能</b>：剩余工作量 vs 投入产能×剩余工作日。<br>
+        <b>维度B 人力结构</b>：该角色管线是否缺人。<br>
+        两者取较高一档作为最终风险。</p>
+      </div>
+      <div class="rule">
+        <div class="t"><i style="background:var(--red)"></i>风险分档</div>
+        <p><b style="color:#d32320">高</b> = 产能告急，<u>或</u> 管线缺人且已开工。<br>
+        <b style="color:#b36b00">中</b> = 产能偏紧，<u>或</u> 管线缺人但尚未开工（后续压力）。<br>
+        <b style="color:#1a8a3c">低</b> = 产能充足且管线人力到位。</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tip"></div>
+<div id="dlabel"></div>
+<div id="menu"></div>
+<div id="toast"></div>
+
+<script>
+/* ============ 标准化配置 ============ */
+const D = (y,m,d)=>new Date(y,m,d);
+const DT = (y,mon,d)=>new Date(y,mon-1,d);   // 真实月份(1-12)构造器，避免 0-indexed 误用
+const START = new Date(2026,3,13);   // 2026-04-13（周一）——提前到覆盖最早5月前的排期
+const DAYS  = 335;                    // 覆盖到 2027-03 中（含阿尔法全量测试）
+const TODAY = new Date(2026,5,22);    // 基准日：今天
+const DAY_W = 8;                      // 每天 8px → 一周 56px，周间距更清晰、月份更易分辨
+
+/* ============ 状态字典 ============ */
+const STATUS = {
+  todo:   {label:'未开始', cls:'b-gray',  col:'#a8adb5'},
+  doing:  {label:'进行中', cls:'b-blue',  col:'#3370ff'},
+  review: {label:'待评审', cls:'b-amber', col:'#e08c00'},
+  done:   {label:'已完成', cls:'b-green', col:'#1fae5a'},
+  blocked:{label:'卡住',   cls:'b-red',   col:'#f5413f'},
+};
+const STATUS_ORDER=['todo','doing','review','done','blocked'];
+const MSTATUS={
+  on:  {label:'在岗', col:'#34c759'},
+  busy:{label:'忙碌', col:'#ff9f0a'},
+  leave:{label:'请假',col:'#a8adb5'},
+  out: {label:'外出', col:'#3370ff'},
+  left:{label:'已离职',col:'#9097a0'},   // 脑图灰色名字
+  new: {label:'新人',  col:'#3b82f6'},   // 脑图蓝色名字
+};
+const MSTATUS_ORDER=['on','busy','out','leave'];   // 点击循环仅在日常考勤态间切换；离职/新人为HR态，展示用
+/* 正编/基地：corp='reg' 正编(带队) | 'base' 基地 */
+const CORP={reg:{label:'正编',col:'#7c3aed',bg:'#f3e8ff'},base:{label:'基地',col:'#646a73',bg:'#eef1f6'}};
+
+/* 隶属带队配色：每位带队正编一个固定色，用作人名标签上的小圆点，一眼看出"这人归谁带"。
+   key = 带队正编姓名；其余/无归属用灰。 */
+const LEAD_COLOR={'余洪震':'#e8590c','薛旭阳':'#1098ad','陈琛':'#7048e8'};
+/* 解析某成员的"隶属带队"姓名：正编=自己；基地=其 lead 字段(指向带队正编) */
+function leadOf(m){
+  if(!m) return '';
+  if(m.corp==='reg') return m.name;
+  const L=m.lead;
+  if(!L||L==='—'||L==='-') return '';
+  return L;
+}
+const leadColor = name => LEAD_COLOR[name] || '#a3acba';
+/* 某需求的"带队归属"：优先取参与的正编(带队)姓名；否则取基地成员里出现最多的隶属。
+   用于判断谁是"跨队来支援的人"。 */
+function reqLeadOf(r){
+  if(!r||!r.segs) return '';
+  const ms=[...new Set(r.segs.map(s=>s.m))].map(memById).filter(Boolean);
+  const reg=ms.find(m=>m.corp==='reg');
+  if(reg) return reg.name;
+  const cnt={};
+  ms.forEach(m=>{const L=leadOf(m);if(L)cnt[L]=(cnt[L]||0)+1;});
+  let best='',bn=0;
+  for(const k in cnt){if(cnt[k]>bn){bn=cnt[k];best=k;}}
+  return best;
+}
+
+/* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
+/* 成员 = 出场/检视/组队/武器等模块制作人。
+   corp=编制(reg正编带队/base基地)，lead=该正编带队负责的范围，mod=模块，grade=品级，line=管线，tmp=临时，status含 left离职/new新人 */
+const members = [
+  // ===== 正编（带领基地同学，搭配负责需求）=====
+  {id:'yhz', name:'余洪震', role:'正编·带队 红角+金角', corp:'reg', lead:'红角 + 金角', mod:'出场', grade:'金', line:'J',  eff:1.1, status:'on'},
+  {id:'xxy', name:'薛旭阳', role:'正编·带队 橙角露西亚(管线1)', corp:'reg', lead:'橙角露西亚·管线1', mod:'出场', grade:'橙', line:'L1', eff:1.05, status:'on'},
+  {id:'cc',  name:'陈琛',   role:'正编·带队 检视/组队/饰品', corp:'reg', lead:'橙角 检视 / 组队 / 饰品', mod:'检视', grade:'橙', line:'-', eff:1.05, status:'on'},
+
+  // ===== 基地：管线1 露西亚线（薛旭阳带）=====
+  {id:'ygh', name:'杨光豪', role:'基地·橙(露西亚 管线1)', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:1.05, status:'on'},
+  {id:'ll',  name:'李龙',   role:'基地·支援橙角(隶属余洪震)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on', support:true},
+  {id:'zyq', name:'张雍祺', role:'基地·橙(露西亚 管线1)',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.95, status:'on'},
+  {id:'zjj', name:'曾俊杰', role:'基地·支援橙角(隶属余洪震)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on', support:true},
+  {id:'zcz', name:'张长喆', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true},
+  {id:'ljy', name:'梁骏源', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true},
+  {id:'zjh', name:'邹佳豪', role:'基地·橙(露西亚)·新人',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.85, status:'new',  tmp:true},
+
+  // ===== 基地：管线2 比安卡线（余洪震统筹，目前仅胡斯雨1名基地同学）=====
+  {id:'hsy', name:'胡斯雨', role:'基地·橙(比安卡 管线2)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L2', eff:1.0, status:'on'},
+
+  // ===== 基地：金角线（七十·出场，余洪震带）=====
+  {id:'yh',  name:'于航',   role:'基地·金(七十)', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'J', eff:1.0, status:'on'},
+  {id:'psq', name:'彭诗淇', role:'基地·金(七十)', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'J', eff:1.0, status:'on'},
+  {id:'lzs', name:'刘振山', role:'基地·金(七十)', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'J', eff:1.0, status:'on'},
+  {id:'zc',  name:'宗丞',   role:'基地·金(七十)', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'J', eff:1.0, status:'on'},
+
+  // ===== 基地：检视/组队（陈琛带）=====
+  {id:'cyh', name:'陈禹汗', role:'基地·检视 橙(露西亚)', corp:'base', lead:'陈琛', mod:'检视', grade:'橙', line:'-', eff:1.0, status:'on'},
+  {id:'zbw', name:'郑博文', role:'基地·检视 橙(比安卡)', corp:'base', lead:'陈琛', mod:'检视', grade:'橙', line:'-', eff:1.0, status:'on'},
+  {id:'ljj', name:'娄佳俊', role:'基地·组队 橙(比安卡)', corp:'base', lead:'陈琛', mod:'组队', grade:'橙', line:'-', eff:1.0, status:'on'},
+
+  // ===== 支援：金潇（暂时支援武器特效，不属于商业化角色特效需求模块）=====
+  {id:'jx',  name:'金潇',   role:'支援·武器特效(非角色特效模块)', corp:'base', lead:'—', mod:'武器特效', grade:'', line:'-', eff:1.0, status:'busy', support:true},
+];
+
+/* 需求 = 企微数据源表 q979lj 橙角出场特效排期(权威) + 大甘特图(image#1)红角女指挥官特效模块 + 金角/检视/组队/机动/武器支援。
+   每条需求覆盖一个"角色×模块×品级"的特效工作；segs=投入的核心制作人(含正编带队+基地)。
+   mod=模块, char=角色, grade=品级, line=管线 */
+/* kind: fx=特效(紫,主体) | lt=联调(特效后→全量测试前) | qa=全量测试里程碑(黑,bug修复阶段,不计排期负载)。
+   support:true 标在 seg 上=该人为支援性质(非本管线编制)。 */
+const reqs = [
+  /* ===== 橙·露西亚·誓焰 X 安琪儿（管线1，薛旭阳带；李龙/曾俊杰支援橙角，隶属余洪震） ===== */
+  {id:'LU_cc', name:'露西亚 出场特效', char:'露西亚·誓焰 X 安琪儿', mod:'出场', grade:'橙', line:'L1', kind:'fx', estimate:24, done:16, end:DT(2026,6,23),
+    segs:[{m:'xxy',s:DT(2026,4,20),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'ygh',s:DT(2026,4,20),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'ll',s:DT(2026,4,25),e:DT(2026,6,23),prog:0.75,status:'doing',support:true},{m:'zyq',s:DT(2026,5,4),e:DT(2026,6,23),prog:0.6,status:'doing'},{m:'zjh',s:DT(2026,5,11),e:DT(2026,6,23),prog:0.5,status:'doing'}]},
+  {id:'LU_cs', name:'露西亚 检视特效', char:'露西亚·誓焰 X 安琪儿', mod:'检视', grade:'橙', line:'L1', kind:'fx', estimate:16, done:7, end:DT(2026,6,23),
+    segs:[{m:'cyh',s:DT(2026,5,1),e:DT(2026,6,23),prog:0.5,status:'doing'},{m:'cc',s:DT(2026,5,1),e:DT(2026,6,23),prog:0.45,status:'doing'}]},
+  {id:'LU_zd', name:'露西亚 组队特效', char:'露西亚·誓焰 X 安琪儿', mod:'组队', grade:'橙', line:'L1', kind:'fx', estimate:16, done:6, end:DT(2026,6,23),
+    segs:[{m:'cc',s:DT(2026,5,8),e:DT(2026,6,23),prog:0.4,status:'doing'},{m:'zjj',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.45,status:'doing',support:true}]},
+  {id:'LU_lt', name:'露西亚 联调', char:'露西亚·誓焰 X 安琪儿', mod:'联调', grade:'橙', line:'L1', kind:'lt', estimate:22, done:0, end:DT(2026,7,17),
+    segs:[{m:'xxy',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'ygh',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'ll',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo',support:true},{m:'zyq',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zjh',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zjj',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo',support:true}]},
+  {id:'LU_qa', name:'露西亚 全量测试', char:'露西亚·誓焰 X 安琪儿', mod:'全量测试', grade:'橙', line:'L1', kind:'qa', estimate:0, done:0, end:DT(2026,7,29),
+    segs:[{m:'xxy',s:DT(2026,7,20),e:DT(2026,7,29),prog:0,status:'todo'}]},
+
+  /* ===== 橙·比安卡·寻 X 奈芙（管线2 S4.1，余洪震统筹，胡斯雨线） ===== */
+  {id:'BK_cc', name:'比安卡 出场特效', char:'比安卡·寻 X 奈芙', mod:'出场', grade:'橙', line:'L2', kind:'fx', estimate:30, done:11, end:DT(2026,7,10),
+    segs:[{m:'hsy',s:DT(2026,5,15),e:DT(2026,7,10),prog:0.35,status:'doing'}]},
+  {id:'BK_cs', name:'比安卡 检视特效', char:'比安卡·寻 X 奈芙', mod:'检视', grade:'橙', line:'L2', kind:'fx', estimate:12, done:4, end:DT(2026,7,10),
+    segs:[{m:'zbw',s:DT(2026,5,15),e:DT(2026,7,10),prog:0.35,status:'doing'}]},
+  {id:'BK_zd', name:'比安卡 组队特效', char:'比安卡·寻 X 奈芙', mod:'组队', grade:'橙', line:'L2', kind:'fx', estimate:12, done:3, end:DT(2026,7,10),
+    segs:[{m:'ljj',s:DT(2026,5,15),e:DT(2026,7,10),prog:0.3,status:'doing'}]},
+  {id:'BK_lt', name:'比安卡 联调', char:'比安卡·寻 X 奈芙', mod:'联调', grade:'橙', line:'L2', kind:'lt', estimate:12, done:0, end:DT(2026,8,3),
+    segs:[{m:'hsy',s:DT(2026,7,13),e:DT(2026,8,3),prog:0,status:'todo'},{m:'zbw',s:DT(2026,7,13),e:DT(2026,8,3),prog:0,status:'todo'}]},
+  {id:'BK_qa', name:'比安卡 全量测试', char:'比安卡·寻 X 奈芙', mod:'全量测试', grade:'橙', line:'L2', kind:'qa', estimate:0, done:0, end:DT(2026,8,14),
+    segs:[{m:'hsy',s:DT(2026,8,4),e:DT(2026,8,14),prog:0,status:'todo'}]},
+
+  /* ===== 金·七十·芒星之迹 X 茉莉（S3.2，余洪震带，于航团队，已进入转测） ===== */
+  {id:'QS_cc', name:'七十 出场特效', char:'七十·芒星之迹 X 茉莉', mod:'出场', grade:'金', line:'J', kind:'fx', estimate:48, done:40, end:DT(2026,6,23),
+    segs:[{m:'yhz',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.85,status:'doing'},{m:'yh',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.85,status:'doing'},{m:'psq',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.85,status:'doing'},{m:'lzs',s:DT(2026,5,4),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'zc',s:DT(2026,5,4),e:DT(2026,6,23),prog:0.8,status:'doing'}]},
+  {id:'QS_qa', name:'七十 全量测试', char:'七十·芒星之迹 X 茉莉', mod:'全量测试', grade:'金', line:'J', kind:'qa', estimate:0, done:0, end:DT(2026,7,24),
+    segs:[{m:'yh',s:DT(2026,6,24),e:DT(2026,7,24),prog:0,status:'todo'}]},
+
+  /* ===== 金·红蔻（S4.3，余洪震带，于航团队） ===== */
+  {id:'HK_cc', name:'红蔻 出场特效', char:'红蔻', mod:'出场', grade:'金', line:'J', kind:'fx', estimate:42, done:0, end:DT(2026,8,21),
+    segs:[{m:'yh',s:DT(2026,7,6),e:DT(2026,8,21),prog:0,status:'todo'},{m:'psq',s:DT(2026,7,6),e:DT(2026,8,21),prog:0,status:'todo'},{m:'lzs',s:DT(2026,7,6),e:DT(2026,8,21),prog:0,status:'todo'}]},
+  {id:'HK_lt', name:'红蔻 联调', char:'红蔻', mod:'联调', grade:'金', line:'J', kind:'lt', estimate:10, done:0, end:DT(2026,9,11),
+    segs:[{m:'yh',s:DT(2026,8,24),e:DT(2026,9,11),prog:0,status:'todo'}]},
+  {id:'HK_qa', name:'红蔻 全量测试', char:'红蔻', mod:'全量测试', grade:'金', line:'J', kind:'qa', estimate:0, done:0, end:DT(2026,9,25),
+    segs:[{m:'yh',s:DT(2026,9,14),e:DT(2026,9,25),prog:0,status:'todo'}]},
+
+  /* ===== 金·Cyndi（S5.1，余洪震带，于航团队） ===== */
+  {id:'CY_cc', name:'Cyndi 出场特效', char:'Cyndi', mod:'出场', grade:'金', line:'J', kind:'fx', estimate:42, done:0, end:DT(2026,10,23),
+    segs:[{m:'yh',s:DT(2026,9,7),e:DT(2026,10,23),prog:0,status:'todo'},{m:'psq',s:DT(2026,9,7),e:DT(2026,10,23),prog:0,status:'todo'},{m:'zc',s:DT(2026,9,7),e:DT(2026,10,23),prog:0,status:'todo'}]},
+  {id:'CY_lt', name:'Cyndi 联调', char:'Cyndi', mod:'联调', grade:'金', line:'J', kind:'lt', estimate:10, done:0, end:DT(2026,11,13),
+    segs:[{m:'yh',s:DT(2026,10,26),e:DT(2026,11,13),prog:0,status:'todo'}]},
+  {id:'CY_qa', name:'Cyndi 全量测试', char:'Cyndi', mod:'全量测试', grade:'金', line:'J', kind:'qa', estimate:0, done:0, end:DT(2026,11,27),
+    segs:[{m:'yh',s:DT(2026,11,16),e:DT(2026,11,27),prog:0,status:'todo'}]},
+
+  /* ===== 武器特效支援（金潇，非商业化角色特效模块） ===== */
+  {id:'WP_sup', name:'武器特效 支援', char:'武器（支援）', mod:'武器特效', grade:'', line:'-', kind:'fx', estimate:30, done:12, end:DT(2026,8,31),
+    segs:[{m:'jx',s:DT(2026,5,1),e:DT(2026,8,31),prog:0.4,status:'doing',support:true}]},
+
+  /*__MORE__*/
+
+  /* ===== 橙·白老板（S4.3，管线2 胡斯雨线，余洪震统筹） ===== */
+  {id:'BL_cc', name:'白老板 出场特效', char:'白老板', mod:'出场', grade:'橙', line:'L2', kind:'fx', estimate:30, done:0, end:DT(2026,9,4),
+    segs:[{m:'hsy',s:DT(2026,7,20),e:DT(2026,9,4),prog:0,status:'todo'}]},
+  {id:'BL_cs', name:'白老板 检视组队特效', char:'白老板', mod:'检视/组队', grade:'橙', line:'L2', kind:'fx', estimate:18, done:0, end:DT(2026,9,4),
+    segs:[{m:'zbw',s:DT(2026,7,20),e:DT(2026,9,4),prog:0,status:'todo'},{m:'ljj',s:DT(2026,7,20),e:DT(2026,9,4),prog:0,status:'todo'}]},
+  {id:'BL_lt', name:'白老板 联调', char:'白老板', mod:'联调', grade:'橙', line:'L2', kind:'lt', estimate:14, done:0, end:DT(2026,9,25),
+    segs:[{m:'hsy',s:DT(2026,9,7),e:DT(2026,9,25),prog:0,status:'todo'}]},
+  {id:'BL_qa', name:'白老板 全量测试', char:'白老板', mod:'全量测试', grade:'橙', line:'L2', kind:'qa', estimate:0, done:0, end:DT(2026,10,16),
+    segs:[{m:'hsy',s:DT(2026,9,28),e:DT(2026,10,16),prog:0,status:'todo'}]},
+
+  /* ===== 橙·荷光者（S5.1，管线1 露西亚线后续，薛旭阳带；李龙支援） ===== */
+  {id:'HG_cc', name:'荷光者 出场特效', char:'荷光者', mod:'出场', grade:'橙', line:'L1', kind:'fx', estimate:32, done:0, end:DT(2026,10,16),
+    segs:[{m:'xxy',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'ygh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'ll',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo',support:true},{m:'zjh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'}]},
+  {id:'HG_cs', name:'荷光者 检视组队特效', char:'荷光者', mod:'检视/组队', grade:'橙', line:'L1', kind:'fx', estimate:18, done:0, end:DT(2026,10,16),
+    segs:[{m:'cyh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'cc',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'}]},
+  {id:'HG_lt', name:'荷光者 整体效果联调', char:'荷光者', mod:'联调', grade:'橙', line:'L1', kind:'lt', estimate:18, done:0, end:DT(2026,11,20),
+    segs:[{m:'xxy',s:DT(2026,10,19),e:DT(2026,11,20),prog:0,status:'todo'},{m:'ygh',s:DT(2026,10,19),e:DT(2026,11,20),prog:0,status:'todo'}]},
+  {id:'HG_qa', name:'荷光者 全量测试', char:'荷光者', mod:'全量测试', grade:'橙', line:'L1', kind:'qa', estimate:0, done:0, end:DT(2026,12,11),
+    segs:[{m:'xxy',s:DT(2026,11,23),e:DT(2026,12,11),prog:0,status:'todo'}]},
+
+  /* ===== 橙·阿尔法（S6.1，管线2 远期，余洪震统筹） ===== */
+  {id:'AF_cc', name:'阿尔法 出场特效', char:'阿尔法', mod:'出场', grade:'橙', line:'L2', kind:'fx', estimate:32, done:0, end:DT(2027,1,15),
+    segs:[{m:'hsy',s:DT(2026,12,1),e:DT(2027,1,15),prog:0,status:'todo'}]},
+  {id:'AF_cs', name:'阿尔法 检视组队特效', char:'阿尔法', mod:'检视/组队', grade:'橙', line:'L2', kind:'fx', estimate:18, done:0, end:DT(2027,1,15),
+    segs:[{m:'zbw',s:DT(2026,12,1),e:DT(2027,1,15),prog:0,status:'todo'}]},
+  {id:'AF_lt', name:'阿尔法 联调', char:'阿尔法', mod:'联调', grade:'橙', line:'L2', kind:'lt', estimate:14, done:0, end:DT(2027,2,5),
+    segs:[{m:'hsy',s:DT(2027,1,18),e:DT(2027,2,5),prog:0,status:'todo'}]},
+  {id:'AF_qa', name:'阿尔法 全量测试', char:'阿尔法', mod:'全量测试', grade:'橙', line:'L2', kind:'qa', estimate:0, done:0, end:DT(2027,2,26),
+    segs:[{m:'hsy',s:DT(2027,2,8),e:DT(2027,2,26),prog:0,status:'todo'}]},
+
+  /* ===== 红·女指挥官 S5.1 各模块特效（余洪震带，全管线缺人最严重；按版本里程碑顺排） ===== */
+  {id:'NV_bt', name:'女指挥官 本体&3C特效', char:'女指挥官（S5.1）', mod:'本体/3C', grade:'红', line:'R', kind:'fx', estimate:45, done:0, end:DT(2026,9,30),
+    segs:[{m:'yhz',s:DT(2026,7,1),e:DT(2026,9,30),prog:0,status:'todo'}]},
+  {id:'NV_cc', name:'女指挥官 出场&MVP&入局Cuts特效', char:'女指挥官（S5.1）', mod:'出场/MVP/入局', grade:'红', line:'R', kind:'fx', estimate:50, done:0, end:DT(2026,10,30),
+    segs:[{m:'yhz',s:DT(2026,9,1),e:DT(2026,10,30),prog:0,status:'todo'}]},
+  {id:'NV_tp', name:'女指挥官 TPP&大厅&检视组队特效', char:'女指挥官（S5.1）', mod:'TPP/大厅/检视组队', grade:'红', line:'R', kind:'fx', estimate:40, done:0, end:DT(2026,11,30),
+    segs:[{m:'yhz',s:DT(2026,9,15),e:DT(2026,11,30),prog:0,status:'todo'}]},
+  {id:'NV_lt', name:'女指挥官 整体效果联调', char:'女指挥官（S5.1）', mod:'联调', grade:'红', line:'R', kind:'lt', estimate:20, done:0, end:DT(2026,12,25),
+    segs:[{m:'yhz',s:DT(2026,12,1),e:DT(2026,12,25),prog:0,status:'todo'}]},
+  {id:'NV_qa', name:'女指挥官 全量测试', char:'女指挥官（S5.1）', mod:'全量测试', grade:'红', line:'R', kind:'qa', estimate:0, done:0, end:DT(2027,1,15),
+    segs:[{m:'yhz',s:DT(2026,12,28),e:DT(2027,1,15),prog:0,status:'todo'}]},
+];
+
+/* ============ 人力分配数据（来源：当前人力分配脑图 / 企微表「当前人力分配」子表） ============ */
+/* 结论：目前基地总人数 14 人，未来常规管线共缺 11 人（金角4人 / 橙角1号5人 / 橙角2号5人 / 红角11人） */
+const HR_GRADE = {
+  '金': {label:'金', col:'#16a34a'},
+  '橙': {label:'橙', col:'#f59e0b'},
+  '红': {label:'红', col:'#ef3b39'},
+  '':  {label:'常规', col:'#9097a0'},
+};
+const HR_STATUS = {
+  '启动中':  {col:'#16a34a', bg:'#e3f7e8', tx:'#1a8a3c'},
+  '将要启动':{col:'#f59e0b', bg:'#fff1da', tx:'#b36b00'},
+  '缺人':    {col:'#ef3b39', bg:'#ffe5e4', tx:'#d32320'},
+  '':       {col:'#9097a0', bg:'#eef1f6', tx:'#646a73'},
+};
+// 模块 → [{role,grade,status,cfg,gap,makers:[],tmp:[],note}]
+const hrData = [
+  {mod:'出场', roles:[
+    {role:'金（七十）',   grade:'金', status:'启动中',   cfg:4, gap:0, makers:['于航','彭诗淇','刘振山','宗丞'], tmp:[], note:'余洪震带 · 4人'},
+    {role:'橙（露西亚·管线1）', grade:'橙', status:'启动中',   cfg:5, gap:3, makers:['杨光豪','张雍祺'], tmp:['邹佳豪','张长喆','梁骏源'], sup:['李龙','曾俊杰'], note:'薛旭阳带 · 在编2人+新人1；李龙/曾俊杰为支援橙角(隶属余洪震)；张长喆/梁骏源已离职，仍缺3人'},
+    {role:'橙（比安卡·管线2）', grade:'橙', status:'将要启动', cfg:1, gap:2, makers:['胡斯雨'], tmp:[], note:'余洪震统筹 · 目前仅胡斯雨1名基地，缺2人'},
+    {role:'红（女指挥官）', grade:'红', status:'将要启动', cfg:1, gap:1, makers:['余洪震'], tmp:[], note:'余洪震带 · 本体/3C/出场/MVP/入局/TPP/大厅特效全包，缺1人补强'},
+  ]},
+  {mod:'检视', roles:[
+    {role:'橙（露西亚）', grade:'橙', status:'启动中', cfg:2, gap:0, makers:['陈禹汗','陈琛'], tmp:[], note:'陈琛带'},
+    {role:'橙（比安卡）', grade:'橙', status:'启动中', cfg:1, gap:0, makers:['郑博文'], tmp:[], note:'陈琛带'},
+    {role:'红（女指挥官）', grade:'红', status:'将要启动',   cfg:1, gap:1, makers:['余洪震'], tmp:[], note:'余洪震带 · 缺1人'},
+  ]},
+  {mod:'组队', roles:[
+    {role:'橙（露西亚）', grade:'橙', status:'启动中', cfg:0, gap:0, makers:[], tmp:[], note:'陈琛带 · 临时自消化'},
+    {role:'橙（比安卡）', grade:'橙', status:'启动中', cfg:1, gap:0, makers:['娄佳俊'], tmp:[], note:'陈琛带'},
+    {role:'红（女指挥官）', grade:'红', status:'将要启动',   cfg:1, gap:1, makers:['余洪震'], tmp:[], note:'余洪震带 · 缺1人'},
+  ]},
+  {mod:'饰品', roles:[
+    {role:'常规饰品',     grade:'',  status:'', cfg:0, gap:0, makers:[], tmp:[], note:'陈琛带 · 常规饰品'},
+    {role:'红（女指挥官）', grade:'红', status:'', cfg:0, gap:0, makers:[], tmp:[], note:'陈琛带'},
+  ]},
+  {mod:'入局Cuts', roles:[
+    {role:'红（女指挥官）', grade:'红', status:'将要启动', cfg:1, gap:2, makers:['余洪震'], tmp:[], note:'余洪震带 · 缺2人'},
+  ]},
+  {mod:'TPP演绎（×3）', roles:[
+    {role:'红（女指挥官）', grade:'红', status:'将要启动', cfg:1, gap:2, makers:['余洪震'], tmp:[], note:'余洪震带 · 豪华版+普通版×2，缺2人'},
+  ]},
+  {mod:'武器特效（支援·非角色特效模块）', roles:[
+    {role:'—',          grade:'',  status:'启动中', cfg:1, gap:0, makers:['金潇'], tmp:[], note:'金潇暂时支援武器特效，不计入商业化角色特效需求'},
+  ]},
+  {mod:'3C相关', roles:[
+    {role:'红（女指挥官）', grade:'红', status:'将要启动', cfg:1, gap:1, makers:['余洪震'], tmp:[], note:'余洪震带 · 走跑跳/双形态/切近战/披风PLUS，缺1人'},
+  ]},
+  {mod:'出场/MVP', roles:[
+    {role:'红（女指挥官）', grade:'红', status:'将要启动', cfg:1, gap:1, makers:['余洪震'], tmp:[], note:'余洪震带 · 出场动画+MVP特效，缺1人'},
+  ]},
+];
+const HR_CONCLUSION = {base:14, totalGap:11, detail:'金角4人 / 橙角1号5人 / 橙角2号5人 / 红角11人'};
+
+/* 管线 → 出场环节人力缺口（来自人力分配脑图）。用于把"人不够"并入需求风险 */
+/* L1=露西亚线：常态3人+临时2人=5人，临时缺3人；L2=比安卡线：现1人，缺2人；R=红角女指挥官线缺人最严重 */
+const LINE_GAP = { 'L1':3, 'L2':2, 'J':0, 'R':8, '-':0 };
+const lineGap = line => LINE_GAP[line]||0;
+/* 管线显示名（用于标签/tooltip） */
+const LINE_NAME = { 'L1':'露西亚·管线1', 'L2':'比安卡·管线2', 'J':'七十·金角线', 'R':'女指挥官·红角线', '-':'通用' };
+const lineName = line => LINE_NAME[line]||line;
+
+/* 模块类型元数据：图标 + 主题色 + 短名，用于强化区分同角色不同模块的需求（出场/检视/组队/本体3C…）。
+   ic=emoji图标, c=强调色(用于标签底色与左竖条), s=短名 */
+const MOD_META = {
+  '出场':            {ic:'🎬', c:'#e8590c', s:'出场'},
+  '出场/MVP/入局':   {ic:'🎬', c:'#e8590c', s:'出场·MVP·入局'},
+  '检视':            {ic:'🔍', c:'#1098ad', s:'检视'},
+  '组队':            {ic:'👥', c:'#7048e8', s:'组队'},
+  '检视/组队':       {ic:'🔍', c:'#1098ad', s:'检视·组队'},
+  '本体/3C':         {ic:'🧍', c:'#2f9e44', s:'本体·3C'},
+  'TPP/大厅/检视组队':{ic:'🏛️', c:'#c2255c', s:'TPP·大厅·检视组队'},
+  '武器特效':         {ic:'🗡️', c:'#868e96', s:'武器特效'},
+  '联调':            {ic:'🔗', c:'#7c3aed', s:'联调'},
+  '全量测试':         {ic:'🐞', c:'#2b2f36', s:'全量测试'},
+};
+const modMeta = mod => MOD_META[mod] || {ic:'✦', c:'#646a73', s:mod||'其他'};
+
+/* ============ 计算工具 ============ */
+const dayMs=864e5;
+const idx = d => Math.round((d-START)/dayMs);
+const i2d = i => new Date(START.getTime()+i*dayMs);
+const isWE = i => {const d=new Date(START.getTime()+i*dayMs);const w=d.getDay();return w===0||w===6;};
+const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
+function workdays(a,b){let n=0;for(let t=a.getTime();t<b.getTime();t+=dayMs){const w=new Date(t).getDay();if(w!==0&&w!==6)n++;}return n;}
+const memName=id=>{const m=members.find(m=>m.id===id);return m?m.name:id;};
+const memById=id=>members.find(m=>m.id===id);
+/* 视角团队：基于"我是"meId，判断某成员与我的关系。
+   返回 'self'=我本人 | 'team'=与我同一带队团队(我带的人/带我的正编/同正编的同事) | '' 无关 */
+function focusRole(m){
+  const me=memById(meId); if(!me) return '';
+  if(m.id===meId) return 'self';
+  if(me.corp==='reg'){                 // 我是正编：我带的基地（lead==我名）属于我的团队
+    if(m.lead===me.name) return 'team';
+  }else{                               // 我是基地：我的带队正编 + 同带队的同事
+    if(m.corp==='reg'&&m.name===me.lead) return 'team';
+    if(m.lead && m.lead===me.lead) return 'team';
+  }
+  return '';
+}
+const memEff =id=>{const m=members.find(m=>m.id===id);return m?m.eff:1;};
+
+function aggStatus(r){
+  const ss=r.segs.map(s=>s.status||'doing');
+  if(ss.includes('blocked'))return 'blocked';
+  if(ss.length&&ss.every(s=>s==='done'))return 'done';
+  if(ss.includes('doing')||ss.includes('review'))return 'doing';
+  return 'todo';
+}
+
+function reqRisk(r){
+  const remain = r.estimate - r.done;
+  const left = Math.max(workdays(TODAY,r.end),0);
+  // 仍在投入、未完成的任务段
+  const activeSegs = r.segs.filter(s=>s.e>=TODAY && s.status!=='done');
+  // 去重到“人”，同一人多段不重复计数
+  const memIds = [...new Set(activeSegs.map(s=>s.m))];
+  // 产能：超载成员对“单个需求”的有效产能按 1/负载比 折损（负载含其全部并行任务）
+  const cap = left * memIds.reduce((sum,id)=>{
+    const load = memLoad(id).pct;
+    const of = load>100 ? 100/load : 1;   // 超载折损系数：170% → 0.59
+    return sum + memEff(id)*of;
+  },0);
+  const gap = remain - cap;
+  const ratio = remain>0 ? gap/remain : 0;
+  // 维度A：产能/时间紧迫（0低 1中 2高）
+  let capLvl = gap<=0 ? 0 : ratio<=0.2 ? 1 : 2;
+  // 维度B：管线人力结构缺口（来自人力分配脑图）。已开工且缺人=高(2)，未开工但缺人=中(1)
+  const gapPpl = lineGap(r.line);
+  const started = r.segs.some(s=>s.status==='doing'||s.status==='review');
+  let hrLvl = gapPpl<=0 ? 0 : (started ? 2 : 1);
+  // 综合：取两维度较高者
+  const score = Math.max(capLvl,hrLvl);
+  const overloaded = memIds.filter(id=>memLoad(id).pct>110).map(memName);
+  let lvl,cls,txt;
+  if(score>=2){lvl='高';cls='rk-high';txt='b-red';}
+  else if(score===1){lvl='中';cls='rk-mid';txt='b-amber';}
+  else{lvl='低';cls='rk-low';txt='b-green';}
+  // 风险主因，给 tooltip 用
+  const cause = hrLvl>=capLvl && hrLvl>0 ? (started?`本管线缺${gapPpl}人且已开工`:`本管线缺${gapPpl}人(后续压力)`)
+              : capLvl>0 ? '产能/工期偏紧' : '产能充足';
+  return {remain,left,ppl:memIds.length,pplNames:memIds.map(memName),cap:Math.round(cap*10)/10,gap:Math.round(gap*10)/10,lvl,cls,txt,overloaded,gapPpl,started,cause};
+}
+
+function memLoad(id){
+  const horizonEnd = new Date(TODAY.getTime()+30*dayMs);   // 未来30天负载窗口（长周期排期）
+  const avail = workdays(TODAY,horizonEnd);
+  let assigned=0;
+  reqs.forEach(r=>{
+    if(r.kind==='qa') return;   // 全量测试=bug修复阶段，不计入排期负载
+    r.segs.forEach(s=>{
+      if(s.m!==id) return;
+      if(s.status==='done') return;
+      const a=new Date(Math.max(s.s,TODAY)), b=new Date(Math.min(s.e,horizonEnd));
+      if(b>a) assigned+=workdays(a,b);
+    });
+  });
+  const pct=avail>0?assigned/avail:0;
+  let cls,col;
+  if(pct<=0.85){cls='宽松';col='var(--green)';}
+  else if(pct<=1.10){cls='饱和';col='var(--amber)';}
+  else{cls='超载';col='var(--red)';}
+  return {pct:Math.round(pct*100),cls,col,assigned:Math.round(assigned),avail};
+}
+
+function barCls(r,seg){
+  const k = r.kind==='lt'?' k-lt':r.kind==='qa'?' k-qa':'';
+  if(colorMode==='status'){
+    return (seg ? STATUS[seg.status||'doing'].cls : STATUS[aggStatus(r)].cls)+k;
+  }
+  return reqRisk(r).txt+k;
+}
+
+/* ============ 表头（按月+按周粒度，适配全跨度） ============ */
+function headerHTML(){
+  let months='',weeks='',vlines='';
+  // 月份分隔（上行）
+  let mi=0, monIdx=0;
+  while(mi<DAYS){
+    const d=new Date(START.getTime()+mi*dayMs);
+    const y=d.getFullYear(), m=d.getMonth();
+    // 本月在区间内的天数
+    const monthStart=new Date(y,m,1);
+    const nextMonth=new Date(y,m+1,1);
+    const segStartIdx=Math.max(mi,0);
+    const segEndIdx=Math.min(idx(nextMonth),DAYS);
+    const left=segStartIdx*DAY_W, width=(segEndIdx-segStartIdx)*DAY_W;
+    months+=`<div class="month-head${monIdx%2?' alt':''}" style="left:${left}px;width:${width}px">${y}年${m+1}月</div>`;
+    // 月初竖线（粗）
+    if(idx(monthStart)>=0&&idx(monthStart)<=DAYS) vlines+=`<div class="vline mono" style="left:${idx(monthStart)*DAY_W}px"></div>`;
+    mi=segEndIdx; monIdx++;
+  }
+  // 周刻度（下行）+ 周竖线
+  let wkIdx=0;
+  for(let i=0;i<DAYS;i++){
+    const d=new Date(START.getTime()+i*dayMs);
+    if(d.getDay()===1){ // 每周一
+      weeks+=`<div class="week-head${wkIdx%2?' alt':''}" style="left:${i*DAY_W}px;width:${7*DAY_W}px">${fmt(d)}</div>`;
+      vlines+=`<div class="vline" style="left:${i*DAY_W}px"></div>`;
+      wkIdx++;
+    }
+  }
+  const tx=idx(TODAY)*DAY_W;
+  return `<div class="row head">
+    <div class="cell-left">成员 / 角色　·　负载</div>
+    <div class="timeline" style="width:${DAYS*DAY_W}px">${months}${weeks}</div></div>`
+   + `__VLINES__${vlines}<div class="todayline" style="left:${tx}px"></div>`;
+}
+
+/* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
+const LANE_H=28, LANE_TOP=9, BAR_H=22;
+function assignLanes(items){               // items: [{s,e,...}]，s/e 为天索引
+  const arr=items.slice().sort((a,b)=>a.s-b.s||a.e-b.e);
+  const laneEnd=[];                        // 每条泳道当前占用到的结束索引
+  arr.forEach(it=>{
+    let placed=-1;
+    for(let i=0;i<laneEnd.length;i++){ if(it.s>=laneEnd[i]){placed=i;break;} }
+    if(placed<0){placed=laneEnd.length;laneEnd.push(0);}
+    it.lane=placed; laneEnd[placed]=it.e;
+  });
+  return {items:arr,lanes:Math.max(laneEnd.length,1)};
+}
+
+/* ============ 视图1：按人 ============ */
+function renderPerson(){
+  let rows='';
+  members.forEach(m=>{
+    const fr=focusRole(m);
+    if(focusMode==='only' && fr==='') return;   // 只看我和我的团队
+    const L=memLoad(m.id);
+    const MS=MSTATUS[m.status||'on'];
+    const G=m.grade?HR_GRADE[m.grade]:null;
+    const CP=CORP[m.corp]||CORP.base;
+    const isLeft=m.status==='left';
+    const isNew=m.status==='new';
+    // 收集此人所有任务段
+    const items=[];
+    reqs.forEach(r=>r.segs.forEach((s,si)=>{
+      if(s.m!==m.id)return;
+      const si0=idx(s.s),ei0=idx(s.e);
+      if(ei0-si0<=0)return;
+      items.push({r,sg:s,si,si0,ei0});
+    }));
+    // 分配泳道（用天索引判重叠）；s/e 仅作排序索引，seg 对象保存在 sg
+    const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
+    const laneCount=laid.lanes;
+    const rowH=Math.max(LANE_TOP*2+laneCount*BAR_H+(laneCount-1)*(LANE_H-BAR_H), 46);
+    let bars='';
+    laid.items.forEach(it=>{
+      const {r,sg,si}=it;
+      const x=it.si0*DAY_W, w=(it.ei0-it.si0)*DAY_W;
+      const top=LANE_TOP+it.lane*LANE_H;
+      const risk=reqRisk(r);
+      const st=STATUS[sg.status||'doing'];
+      const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
+      bars+=`<div class="bar-task ${barCls(r,sg)}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${top}px;border-left-color:${modMeta(r.mod).c}"
+        onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
+        <i class="sdot"></i>${r.kind==='qa'?'':`<span>${modMeta(r.mod).ic} ${r.name}</span>`}
+        <div class="prog" style="width:${Math.round(sg.prog*100)}%"></div>
+        <i class="grip gl"></i><i class="grip gr"></i></div>`;
+    });
+    const focusCls = focusMode==='hl' ? (fr==='self'?' me-self':fr==='team'?' me-team':' dim') : (fr==='self'?' me-self':fr==='team'?' me-team':'');
+    rows+=`<div class="row${isLeft?' is-left':''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
+      <div class="cell-left">
+        <div class="emp-badge ${m.corp}" title="${m.corp==='reg'?'正编（带队）':'基地'}">
+          <span class="el">${m.corp==='reg'?'正编':'基地'}</span>
+          <i class="ed mstat" data-mem="${m.id}" style="background:${MS.col}" title="${MS.label}（点击切换在岗/忙碌/请假）"></i>
+          ${L.pct>110?'<i class="olflag" title="超载">!</i>':''}
+        </div>
+        <div class="who">
+          <div class="nm">${G?`<span class="gdot-grade" style="background:${G.col}" title="${G.label}级"></span>`:''}${m.name}${m.tmp?'<span class="tmp-tag">临</span>':''}${isLeft?'<span class="hr-flag left">已离职</span>':''}${isNew?'<span class="hr-flag new">新人</span>':''}${m.support?'<span class="hr-flag sup">支援</span>':''}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}</div>
+          <div class="tags">
+            ${(m.line&&m.line!=='-')?`<span class="ptag" style="border-color:${(G?G.col:'#c9ced6')};color:${(G?G.col:'#646a73')}">${G?G.label+'·':''}${lineName(m.line)}</span>`:''}
+            ${m.mod?`<span class="mtag2">${m.mod}</span>`:''}
+            ${m.corp==='reg'?`<span class="ltag lead" title="带队负责">👑 带 ${m.lead}</span>`:(m.lead&&m.lead!=='—'&&m.lead!=='-'?`<span class="ltag belong" title="所属正编">隶属 ${m.lead}</span>`:'')}
+            <span class="ltag eff" title="效率系数">效率${m.eff}</span>
+          </div>
+        </div>
+        <div class="load"><div class="pct" style="color:${L.col}">${L.pct}% ${L.cls}</div>
+          <div class="bar-l${L.pct>110?' over':''}"><i style="width:${Math.min(L.pct,100)}%;background:${L.col}"></i></div></div>
+      </div>
+      <div class="timeline" style="width:${DAYS*DAY_W}px">${bars}</div>
+    </div>`;
+  });
+  paint(rows);
+}
+
+/* ============ 视图2：按需求 ============ */
+function renderReq(){
+  let rows='';
+  reqs.forEach(r=>{
+    const risk=reqRisk(r);
+    const allS=Math.min(...r.segs.map(s=>idx(s.s)));
+    const allE=Math.max(...r.segs.map(s=>idx(s.e)));
+    const x=allS*DAY_W,w=(allE-allS)*DAY_W;
+    const prog=r.estimate>0?Math.round(r.done/r.estimate*100):0;
+    const ag=STATUS[aggStatus(r)];
+    const g=HR_GRADE[r.grade]||HR_GRADE[''];
+    // 参与本需求的人（去重），带编制信息
+    const memObjs=risk.pplNames.map(n=>members.find(m=>m.name===n)).filter(Boolean);
+    const regs=memObjs.filter(m=>m.corp==='reg');
+    const bases=memObjs.filter(m=>m.corp!=='reg');
+    const olTip = risk.overloaded.length?`<br><span class='g' style='color:#ff8f8f'>⚠ 超载占用</span> ${risk.overloaded.join('、')}（产能已折损）`:'';
+    const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 管线缺人</span> ${lineName(r.line)}缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
+    const teamTip = `<br><span class='g'>团队</span> 正编${regs.length}人${regs.length?'（'+regs.map(m=>m.name).join('、')+'）':''} · 基地${bases.length}人${bases.length?'（'+bases.map(m=>m.name).join('、')+'）':''}`;
+    const tip=`<b>${r.name}</b><br><span class='g'>角色</span> ${r.char||'-'} · <span style='color:${g.col}'>${g.label}级</span> · ${r.mod||''}<br><span class='g'>状态</span> ${ag.label}　<span class='g'>工作量</span> ${r.estimate}人天 · 已完成${r.done}<br><span class='g'>窗口</span> ${fmt(i2d(allS))} → ${fmt(i2d(allE))} · 剩余${risk.left}工作日${teamTip}<br><span class='g'>风险主因</span> ${risk.cause} → <b>${risk.lvl}风险</b>${gapTip}${olTip}<br><span class='g' style='color:#7da0ff'>单击改整条状态</span>`;
+    // 人员标签：统一家族 —— 底色=编制(正编紫/基地灰)，左圆点=隶属带队配色，跨队=橙虚线框+支角标，新/临/离=小角标
+    const reqLead = reqLeadOf(r);
+    const chip=m=>{
+      const seg=(r.segs||[]).find(s=>s.m===m.id);
+      const myLead=leadOf(m);
+      const crossTeam = !!(reqLead && myLead && myLead!==reqLead);
+      const isSup = !!((seg&&seg.support) || m.support || crossTeam);
+      const corpCls = m.corp==='reg'?'reg':'base';
+      const stCls = m.status==='left'?' is-left':'';
+      const supCls = isSup?' is-sup':'';
+      const crown = m.corp==='reg'?'<i class="crown">👑</i>':'';
+      const dot = myLead?`<i class="team-dot" style="background:${leadColor(myLead)}" title="隶属 ${myLead} 带队"></i>`:'';
+      let marks='';
+      if(isSup) marks+='<i class="mk mk-sup" title="跨队支援">支</i>';
+      if(m.status==='new') marks+='<i class="mk mk-new" title="新人">新</i>';
+      else if(m.tmp) marks+='<i class="mk mk-tmp" title="临时">临</i>';
+      const ttl=`${m.corp==='reg'?'正编·带队':'基地'}${myLead?' · 隶属'+myLead:''}${isSup?' · 跨队支援'+(reqLead?'('+reqLead+'线)':''):''}${m.status==='left'?' · 已离职':m.status==='new'?' · 新人':''}　[拖拽可改派到其他需求]`;
+      return `<span class="who-chip ${corpCls}${supCls}${stCls}" title="${ttl}" data-chip-mem="${m.id}" data-chip-req="${r.id}">${crown}${dot}<span class="nm-txt">${m.name}</span>${marks}</span>`;
+    };
+    const chips = memObjs.length
+      ? memObjs.map(chip).join('')
+      : `<span class="who-chip none">未排人</span>`;
+    const teamCount = `<span class="team-cnt"><b style="color:#7c3aed">正编${regs.length}</b> · <b style="color:#5a626e">基地${bases.length}</b></span>`;
+    const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="该管线人力缺口，已计入风险">缺${risk.gapPpl}人</span>`:'';
+    const MM = modMeta(r.mod);
+    const modTag = `<span class="mod-tag" style="background:${MM.c}1f;color:${MM.c};border-color:${MM.c}66"><i>${MM.ic}</i>${MM.s}</span>`;
+    rows+=`<div class="row req-row" data-req-row="${r.id}">
+      <div class="cell-left" style="box-shadow:inset 4px 0 0 ${MM.c}">
+        <span class="gdot-grade" style="background:${g.col}" title="${g.label}级"></span>
+        <div class="req" style="flex:1;min-width:0">
+          <div class="nm"><span class="char-nm">${r.char||r.name}</span>${modTag}${r.kind==='lt'?'<span class="kmk lt">联调</span>':r.kind==='qa'?'<span class="kmk qa">🐞全量测试</span>':''}</div>
+          <div class="who-chips">${chips}</div>
+          <div class="meta">${r.kind==='qa'?`<span style="color:#868e96">测试/修复里程碑 · 截止${fmt(i2d(allE))}</span>`:`${r.estimate}人天 · 完成${prog}% · 剩${risk.left}工作日 · ${teamCount}`}</div>
+        </div>
+        ${gapBadge}
+        <span class="badge ${risk.cls}">${risk.lvl}风险</span>
+      </div>
+      <div class="timeline" style="width:${DAYS*DAY_W}px">
+        <div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${x}px;width:${w}px;border-left-color:${MM.c}"
+          onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
+          <div class="prog" style="width:${prog}%"></div>
+          <i class="sdot"></i>
+          ${r.kind==='qa'?'':`<div class="bl-top"><span class="bl-mic" style="background:${MM.c}">${MM.ic}</span>${r.char||r.name}<span class="bl-mod" style="color:#fff;background:${MM.c}cc">${MM.s}</span></div>
+          <div class="bl-sub">正编${regs.length}/基地${bases.length} · ${memObjs.map(m=>m.name).join('、')||'未排'}</div>`}
+          <i class="grip gl"></i><i class="grip gr"></i></div>
+      </div>
+    </div>`;
+  });
+  paint(rows);
+}
+
+function paint(rows){
+  const h=headerHTML();
+  const [head,vlines]=h.split('__VLINES__');
+  document.getElementById('grid').innerHTML =
+    head + `<div style="position:absolute;left:var(--left-w);top:54px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
+    + `<div class="drop-band" id="dropBand"></div><div class="drop-guide" id="dropG0"></div><div class="drop-guide gend" id="dropG1"></div>`
+    + rows;
+  updateKPIs();
+  if(typeof reapplySelection==='function') reapplySelection();
+}
+
+/* ============ 视图3：人力分配（按模块） ============ */
+function renderHR(){
+  // 汇总（在岗去重排除离职）
+  let totalMakers=new Set(), totalCfg=0, totalGap=0, gradeCnt={金:0,橙:0,红:0};
+  const isLeftName=(n)=>{const b=String(n).replace(/[·\(].*$/,'');const m=members.find(x=>x.name===b);return m&&m.status==='left';};
+  hrData.forEach(m=>m.roles.forEach(r=>{
+    r.makers.forEach(n=>{if(!isLeftName(n))totalMakers.add(n);});
+    r.tmp.forEach(n=>{if(!isLeftName(n))totalMakers.add(String(n).replace(/[·\(].*$/,''));});
+    totalCfg+=r.cfg; totalGap+=r.gap;
+    if(r.grade && gradeCnt[r.grade]!==undefined) gradeCnt[r.grade]+=(r.cfg+r.gap);
+  }));
+  let html=`<div class="hr-wrap">`;
+  // 顶部汇总卡
+  html+=`<div class="hr-summary">
+    <div class="hr-sc total"><div class="lab">基地总人数</div><div class="val">${HR_CONCLUSION.base}</div></div>
+    <div class="hr-sc"><div class="lab">在岗制作人(去重)</div><div class="val">${totalMakers.size}</div></div>
+    <div class="hr-sc"><div class="lab">已配置岗位</div><div class="val">${totalCfg}</div></div>
+    <div class="hr-sc gap"><div class="lab">未来常规管线共缺</div><div class="val">${HR_CONCLUSION.totalGap}</div></div>
+    <div class="hr-sc"><div class="lab">模块数</div><div class="val">${hrData.length}</div></div>
+  </div>`;
+  // 缺口结论条
+  html+=`<div class="hr-grade-bar">
+    <div class="gi"><span class="gdot" style="background:#16a34a"></span>金角 <b>缺4人</b></div>
+    <div class="gi"><span class="gdot" style="background:#f59e0b"></span>橙角1号 <b>缺5人</b></div>
+    <div class="gi"><span class="gdot" style="background:#f59e0b"></span>橙角2号 <b>缺5人</b></div>
+    <div class="gi"><span class="gdot" style="background:#ef3b39"></span>红角 <b style="color:#d32320">缺11人</b></div>
+    <div class="gi" style="margin-left:auto;color:#646a73">📌 ${HR_CONCLUSION.detail}</div>
+  </div>`;
+  // 编制/状态图例
+  html+=`<div class="hr-legend">
+    <span class="lg-t">编制与带队：</span>
+    <span class="lg"><i class="corp-tag" style="background:#f3e8ff;color:#7c3aed">正编</i> 余洪震(红角+金角) · 薛旭阳(露西亚 管线1) · 陈琛(检视/组队/饰品)</span>
+    <span class="lg"><i class="corp-tag" style="background:#eef1f6;color:#646a73">基地</i> 由正编带领搭配</span>
+    <span class="lg-div">|</span>
+    <span class="lg-t">状态：</span>
+    <span class="lg"><i class="hr-flag new" style="margin:0">新人</i> 蓝色(新进)</span>
+    <span class="lg"><i class="hr-flag left" style="margin:0">已离职</i> 灰色</span>
+    <span class="lg"><i class="hr-flag sup" style="margin:0">支援</i> 金潇·武器特效(非角色特效模块)</span>
+  </div>`;
+  // 各模块
+  hrData.forEach(m=>{
+    const modGap=m.roles.reduce((a,r)=>a+r.gap,0);
+    html+=`<div class="hr-mod">
+      <div class="hr-mod-head"><span>${m.mod}</span><span class="mtag">${m.roles.length} 个角色线</span>
+        <span class="mgap" style="color:${modGap>0?'#d32320':'#1a8a3c'}">${modGap>0?'缺 '+modGap+' 人':'无缺口'}</span></div>`;
+    m.roles.forEach(r=>{
+      const g=HR_GRADE[r.grade]||HR_GRADE[''];
+      const st=HR_STATUS[r.status]||HR_STATUS[''];
+      let makersHTML='';
+      const mkTag=(n)=>{
+        const mem=members.find(x=>x.name===n);
+        const stt=mem?mem.status:'on';
+        if(stt==='left') return `<span class="mk left" title="已离职">${n}·离职</span>`;
+        if(stt==='new')  return `<span class="mk new" title="新人">${n}·新人</span>`;
+        return `<span class="mk">${n}</span>`;
+      };
+      r.makers.forEach(n=>makersHTML+=mkTag(n));
+      (r.sup||[]).forEach(n=>{
+        makersHTML+=`<span class="mk sup" title="支援(非本管线编制)">${n}·支援</span>`;
+      });
+      r.tmp.forEach(n=>{
+        const base=n.replace(/\(.*\)/,'');
+        const mem=members.find(x=>x.name===base);
+        const stt=mem?mem.status:'';
+        const cls=stt==='left'?'mk left':stt==='new'?'mk new':'mk tmp';
+        const suf=stt==='left'?'·离职':stt==='new'?'·新人':'(临)';
+        makersHTML+=`<span class="${cls}" title="${stt==='left'?'已离职':stt==='new'?'新人':'临时'}">${base}${suf}</span>`;
+      });
+      if(!r.makers.length && !r.tmp.length) makersHTML=`<span class="empty">暂无人员</span>`;
+      const cntHTML = r.gap>0
+        ? `<span class="cfg">配置${r.cfg}人</span><span class="gapb">缺${r.gap}</span>`
+        : (r.cfg>0?`<span class="cfg">配置${r.cfg}人</span><span class="okb">齐</span>`:`<span class="cfg">—</span>`);
+      html+=`<div class="hr-role">
+        <span class="gdot" style="background:${g.col}"></span>
+        <span class="rname">${r.role}</span>
+        ${r.status?`<span class="hr-stat" style="background:${st.bg};color:${st.tx}">${r.status}</span>`:''}
+        <span class="hr-cnt">${cntHTML}</span>
+        <span class="hr-makers">${makersHTML}</span>
+        ${r.note?`<span class="hr-note">${r.note}</span>`:''}
+      </div>`;
+    });
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  document.getElementById('grid').innerHTML=html;
+}
+
+function updateKPIs(){
+  document.getElementById('kp-mem').textContent=members.length;
+  const active=reqs.filter(r=>r.end>=TODAY && r.done<r.estimate && aggStatus(r)!=='done').length;
+  document.getElementById('kp-active').textContent=active;
+  // 高峰负载：取所有成员负载率的最大值（更能反映撞车）
+  const loads=members.map(m=>memLoad(m.id).pct);
+  const peak=Math.max(...loads,0);
+  const le=document.getElementById('kp-load');le.textContent=peak+'%';
+  le.className='val '+(peak<=85?'s':peak<=110?'w':'d');
+  const high=reqs.filter(r=>reqRisk(r).lvl==='高').length;
+  document.getElementById('kp-high').textContent=high;
+  // 常规管线缺口：来自人力分配结论
+  document.getElementById('kp-done').textContent=HR_CONCLUSION.totalGap+'人';
+}
+
+/* ============ tooltip ============ */
+const tip=document.getElementById('tip');
+function showTip(e,html){if(drag)return;tip.innerHTML=html;tip.style.opacity=1;let x=e.clientX+14,y=e.clientY+14;if(x>innerWidth-280)x=e.clientX-274;tip.style.left=x+'px';tip.style.top=y+'px';}
+function hideTip(){tip.style.opacity=0;}
+
+/* ============ 拖拽编辑（改期 + 跨人改派 + 单击改状态） ============ */
+const grid=document.getElementById('grid');
+const dlabel=document.getElementById('dlabel');
+let drag=null;
+
+grid.addEventListener('pointerdown',e=>{
+  const bar=e.target.closest('.bar-task'); if(!bar)return;
+  setSelected(bar);
+  const mode=e.target.classList.contains('gl')?'l':e.target.classList.contains('gr')?'r':'m';
+  drag={bar,mode,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,
+        origLeft:parseFloat(bar.style.left),origW:parseFloat(bar.style.width),
+        delta:0,movedPx:0,targetMember:null,
+        srcMember:bar.dataset.seg!==undefined?reqs.find(r=>r.id===bar.dataset.req).segs[+bar.dataset.seg].m:null};
+  bar.classList.add('dragging');hideTip();hideMenu();
+  e.preventDefault();
+});
+window.addEventListener('pointermove',e=>{
+  if(!drag)return;
+  drag.lastX=e.clientX;drag.lastY=e.clientY;
+  drag.movedPx=Math.abs(e.clientX-drag.startX)+Math.abs(e.clientY-drag.startY);
+  const d=Math.round((e.clientX-drag.startX)/DAY_W);
+  drag.delta=d;
+  const {bar,mode,origLeft,origW}=drag;
+  if(mode==='m'){bar.style.left=(origLeft+d*DAY_W)+'px';}
+  else if(mode==='l'){let nl=origLeft+d*DAY_W,nw=origW-d*DAY_W;if(nw<DAY_W){nw=DAY_W;nl=origLeft+origW-DAY_W;}bar.style.left=nl+'px';bar.style.width=nw+'px';}
+  else if(mode==='r'){let nw=origW+d*DAY_W;if(nw<DAY_W)nw=DAY_W;bar.style.width=nw+'px';}
+
+  document.querySelectorAll('.row-target').forEach(r=>r.classList.remove('row-target'));
+  drag.targetMember=null;
+  if(view==='person' && mode==='m' && drag.srcMember){
+    const tm=rowMemberAt(e.clientX,e.clientY);
+    if(tm && tm!==drag.srcMember){
+      const row=document.querySelector(`.row[data-mem="${tm}"]`);
+      if(row){row.classList.add('row-target');drag.targetMember=tm;}
+    }
+  }
+  showDragLabel(e);
+});
+window.addEventListener('pointerup',()=>{
+  if(!drag)return;
+  const {bar,delta,mode,movedPx,targetMember}=drag;
+  bar.classList.remove('dragging');
+  document.querySelectorAll('.row-target').forEach(r=>r.classList.remove('row-target'));
+  hideDragLabel();
+  const d=drag;drag=null;
+  if(movedPx<5 && mode==='m'){ openStatusMenu(bar,d.lastX,d.lastY); return; }
+  if(delta!==0 || targetMember){
+    pushHistory();
+    applyEdit(bar,delta,mode);
+    if(targetMember && bar.dataset.seg!==undefined){
+      const r=reqs.find(x=>x.id===bar.dataset.req);
+      if(r&&r.segs[+bar.dataset.seg]){
+        r.segs[+bar.dataset.seg].m=targetMember;
+        toast(`已改派给 ${memName(targetMember)}`);
+      }
+    }
+    save();broadcast();rerender();
+  }else{ rerender(); }
+});
+
+function rowMemberAt(x,y){
+  const el=document.elementFromPoint(x,y);
+  if(!el)return null;
+  const row=el.closest('.row[data-mem]');
+  return row?row.dataset.mem:null;
+}
+
+function showDragLabel(e){
+  const {bar,targetMember}=drag;
+  const l=parseFloat(bar.style.left),w=parseFloat(bar.style.width);
+  const si=Math.round(l/DAY_W),ei=Math.round((l+w)/DAY_W);
+  let txt=fmt(i2d(si))+' → '+fmt(i2d(ei))+'（'+workdays(i2d(si),i2d(ei))+'工作日）';
+  if(targetMember) txt='改派 → '+memName(targetMember)+'　'+txt;
+  dlabel.textContent=txt;
+  dlabel.style.opacity=1;
+  dlabel.style.left=(e.clientX+14)+'px';
+  dlabel.style.top=(e.clientY-32)+'px';
+  // 落点参考线/带：在 grid 坐标系中，timeline 左侧偏移 left-w
+  const lw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-w'))||340;
+  const g0=document.getElementById('dropG0'),g1=document.getElementById('dropG1'),band=document.getElementById('dropBand');
+  if(g0&&g1&&band){
+    const x0=lw+si*DAY_W, x1=lw+ei*DAY_W;
+    g0.style.left=x0+'px'; g0.classList.add('show');
+    g1.style.left=x1+'px'; g1.classList.add('show');
+    band.style.left=x0+'px'; band.style.width=(x1-x0)+'px'; band.classList.add('show');
+  }
+}
+function hideDragLabel(){
+  dlabel.style.opacity=0;
+  ['dropG0','dropG1','dropBand'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('show');});
+}
+
+function applyEdit(bar,delta,mode){
+  const r=reqs.find(x=>x.id===bar.dataset.req); if(!r)return;
+  if(delta===0)return;
+  if(bar.dataset.seg!==undefined && bar.dataset.seg!==''){
+    const seg=r.segs[+bar.dataset.seg];
+    let s=idx(seg.s),e=idx(seg.e);
+    if(mode==='m'){s+=delta;e+=delta;}
+    else if(mode==='l'){s=Math.min(s+delta,e-1);}
+    else if(mode==='r'){e=Math.max(e+delta,s+1);}
+    if(s<0){if(mode==='m')e-=s;s=0;}
+    if(e>DAYS){if(mode==='m')s-=(e-DAYS);e=DAYS;}
+    s=Math.max(0,s);e=Math.min(DAYS,e);
+    seg.s=i2d(s);seg.e=i2d(e);
+  }else{
+    if(mode==='m'){
+      let minS=Math.min(...r.segs.map(x=>idx(x.s)));
+      let maxE=Math.max(...r.segs.map(x=>idx(x.e)));
+      let d=delta;
+      if(minS+d<0)d=-minS;
+      if(maxE+d>DAYS)d=DAYS-maxE;
+      r.segs.forEach(x=>{x.s=i2d(idx(x.s)+d);x.e=i2d(idx(x.e)+d);});
+    }else if(mode==='r'){
+      const seg=r.segs.reduce((a,b)=>idx(b.e)>idx(a.e)?b:a);
+      const e=Math.min(Math.max(idx(seg.e)+delta,idx(seg.s)+1),DAYS);seg.e=i2d(e);
+    }else if(mode==='l'){
+      const seg=r.segs.reduce((a,b)=>idx(b.s)<idx(a.s)?b:a);
+      const s=Math.max(Math.min(idx(seg.s)+delta,idx(seg.e)-1),0);seg.s=i2d(s);
+    }
+  }
+  r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e))));
+}
+
+/* ============ 状态菜单（单击任务条） ============ */
+const menu=document.getElementById('menu');
+let menuCtx=null;
+function openStatusMenu(bar,x,y){
+  const r=reqs.find(z=>z.id===bar.dataset.req); if(!r)return;
+  const isSeg=bar.dataset.seg!==undefined && bar.dataset.seg!=='';
+  const cur=isSeg?(r.segs[+bar.dataset.seg].status||'doing'):aggStatus(r);
+  menuCtx={reqId:r.id,seg:isSeg?+bar.dataset.seg:null,bar};
+  let items=`<div class="mtitle">${isSeg?memName(r.segs[+bar.dataset.seg].m)+' · ':''}${r.name} — 改状态</div>`;
+  STATUS_ORDER.forEach(k=>{
+    const s=STATUS[k];
+    items+=`<div class="mi ${k===cur?'cur':''}" onclick="pickStatus('${k}')"><i style="background:${s.col}"></i>${s.label}</div>`;
+  });
+  menu.innerHTML=items;
+  menu.classList.add('show');
+  let mx=x, my=y; if(mx>innerWidth-170)mx=innerWidth-170; if(my>innerHeight-220)my=innerHeight-220;
+  menu.style.left=mx+'px';menu.style.top=my+'px';
+}
+function hideMenu(){menu.classList.remove('show');menuCtx=null;}
+function pickStatus(k){
+  if(!menuCtx)return;
+  const r=reqs.find(z=>z.id===menuCtx.reqId); if(!r){hideMenu();return;}
+  pushHistory();
+  if(menuCtx.seg!==null){
+    r.segs[menuCtx.seg].status=k;
+    if(k==='done')r.segs[menuCtx.seg].prog=1;
+  }else{
+    r.segs.forEach(s=>{s.status=k;if(k==='done')s.prog=1;});
+  }
+  hideMenu();save();broadcast();
+  const reqId=r.id;
+  rerender();
+  flashReq(reqId);
+  toast('状态已更新：'+STATUS[k].label);
+}
+document.addEventListener('pointerdown',e=>{ if(menu.classList.contains('show') && !e.target.closest('#menu') && !e.target.closest('.bar-task')) hideMenu(); });
+
+/* ============ 成员状态切换（点左侧） ============ */
+grid.addEventListener('click',e=>{
+  const ms=e.target.closest('.mstat'); if(!ms)return;
+  const m=members.find(x=>x.id===ms.dataset.mem); if(!m)return;
+  pushHistory();
+  const i=MSTATUS_ORDER.indexOf(m.status||'on');
+  m.status=MSTATUS_ORDER[(i+1)%MSTATUS_ORDER.length];
+  save();broadcast();rerender();
+  toast(m.name+'：'+MSTATUS[m.status].label);
+});
+
+function flashReq(reqId){
+  document.querySelectorAll(`.bar-task[data-req="${reqId}"]`).forEach(b=>{
+    b.classList.remove('flash');void b.offsetWidth;b.classList.add('flash');
+  });
+}
+function flashReqRow(reqId){
+  const row=document.querySelector(`.req-row[data-req-row="${reqId}"]`);
+  if(row){row.style.transition='background .2s';row.style.background='#fff7e6';setTimeout(()=>row.style.background='',650);}
+}
+
+/* ============ 任务条选中（复制/剪切/粘贴的目标） ============ */
+let selectedBar=null;          // {reqId, seg|null}
+function setSelected(bar){
+  document.querySelectorAll('.bar-task.sel').forEach(b=>b.classList.remove('sel'));
+  if(!bar){selectedBar=null;return;}
+  bar.classList.add('sel');
+  const seg=(bar.dataset.seg!==undefined && bar.dataset.seg!=='')?+bar.dataset.seg:null;
+  selectedBar={reqId:bar.dataset.req, seg};
+}
+function reapplySelection(){
+  if(!selectedBar)return;
+  const sel = selectedBar.seg!==null
+    ? `.bar-task[data-req="${selectedBar.reqId}"][data-seg="${selectedBar.seg}"]`
+    : `.bar-task.req-bar[data-req="${selectedBar.reqId}"]`;
+  const b=document.querySelector(sel); if(b)b.classList.add('sel');
+  if(clip&&clip.mode==='cut')markCut();
+}
+
+/* ============ 复制 / 剪切 / 粘贴 ============ */
+let clip=null;                 // {mode:'copy'|'cut', reqId, seg|null, payload}
+function segPayload(r,si){
+  const s=r.segs[si];
+  return {m:s.m, s:idx(s.s), e:idx(s.e), prog:s.prog, status:s.status, support:!!s.support, span:idx(s.e)-idx(s.s)};
+}
+function doCopy(cut){
+  if(!selectedBar){toast('请先点选一个任务条');return;}
+  const r=reqs.find(x=>x.id===selectedBar.reqId); if(!r)return;
+  if(selectedBar.seg===null){toast('请选中某个人的任务段（按人看里更精确）');return;}
+  clip={mode:cut?'cut':'copy', reqId:r.id, seg:selectedBar.seg, payload:segPayload(r,selectedBar.seg)};
+  if(cut)markCut(); else clearCutMark();
+  showClip();
+  toast(cut?'已剪切：'+memName(clip.payload.m)+' 的任务段':'已复制：'+memName(clip.payload.m)+' 的任务段');
+}
+function markCut(){
+  clearCutMark();
+  if(!clip||clip.mode!=='cut')return;
+  const b=document.querySelector(`.bar-task[data-req="${clip.reqId}"][data-seg="${clip.seg}"]`);
+  if(b)b.classList.add('cut-mark');
+}
+function clearCutMark(){document.querySelectorAll('.bar-task.cut-mark').forEach(b=>b.classList.remove('cut-mark'));}
+function doPaste(){
+  if(!clip){toast('剪贴板为空');return;}
+  if(!selectedBar){toast('请先点选要粘贴到的目标需求条');return;}
+  const dst=reqs.find(x=>x.id===selectedBar.reqId); if(!dst)return;
+  const src=reqs.find(x=>x.id===clip.reqId);
+  pushHistory();
+  const p=clip.payload;
+  // 落点：保持原工期长度，对齐到目标需求的起始日
+  const dstStart=Math.min(...dst.segs.map(s=>idx(s.s)));
+  let ns=dstStart, ne=Math.min(dstStart+p.span, DAYS);
+  const newSeg={m:p.m, s:i2d(ns), e:i2d(ne), prog:p.prog, status:p.status};
+  // 跨队支援判定：粘到的需求带队归属 ≠ 此人隶属 → 标记支援
+  const mem=memById(p.m), rl=reqLeadOf(dst), ml=leadOf(mem);
+  if(p.support || (rl&&ml&&ml!==rl)) newSeg.support=true;
+  dst.segs.push(newSeg);
+  dst.end=i2d(Math.max(...dst.segs.map(x=>idx(x.e))));
+  if(clip.mode==='cut' && src){
+    src.segs.splice(clip.seg,1);
+    if(src.segs.length) src.end=i2d(Math.max(...src.segs.map(x=>idx(x.e))));
+    clip=null; clearCutMark(); hideClip();
+  }
+  save();broadcast();rerender();
+  flashReqRow(dst.id);
+  toast(`已粘贴 ${memName(p.m)} → ${dst.name}`);
+}
+function showClip(){
+  let el=document.getElementById('clipchip');
+  if(!el){el=document.createElement('div');el.id='clipchip';document.body.appendChild(el);}
+  const p=clip.payload, srcR=reqs.find(x=>x.id===clip.reqId);
+  el.innerHTML=`<span class="ck ${clip.mode==='cut'?'cut':''}">${clip.mode==='cut'?'剪切':'复制'}</span>
+    <span>${memName(p.m)} · ${srcR?srcR.name:''}（${workdays(i2d(p.s),i2d(p.e))}工作日）</span>
+    <button onclick="doPaste()">粘贴到选中需求 (Ctrl+V)</button>
+    <button onclick="clearClip()">清空</button>`;
+  el.classList.add('show');
+}
+function hideClip(){const el=document.getElementById('clipchip');if(el)el.classList.remove('show');}
+function clearClip(){clip=null;clearCutMark();hideClip();toast('剪贴板已清空');}
+
+/* ============ 人名标签拖拽改派（按需求视图） ============ */
+let chipDrag=null;
+grid.addEventListener('pointerdown',e=>{
+  const chip=e.target.closest('.who-chip[data-chip-mem]'); if(!chip)return;
+  e.preventDefault(); e.stopPropagation();
+  chipDrag={memId:chip.dataset.chipMem, srcReq:chip.dataset.chipReq, el:chip,
+            startX:e.clientX,startY:e.clientY,moved:false,targetReq:null,ghost:null};
+  chip.setPointerCapture&&chip.setPointerCapture(e.pointerId);
+});
+window.addEventListener('pointermove',e=>{
+  if(!chipDrag)return;
+  const dx=e.clientX-chipDrag.startX, dy=e.clientY-chipDrag.startY;
+  if(!chipDrag.moved && Math.abs(dx)+Math.abs(dy)<5)return;
+  if(!chipDrag.moved){
+    chipDrag.moved=true; chipDrag.el.classList.add('dragging');
+    const g=document.createElement('div'); g.id='chipGhost';
+    g.style.cssText='position:fixed;z-index:9999;pointer-events:none;font-size:11px;font-weight:600;background:#fff;border:1.5px solid #f08c00;border-radius:6px;padding:2px 9px;box-shadow:0 6px 18px rgba(0,0,0,.25);color:#5b21b6;';
+    g.textContent=memName(chipDrag.memId);
+    document.body.appendChild(g); chipDrag.ghost=g;
+  }
+  chipDrag.ghost.style.left=(e.clientX+12)+'px';
+  chipDrag.ghost.style.top=(e.clientY+12)+'px';
+  document.querySelectorAll('.req-row.chip-target').forEach(r=>r.classList.remove('chip-target'));
+  chipDrag.targetReq=null;
+  const el=document.elementFromPoint(e.clientX,e.clientY);
+  const row=el&&el.closest('.req-row[data-req-row]');
+  if(row && row.dataset.reqRow!==chipDrag.srcReq){
+    row.classList.add('chip-target'); chipDrag.targetReq=row.dataset.reqRow;
+  }
+});
+window.addEventListener('pointerup',()=>{
+  if(!chipDrag)return;
+  const cd=chipDrag; chipDrag=null;
+  if(cd.ghost)cd.ghost.remove();
+  cd.el.classList.remove('dragging');
+  document.querySelectorAll('.req-row.chip-target').forEach(r=>r.classList.remove('chip-target'));
+  if(!cd.moved || !cd.targetReq || cd.targetReq===cd.srcReq)return;
+  assignMemberToReq(cd.memId, cd.srcReq, cd.targetReq);
+});
+/* 把某人从源需求加入(改派到)目标需求；跨队自动标支援 */
+function assignMemberToReq(memId, srcReqId, dstReqId){
+  const dst=reqs.find(r=>r.id===dstReqId); if(!dst)return;
+  if(dst.segs.some(s=>s.m===memId)){toast(memName(memId)+' 已在该需求中');return;}
+  const src=reqs.find(r=>r.id===srcReqId);
+  pushHistory();
+  // 以源需求里此人的段为模板（保持工期长度），对齐目标需求起始
+  let tpl=src&&src.segs.find(s=>s.m===memId);
+  const dstStart=Math.min(...dst.segs.map(s=>idx(s.s)));
+  let span = tpl?(idx(tpl.e)-idx(tpl.s)):workdaysSpanDefault(dst);
+  const ns=dstStart, ne=Math.min(dstStart+span,DAYS);
+  const seg={m:memId, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'};
+  const mem=memById(memId), rl=reqLeadOf(dst), ml=leadOf(mem);
+  if(rl&&ml&&ml!==rl) seg.support=true;        // 跨隶属 → 支援
+  dst.segs.push(seg);
+  dst.end=i2d(Math.max(...dst.segs.map(x=>idx(x.e))));
+  save();broadcast();rerender();
+  flashReqRow(dstReqId);
+  toast(`${memName(memId)} → ${dst.name}${seg.support?'（标记支援）':''}`);
+}
+function workdaysSpanDefault(dst){
+  const s=Math.min(...dst.segs.map(x=>idx(x.s))), e=Math.max(...dst.segs.map(x=>idx(x.e)));
+  return Math.max(e-s,7);
+}
+
+
+/* ============ toast ============ */
+const toastEl=document.getElementById('toast');let toastT=null;
+function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>toastEl.classList.remove('show'),1800);}
+
+/* ============ 本地保存 / 协同广播 ============ */
+const KEY='gantt_collab_v7_mod';
+function snapshot(){
+  return {
+    members:members.map(m=>({id:m.id,status:m.status})),
+    reqs:reqs.map(r=>({id:r.id,end:idx(r.end),done:r.done,
+      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:idx(s.e),prog:s.prog,status:s.status}))}))
+  };
+}
+function applySnap(snap){
+  if(!snap)return;
+  (snap.members||[]).forEach(ms=>{const m=members.find(x=>x.id===ms.id);if(m)m.status=ms.status;});
+  (snap.reqs||[]).forEach(rs=>{
+    const r=reqs.find(x=>x.id===rs.id);if(!r)return;
+    r.end=i2d(rs.end); if(rs.done!==undefined)r.done=rs.done;
+    rs.segs.forEach((ss,i)=>{if(r.segs[i]){r.segs[i].m=ss.m;r.segs[i].s=i2d(ss.s);r.segs[i].e=i2d(ss.e);r.segs[i].prog=ss.prog;r.segs[i].status=ss.status;}});
+  });
+}
+const ORIG=JSON.parse(JSON.stringify(snapshot()));
+function save(){try{localStorage.setItem(KEY,JSON.stringify(snapshot()));}catch(_){}}
+function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.parse(v));}catch(_){}}
+function resetData(){pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}broadcast();rerender();toast('已重置为初始排期');}
+
+/* ============ 团队链接分享（把当前排期编码进 URL，零后端、永不过期） ============ */
+// 用 URL 安全的 base64 编码 JSON 快照
+function encState(obj){
+  const json=JSON.stringify(obj);
+  const utf8=encodeURIComponent(json).replace(/%([0-9A-F]{2})/g,(_,h)=>String.fromCharCode(parseInt(h,16)));
+  return btoa(utf8).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+function decState(str){
+  try{
+    let b=str.replace(/-/g,'+').replace(/_/g,'/'); while(b.length%4)b+='=';
+    const utf8=atob(b);
+    const json=decodeURIComponent(Array.prototype.map.call(utf8,c=>'%'+('00'+c.charCodeAt(0).toString(16)).slice(-2)).join(''));
+    return JSON.parse(json);
+  }catch(_){return null;}
+}
+function shareLink(){
+  const snap=snapshot();
+  const code=encState(snap);
+  const base=location.origin+location.pathname;
+  const url=base+'#s='+code;
+  // 优先写入剪贴板
+  const done=()=>showShareBox(url, code.length);
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(()=>{toast('✅ 团队链接已复制，发给同事即可');done();}).catch(done);
+  }else{ done(); }
+}
+function showShareBox(url, len){
+  let box=document.getElementById('shareBox');
+  if(!box){
+    box=document.createElement('div'); box.id='shareBox'; box.className='share-box';
+    document.body.appendChild(box);
+  }
+  box.innerHTML=`
+    <div class="sb-card">
+      <div class="sb-h">🔗 团队分享链接已生成</div>
+      <div class="sb-tip">把下面的链接发给同事，他们打开就能看到<b>你当前的最新排期</b>（含所有拖拽改动）。链接永久有效、不依赖任何服务器。</div>
+      <textarea class="sb-url" readonly onclick="this.select()">${url}</textarea>
+      <div class="sb-row">
+        <button class="sb-copy" onclick="(function(){const t=document.querySelector('#shareBox .sb-url');t.select();navigator.clipboard&&navigator.clipboard.writeText(t.value);toast('已复制到剪贴板');})()">📋 复制链接</button>
+        <button class="sb-close" onclick="document.getElementById('shareBox').classList.remove('show')">关闭</button>
+      </div>
+      <div class="sb-foot">提示：链接较长属正常（已内嵌完整排期数据，约 ${(len/1024).toFixed(1)} KB）。同事改动只在他自己页面，不会回传给你——如需汇总，请大家把各自链接发回。</div>
+    </div>`;
+  box.classList.add('show');
+}
+// 启动时：若 URL 带 #s=，则用链接里的排期覆盖
+function loadFromHash(){
+  const m=location.hash.match(/[#&]s=([^&]+)/);
+  if(!m)return false;
+  const snap=decState(m[1]);
+  if(snap){ applySnap(snap); return true; }
+  return false;
+}
+
+/* ============ 导出同步包（写回企微表用，含可读字段） ============ */
+function fmtDate(d){
+  const y=d.getFullYear(),mo=String(d.getMonth()+1).padStart(2,'0'),da=String(d.getDate()).padStart(2,'0');
+  return `${y}-${mo}-${da}`;
+}
+function exportSync(){
+  const id2name={}; members.forEach(m=>id2name[m.id]=m.name);
+  const rows=reqs.map(r=>{
+    let minS=null; (r.segs||[]).forEach(s=>{if(!minS||s.s<minS)minS=s.s;});
+    const start=minS?fmtDate(minS):fmtDate(r.end);
+    const makers=[...new Set((r.segs||[]).map(s=>id2name[s.m]||s.m))].join('、');
+    const anyDoing=(r.segs||[]).some(s=>s.status==='doing');
+    const status=anyDoing?'进行中':'未开始';
+    const prog=r.estimate>0?Math.round(r.done/r.estimate*100):0;
+    const firstSeg=(r.segs||[])[0];
+    let owner='';
+    if(firstSeg){const mem=members.find(m=>m.id===firstSeg.m);
+      if(mem){owner=(mem.corp==='base'&&mem.lead&&!mem.lead.includes('角')&&mem.lead!=='—')?mem.lead:mem.name;}}
+    return {reqId:r.id, 需求名称:`${r.char} · ${r.name}`, 角色:r.char, 品级:r.grade||'常规',
+      负责人:owner, 状态:status, 开始日期:start, 截止日期:fmtDate(r.end),
+      工作量人天:r.estimate, 完成进度:prog, 制作人列表:makers};
+  });
+  const pkg={kind:'vfx-gantt-sync', sheet:'q979lj', ts:new Date().toISOString(), count:rows.length, rows};
+  const blob=new Blob([JSON.stringify(pkg,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  const fn='排期同步包_'+fmtDate(new Date())+'.json';
+  a.href=URL.createObjectURL(blob); a.download=fn;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  toast('✅ 同步包已导出，发给我即可写回企微表');
+}
+
+/* ============ 撤销 / 重做（操作历史栈） ============ */
+let undoStack=[], redoStack=[];
+const HIST_MAX=60;
+function curState(){return JSON.stringify(snapshot());}
+/* 在“即将发生改动”之前调用：把当前状态压入 undo 栈，并清空 redo */
+function pushHistory(){
+  undoStack.push(curState());
+  if(undoStack.length>HIST_MAX) undoStack.shift();
+  redoStack.length=0;
+  updateUndoUI();
+}
+function updateUndoUI(){
+  const u=document.getElementById('undoBtn'), r=document.getElementById('redoBtn');
+  if(u)u.disabled=undoStack.length===0;
+  if(r)r.disabled=redoStack.length===0;
+}
+function undo(){
+  if(!undoStack.length){toast('没有可撤销的操作');return;}
+  redoStack.push(curState());
+  const prev=undoStack.pop();
+  applySnap(JSON.parse(prev));
+  updateUndoUI();save();broadcast();rerender();
+  toast('已撤销');
+}
+function redo(){
+  if(!redoStack.length){toast('没有可重做的操作');return;}
+  undoStack.push(curState());
+  const next=redoStack.pop();
+  applySnap(JSON.parse(next));
+  updateUndoUI();save();broadcast();rerender();
+  toast('已重做');
+}
+/* 快捷键：Ctrl/Cmd+Z 撤销，Ctrl+Y / Ctrl+Shift+Z 重做，Ctrl+C 复制，Ctrl+X 剪切，Ctrl+V 粘贴，Esc 取消 */
+window.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='select'||tag==='textarea')return;
+  if(e.key==='Escape'){ if(clip){clearClip();} setSelected(null); hideMenu(); return; }
+  const ctrl=e.ctrlKey||e.metaKey;
+  if(!ctrl)return;
+  const k=e.key.toLowerCase();
+  if(k==='z'&&!e.shiftKey){e.preventDefault();undo();}
+  else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();redo();}
+  else if(k==='c'){e.preventDefault();doCopy(false);}
+  else if(k==='x'){e.preventDefault();doCopy(true);}
+  else if(k==='v'){e.preventDefault();doPaste();}
+});
+
+/* —— 跨标签页实时同步 —— */
+let bc=null;
+try{bc=new BroadcastChannel('gantt_collab');}catch(_){}
+function broadcast(){
+  const payload=JSON.stringify(snapshot());
+  if(bc)bc.postMessage({from:meId,data:payload});
+}
+if(bc){
+  bc.onmessage=ev=>{
+    if(!ev.data||ev.data.from===meId)return;
+    applySnap(JSON.parse(ev.data.data));
+    rerender();
+    toast('收到协作更新（来自其他标签页）');
+  };
+}
+// localStorage 跨标签兜底
+window.addEventListener('storage',e=>{
+  if(e.key===KEY && e.newValue){applySnap(JSON.parse(e.newValue));rerender();}
+});
+
+/* ============ “我是谁” ============ */
+let meId=localStorage.getItem('gantt_me')||members[0].id;
+let focusMode=localStorage.getItem('gantt_focus')||'off';   // off | hl | only
+function buildMeSel(){
+  const sel=document.getElementById('meSel');
+  sel.innerHTML=members.map(m=>`<option value="${m.id}" ${m.id===meId?'selected':''}>${m.name}（${m.role}）</option>`).join('');
+  const fs=document.getElementById('focusSel'); if(fs) fs.value=focusMode;
+}
+function changeMe(){meId=document.getElementById('meSel').value;localStorage.setItem('gantt_me',meId);toast('已切换身份：'+memName(meId));if(focusMode!=='off'&&view==='person')rerender();}
+function changeFocus(){
+  focusMode=document.getElementById('focusSel').value;
+  localStorage.setItem('gantt_focus',focusMode);
+  if(view!=='person'){toast('视角筛选/高亮仅在「按人看」生效');}
+  else{
+    const me=memById(meId);
+    const cnt=members.filter(m=>focusRole(m)!=='').length;
+    toast(focusMode==='off'?'已显示全部成员':focusMode==='hl'?`已高亮 ${me?me.name:''} 及其团队（${cnt}人）`:`已筛选只看 ${me?me.name:''} 及其团队（${cnt}人）`);
+  }
+  rerender();
+}
+
+/* ============ 切换 / 渲染 ============ */
+let view='person';
+let colorMode='status';
+function rerender(){
+  if(view==='hr'){renderHR();return;}
+  view==='person'?renderPerson():renderReq();
+}
+function setView(v,btn){view=v;document.querySelectorAll('.bar .tabs')[0].querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();rerender();}
+function updateHint(){
+  const h=document.getElementById('hintBar'); if(!h)return;
+  if(view==='req'){
+    h.innerHTML='💡 标签底色=编制（<b style="color:#5b21b6">正编</b>/<b style="color:#41506a">基地</b>）· 左侧小圆点=隶属带队 · <b style="color:#f08c00">橙虚线框+支</b>=跨队支援 · <b>拖动人名标签到另一条需求即可改派</b> · 任务条 Ctrl+C/X/V 复制剪切粘贴';
+  }else if(view==='person'){
+    h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态 · 选中任务条后 Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求';
+  }else{
+    h.innerHTML='💡 人力分配视图：按模块汇总在岗人员与管线缺口';
+  }
+}
+function setColor(c,btn){colorMode=c;document.querySelectorAll('.bar .tabs')[1].querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();rerender();}
+function updateLegend(){
+  const el=document.getElementById('legend');
+  if(colorMode==='status'){
+    el.innerHTML=STATUS_ORDER.map(k=>`<span class="dot"><i style="background:${STATUS[k].col}"></i>${STATUS[k].label}</span>`).join('');
+  }else{
+    el.innerHTML=`<span class="dot"><i style="background:#1fae5a"></i>低风险</span><span class="dot"><i style="background:#e08c00"></i>中风险</span><span class="dot"><i style="background:#f5413f"></i>高风险</span>`;
+  }
+}
+
+buildMeSel();
+// 分享链接优先：URL 带 #s= 时用链接里的排期；否则读本机缓存
+if(loadFromHash()){ toast('已载入分享链接中的排期'); }
+else { loadSaved(); }
+updateLegend();
+updateHint();
+rerender();
+</script>
+</body>
+</html>
