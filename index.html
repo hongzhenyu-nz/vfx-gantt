@@ -182,7 +182,8 @@
   @keyframes olpulse{0%{box-shadow:0 0 0 0 rgba(245,65,63,.55)}70%{box-shadow:0 0 0 6px rgba(245,65,63,0)}100%{box-shadow:0 0 0 0 rgba(245,65,63,0)}}
   .av .olflag{position:absolute;left:-3px;top:-3px;width:15px;height:15px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(245,65,63,.5);}
 
-  .req .nm{font-weight:600;} .req .meta{color:var(--tx3);font-size:11px;}
+  .req .nm{font-weight:600;} .req .meta{color:var(--tx2);font-size:11px;font-weight:500;}
+  .req .meta .left-d{color:#d4380d;font-weight:800;}   /* 剩余工作日醒目：深橙红加粗 */
   .gdot-grade{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0;vertical-align:middle;box-shadow:0 0 0 2px rgba(0,0,0,.04);}
   .tmp-tag{display:inline-block;font-size:9px;font-weight:700;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:middle;}
   .corp-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
@@ -305,9 +306,12 @@
   /* 风险/缺人徽标移到右上角，腾出整行宽度给人员标签，使其能横排到放不下再换行 */
   .req-badges{position:absolute;top:9px;right:12px;display:flex;align-items:center;gap:6px;z-index:2;}
   .req-badges .badge,.req-badges .gap-pill{margin:0;}
-  .req-row .req{padding-right:128px;}   /* 标题行避让右上角徽标 */
-  .req-row .who-groups,.req-row .meta{padding-right:0;}  /* 人员/汇总行用满整宽 */
+  .req-row .req{padding-right:0;}
+  .req-row .nm{padding-right:132px;}    /* 仅标题行避让右上角徽标，人员/汇总行用满整宽 */
+  .req-row .who-groups,.req-row .meta{padding-right:0;}  /* 人员/汇总行用满整宽，标签可横排排满再换行 */
   .bar-task.req-bar{height:66px;top:8px;flex-direction:column;align-items:flex-start;justify-content:center;padding:6px 10px;border-radius:7px;gap:3px;border-left-width:5px;}
+  /* 联调附属条：高度与左侧主任务条(66px)统一，文字垂直居中 */
+  .req-row .bar-addon{height:66px;top:8px;border-radius:7px;font-size:11px;padding:0 12px;}
   .bar-task.req-bar .bl-top{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .bar-task.req-bar .bl-mic{display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:5px;font-size:10px;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.25);}
   .bar-task.req-bar .bl-mod{font-size:10px;font-weight:700;border-radius:4px;padding:0 6px;flex-shrink:0;}
@@ -1101,7 +1105,7 @@ function renderReq(){
         <div class="req" style="flex:1;min-width:0">
           <div class="nm">${reqTitleHTML(r)}${addons.map(a=>`<span class="addon-mk" title="附属：${a.name}（${a.estimate}人天，特效完成后进入）"><i>🔗</i>${modMeta(a.mod).s}</span>`).join('')}</div>
           <div class="who-groups">${chips}</div>
-          <div class="meta">${r.estimate}人天 · 完成${prog}% · 剩${risk.left}工作日 · ${teamCount}${addons.length?` · <span style="color:#7c3aed">+联调${addons.reduce((a,x)=>a+x.estimate,0)}人天</span>`:''}</div>
+          <div class="meta">${r.estimate}人天 · 完成${prog}% · <span class="left-d">剩${risk.left}工作日</span> · ${teamCount}${addons.length?` · <span style="color:#7c3aed">+联调${addons.reduce((a,x)=>a+x.estimate,0)}人天</span>`:''}</div>
         </div>
         <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
       </div>
