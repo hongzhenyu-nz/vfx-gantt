@@ -294,12 +294,11 @@
   .bar-task .bar-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* 按需求视图：任务条加高，容纳标题 + 按编制分两行的人名标签 */
   .req-row{min-height:82px;}
-  .req-row .cell-left{align-items:flex-start;padding-top:10px;padding-left:32px;position:relative;}
+  .req-row .cell-left{align-items:flex-start;padding-top:10px;padding-left:20px;position:relative;}
   /* ===== 左侧三层嵌套竖带：品级 ⊃ 角色 ⊃ 模块 ===== */
-  .cell-left.has-bands{padding-left:32px;}
-  .lv-bands{position:absolute;left:0;top:0;bottom:0;display:flex;gap:2px;padding-left:5px;z-index:2;pointer-events:none;}
-  .lv-bands .lv{width:5px;border-radius:3px;align-self:stretch;margin:5px 0;box-shadow:0 0 0 1px rgba(255,255,255,.55);}
-  .lv-bands .lv-mod{width:6px;}                 /* 内层(模块)略宽，作为主识别条 */
+  .cell-left.has-bands{padding-left:20px;}
+  .lv-bands{position:absolute;left:0;top:0;bottom:0;display:flex;gap:2px;padding-left:6px;z-index:2;pointer-events:none;}
+  .lv-bands .lv{width:6px;border-radius:3px;align-self:stretch;margin:5px 0;box-shadow:0 0 0 1px rgba(255,255,255,.55);}
   /* 同品级/同角色相邻行：竖带去圆角并上下溢出，连成一整条，体现包含关系 */
   .lv-bands .lv.j-up{border-top-left-radius:0;border-top-right-radius:0;margin-top:-1px;}
   .lv-bands .lv.j-down{border-bottom-left-radius:0;border-bottom-right-radius:0;margin-bottom:-1px;}
@@ -698,7 +697,7 @@ const reqs = [
 /* ============ 人力分配数据（来源：当前人力分配脑图 / 企微表「当前人力分配」子表） ============ */
 /* 结论：目前基地总人数 14 人，未来常规管线共缺 11 人（金角4人 / 橙角1号5人 / 橙角2号5人 / 红角11人） */
 const HR_GRADE = {
-  '金': {label:'金', col:'#16a34a'},
+  '金': {label:'金', col:'#e0a400'},
   '橙': {label:'橙', col:'#f59e0b'},
   '红': {label:'红', col:'#ef3b39'},
   '':  {label:'常规', col:'#9097a0'},
@@ -1086,19 +1085,14 @@ function renderReq(){
     const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="该管线人力缺口，已计入风险">缺${risk.gapPpl}人</span>`:'';
     const MM = modMeta(r.mod);
     const modTag = `<span class="mod-tag" style="background:${MM.c}1f;color:${MM.c};border-color:${MM.c}66"><i>${MM.ic}</i>${MM.s}</span>`;
-    // ===== 左侧三层嵌套竖带：品级 ⊃ 角色 ⊃ 模块 =====
-    // 同品级/同角色的相邻行，对应竖带去掉圆角并向上下溢出 1px，视觉上连成一整条 → 体现「这几行同属一个品级/角色」的包含关系。
-    const csCur=charShort(r.char)||r.name;
-    const gKey=r.grade||'', gCol=g.col, chCol=charColor(csCur);
+    // ===== 左侧单条品级色带：金/橙/红 按角色品级标注颜色 =====
+    // 同品级的相邻行，竖带去掉圆角并向上下溢出 1px，视觉上连成一整条 → 体现「这几行同属一个品级」。
+    const gKey=r.grade||'', gCol=g.col;
     const sameGradeUp   = prevR && (prevR.grade||'')===gKey;
     const sameGradeDown = nextR && (nextR.grade||'')===gKey;
-    const sameCharUp    = prevR && (charShort(prevR.char)||prevR.name)===csCur && (prevR.grade||'')===gKey;
-    const sameCharDown  = nextR && (charShort(nextR.char)||nextR.name)===csCur && (nextR.grade||'')===gKey;
     const contCls=(up,down)=> (up?' j-up':'')+(down?' j-down':'');
     const bands=`<span class="lv-bands" aria-hidden="true">`
       +`<i class="lv lv-grade${contCls(sameGradeUp,sameGradeDown)}" style="background:${gCol}" title="品级：${g.label}"></i>`
-      +`<i class="lv lv-char${contCls(sameCharUp,sameCharDown)}" style="background:${chCol}" title="角色：${csCur}"></i>`
-      +`<i class="lv lv-mod" style="background:${MM.c}" title="模块：${MM.s}"></i>`
       +`</span>`;
     rows+=`<div class="row req-row" data-req-row="${r.id}">
       <div class="cell-left has-bands">
@@ -1786,7 +1780,7 @@ function setView(v,btn){view=v;document.querySelectorAll('.bar .tabs')[0].queryS
 function updateHint(){
   const h=document.getElementById('hintBar'); if(!h)return;
   if(view==='req'){
-    h.innerHTML='💡 左侧竖带（三层包含）：<b>外=品级</b>(金/橙/红) · <b>中=角色</b>(每角色一色) · <b>内=模块</b>，同品级/同角色相邻行连成整条 · 人名标签：<b style="color:#fff;background:#7c3aed;padding:0 6px;border-radius:8px">👑正编</b> 实心紫 / <span style="color:#39455a;background:#fbfcfe;border:1px solid #cdd6e3;padding:0 6px;border-radius:8px">基地</span> 浅白，左圆点=隶属带队 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
+    h.innerHTML='💡 左侧竖带=角色品级色：<b style="color:#e0a400">金</b> / <b style="color:#f59e0b">橙</b> / <b style="color:#ef3b39">红</b>，同品级相邻行连成整条 · 人名标签：<b style="color:#fff;background:#7c3aed;padding:0 6px;border-radius:8px">👑正编</b> 实心紫 / <span style="color:#39455a;background:#fbfcfe;border:1px solid #cdd6e3;padding:0 6px;border-radius:8px">基地</span> 浅白，左圆点=隶属带队 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
   }else if(view==='person'){
     h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态 · 选中任务条后 Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求';
   }else{
