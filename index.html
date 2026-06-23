@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>团队需求排期 · 协同甘特图看板</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg:#f5f6f8; --panel:#ffffff; --line:#e6e8ec; --line2:#eef0f3;
@@ -57,6 +58,16 @@
   .share-btn:hover{background:#d3f9d8!important;border-color:#2f9e44!important;}
   .sync-btn{border-color:#3b82f6!important;color:#1d6fd6!important;background:#e7f0ff!important;}
   .sync-btn:hover{background:#d0e3ff!important;border-color:#1d6fd6!important;}
+  .cloud-ind{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--line);background:#fff;color:var(--tx2);user-select:none;white-space:nowrap;}
+  .cloud-ind .ci-dot{width:8px;height:8px;border-radius:50%;background:#c4c9d0;flex:0 0 auto;}
+  .cloud-ind.on{border-color:#37b24d;background:#ebfbee;color:#2f9e44;}
+  .cloud-ind.on .ci-dot{background:#37b24d;box-shadow:0 0 0 3px rgba(55,178,77,.18);animation:cipulse 2s infinite;}
+  .cloud-ind.syncing .ci-dot{background:#f59f00;}
+  .cloud-ind.syncing{border-color:#f59f00;background:#fff9db;color:#b8860b;}
+  .cloud-ind.err{border-color:#f5413f;background:#fff0f0;color:#d63a39;}
+  .cloud-ind.err .ci-dot{background:#f5413f;}
+  .cloud-ind.locked{opacity:.92;}
+  @keyframes cipulse{0%,100%{box-shadow:0 0 0 0 rgba(55,178,77,.35);}50%{box-shadow:0 0 0 4px rgba(55,178,77,0);}}
   .share-box{position:fixed;inset:0;background:rgba(20,24,32,.5);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;}
   .share-box.show{display:flex;}
   .share-box .sb-card{background:#fff;border-radius:14px;max-width:620px;width:100%;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
@@ -583,7 +594,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>橙角出场特效 · 排期协同甘特看板</h1>
+  <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
 
   <div class="kpis">
@@ -620,8 +631,9 @@
       <button class="ubtn" id="undoBtn" onclick="undo()" title="撤销 (Ctrl+Z)" disabled>↶ 撤销</button>
       <button class="ubtn" id="redoBtn" onclick="redo()" title="重做 (Ctrl+Y)" disabled>↷ 重做</button>
     </div>
+    <span class="cloud-ind" id="cloudInd" title="云端协作同步状态" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
-    <button class="ubtn sync-btn" onclick="exportSync()" title="导出当前排期为同步包(.json)，发给我即可写回企微表">⬆ 导出同步包</button>
+    <button class="ubtn sync-btn" onclick="exportSync()" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">📋 一键复制排期</button>
     <span class="vivid-ctrl" title="调节任务条底色的色彩浓度：往左拖越淡（泛白柔和护眼），往右拖越浓（原色鲜明）。仅作用于时间轴任务条。">
       <span class="vc-ic">🎨</span>
       <input type="range" id="vividRange" min="0" max="100" step="5" value="100" oninput="setVivid(this.value)">
@@ -2295,6 +2307,103 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(snapshot()));}catch(
 function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.parse(v));}catch(_){}}
 function resetData(){pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();toast('已重置为初始排期');}
 
+/* ============ Supabase 云端协作（全员实时读写 + 自动汇集，免后端） ============ */
+const SB_URL='https://pwjowpkaypfwykejhosp.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3am93cGtheXBmd3lrZWpob3NwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxOTgzNTcsImV4cCI6MjA5Nzc3NDM1N30.gT0Kpi3s8JupoNT4pK4tz3RshcMfEaJoWEwBik8vV5A';
+const SB_TABLE='board_state';
+const SB_ROW='vfx-gantt-main';     // 单行存整份排期快照
+const TEAM_PIN='vfx2026';          // 团队写入口令（可改），公开页内属软门禁：防止误改/陌生人随手改
+const PIN_KEY='gantt_write_pin';
+let sb=null, sbChan=null, cloudReady=false, cloudPushT=null, lastSyncJSON='', applyingRemote=false, hasHashSnap=false;
+let cloudCid=localStorage.getItem('gantt_cloud_cid');
+if(!cloudCid){cloudCid='c'+Math.random().toString(36).slice(2,10);localStorage.setItem('gantt_cloud_cid',cloudCid);}
+function cloudWho(){const m=members.find(x=>x.id===meId);return m?m.name:'某成员';}
+function canWrite(){return !!localStorage.getItem(PIN_KEY);}
+function cloudSetStatus(state,txt){
+  const el=document.getElementById('cloudInd');if(!el)return;
+  el.classList.remove('on','syncing','err','locked');
+  if(state)el.classList.add(state);
+  const t=el.querySelector('.ci-tx');if(t&&txt!=null)t.textContent=txt;
+}
+function refreshAllUI(){
+  rerender();
+  if(typeof applyEffLockUI==='function')applyEffLockUI();
+  if(typeof applyStdLockUI==='function')applyStdLockUI();
+}
+async function cloudInit(){
+  if(!window.supabase||!window.supabase.createClient){cloudSetStatus('err','云端库未加载');return;}
+  if(hasHashSnap){cloudSetStatus('locked','分享快照（未连云端）');return;} // 打开的是分享链接，按快照看，不连云
+  try{
+    sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:5}}});
+    cloudSetStatus('syncing','连接中…');
+    const {data,error}=await sb.from(SB_TABLE).select('snap,editor_name').eq('id',SB_ROW).maybeSingle();
+    if(error)throw error;
+    if(data&&data.snap){
+      const snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
+      applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+      lastSyncJSON=JSON.stringify(snapshot());
+      refreshAllUI();
+      toast('☁ 已载入云端最新排期');
+    }else{
+      lastSyncJSON=JSON.stringify(snapshot());
+      if(canWrite()) cloudPush(true);  // 云端尚无数据：有写权限则用本地当前状态初始化
+    }
+    cloudReady=true;
+    cloudSetStatus(canWrite()?'on':'locked', canWrite()?'已连接·实时':'只读（点此解锁编辑）');
+    sbChan=sb.channel('board-'+SB_ROW)
+      .on('postgres_changes',{event:'*',schema:'public',table:SB_TABLE,filter:'id=eq.'+SB_ROW},payload=>{
+        const row=payload.new; if(!row||!row.snap)return;
+        if(row.editor===cloudCid)return;                       // 自己刚推的，忽略
+        const incoming=(typeof row.snap==='string')?row.snap:JSON.stringify(row.snap);
+        if(incoming===lastSyncJSON)return;
+        try{
+          const obj=(typeof row.snap==='string')?JSON.parse(row.snap):row.snap;
+          applyingRemote=true; applySnap(obj); applyingRemote=false;
+          lastSyncJSON=incoming; refreshAllUI();
+          toast('🔄 协作更新：'+(row.editor_name||'他人')+' 改动已同步');
+        }catch(_){applyingRemote=false;}
+      })
+      .subscribe(st=>{ if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'){cloudSetStatus('err','实时连接中断');} });
+  }catch(e){
+    cloudReady=false; cloudSetStatus('err','云端连接失败'); console.warn('cloud init failed',e);
+  }
+}
+function cloudPush(immediate){
+  if(!cloudReady||!sb||applyingRemote)return;
+  if(!canWrite())return;             // 只读模式：本页改动不外推
+  clearTimeout(cloudPushT);
+  const doPush=async()=>{
+    const snap=snapshot(); const json=JSON.stringify(snap);
+    if(json===lastSyncJSON)return;
+    cloudSetStatus('syncing','同步中…');
+    try{
+      const {error}=await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()});
+      if(error)throw error;
+      lastSyncJSON=json; cloudSetStatus('on','已连接·实时');
+    }catch(e){ cloudSetStatus('err','同步失败'); console.warn('cloud push failed',e); }
+  };
+  if(immediate)doPush(); else cloudPushT=setTimeout(doPush,700);
+}
+function cloudUnlock(){
+  if(!cloudReady && !canWrite()){ toast('云端尚未连接，稍后再试'); return; }
+  if(canWrite()){
+    if(confirm('当前为「可编辑并同步」模式。\n切回只读？（切回后本页改动不再同步给团队）')){
+      localStorage.removeItem(PIN_KEY);
+      cloudSetStatus(cloudReady?'locked':'err', cloudReady?'只读（点此解锁编辑）':'云端连接失败');
+      toast('已切到只读模式');
+    }
+    return;
+  }
+  const pin=prompt('输入团队写入口令，启用「编辑并实时同步到云端」：');
+  if(pin==null)return;
+  if(pin.trim()===TEAM_PIN){
+    localStorage.setItem(PIN_KEY,'1');
+    cloudSetStatus('on','已连接·实时');
+    toast('✅ 已解锁，改动将实时同步给全员');
+    cloudPush(true);
+  }else{ toast('口令不正确'); }
+}
+
 /* ============ 团队链接分享（把当前排期编码进 URL，零后端、永不过期） ============ */
 // 用 URL 安全的 base64 编码 JSON 快照
 function encState(obj){
@@ -2372,13 +2481,32 @@ function exportSync(){
       工作量人天:r.estimate, 完成进度:prog, 制作人列表:makers};
   });
   const pkg={kind:'vfx-gantt-sync', sheet:'q979lj', ts:new Date().toISOString(), count:rows.length, rows};
-  const blob=new Blob([JSON.stringify(pkg,null,2)],{type:'application/json'});
-  const a=document.createElement('a');
-  const fn='排期同步包_'+fmtDate(new Date())+'.json';
-  a.href=URL.createObjectURL(blob); a.download=fn;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
-  toast('✅ 同步包已导出，发给我即可写回企微表');
+  const text=JSON.stringify(pkg,null,2);
+  // 优先：复制到剪贴板（粘贴到对话即可写回企微，无需下载/上传文件）
+  function fallbackDownload(){
+    const blob=new Blob([text],{type:'application/json'});
+    const a=document.createElement('a');
+    const fn='排期同步包_'+fmtDate(new Date())+'.json';
+    a.href=URL.createObjectURL(blob); a.download=fn;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    toast('⚠ 剪贴板不可用，已改为下载文件，发给我即可');
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text)
+      .then(()=>toast('✅ 已复制'+rows.length+'条排期，直接粘贴到对话发我即可写回企微'))
+      .catch(fallbackDownload);
+  }else{
+    // 老浏览器：用临时 textarea + execCommand 兜底
+    try{
+      const ta=document.createElement('textarea');
+      ta.value=text; ta.style.position='fixed'; ta.style.left='-9999px';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      const ok=document.execCommand('copy'); document.body.removeChild(ta);
+      if(ok)toast('✅ 已复制'+rows.length+'条排期，直接粘贴到对话发我即可写回企微');
+      else fallbackDownload();
+    }catch(_){ fallbackDownload(); }
+  }
 }
 
 /* ============ 撤销 / 重做（操作历史栈） ============ */
@@ -2447,6 +2575,7 @@ try{bc=new BroadcastChannel('gantt_collab');}catch(_){}
 function broadcast(){
   const payload=JSON.stringify(snapshot());
   if(bc)bc.postMessage({from:meId,data:payload});
+  if(typeof cloudPush==='function')cloudPush();   // 同步到云端（防抖，仅有写权限时生效）
 }
 if(bc){
   bc.onmessage=ev=>{
@@ -2788,7 +2917,7 @@ initVivid();
 initZoom();
 initLeftW();
 // 分享链接优先：URL 带 #s= 时用链接里的排期；否则读本机缓存
-if(loadFromHash()){ toast('已载入分享链接中的排期'); }
+if(loadFromHash()){ hasHashSnap=true; toast('已载入分享链接中的排期'); }
 else { loadSaved(); }
 syncEffFromTiers();
 bindEffTable();
@@ -2798,6 +2927,8 @@ applyStdLockUI();
 updateLegend();
 updateHint();
 rerender();
+// 启动云端协作（公开读 / 口令写 / Realtime 实时汇集）
+if(typeof cloudInit==='function'){ cloudInit(); }
 </script>
 </body>
 </html>
