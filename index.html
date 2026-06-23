@@ -3340,8 +3340,24 @@ let lockMine=false;            // 我当前是否持有编辑锁（=唯一的可
 let lockHolderCid='';          // 云端当前锁持有者的客户端ID
 let lockHolderName='';         // 云端当前锁持有者姓名（用于提示"XX正在编辑"）
 let lockHeartT=null;           // 心跳定时器句柄
+/* 优雅降级：若云端表里还没有 lock_holder/lock_name/lock_at 三列（未跑加列脚本），
+   则 lockSupported=false，自动退回"无锁协作"——排期照常实时同步，编辑用本地开关 localEdit 控制，
+   并温和提示去补脚本，而不是整个云端连接失败。 */
+let lockSupported=true;        // 云端是否支持编辑锁（取决于三列是否已建）
+let localEdit=false;           // 无锁降级模式下的本地可编辑开关
+let _degWarned=false;          // 降级提示只弹一次
+function lockColMissing(err){  // 判定错误是否为"锁列不存在"
+  if(!err)return false;
+  const m=((err.message||'')+' '+(err.details||'')+' '+(err.hint||'')+' '+(err.code||'')).toLowerCase();
+  return m.includes('lock_holder')||m.includes('lock_name')||m.includes('lock_at')||m.includes('42703')||(m.includes('column')&&m.includes('does not exist'));
+}
+function degLabel(){ return localEdit?'编辑中（无锁）':'点此编辑（无锁）'; }
+function warnLockDegraded(){
+  if(_degWarned)return; _degWarned=true;
+  toast('⚠ 云端缺少锁字段，已降级为「无锁协作」：排期可正常同步，但多人同时改会互相覆盖。到 Supabase 跑 supabase_setup.sql 的加列脚本即可启用单人编辑锁');
+}
 function lockExpiryISO(){return new Date(Date.now()-LOCK_TTL).toISOString();} // 早于此时刻的锁判定为过期
-function canWrite(){return lockMine===true;}   // 只有持锁者可写（替代旧的本地口令开关）
+function canWrite(){return lockSupported ? (lockMine===true) : (localEdit===true);}   // 持锁者可写；降级模式按本地开关
 /* 写操作守门：只读模式下统一拦截所有数据改动（排期/状态/改派/增删/重置/撤销重做/标准表编辑），
    仅提示需先解锁，不改动任何数据。返回 true=可写、false=已拦截。
    节流提示：避免拖拽等连续触发时狂弹 toast。 */
@@ -3369,6 +3385,7 @@ function cloudSetStatus(state,txt){
 /* 统一刷新指示器：持锁=on(绿，编辑中)，他人持锁=busy(琥珀，等待)，空闲=locked(灰，可申请) */
 function syncLockUI(){
   if(!cloudReady){ return; }
+  if(!lockSupported){ cloudSetStatus(localEdit?'on':'locked', degLabel()); return; }  // 降级模式：仅本地开关
   if(lockMine) cloudSetStatus('on',lockBtnLabel());
   else if(lockHolderCid && lockHolderCid!==cloudCid) cloudSetStatus('busy',lockBtnLabel());
   else cloudSetStatus('locked',lockBtnLabel());
@@ -3384,7 +3401,12 @@ async function cloudInit(){
   try{
     sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:5}}});
     cloudSetStatus('syncing','连接中…');
-    const {data,error}=await sb.from(SB_TABLE).select('snap,editor_name,lock_holder,lock_name,lock_at').eq('id',SB_ROW).maybeSingle();
+    let {data,error}=await sb.from(SB_TABLE).select('snap,editor_name,lock_holder,lock_name,lock_at').eq('id',SB_ROW).maybeSingle();
+    if(error&&lockColMissing(error)){
+      // 云端还没建锁字段：降级为无锁协作，改用不含锁列的查询重试
+      lockSupported=false;
+      ({data,error}=await sb.from(SB_TABLE).select('snap,editor_name').eq('id',SB_ROW).maybeSingle());
+    }
     if(error)throw error;
     if(data&&data.snap){
       const snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
@@ -3395,16 +3417,17 @@ async function cloudInit(){
     }else{
       lastSyncJSON=JSON.stringify(snapshot());
     }
-    if(data) updateLockFromRow(data);   // 读取当前锁状态（谁在编辑）
+    if(data&&lockSupported) updateLockFromRow(data);   // 读取当前锁状态（谁在编辑）
     cloudReady=true;
     syncLockUI();
+    if(!lockSupported) warnLockDegraded();             // 降级模式：温和提示去补脚本
     sbChan=sb.channel('board-'+SB_ROW)
       .on('postgres_changes',{event:'*',schema:'public',table:SB_TABLE,filter:'id=eq.'+SB_ROW},payload=>{
         const row=payload.new; if(!row)return;
-        updateLockFromRow(row);                                // 先更新锁状态（即便快照没变也要刷新"谁在编辑"）
+        if(lockSupported) updateLockFromRow(row);              // 先更新锁状态（即便快照没变也要刷新"谁在编辑"）
         if(!row.snap)return;
         if(row.editor===cloudCid)return;                       // 自己刚推的，忽略
-        if(lockMine)return;                                    // 我正持锁编辑，不让远端快照覆盖我的改动
+        if(lockMine||(!lockSupported&&localEdit))return;        // 我正在编辑，不让远端快照覆盖我的改动
         const incoming=(typeof row.snap==='string')?row.snap:JSON.stringify(row.snap);
         if(incoming===lastSyncJSON)return;
         try{
@@ -3424,16 +3447,23 @@ function cloudPush(immediate){
   if(!canWrite())return;             // 只读模式：本页改动不外推
   clearTimeout(cloudPushT);
   const doPush=async()=>{
-    if(!lockMine)return;             // 推送前再确认仍持锁（避免锁被抢走后还写数据）
+    if(lockSupported && !lockMine)return;   // 有锁模式：推送前再确认仍持锁（避免锁被抢走后还写数据）
     const snap=snapshot(); const json=JSON.stringify(snap);
     if(json===lastSyncJSON)return;
     cloudSetStatus('syncing','保存中…');
     try{
-      // 带上锁字段并续期，确保保存过程中锁不被 TTL 判过期
-      const {error}=await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),
-        lock_holder:cloudCid,lock_name:cloudWho(),lock_at:new Date().toISOString(),updated_at:new Date().toISOString()});
+      let payload;
+      if(lockSupported){
+        // 带上锁字段并续期，确保保存过程中锁不被 TTL 判过期
+        payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),
+          lock_holder:cloudCid,lock_name:cloudWho(),lock_at:new Date().toISOString(),updated_at:new Date().toISOString()};
+      }else{
+        // 降级模式：不写锁字段（云端无此列）
+        payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()};
+      }
+      const {error}=await sb.from(SB_TABLE).upsert(payload);
       if(error)throw error;
-      lastSyncJSON=json; cloudSetStatus('on',lockBtnLabel());
+      lastSyncJSON=json; cloudSetStatus('on',lockSupported?lockBtnLabel():degLabel());
     }catch(e){ cloudSetStatus('err','保存失败'); console.warn('cloud push failed',e); }
   };
   if(immediate)doPush(); else cloudPushT=setTimeout(doPush,700);
@@ -3547,6 +3577,14 @@ async function refreshLockStatus(){
 /* 右上角云端指示器点击入口：在"申请编辑 ↔ 提交释放"之间切换 */
 function cloudUnlock(){
   if(!cloudReady){ toast('云端尚未连接，稍后再试'); return; }
+  if(!lockSupported){
+    // 降级模式：无分布式锁，仅本地开关编辑态
+    localEdit=!localEdit;
+    syncLockUI();
+    if(localEdit){ warnLockDegraded(); toast('✏ 已进入编辑（无锁模式）：改动实时同步，请避免与他人同时编辑'); cloudPush(true); }
+    else toast('已切回只读');
+    return;
+  }
   if(lockMine){ releaseLock(); return; }
   if(lockHolderCid && lockHolderCid!==cloudCid){
     // 有人正在编辑：默认提示等待；若对方明显离线(锁将过期)给出强制接管选项
