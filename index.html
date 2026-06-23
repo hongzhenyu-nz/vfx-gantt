@@ -1078,16 +1078,16 @@ function memArchived(m){
   const d=(TODAY-m.leftAt)/86400000;
   return d>archiveDays();
 }
-/* 需求是否"应归档"：废弃需求立即归档；或已完结（已完成或结束日已过）且结束日超过阈值。 */
+/* 需求是否"应归档"：废弃需求立即归档；已完成/已完结(结束日已过)需结束日超过阈值才归档。 */
 function reqArchived(r){
   if(!ARCHIVE.on || !r) return false;
-  if(reqClosed(r)) return true;   // 已完成/废弃需求：立即折叠进归档区
+  if(reqState(r)==='dropped') return true;   // 废弃需求：立即折叠进归档区
   if(!r.end) return false;
-  const done = (r.estimate>0 && r.done>=r.estimate) || (typeof aggStatus==='function' && aggStatus(r)==='done');
+  const done = reqState(r)==='done' || (r.estimate>0 && r.done>=r.estimate) || (typeof aggStatus==='function' && aggStatus(r)==='done');
   const ended = r.end < TODAY;
-  if(!done && !ended) return false;
+  if(!done && !ended) return false;          // 既未完成也未结束：留在主区
   const d=(TODAY-r.end)/86400000;
-  return d>archiveDays();
+  return d>archiveDays();                     // 已完成/已结束：结束日超期才归档
 }
 
 /* 分组方式定义：返回 {key, label, color} 用于左侧分组标题行。 */
@@ -1775,6 +1775,10 @@ function memLoad(id){
 
 function barCls(r,seg){
   const k = r.kind==='lt'?' k-lt':r.kind==='qa'?' k-qa':'';
+  // 终态需求的条体配色固定（不受 colorMode 影响）：已完成=绿，废弃=灰
+  const rs=reqState(r);
+  if(rs==='done') return 'b-green'+k;     // 已完成：绿色任务条
+  if(rs==='dropped') return 'b-gray'+k;   // 废弃：灰色任务条
   if(colorMode==='status'){
     return (seg ? STATUS[seg.status||'doing'].cls : STATUS[aggStatus(r)].cls)+k;
   }
