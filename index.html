@@ -1402,13 +1402,19 @@ function getPhases(r){
   let split2=null;
   if(lt){
     split2=(r.split2!=null)?r.split2:e;
-    split2=Math.max(split+1,Math.min(barE-1,split2));
+    // 上限放开到 barE：当 L2/联调 分割线拖到最右端，L2 完全覆盖联调段（联调窗口=0，标签消失，可拖回恢复）
+    split2=Math.max(split+1,Math.min(barE,split2));
   }
   return {s,e,split,split2,lt,
     barS:s, barE,
     l1:{s,e:split},
     l2:{s:split, e:(lt?split2:e)},
     lt2:(lt?{s:split2,e:barE}:null)};
+}
+// 拖拽 L2/联调 分割线时即时刷新左侧「+联调N工作日」文案（无需整页 rerender）
+function updateLtMeta(reqId, ltDays){
+  const el=document.getElementById('lt-meta-'+reqId); if(!el)return;
+  el.innerHTML = ltDays>0 ? `+联调${ltDays}工作日` : '<span style="color:#a7adb8">联调已并入L2</span>';
 }
 
 /* ============ 计算工具 ============ */
@@ -1878,7 +1884,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
           <div class="nm">${reqTitleHTML(r)}</div>
           <div class="who-groups">${chips}${addPersonRow}</div>
           <div class="meta">${r.estimate}人天 · 完成${prog}% · <span class="left-d">剩${risk.left}工作日</span></div>
-          <div class="meta meta-team">${teamCount}${addons.length?` · <span style="color:#7c3aed">+联调${addons.reduce((a,x)=>a+x.estimate,0)}人天</span>`:''}</div>
+          <div class="meta meta-team">${teamCount}${addons.length?` · <span id="lt-meta-${r.id}" style="color:#7c3aed">${(()=>{const lw=reqOpen?0:(()=>{const p=getPhases(r);return (p.lt2&&p.lt2.e>p.lt2.s)?workdays(i2d(p.lt2.s),i2d(p.lt2.e)):0;})();return lw>0?`+联调${lw}工作日`:'<span style=\"color:#a7adb8\">联调已并入L2</span>';})()}</span>`:''}</div>
         </div>
         <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
       </div>
@@ -1902,7 +1908,8 @@ function reqRowHTML(r, prevR, nextR, inArc){
           const l1L=pc(ph.l1.s),l1W=pc(ph.l1.e)-pc(ph.l1.s);
           const l2L=pc(ph.l2.s),l2W=pc(ph.l2.e)-pc(ph.l2.s);
           const divL=pc(ph.split);
-          const ltSeg = ph.lt2?(()=>{const lL=pc(ph.lt2.s),lW=pc(ph.lt2.e)-pc(ph.lt2.s);return {lL,lW};})():null;
+          // 联调段被 L2 完全覆盖（split2 拖到 barE，窗口=0）时不渲染联调块与标签
+          const ltSeg = (ph.lt2 && ph.lt2.e>ph.lt2.s)?(()=>{const lL=pc(ph.lt2.s),lW=pc(ph.lt2.e)-pc(ph.lt2.s);return {lL,lW};})():null;
           const div2L = ph.split2!=null?pc(ph.split2):null;
           const dvTip=`L1 一审 → ${fmt(i2d(ph.l1.s))} ~ ${fmt(i2d(ph.split))}　|　L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmt(i2d(ph.l2.e))}（拖拽分割线设定 L1 完成时间）`;
           const dv2Tip = ph.lt2?`L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmt(i2d(ph.split2))}　|　联调 → ${fmt(i2d(ph.split2))} ~ ${fmt(i2d(ph.lt2.e))}（拖拽分割线设定联调开始时间）`:'';
@@ -2111,15 +2118,20 @@ window.addEventListener('pointermove',e=>{
     const span=Math.max(ph.barE-ph.barS,1);
     const pcL=i=>((i-ph.barS)/span*100);
     if(which===2){
-      // L2/联调 分割：夹在 [split+1, barE-1]
-      ns=Math.max(ph.split+1,Math.min(ph.barE-1,ns));
+      // L2/联调 分割：夹在 [split+1, barE]，拖到 barE 即 L2 全覆盖联调
+      ns=Math.max(ph.split+1,Math.min(ph.barE,ns));
       phdrag.cur=ns;
       if(dDays!==0)phdrag.moved=true;
       phdrag.div.style.left=pcL(ns)+'%';
       const l2=bar.querySelector('.ph-l2'),ltb=bar.querySelector('.ph-lt');
       if(l2){l2.style.width=(pcL(ns)-pcL(ph.split))+'%';}
       if(ltb){ltb.style.left=pcL(ns)+'%';ltb.style.width=(pcL(ph.barE)-pcL(ns))+'%';}
-      dlabel.textContent=`L2 ${fmt(i2d(ph.split))} → ${fmt(i2d(ns))}　|　联调 ${fmt(i2d(ns))} → ${fmt(i2d(ph.barE))}（${workdays(i2d(ns),i2d(ph.barE))}工作日）`;
+      const ltDays=workdays(i2d(ns),i2d(ph.barE));
+      // 即时刷新左侧「+联调N人天」（拖动过程中实时联动，不必等松手 rerender）
+      updateLtMeta(r.id, ltDays);
+      dlabel.textContent=ltDays>0
+        ?`L2 ${fmt(i2d(ph.split))} → ${fmt(i2d(ns))}　|　联调 ${fmt(i2d(ns))} → ${fmt(i2d(ph.barE))}（${ltDays}工作日）`
+        :`L2 ${fmt(i2d(ph.split))} → ${fmt(i2d(ph.barE))}（已覆盖联调）`;
     }else{
       // L1/L2 分割：夹在 [s+1, l2.e-1]（不越过联调起点）
       ns=Math.max(ph.s+1,Math.min(ph.l2.e-1,ns));
