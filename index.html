@@ -3388,35 +3388,38 @@ if(!cloudCid){cloudCid='c'+Math.random().toString(36).slice(2,10);localStorage.s
 function cloudWho(){const m=members.find(x=>x.id===meId);return m?m.name:'某成员';}
 
 /* ===== 编辑锁（同一时刻仅一人可编辑，其他人只读等待） =====
-   机制：board_state 行上的 lock_holder/lock_name/lock_at 三字段构成一把分布式互斥锁。
+   机制（零SQL）：复用 board_state 已有的 editor/editor_name/updated_at 三列充当分布式互斥锁，无需新增数据库列。
    - 申请编辑 = 一条带条件的原子 UPDATE（仅当锁空闲/已过期/本就是我时才更新成功）→ 天然防并发抢占。
    - 抢到锁的人会被强制拉取并应用云端最新快照，确保永远在最新数据上编辑（满足"下一个人需被强制刷新"）。
    - 持有者每 30s 心跳续期；超过 90s 无心跳视为失效，可被他人抢占（应对崩溃/断网/直接关页）。
-   - 结束编辑 / 关闭页面 = 把最终数据推上去并清空锁，下一个人立刻可编辑。 */
+   - 结束编辑 / 关闭页面 = 把最终数据推上去并清空锁，下一个人立刻可编辑。
+   - 强制解锁：他人持锁时，输入团队密码可强制接管；被接管者会自动强制上传其最后改动，避免丢工作。 */
 const LOCK_TTL=90*1000;        // 锁有效期(ms)：超过此时长无续期视为失效可被抢占
 const LOCK_HEARTBEAT=30*1000;  // 持有者续锁心跳间隔
 let lockMine=false;            // 我当前是否持有编辑锁（=唯一的可写依据）
 let lockHolderCid='';          // 云端当前锁持有者的客户端ID
 let lockHolderName='';         // 云端当前锁持有者姓名（用于提示"XX正在编辑"）
 let lockHeartT=null;           // 心跳定时器句柄
-/* 优雅降级：若云端表里还没有 lock_holder/lock_name/lock_at 三列（未跑加列脚本），
-   则 lockSupported=false，自动退回"无锁协作"——排期照常实时同步，编辑用本地开关 localEdit 控制，
-   并温和提示去补脚本，而不是整个云端连接失败。 */
-let lockSupported=true;        // 云端是否支持编辑锁（取决于三列是否已建）
-let localEdit=false;           // 无锁降级模式下的本地可编辑开关
-let _degWarned=false;          // 降级提示只弹一次
-function lockColMissing(err){  // 判定错误是否为"锁列不存在"
-  if(!err)return false;
-  const m=((err.message||'')+' '+(err.details||'')+' '+(err.hint||'')+' '+(err.code||'')).toLowerCase();
-  return m.includes('lock_holder')||m.includes('lock_name')||m.includes('lock_at')||m.includes('42703')||(m.includes('column')&&m.includes('does not exist'));
-}
-function degLabel(){ return localEdit?'编辑中（无锁）':'点此编辑（无锁）'; }
-function warnLockDegraded(){
-  if(_degWarned)return; _degWarned=true;
-  toast('⚠ 云端缺少锁字段，已降级为「无锁协作」：排期可正常同步，但多人同时改会互相覆盖。到 Supabase 跑 supabase_setup.sql 的加列脚本即可启用单人编辑锁');
-}
+/* 零SQL锁：锁信息复用 board_state 已有的三列，无需新增数据库列：
+   editor      ← 锁持有者客户端ID（非空且 updated_at 在 TTL 内 = 有人正持锁）
+   editor_name ← 持有者姓名
+   updated_at  ← 锁心跳/最近活动时间（用于 TTL 判过期） */
+const FORCE_UNLOCK_PIN=TEAM_PIN;  // 强制解锁密码（沿用团队口令；如需单独设置改这里即可）
+let _takeoverGrace=false;         // 强制接管后的短暂宽限窗口：期间接收被踢者的最后改动，避免其工作丢失
+let _takeoverGraceT=null;
 function lockExpiryISO(){return new Date(Date.now()-LOCK_TTL).toISOString();} // 早于此时刻的锁判定为过期
-function canWrite(){return lockSupported ? (lockMine===true) : (localEdit===true);}   // 持锁者可写；降级模式按本地开关
+function canWrite(){return lockMine===true;}   // 只有持锁者可写
+/* 被强制接管时调用：把自己当前的改动（含未提交的）强制上传到云端 snap，
+   只更新 snap+updated_at，不触碰 editor（不夺回锁），让接管者在宽限期内接住这份数据。 */
+async function forceUploadMySnap(){
+  if(!sb)return;
+  try{
+    const snap=snapshot();
+    await sb.from(SB_TABLE).update({snap:snap,updated_at:new Date().toISOString()}).eq('id',SB_ROW);
+    lastSyncJSON=JSON.stringify(snap);
+    toast('📤 你的最后改动已强制上传，不会丢失');
+  }catch(e){ console.warn('force upload my snap failed',e); }
+}
 /* 写操作守门：只读模式下统一拦截所有数据改动（排期/状态/改派/增删/重置/撤销重做/标准表编辑），
    仅提示需先解锁，不改动任何数据。返回 true=可写、false=已拦截。
    节流提示：避免拖拽等连续触发时狂弹 toast。 */
@@ -3444,7 +3447,6 @@ function cloudSetStatus(state,txt){
 /* 统一刷新指示器：持锁=on(绿，编辑中)，他人持锁=busy(琥珀，等待)，空闲=locked(灰，可申请) */
 function syncLockUI(){
   if(!cloudReady){ return; }
-  if(!lockSupported){ cloudSetStatus(localEdit?'on':'locked', degLabel()); return; }  // 降级模式：仅本地开关
   if(lockMine) cloudSetStatus('on',lockBtnLabel());
   else if(lockHolderCid && lockHolderCid!==cloudCid) cloudSetStatus('busy',lockBtnLabel());
   else cloudSetStatus('locked',lockBtnLabel());
@@ -3460,12 +3462,8 @@ async function cloudInit(){
   try{
     sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:5}}});
     cloudSetStatus('syncing','连接中…');
-    let {data,error}=await sb.from(SB_TABLE).select('snap,editor_name,lock_holder,lock_name,lock_at').eq('id',SB_ROW).maybeSingle();
-    if(error&&lockColMissing(error)){
-      // 云端还没建锁字段：降级为无锁协作，改用不含锁列的查询重试
-      lockSupported=false;
-      ({data,error}=await sb.from(SB_TABLE).select('snap,editor_name').eq('id',SB_ROW).maybeSingle());
-    }
+    // 零SQL锁：复用现有列 editor(=锁持有者) / editor_name(=持有者名) / updated_at(=锁心跳时间)，无需新增数据库列
+    let {data,error}=await sb.from(SB_TABLE).select('snap,editor,editor_name,updated_at').eq('id',SB_ROW).maybeSingle();
     if(error)throw error;
     if(data&&data.snap){
       const snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
@@ -3476,17 +3474,16 @@ async function cloudInit(){
     }else{
       lastSyncJSON=JSON.stringify(snapshot());
     }
-    if(data&&lockSupported) updateLockFromRow(data);   // 读取当前锁状态（谁在编辑）
+    if(data) updateLockFromRow(data);   // 读取当前锁状态（谁在编辑）
     cloudReady=true;
     syncLockUI();
-    if(!lockSupported) warnLockDegraded();             // 降级模式：温和提示去补脚本
     sbChan=sb.channel('board-'+SB_ROW)
       .on('postgres_changes',{event:'*',schema:'public',table:SB_TABLE,filter:'id=eq.'+SB_ROW},payload=>{
         const row=payload.new; if(!row)return;
-        if(lockSupported) updateLockFromRow(row);              // 先更新锁状态（即便快照没变也要刷新"谁在编辑"）
+        updateLockFromRow(row);                                // 先更新锁状态（即便快照没变也要刷新"谁在编辑"）
         if(!row.snap)return;
         if(row.editor===cloudCid)return;                       // 自己刚推的，忽略
-        if(lockMine||(!lockSupported&&localEdit))return;        // 我正在编辑，不让远端快照覆盖我的改动
+        if(lockMine && !_takeoverGrace)return;                 // 我正持锁编辑，不让远端快照覆盖（接管宽限期内例外：接住被踢者的最后提交）
         const incoming=(typeof row.snap==='string')?row.snap:JSON.stringify(row.snap);
         if(incoming===lastSyncJSON)return;
         try{
@@ -3506,39 +3503,34 @@ function cloudPush(immediate){
   if(!canWrite())return;             // 只读模式：本页改动不外推
   clearTimeout(cloudPushT);
   const doPush=async()=>{
-    if(lockSupported && !lockMine)return;   // 有锁模式：推送前再确认仍持锁（避免锁被抢走后还写数据）
+    if(!lockMine)return;   // 推送前再确认仍持锁（避免锁被抢走后还写数据）
     const snap=snapshot(); const json=JSON.stringify(snap);
     if(json===lastSyncJSON)return;
     cloudSetStatus('syncing','保存中…');
     try{
-      let payload;
-      if(lockSupported){
-        // 带上锁字段并续期，确保保存过程中锁不被 TTL 判过期
-        payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),
-          lock_holder:cloudCid,lock_name:cloudWho(),lock_at:new Date().toISOString(),updated_at:new Date().toISOString()};
-      }else{
-        // 降级模式：不写锁字段（云端无此列）
-        payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()};
-      }
+      // 复用现有列写锁并续期：editor=锁持有者, editor_name=持有者名, updated_at=锁心跳
+      const payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()};
       const {error}=await sb.from(SB_TABLE).upsert(payload);
       if(error)throw error;
-      lastSyncJSON=json; cloudSetStatus('on',lockSupported?lockBtnLabel():degLabel());
+      lastSyncJSON=json; cloudSetStatus('on',lockBtnLabel());
     }catch(e){ cloudSetStatus('err','保存失败'); console.warn('cloud push failed',e); }
   };
   if(immediate)doPush(); else cloudPushT=setTimeout(doPush,700);
 }
 
-/* 根据云端行更新本地"谁在编辑"的认知；过期的锁视为无人持有 */
+/* 根据云端行更新本地"谁在编辑"的认知；过期的锁视为无人持有。
+   零SQL锁：holder=row.editor, 心跳时间=row.updated_at, 名字=row.editor_name */
 function updateLockFromRow(row){
-  const holder=row.lock_holder||'';
-  const at=row.lock_at?Date.parse(row.lock_at):0;
+  const holder=row.editor||'';
+  const at=row.updated_at?Date.parse(row.updated_at):0;
   const fresh=holder && at && (Date.now()-at < LOCK_TTL);
   lockHolderCid = fresh?holder:'';
-  lockHolderName = fresh?(row.lock_name||'某成员'):'';
-  // 若云端显示锁已不在我手里（被强制接管/过期清空），本地立即降级为只读
+  lockHolderName = fresh?(row.editor_name||'某成员'):'';
+  // 若云端显示锁已不在我手里（被强制接管/过期清空），本地立即降级为只读，并把我的最后改动强制上传保住
   if(lockMine && lockHolderCid!==cloudCid){
     lockMine=false; stopHeart();
-    toast('⚠ 你的编辑权已被释放/接管，已切回只读');
+    toast('⚠ 你的编辑权已被「'+(lockHolderName||'他人')+'」强制接管，正在保存你的最后改动…');
+    forceUploadMySnap();   // 被踢者的改动强制上传，不丢工作
   }
   syncLockUI();
 }
@@ -3551,7 +3543,8 @@ function startHeart(){
   stopHeart();
   lockHeartT=setInterval(async()=>{
     if(!lockMine||!sb){stopHeart();return;}
-    try{ await sb.from(SB_TABLE).update({lock_at:new Date().toISOString()}).eq('id',SB_ROW).eq('lock_holder',cloudCid); }
+    // 续锁：刷新 updated_at，并确认 editor 仍是我（被接管则不再续）
+    try{ await sb.from(SB_TABLE).update({updated_at:new Date().toISOString()}).eq('id',SB_ROW).eq('editor',cloudCid); }
     catch(_){}
   },LOCK_HEARTBEAT);
 }
@@ -3560,24 +3553,23 @@ function stopHeart(){ if(lockHeartT){clearInterval(lockHeartT);lockHeartT=null;}
 /* 申请编辑：原子抢锁 → 强制拉取并应用云端最新快照 → 进入可编辑态 */
 async function acquireLock(force){
   if(!cloudReady||!sb){ toast('云端尚未连接，稍后再试'); return false; }
-  cloudSetStatus('syncing','申请编辑中…');
+  cloudSetStatus('syncing',force?'强制接管中…':'申请编辑中…');
   try{
     const nowISO=new Date().toISOString();
     // 条件抢占：仅当(无人持锁 OR 锁已过期 OR 本就是我 OR 强制接管)时才能写成功
-    let q=sb.from(SB_TABLE).update({lock_holder:cloudCid,lock_name:cloudWho(),lock_at:nowISO}).eq('id',SB_ROW);
+    let q=sb.from(SB_TABLE).update({editor:cloudCid,editor_name:cloudWho(),updated_at:nowISO}).eq('id',SB_ROW);
     if(!force){
-      // or 条件：lock_holder 为空 / 锁过期(lock_at < 现在-TTL) / 已经是我
-      q=q.or('lock_holder.is.null,lock_at.lt.'+lockExpiryISO()+',lock_holder.eq.'+cloudCid);
+      // or 条件：editor 为空 / 锁过期(updated_at < 现在-TTL) / 已经是我
+      q=q.or('editor.is.null,updated_at.lt.'+lockExpiryISO()+',editor.eq.'+cloudCid);
     }
-    const {data,error}=await q.select('snap,editor,editor_name,lock_holder,lock_name,lock_at');
+    const {data,error}=await q.select('snap,editor,editor_name,updated_at');
     if(error)throw error;
     if(!data||!data.length){
       // 没抢到：可能有人正持有有效锁，也可能云端这行还不存在（首次使用）
       await refreshLockStatus();
       if(!lockHolderCid){
         // 无人持锁却更新到 0 行 → 多半是行不存在，创建并占锁
-        const {error:e2}=await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:snapshot(),editor:cloudCid,editor_name:cloudWho(),
-          lock_holder:cloudCid,lock_name:cloudWho(),lock_at:nowISO,updated_at:nowISO});
+        const {error:e2}=await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:snapshot(),editor:cloudCid,editor_name:cloudWho(),updated_at:nowISO});
         if(e2)throw e2;
         lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho();
         lastSyncJSON=JSON.stringify(snapshot()); startHeart();
@@ -3589,7 +3581,13 @@ async function acquireLock(force){
       toast('✋ '+(lockHolderName||'有人')+' 正在编辑，请等其提交后再申请');
       return false;
     }
-    // 抢到锁：强制以云端最新快照刷新本地，保证在最新数据上编辑
+    // 抢到锁。若是强制接管：先开宽限窗口，等待被踢者的最后改动上传后再覆盖本地
+    if(force){
+      _takeoverGrace=true;
+      clearTimeout(_takeoverGraceT);
+      _takeoverGraceT=setTimeout(()=>{ _takeoverGrace=false; },4000); // 4s 内接住对方强制上传的 snap
+    }
+    // 强制以云端最新快照刷新本地，保证在最新数据上编辑
     const row=data[0];
     if(row.snap){
       const obj=(typeof row.snap==='string')?JSON.parse(row.snap):row.snap;
@@ -3602,7 +3600,7 @@ async function acquireLock(force){
     lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho();
     startHeart();
     syncLockUI();
-    toast('✅ 已获取编辑权（已同步至最新）。改动实时保存，编辑完请点「提交」释放');
+    toast(force?'✅ 已强制接管编辑权（正在接收对方最后改动并同步）':'✅ 已获取编辑权（已同步至最新）。改动实时保存，编辑完请点「提交」释放');
     return true;
   }catch(e){
     cloudSetStatus('err','申请失败'); console.warn('acquire lock failed',e);
@@ -3617,8 +3615,8 @@ async function releaseLock(silent){
   try{
     if(lockMine){
       const snap=snapshot();
-      await sb.from(SB_TABLE).update({snap:snap,editor:cloudCid,editor_name:cloudWho(),
-        lock_holder:null,lock_name:null,lock_at:null,updated_at:new Date().toISOString()}).eq('id',SB_ROW).eq('lock_holder',cloudCid);
+      // 释放锁：把 editor/editor_name 清空（=无人持锁），下一个人立即可申请
+      await sb.from(SB_TABLE).update({snap:snap,editor:null,editor_name:null,updated_at:new Date().toISOString()}).eq('id',SB_ROW).eq('editor',cloudCid);
       lastSyncJSON=JSON.stringify(snap);
     }
   }catch(e){ console.warn('release lock failed',e); }
@@ -3629,28 +3627,20 @@ async function releaseLock(silent){
 /* 仅刷新锁状态（用于抢锁失败后了解是谁占着） */
 async function refreshLockStatus(){
   try{
-    const {data}=await sb.from(SB_TABLE).select('lock_holder,lock_name,lock_at').eq('id',SB_ROW).maybeSingle();
+    const {data}=await sb.from(SB_TABLE).select('editor,editor_name,updated_at').eq('id',SB_ROW).maybeSingle();
     if(data) updateLockFromRow(data);
   }catch(_){}
 }
 /* 右上角云端指示器点击入口：在"申请编辑 ↔ 提交释放"之间切换 */
 function cloudUnlock(){
   if(!cloudReady){ toast('云端尚未连接，稍后再试'); return; }
-  if(!lockSupported){
-    // 降级模式：无分布式锁，仅本地开关编辑态
-    localEdit=!localEdit;
-    syncLockUI();
-    if(localEdit){ warnLockDegraded(); toast('✏ 已进入编辑（无锁模式）：改动实时同步，请避免与他人同时编辑'); cloudPush(true); }
-    else toast('已切回只读');
-    return;
-  }
   if(lockMine){ releaseLock(); return; }
   if(lockHolderCid && lockHolderCid!==cloudCid){
-    // 有人正在编辑：默认提示等待；若对方明显离线(锁将过期)给出强制接管选项
-    const at=lockExpiryISO();   // 仅用于文案，真正判定在 acquireLock
-    if(confirm('当前「'+lockHolderName+'」正在编辑。\n\n点「确定」尝试强制接管编辑权（仅在对方已离开时建议这么做，可能覆盖其未保存的改动）；\n点「取消」继续等待。')){
-      acquireLock(true);
-    }
+    // 有人正在编辑：必须输入强制解锁密码才能接管（接管后对方的最后改动会被强制上传保住）
+    const pin=prompt('当前「'+lockHolderName+'」正在编辑，已锁定。\n\n如需强制接管编辑权，请输入强制解锁密码：\n（接管后对方未提交的改动会自动上传保存，不会丢失）');
+    if(pin==null) return;                       // 取消＝继续等待
+    if(pin.trim()!==FORCE_UNLOCK_PIN){ toast('❌ 密码不正确，无法强制解锁'); return; }
+    acquireLock(true);                          // 密码正确 → 强制接管
     return;
   }
   acquireLock(false);
@@ -4298,11 +4288,12 @@ window.addEventListener('beforeunload',()=>{ if(lockMine&&sb){ try{ releaseLockB
 /* 关页瞬间用 fetch+keepalive 直发 REST，确保锁被清空（普通 await 可能来不及） */
 function releaseLockBeacon(){
   stopHeart();
-  const url=SB_URL+'/rest/v1/'+SB_TABLE+'?id=eq.'+SB_ROW+'&lock_holder=eq.'+cloudCid;
+  // 关页瞬间清空锁：用现有列 editor，PATCH 仅当仍是我持锁
+  const url=SB_URL+'/rest/v1/'+SB_TABLE+'?id=eq.'+SB_ROW+'&editor=eq.'+cloudCid;
   try{
     fetch(url,{method:'PATCH',keepalive:true,
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
-      body:JSON.stringify({lock_holder:null,lock_name:null,lock_at:null})});
+      body:JSON.stringify({editor:null,editor_name:null})});
   }catch(_){}
   lockMine=false;
 }
