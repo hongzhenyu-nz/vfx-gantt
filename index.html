@@ -22,6 +22,10 @@
   body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--tx);font-size:13px;line-height:1.5;}
   .wrap{max-width:min(1980px,97vw);margin:0 auto;padding:18px 22px 40px;}
   h1{font-size:20px;font-weight:600;}
+  .hd-row{display:flex;align-items:center;gap:14px;}
+  .hd-row h1{flex:0 1 auto;}
+  .hd-cloud{margin-left:auto;flex:0 0 auto;font-size:13px;padding:6px 14px;box-shadow:0 1px 4px rgba(0,0,0,.08);}
+  .hd-cloud .ci-dot{width:10px;height:10px;}
   .sub{color:var(--tx2);font-size:13px;margin-top:4px;}
 
   .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:18px 0;}
@@ -68,6 +72,40 @@
   .cloud-ind.err .ci-dot{background:#f5413f;}
   .cloud-ind.locked{opacity:.92;}
   @keyframes cipulse{0%,100%{box-shadow:0 0 0 0 rgba(55,178,77,.35);}50%{box-shadow:0 0 0 4px rgba(55,178,77,0);}}
+  /* 新建实体按钮（+新成员 / +新需求）：醒目主色描边 */
+  .add-ent{border-color:#7c3aed!important;color:#6d28d9!important;background:#f5effe!important;}
+  .add-ent:hover{background:#ede3fd!important;border-color:#6d28d9!important;color:#5b21b6!important;}
+  /* 只读模式：写操作按钮置灰禁用（不影响视图/分组/配色/归档等查看类控件） */
+  body.ro-mode #addMemBtn,body.ro-mode #addReqBtn,body.ro-mode #undoBtn,body.ro-mode #redoBtn,body.ro-mode .reset,
+  body.ro-mode .inl-add{opacity:.4;filter:grayscale(.5);cursor:not-allowed!important;}
+  body.ro-mode #addMemBtn:hover,body.ro-mode #addReqBtn:hover,body.ro-mode .inl-add:hover{background:#f5effe!important;border-color:#7c3aed!important;color:#6d28d9!important;}
+  body.ro-mode .bar-task{cursor:default!important;}
+  /* 分组 / 归档设置工具条 */
+  .bar-org{font-size:12px;color:var(--tx2);}
+  .org-group{display:inline-flex;align-items:center;gap:7px;background:#fff;border:1px solid var(--line);border-radius:8px;padding:5px 11px;}
+  .org-lab{font-weight:700;color:var(--tx);white-space:nowrap;}
+  .org-sel{border:1px solid var(--line);background:#fbfcfe;border-radius:6px;font-size:12px;color:var(--tx);font-weight:600;cursor:pointer;outline:none;padding:3px 6px;}
+  .org-num{width:48px;border:1px solid var(--line);background:#fbfcfe;border-radius:6px;font-size:12px;font-weight:700;color:var(--blue);text-align:center;padding:3px 4px;outline:none;font-variant-numeric:tabular-nums;}
+  .org-unit{color:var(--tx3);white-space:nowrap;}
+  .org-unit-sel{padding:3px 4px;font-weight:700;color:var(--blue);}
+  .org-chk{display:inline-flex;align-items:center;gap:4px;cursor:pointer;color:var(--tx2);user-select:none;}
+  .org-chk input{cursor:pointer;}
+  .org-hint{color:var(--tx3);font-size:11px;}
+  /* 分组标题行：左侧列内可点击折叠 */
+  .grp-header{display:flex;align-items:center;cursor:pointer;background:linear-gradient(90deg,#f7f8fb,#fcfdfe);border-top:1px solid var(--line);border-bottom:1px solid var(--line);user-select:none;transition:background .12s;}
+  .grp-header:hover{background:#eef2f9;}
+  .grp-header.archived{background:linear-gradient(90deg,#f2f3f5,#f8f9fb);}
+  .grp-header .gh-left{width:var(--left-w);min-width:var(--left-w);position:sticky;left:0;z-index:5;display:flex;align-items:center;gap:8px;padding:7px 14px;background:inherit;border-right:1px solid var(--line);box-sizing:border-box;}
+  .grp-header .gh-caret{font-size:10px;color:var(--tx3);transition:transform .15s;width:10px;display:inline-block;}
+  .grp-header.collapsed .gh-caret{transform:rotate(-90deg);}
+  .grp-header .gh-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
+  .grp-header .gh-name{font-weight:800;color:var(--tx);font-size:13px;white-space:nowrap;}
+  .grp-header .gh-cnt{font-size:11px;color:var(--tx3);font-weight:600;background:#eceef1;border-radius:10px;padding:1px 8px;}
+  .grp-header.archived .gh-name{color:#8a929e;}
+  .grp-header .gh-spacer{flex:1;}
+  .grp-header .gh-tip{font-size:11px;color:var(--tx3);font-weight:500;padding-right:14px;}
+  .row.in-archived .cell-left{background:#fafbfc;}
+  .row.in-archived{opacity:.72;}
   .share-box{position:fixed;inset:0;background:rgba(20,24,32,.5);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;}
   .share-box.show{display:flex;}
   .share-box .sb-card{background:#fff;border-radius:14px;max-width:620px;width:100%;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
@@ -120,6 +158,12 @@
   .row.row-target .cell-left{background:#eaf1ff;box-shadow:inset 4px 0 0 var(--blue);}
   .row.row-target .timeline{outline:2px dashed #9dbcff;outline-offset:-3px;border-radius:6px;}
   .row.row-target .cell-left::after{content:'落点';position:absolute;right:10px;top:50%;transform:translateY(-50%);background:var(--blue);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;}
+  /* 新建成功：整行短暂高亮脉冲 + 左侧「新建」角标，引导视线、表示创建成功 */
+  .row.just-new{animation:newrowglow 2.6s ease-out;position:relative;z-index:3;}
+  .row.just-new .cell-left{position:relative;}
+  .row.just-new .cell-left::before{content:'✦ 新建';position:absolute;right:8px;top:6px;background:#7c3aed;color:#fff;font-size:10px;font-weight:800;letter-spacing:.5px;padding:2px 8px;border-radius:10px;box-shadow:0 2px 8px rgba(124,58,237,.45);animation:newbadge 2.6s ease-out forwards;pointer-events:none;z-index:9;}
+  @keyframes newrowglow{0%{background:#efe6ff;box-shadow:inset 0 0 0 2px #a87bf5,0 0 0 0 rgba(124,58,237,.5);}18%{background:#efe6ff;}100%{background:transparent;box-shadow:inset 0 0 0 0 rgba(124,58,237,0),0 0 0 0 rgba(124,58,237,0);}}
+  @keyframes newbadge{0%{opacity:0;transform:translateY(-4px) scale(.9);}10%{opacity:1;transform:none;}80%{opacity:1;}100%{opacity:0;}}
   /* 拖拽落点：全高竖向参考线（标记将要落到的起止日期列） */
   .drop-guide{position:absolute;top:54px;bottom:0;width:0;border-left:2px dashed var(--blue);z-index:8;pointer-events:none;display:none;}
   .drop-guide.show{display:block;}
@@ -135,15 +179,19 @@
   .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:4;transition:background .12s;}
   .row.head .cell-left{background:#fafbfc;z-index:6;}
   .timeline{position:relative;flex:1;display:flex;align-items:center;}
-  /* 行内悬浮「+加任务/加人」按钮：sticky 贴在信息栏右缘外侧、随横向滚动常驻，落在信息栏「以外」，不再占用信息栏空间。
-     绝对定位的任务条不参与 flex 流，故按钮可被 align-items 垂直居中而不影响蓝条。 */
-  .row-add{position:sticky;left:calc(var(--left-w) + 8px);z-index:4;flex:0 0 auto;
-    display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;line-height:1;white-space:nowrap;
-    color:#1d6fd6;background:#f4f8ffee;border:1px dashed #cfe0fb;border-radius:8px;padding:3px 9px;cursor:pointer;
-    backdrop-filter:blur(2px);box-shadow:0 1px 4px rgba(0,0,0,.1);transition:.12s;}
-  .row-add:hover{background:#1d6fd6;color:#fff;border-color:#1d6fd6;border-style:solid;box-shadow:0 2px 8px rgba(29,111,214,.3);}
-  .row-add .pl{font-size:12px;font-weight:800;margin-top:-1px;}
-  .row.is-left .row-add{opacity:.5;}
+  /* 行内「＋加任务/加人」按钮：收纳在左侧信息栏内（不再用 sticky 飘在时间线上、不遮挡任务条）。
+     按人看挂在姓名行末尾；按需求看放在成员区下方独立一行。低调浅蓝实心，悬停高亮。 */
+  .inl-add{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;vertical-align:middle;
+    font-size:10px;font-weight:700;line-height:1;white-space:nowrap;cursor:pointer;
+    color:#1d6fd6;background:#eef5ff;border:1px solid #d3e3fb;border-radius:7px;padding:2px 8px;transition:.12s;}
+  .inl-add:hover{background:#1d6fd6;color:#fff;border-color:#1d6fd6;box-shadow:0 2px 7px rgba(29,111,214,.28);}
+  .inl-add .pl{font-size:12px;font-weight:800;margin-top:-1px;}
+  /* 按人看：加任务钮挂在姓名行末尾，与姓名留间距，弱于姓名 */
+  .who .nm .inl-add{margin-left:8px;}
+  .row.is-left .inl-add{opacity:.5;}
+  /* 按需求看：加人钮独立成行，左缩进对齐成员组 */
+  .who-grp.add-row{min-height:auto;margin-top:1px;}
+  .who-grp.add-row .grp-lab{line-height:1;}
 
   .month-head{position:absolute;top:0;height:26px;border-right:2px solid #c2c8d0;font-size:12px;color:#1f2329;display:flex;align-items:center;justify-content:center;font-weight:700;background:#e9edf2;letter-spacing:.5px;}
   .month-head.alt{background:#f2f5f8;}
@@ -179,6 +227,18 @@
   .bar-task.flash{animation:barflash .9s ease;}
   @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6)}100%{box-shadow:0 1px 3px rgba(0,0,0,.20)}}
   .b-blue{background:#4d80ff;} .b-green{background:#16a34a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#7d92b3;}
+  /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
+     用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
+  .bar-task.open{
+    background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.16) 0 8px,rgba(255,255,255,0) 8px 16px);
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
+            mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
+    border-left:none!important;opacity:.9;}
+  .bar-task.open .grip{display:none;}
+  .bar-task.open::before{content:'«';position:absolute;left:5px;top:50%;transform:translateY(-50%);z-index:2;
+    font-size:13px;font-weight:900;color:rgba(255,255,255,.8);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.35);}
+  .bar-task.open .open-r{position:absolute;right:5px;top:50%;transform:translateY(-50%);z-index:2;
+    font-size:13px;font-weight:900;color:rgba(255,255,255,.8);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.35);}
   .grip{position:absolute;top:0;bottom:0;width:9px;cursor:ew-resize;z-index:3;}
   .grip.gl{left:0;border-radius:6px 0 0 6px;}
   .grip.gr{right:0;border-radius:0 6px 6px 0;}
@@ -240,7 +300,22 @@
   .ltag.belong{color:#646a73;background:#f2f4f7;border:1px solid #e1e5ea;}
   /* 效率：弱化为"指标"态——无填充描边、灰底细框，明显区别于归属胶囊 */
   .ltag.eff{font-weight:700;color:#0a7d3c;background:transparent;border:1px dashed #b7e0c6;padding:2px 7px;letter-spacing:.2px;}
-  .who .nm{font-weight:600;font-size:13px;} .who .ro{color:var(--tx3);font-size:11px;}
+  /* 可编辑归属标签：默认收起编辑笔，hover 时浮现，提示可点击修改 */
+  .ltag.editable{cursor:pointer;position:relative;transition:box-shadow .15s,filter .15s;}
+  .ltag.editable .edp{font-style:normal;font-size:9px;margin-left:3px;opacity:0;transition:opacity .15s;vertical-align:middle;}
+  .ltag.editable:hover{filter:brightness(1.03);box-shadow:0 0 0 2px rgba(124,58,237,.18);}
+  .ltag.editable:hover .edp{opacity:.65;}
+  body.ro-mode .ltag.editable{cursor:default;}
+  body.ro-mode .ltag.editable:hover{box-shadow:none;filter:none;}
+  body.ro-mode .ltag.editable .edp{display:none;}
+  /* 标签内联编辑控件：与标签同尺寸，无缝替换 */
+  .lead-edit{display:inline-flex;align-items:center;gap:4px;vertical-align:middle;}
+  .lead-edit select,.lead-edit input{font-size:10.5px;font-weight:600;border:1px solid #b79cf0;border-radius:6px;padding:2px 6px;background:#fff;color:#5b21b6;outline:none;max-width:140px;box-shadow:0 0 0 2px rgba(124,58,237,.15);}
+  .lead-edit input{width:110px;}
+  .lead-edit .lk{cursor:pointer;border:none;border-radius:5px;font-size:10px;font-weight:700;padding:2px 6px;line-height:1.3;}
+  .lead-edit .lk.ok{background:#7c3aed;color:#fff;}
+  .lead-edit .lk.cancel{background:#eef0f3;color:#646a73;}
+  .who .nm{font-weight:600;font-size:13px;display:flex;align-items:center;flex-wrap:wrap;gap:5px 0;} .who .ro{color:var(--tx3);font-size:11px;}
   .mstat{cursor:pointer;}
   .emp-badge .ed.mstat:hover{transform:scale(1.35);}
   .load{margin-left:auto;text-align:right;flex-shrink:0;}
@@ -262,6 +337,9 @@
   .hr-flag.left{color:#fff;background:#6b7280;border-color:#586070;font-size:9.5px;padding:1px 7px;box-shadow:0 1px 2px rgba(0,0,0,.18);letter-spacing:.5px;}
   .hr-flag.new{color:#1d4ed8;background:#dbeafe;border-color:#93c5fd;}
   .hr-flag.sup{color:#0e7490;background:#cffafe;border-color:#67e8f9;}
+  /* 长期外借支援其他管线（编制仍在、不隶属角色线）：紫罗兰醒目徽标 + 同色胶囊 */
+  .hr-flag.loan{color:#fff;background:#7c3aed;border-color:#6d28d9;font-size:9.5px;padding:1px 7px;box-shadow:0 1px 3px rgba(124,58,237,.35);letter-spacing:.3px;}
+  .ltag.loan{color:#6d28d9;background:#f3e8ff;border:1px solid #d8b4fe;font-weight:700;}
   /* 已离职：整行信息统一灰化（姓名/品级/标签/负载都转灰），仅「已离职」徽标保持醒目，一眼看出此人已离场 */
   .row.is-left{background:#f6f7f9;}
   .row.is-left .cell-left{background:#f1f2f5;}   /* 左侧信息栏（sticky 白底）也跟着灰化，整行一致 */
@@ -273,6 +351,12 @@
   .row.is-left .bar-task{filter:grayscale(.85);opacity:.55;}
   .row.is-left .hr-flag.left,.row.is-left .tmp-tag{text-decoration:none;filter:none;opacity:1;}  /* 离职/临 徽标不被灰化，保持醒目 */
   .row.is-left .av{filter:grayscale(1);}
+  /* 长期外借支援其他管线：不再用醒目 pill 标签，而是整行淡紫底色 + 左侧紫罗兰强调条来区分。
+     视觉上一眼可辨「这一行不属于角色线编制」，比单个标签更整体、数量多时也不喧宾夺主。 */
+  .row.is-loan{background:linear-gradient(90deg,#f6f1fe 0%, #faf7fe 60%, #fbfaff 100%);}
+  .row.is-loan .cell-left{background:#f3ecfd;box-shadow:inset 4px 0 0 #7c3aed;}
+  .row.is-loan .who .nm{color:#5b21b6;}
+  .loan-note{font-size:10.5px;font-weight:600;color:#7c3aed;background:transparent;border:1px dashed #c9b6f3;border-radius:6px;padding:2px 7px;white-space:nowrap;line-height:1.4;}
   .gap-pill{font-size:10px;font-weight:700;color:#d32320;background:var(--red-l);border:1px solid #ffc4c2;border-radius:5px;padding:2px 7px;margin-left:6px;flex-shrink:0;}
   .badge{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;margin-left:8px;flex-shrink:0;}
   .rk-low{background:var(--green-l);color:#1a8a3c;}
@@ -378,9 +462,7 @@
     transition:.12s;white-space:nowrap;vertical-align:middle;}
   .add-btn:hover{background:#1d6fd6;color:#fff;border-color:#1d6fd6;box-shadow:0 2px 8px rgba(29,111,214,.28);}
   .add-btn .pl{font-size:13px;font-weight:800;margin-top:-1px;}
-  /* 按人看：行内「+加任务」，挂在姓名行末尾——实心浅色按钮态，与下方标签层级分明 */
-  .who .nm .add-task{margin-left:10px;font-size:10px;padding:2px 9px;border-style:solid;border-color:#cfe0fb;background:#f4f8ff;}
-  .who .nm .add-task:hover{background:#1d6fd6;border-color:#1d6fd6;}
+  /* （旧的时间线侧加人/加任务按钮样式已移除，统一改用信息栏内的 .inl-add，见上方定义） */
   /* 按需求看：编制分组行末尾「+加人」 */
   .who-grp .add-person{font-size:10px;padding:2px 7px;align-self:center;}
   /* 编制分组行内末尾的小加人钮：弱化、虚线、悬停高亮 */
@@ -409,7 +491,7 @@
   .add-modal .am-body{padding:14px 18px 4px;}
   .add-modal .fld{margin-bottom:13px;}
   .add-modal .fld>label{display:block;font-size:11px;font-weight:800;color:#7a828f;margin-bottom:5px;letter-spacing:.4px;}
-  .add-modal select,.add-modal input[type=date],.add-modal input[type=number]{
+  .add-modal select,.add-modal input[type=date],.add-modal input[type=number],.add-modal input[type=text]{
     width:100%;box-sizing:border-box;font-size:13px;padding:8px 10px;border:1.5px solid #dde2ea;border-radius:9px;
     background:#fff;color:#1d2330;font-weight:600;outline:none;transition:.12s;}
   .add-modal select:focus,.add-modal input:focus{border-color:#1d6fd6;box-shadow:0 0 0 3px rgba(29,111,214,.14);}
@@ -418,6 +500,9 @@
   .add-modal .ctx{font-size:12px;color:#5a626e;background:#f6f8fc;border:1px solid #e7ebf2;border-radius:9px;padding:9px 11px;margin-bottom:13px;line-height:1.5;}
   .add-modal .ctx b{color:#1d2330;}
   .add-modal .seg-pre{font-size:11px;color:#7a828f;margin-top:-6px;margin-bottom:12px;}
+  .add-modal .open-chk{display:flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;color:#5b21b6;
+    background:#f6f1fe;border:1px dashed #c9b6f3;border-radius:8px;padding:8px 10px;margin:-2px 0 12px;cursor:pointer;}
+  .add-modal .open-chk input{width:14px;height:14px;accent-color:#7c3aed;cursor:pointer;}
   .add-modal .am-foot{display:flex;gap:10px;justify-content:flex-end;padding:6px 18px 17px;}
   .add-modal .am-foot button{font-size:13px;font-weight:700;padding:9px 18px;border-radius:9px;cursor:pointer;border:1.5px solid transparent;}
   .add-modal .am-cancel{background:#f1f2f5;color:#5a626e;}
@@ -477,20 +562,39 @@
   .std-cfg b{color:var(--tx);}
   /* —— 可编辑标准工期表 —— */
   .std-rows{display:flex;flex-direction:column;gap:7px;margin-top:6px;}
-  .std-rows .std-head{display:grid;grid-template-columns:140px 120px 1fr 26px;gap:10px;padding:0 10px;font-size:11px;font-weight:600;color:var(--tx3);}
-  .std-row{display:grid;grid-template-columns:140px 120px 1fr 26px;gap:10px;align-items:center;padding:8px 10px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;}
-  .std-row .sd-grade{display:flex;align-items:center;gap:7px;}
-  .std-row .sd-col{width:20px;height:20px;border:1px solid var(--line);border-radius:50%;padding:0;cursor:pointer;flex-shrink:0;background:none;}
-  .std-row .sd-col::-webkit-color-swatch-wrapper{padding:2px;} .std-row .sd-col::-webkit-color-swatch{border:none;border-radius:50%;}
-  .std-row .sd-name{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--tx);border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 7px;outline:none;}
+  .std-rows .std-head{display:grid;grid-template-columns:150px 120px 96px 96px 1fr 26px;gap:10px;padding:0 10px;font-size:11px;font-weight:600;color:var(--tx3);}
+  /* 表头每列对齐其下方数据：展示时长/制作工期为居中输入，故表头也居中；首列文字与色点对齐留出胶囊内边距 */
+  .std-rows .std-head span:nth-child(1){padding-left:10px;}
+  .std-rows .std-head span:nth-child(3),.std-rows .std-head span:nth-child(4){text-align:center;}
+  .std-row{display:grid;grid-template-columns:150px 120px 96px 96px 1fr 26px;gap:10px;align-items:center;padding:8px 10px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;}
+  /* 品级：圆形色点（可点选颜色）+ 品级名，合成一个胶囊 */
+  .std-row .sd-grade{display:flex;align-items:center;gap:0;border:1px solid var(--line);background:#fff;border-radius:7px;overflow:visible;padding-left:9px;position:relative;}
+  .std-row .sd-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 2px rgba(0,0,0,.06) inset;border:none;padding:0;cursor:default;}
+  .std-rows:not(.locked) .std-row .sd-dot{cursor:pointer;}
+  .std-rows:not(.locked) .std-row .sd-dot:hover{box-shadow:0 0 0 2px rgba(0,0,0,.06) inset,0 0 0 3px rgba(112,72,232,.25);}
+  .std-row .sd-name{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--tx);border:none;background:transparent;padding:5px 8px;outline:none;}
+  .std-row .sd-grade:focus-within{border-color:#9aa7b8;}
+  /* 颜色选择浮层：点击色点弹出，列出预设色 */
+  .sd-colpop{position:absolute;top:calc(100% + 6px);left:0;z-index:50;display:flex;gap:8px;padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(20,30,50,.16);}
+  .sd-colpop .opt{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-size:10px;color:var(--tx3);border:none;background:none;padding:0;}
+  .sd-colpop .opt .sw{width:22px;height:22px;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.06) inset;transition:transform .1s;}
+  .sd-colpop .opt:hover .sw{transform:scale(1.12);}
+  .sd-colpop .opt.cur .sw{box-shadow:0 0 0 2px rgba(0,0,0,.06) inset,0 0 0 3px rgba(112,72,232,.45);}
+  .sd-colpop .opt.cur{color:var(--tx);font-weight:700;}
+  .std-row .sd-mod{width:100%;font-size:12px;font-weight:700;color:var(--tx);border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 7px;outline:none;}
+  .std-row .sd-mod:focus{border-color:#9aa7b8;}
+  .std-rows.locked .sd-mod{pointer-events:none;background:#f4f5f7;color:var(--tx3);border-color:var(--line);}
+  .std-row .sd-dur{width:100%;font-size:13px;font-weight:700;color:#0a7d3c;text-align:center;border:1px solid #c2ecd0;background:#fff;border-radius:6px;padding:5px 4px;outline:none;}
+  .std-row .sd-dur:focus{border-color:#0a7d3c;box-shadow:0 0 0 2px rgba(10,125,60,.12);}
   .std-row .sd-weeks{width:100%;font-size:13px;font-weight:700;color:#7048e8;text-align:center;border:1px solid #d9d0f5;background:#fff;border-radius:6px;padding:5px 4px;outline:none;}
   .std-row .sd-ppl{width:100%;font-size:12px;color:var(--tx2);border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 7px;outline:none;}
-  .std-row .sd-name:focus,.std-row .sd-ppl:focus{border-color:#9aa7b8;} .std-row .sd-weeks:focus{border-color:#7048e8;box-shadow:0 0 0 2px rgba(112,72,232,.12);}
+  .std-row .sd-ppl:focus{border-color:#9aa7b8;} .std-row .sd-weeks:focus{border-color:#7048e8;box-shadow:0 0 0 2px rgba(112,72,232,.12);}
   .std-row .std-del{cursor:pointer;color:#c4ccd8;font-size:16px;line-height:1;background:none;border:none;padding:4px 2px;}
   .std-row .std-del:hover{color:#f5413f;}
-  .std-rows.locked .sd-col{pointer-events:none;}
   .std-rows.locked .std-del{display:none;}
-  .std-rows.locked .sd-name,.std-rows.locked .sd-weeks,.std-rows.locked .sd-ppl{pointer-events:none;background:#f4f5f7;color:var(--tx3);border-color:var(--line);}
+  .std-rows.locked .sd-grade{background:#f4f5f7;}
+  .std-rows.locked .sd-name,.std-rows.locked .sd-dur,.std-rows.locked .sd-weeks,.std-rows.locked .sd-ppl{pointer-events:none;background:#f4f5f7;color:var(--tx3);border-color:var(--line);}
+  .std-rows.locked .sd-name{background:transparent;}
   /* —— 可编辑效率档位表 —— */
   .eff-add-tier{font-size:11px;color:#0a7d3c;background:#e9f8ee;border:1px solid #c2ecd0;border-radius:6px;padding:2px 9px;cursor:pointer;font-weight:600;}
   .eff-add-tier:hover{background:#d6f3e0;}
@@ -594,7 +698,10 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
+  <div class="hd-row">
+    <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
+    <span class="cloud-ind hd-cloud" id="cloudInd" title="云端协作同步状态（点击解锁编辑）" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
+  </div>
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
 
   <div class="kpis">
@@ -606,12 +713,12 @@
   </div>
 
   <div class="bar">
-    <div class="tabs">
+    <div class="tabs" id="viewTabs">
       <button class="on" onclick="setView('person',this)">按人看（谁在做什么）</button>
       <button onclick="setView('req',this)">按需求看（排期/风险）</button>
       <button onclick="setView('hr',this)">人力分配（按模块/缺口）</button>
     </div>
-    <div class="tabs" style="margin-left:2px">
+    <div class="tabs" id="colorTabs" style="margin-left:2px">
       <button class="on" onclick="setColor('status',this)">按状态着色</button>
       <button onclick="setColor('risk',this)">按风险着色</button>
     </div>
@@ -631,7 +738,6 @@
       <button class="ubtn" id="undoBtn" onclick="undo()" title="撤销 (Ctrl+Z)" disabled>↶ 撤销</button>
       <button class="ubtn" id="redoBtn" onclick="redo()" title="重做 (Ctrl+Y)" disabled>↷ 重做</button>
     </div>
-    <span class="cloud-ind" id="cloudInd" title="云端协作同步状态" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
     <button class="ubtn sync-btn" onclick="exportSync()" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">📋 一键复制排期</button>
     <span class="vivid-ctrl" title="调节任务条底色的色彩浓度：往左拖越淡（泛白柔和护眼），往右拖越浓（原色鲜明）。仅作用于时间轴任务条。">
@@ -646,8 +752,30 @@
       <span class="vc-val" id="zoomVal">100%</span>
       <button class="vc-reset" onclick="setZoom(100,true)" title="恢复默认条宽">↺</button>
     </span>
+    <button class="ubtn add-ent" id="addMemBtn" onclick="openNewMember()" title="添加一名新成员（姓名、编制、隶属、模块、品级、效率）">＋ 新成员</button>
+    <button class="ubtn add-ent" id="addReqBtn" onclick="openNewReq()" title="添加一条新需求（角色、模块、品级、工作量、起止）">＋ 新需求</button>
     <button class="ubtn" onclick="autoFitLeftW()" title="自动加宽左侧信息栏，让人名标签尽量不换行、各行宽度一致、版面整齐（也可拖动栏右侧分界线手动调，或双击分界线自动适配）">⇆ 适配栏宽</button>
     <button class="reset" onclick="resetData()">重置</button>
+  </div>
+
+  <div class="bar bar-org" style="margin-top:-4px">
+    <span class="org-group">
+      <span class="org-lab">🗂 分组</span>
+      <select id="groupSel" class="org-sel" onchange="changeGroup(this.value)" title="选择左侧列表的分组归类方式；同组可点标题折叠/展开"></select>
+    </span>
+    <span class="org-group" title="已离职超过N天的成员 / 已完结超过N天的需求，自动折叠进底部「已归档」区，让视图聚焦当前。改这里的天数即时生效。">
+      <span class="org-lab">📦 超期归档</span>
+      <input type="number" id="archiveVal" class="org-num" min="0" max="999" step="1" value="2" onchange="changeArchiveVal(this.value)">
+      <select id="archiveUnit" class="org-sel org-unit-sel" onchange="changeArchiveUnit(this.value)" title="超期单位：天 / 周 / 月">
+        <option value="day">天</option>
+        <option value="week">周</option>
+        <option value="month">月</option>
+      </select>
+      <span class="org-unit">后自动收纳</span>
+      <label class="org-chk"><input type="checkbox" id="archiveOn" checked onchange="changeArchiveOn(this.checked)">启用</label>
+    </span>
+    <span class="spacer"></span>
+    <span class="org-hint" id="orgHint"></span>
   </div>
 
   <div class="bar" style="margin-top:-6px">
@@ -690,7 +818,7 @@
           <button class="eff-add-tier hide" id="stdAddRow" title="新增一行">＋ 加一行</button>
         </div>
         <div id="stdRows" class="std-rows locked"></div>
-        <p style="margin-top:8px;">检视、组队、入局Cuts、TPP、红角 MVP 等模块的基地人力配置，<b>以「人力分配（按模块/缺口）」视图为标准</b>逐模块核定。</p>
+        <p style="margin-top:8px;">出场（金/橙/红角）按<b>制作工期</b>核定；<b>展示时长</b>指效果在游戏内呈现的时间长度（如出场表演时长），与制作工期含义不同。检视、组队、入局Cuts、TPP、红角 MVP 等模块可按需填写；基地人力配置仍<b>以「人力分配（按模块/缺口）」视图为准</b>逐模块核定。</p>
       </div>
 
       <div class="rule" style="grid-column:1/-1;">
@@ -809,6 +937,127 @@ function leftLong(m){
   if(!m || m.status!=='left') return false;
   if(!m.leftAt) return false;                  // 无离职日：保守保留
   return (TODAY-m.leftAt)/86400000 > 31;
+}
+
+/* ============ 分组归类 + 超期自动归档（可配置） ============
+   ARCHIVE.on：是否启用自动归档；阈值 = ARCHIVE.val × ARCHIVE.unit（天/周/月），由 archiveDays() 换算成天比较。
+   GROUP_MODE.person / GROUP_MODE.req：两视图各自的分组方式。
+   collapsed：记录被折叠的分组 key（含归档区），值为 true 表示已折叠。
+   以上均纳入 snapshot/applySnap 持久化（本地 / 分享链接 / 云端三链路一致）。 */
+let ARCHIVE = { on:true, val:2, unit:'week' };   // 阈值=val×unit；unit: day|week|month
+/* 阈值换算成天数：周=7天，月=30天。供 memArchived/reqArchived 比较用。 */
+function archiveDays(){
+  const u=ARCHIVE.unit, n=(+ARCHIVE.val||0);
+  return u==='month' ? n*30 : u==='week' ? n*7 : n;
+}
+/* 人类可读阈值文案，如 “2 周”“200 天”“3 个月”，供归档区标题/提示展示。 */
+function archiveLabel(){
+  const n=(+ARCHIVE.val||0), u=ARCHIVE.unit;
+  return u==='month' ? n+' 个月' : u==='week' ? n+' 周' : n+' 天';
+}
+let GROUP_MODE = { person:'corp', req:'mod' };   // person: none|corp|lead ; req: none|mod|char
+let collapsed = {};   // key -> true(折叠)
+
+/* 成员是否"应归档"：已离职且离职超过阈值（启用时）。
+   阈值由 archiveDays() 统一换算（天/周/月）。离职者无论多久都进归档区（可展开），
+   不再受 leftLong（31天硬隐藏）影响——避免阈值>31天时归档区永远为空。 */
+function memArchived(m){
+  if(!ARCHIVE.on || !m) return false;
+  if(m.status!=='left' || !m.leftAt) return false;
+  const d=(TODAY-m.leftAt)/86400000;
+  return d>archiveDays();
+}
+/* 需求是否"应归档"：已完结（已完成或结束日已过）且结束日超过阈值。 */
+function reqArchived(r){
+  if(!ARCHIVE.on || !r || !r.end) return false;
+  const done = (r.estimate>0 && r.done>=r.estimate) || (typeof aggStatus==='function' && aggStatus(r)==='done');
+  const ended = r.end < TODAY;
+  if(!done && !ended) return false;
+  const d=(TODAY-r.end)/86400000;
+  return d>archiveDays();
+}
+
+/* 分组方式定义：返回 {key, label, color} 用于左侧分组标题行。 */
+function personGroupKey(m){
+  const mode=GROUP_MODE.person;
+  if(mode==='lead'){ const L=leadOf(m); return L?{key:'lead:'+L,label:'隶属 '+L,color:leadColor(L)}:{key:'lead:free',label:'游离 / 无带队归属',color:'#a3acba'}; }
+  if(mode==='corp'){
+    if(isExtLoan(m)) return {key:'corp:loan',label:'外借支援（非角色线）',color:'#f08c00'};
+    return m.corp==='reg'?{key:'corp:reg',label:'正编（带队）',color:'#7c3aed'}:{key:'corp:base',label:'基地',color:'#646a73'};
+  }
+  return null;   // none
+}
+function reqGroupKey(r){
+  const mode=GROUP_MODE.req;
+  if(mode==='char'){ const c=charShort(r.char)||r.name; return {key:'char:'+c,label:c,color:charColor(c)}; }
+  if(mode==='mod'){ const MM=modMeta(r.mod); return {key:'mod:'+(r.mod||'其他'),label:MM.s,color:MM.c}; }
+  return null;   // none
+}
+/* 分组顺序：corp 用固定优先级，其余按出现顺序。 */
+const CORP_GROUP_ORDER=['corp:reg','corp:base','corp:loan'];
+function groupSortVal(key){ const i=CORP_GROUP_ORDER.indexOf(key); return i<0?99:i; }
+
+/* 分组方式下拉选项（随视图变化） */
+const GROUP_OPTS={
+  person:[{v:'none',t:'不分组'},{v:'corp',t:'按编制（正编/基地/外借）'},{v:'lead',t:'按隶属带队'}],
+  req:[{v:'none',t:'不分组'},{v:'mod',t:'按模块（出场/检视/组队…）'},{v:'char',t:'按角色'}],
+};
+function updateGroupSelUI(){
+  const sel=document.getElementById('groupSel'); if(!sel)return;
+  if(view==='hr'){ sel.disabled=true; sel.innerHTML='<option>（人力视图按模块固定分组）</option>'; sel.parentElement.style.opacity='.5'; return; }
+  sel.disabled=false; sel.parentElement.style.opacity='1';
+  const vk=view==='req'?'req':'person';
+  const cur=GROUP_MODE[vk];
+  sel.innerHTML=GROUP_OPTS[vk].map(o=>`<option value="${o.v}" ${o.v===cur?'selected':''}>${o.t}</option>`).join('');
+}
+function changeGroup(v){
+  const vk=view==='req'?'req':'person'; GROUP_MODE[vk]=v;
+  try{localStorage.setItem('gantt_group_'+vk,v);}catch(_){}
+  rerender();
+}
+function changeArchiveVal(v){
+  let n=parseInt(v,10); if(!isFinite(n)||n<0)n=0; if(n>999)n=999;
+  ARCHIVE.val=n; const el=document.getElementById('archiveVal'); if(el)el.value=n;
+  save();broadcast();rerender();
+  toast('超期归档阈值：'+archiveLabel());
+}
+function changeArchiveUnit(u){
+  if(['day','week','month'].indexOf(u)<0)u='day';
+  ARCHIVE.unit=u; save();broadcast();rerender();
+  toast('超期归档阈值：'+archiveLabel());
+}
+function changeArchiveOn(on){
+  ARCHIVE.on=!!on; save();broadcast();rerender();
+  toast(on?'已启用超期自动归档':'已关闭自动归档（显示全部）');
+}
+function toggleGroup(key){
+  collapsed[key]=!collapsed[key];
+  try{localStorage.setItem('gantt_collapsed',JSON.stringify(collapsed));}catch(_){}
+  rerender();
+}
+/* 分组标题行 HTML（左侧列内可点折叠） */
+function groupHeaderHTML(g,count,isArchived,tip){
+  const col=collapsed[g.key]?' collapsed':'';
+  const arc=isArchived?' archived':'';
+  return `<div class="grp-header${col}${arc}" onclick="toggleGroup('${g.key.replace(/'/g,"\\'")}')" title="点击折叠/展开该分组">
+    <div class="gh-left">
+      <span class="gh-caret">▼</span>
+      ${g.color?`<span class="gh-dot" style="background:${g.color}"></span>`:''}
+      <span class="gh-name">${isArchived?'📦 ':''}${g.label}</span>
+      <span class="gh-cnt">${count}</span>
+      <span class="gh-spacer"></span>
+    </div>
+    ${tip?`<span class="gh-tip">${tip}</span>`:''}
+  </div>`;
+}
+
+/* 「长期外借」判定：编制仍挂在本团队，但长期支援其他管线(如武器特效)、不隶属任何角色线。
+   特征：support===true 且无正编导师归属(lead 为 — / -)。这类人不应被当作角色线在岗人力统计，
+   需在「按人看」姓名行用专属徽标醒目标注，避免被误读为可派给角色需求的基地人力。 */
+function isExtLoan(m){
+  if(!m) return false;
+  if(!m.support) return false;
+  return !m.lead || m.lead==='—' || m.lead==='-';
 }
 
 /* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
@@ -1213,12 +1462,24 @@ function effMoveMemToTier(id, ti){
 }
 
 /* ============ 出场标准工期 & 标配人力（可编辑，按角色品级） ============
-   每行：{grade:品级名, col:圆点颜色, weeks:标准工期, ppl:标配人力说明}。
+   每行：{grade:品级名, col:品级色, mod:模块类型, weeks:标准工期(制作), dur:展示时长(演出), ppl:标配人力说明}。
+   注意：weeks=制作工期；dur=效果在游戏内的展示时间长度，二者含义不同不可混用。
    纯展示用配置表，可锁定/激活后编辑、增删行；纳入持久化与协同同步。 */
+/* 品级色预设（不用系统调色板，只给金/橙/红三个固定值） */
+const GRADE_PRESET = [
+  {name:'金色', col:'#f6cf3f'},
+  {name:'橙色', col:'#f59e0b'},
+  {name:'红色', col:'#ef3b39'},
+];
 let STD_CFG = [
-  {grade:'金角', col:'#f6cf3f', weeks:'8 周',  ppl:'3–4 个基地人力'},
-  {grade:'橙角', col:'#f59e0b', weeks:'12 周', ppl:'1 正编 + 3 个基地人力'},
-  {grade:'红角', col:'#ef3b39', weeks:'16 周', ppl:'1 正编 + 3 个基地人力'},
+  {grade:'金角', col:'#f6cf3f', mod:'出场', dur:'',  weeks:'8 周',  ppl:'3–4 个基地人力'},
+  {grade:'橙角', col:'#f59e0b', mod:'出场', dur:'',  weeks:'12 周', ppl:'1 正编 + 3 个基地人力'},
+  {grade:'红角', col:'#ef3b39', mod:'出场', dur:'',  weeks:'16 周', ppl:'1 正编 + 3 个基地人力'},
+  {grade:'通用', col:'#3b82f6', mod:'检视', dur:'',  weeks:'',     ppl:'按模块/缺口视图核定'},
+  {grade:'通用', col:'#06b6d4', mod:'组队', dur:'',  weeks:'',     ppl:'按模块/缺口视图核定'},
+  {grade:'通用', col:'#8b5cf6', mod:'入局Cuts', dur:'', weeks:'',  ppl:'按模块/缺口视图核定'},
+  {grade:'通用', col:'#ec4899', mod:'TPP', dur:'',   weeks:'',      ppl:'按模块/缺口视图核定'},
+  {grade:'红角', col:'#ef3b39', mod:'红角 MVP', dur:'', weeks:'',  ppl:'按模块/缺口视图核定'},
 ];
 let stdLocked = true;  // 标准工期表默认锁定，防误操作
 
@@ -1276,6 +1537,7 @@ function memLoad(id){
     r.segs.forEach(s=>{
       if(s.m!==id) return;
       if(s.status==='done') return;
+      if(s.open) return;   // 无明确时间段：时间未定，不纳入负载窗口计算（避免占位窗口误算）
       const a=new Date(Math.max(s.s,TODAY)), b=new Date(Math.min(s.e,horizonEnd));
       if(b>a) assigned+=workdays(a,b);
     });
@@ -1326,8 +1588,11 @@ function headerHTML(){
     }
   }
   const tx=idx(TODAY)*DAY_W;
+  const headLabel = view==='req' ? '需求 / 角色　·　排期与风险'
+                  : view==='hr'  ? '模块 / 品级　·　人力配置'
+                  : '成员 / 角色　·　负载';
   return `<div class="row head">
-    <div class="cell-left">成员 / 角色　·　负载</div>
+    <div class="cell-left">${headLabel}</div>
     <div class="timeline" style="width:${DAYS*DAY_W}px">${months}${weeks}</div></div>`
    + `__VLINES__${vlines}<div class="todayline" style="left:${tx}px"></div>`;
 }
@@ -1351,11 +1616,45 @@ function assignLanes(items){               // items: [{s,e,...}]，s/e 为天索
 
 /* ============ 视图1：按人 ============ */
 function renderPerson(){
+  // 先筛出可见成员。离职者一律保留（交给归档逻辑收纳进底部归档区，可展开），
+  // 仅在「关闭自动归档」时才用 leftLong 做 31 天硬隐藏，避免列表无限堆积。
+  const visible=members.filter(m=>{
+    if(!ARCHIVE.on && leftLong(m)) return false;
+    if(focusMode==='only' && focusRole(m)==='') return false;
+    return true;
+  });
+  const live=visible.filter(m=>!memArchived(m));
+  const archived=visible.filter(m=>memArchived(m));
+  const mode=GROUP_MODE.person;
   let rows='';
-  members.forEach(m=>{
-    if(leftLong(m)) return;                     // 离职满1个月：整行隐藏
+  if(mode==='none' || view!=='person'){
+    live.forEach(m=>{ rows+=personRowHTML(m); });
+  }else{
+    // 按分组聚合
+    const groups={}; const order=[];
+    live.forEach(m=>{
+      const g=personGroupKey(m); const k=g.key;
+      if(!groups[k]){groups[k]={g,arr:[]};order.push(k);}
+      groups[k].arr.push(m);
+    });
+    order.sort((a,b)=> groupSortVal(a)-groupSortVal(b) || groups[a].g.label.localeCompare(groups[b].g.label,'zh-Hans-CN'));
+    order.forEach(k=>{
+      const {g,arr}=groups[k];
+      rows+=groupHeaderHTML(g,arr.length,false,'');
+      if(!collapsed[k]) arr.forEach(m=>{ rows+=personRowHTML(m); });
+    });
+  }
+  // 归档区（始终置底，默认折叠）
+  if(archived.length){
+    const gk={key:'__arch_person__',label:'已归档成员（离职超期）',color:'#9097a0'};
+    rows+=groupHeaderHTML(gk,archived.length,true,`离职超过 ${archiveLabel()} 自动收纳 · 点击展开`);
+    if(!collapsed[gk.key]) archived.forEach(m=>{ rows+=personRowHTML(m,true); });
+  }
+  paint(rows);
+}
+/* 渲染单个成员行（inArc=是否归档区内，仅加淡化样式类） */
+function personRowHTML(m,inArc){
     const fr=focusRole(m);
-    if(focusMode==='only' && fr==='') return;   // 只看我和我的团队
     const L=memLoad(m.id);
     const MS=MSTATUS[m.status||'on'];
     const G=m.grade?HR_GRADE[m.grade]:null;
@@ -1365,12 +1664,13 @@ function renderPerson(){
     const items=[];
     reqs.forEach(r=>r.segs.forEach((s,si)=>{
       if(s.m!==m.id)return;
-      const si0=idx(s.s),ei0=idx(s.e);
-      if(ei0-si0<=0)return;
+      let si0=idx(s.s),ei0=idx(s.e);
+      if(s.open){ si0=0; ei0=DAYS; }              // 无明确时间(open)段铺满整行，按整行占位
+      else if(ei0-si0<=0) return;                  // 普通段需有正时长
       items.push({r,sg:s,si,si0,ei0});
     }));
     // 跨队「支援」改为标注在对应任务条上（见 bars 渲染的 .sup-mk），不再挂在姓名旁。
-    // 分配泳道（用天索引判重叠）；s/e 仅作排序索引，seg 对象保存在 sg
+    // 分配泳道（用天索引判重叠）；open 段已在上方归一化为整行 [0,DAYS) 占位，故此处直接用 si0/ei0。
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
     /* 自适应条高（关键）：纵向位置/高度全部用「行实际高度的百分比」表达，而不是固定像素。
@@ -1387,7 +1687,9 @@ function renderPerson(){
     let bars='';
     laid.items.forEach(it=>{
       const {r,sg,si}=it;
-      const x=it.si0*DAY_W, w=(it.ei0-it.si0)*DAY_W;
+      const isOpen=!!sg.open;
+      // 无明确时间段：横向铺满整条时间线（前后无限延长，靠 CSS 两端羽化表达"未定/持续"）
+      const x=isOpen?0:it.si0*DAY_W, w=isOpen?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
       // 以本条泳道为中心，向上下吞并自己时段内的空泳道
       let lo=it.lane, hi=it.lane;
       while(lo>0 && !occupied(lo-1,it.si0,it.ei0)) lo--;
@@ -1402,16 +1704,19 @@ function renderPerson(){
       const slimCls = frac<0.34 ? ' slim' : '';
       const risk=reqRisk(r);
       const st=STATUS[sg.status||'doing'];
-      const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
-      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
+      const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
+      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
+        ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(sg.prog*100)}"></div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
     const focusCls = focusMode==='hl' ? (fr==='self'?' me-self':fr==='team'?' me-team':' dim') : (fr==='self'?' me-self':fr==='team'?' me-team':'');
-    rows+=`<div class="row${isLeft?' is-left':''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
+    const isLoan=isExtLoan(m);
+    return `<div class="row${isLeft?' is-left':''}${isLoan?' is-loan':''}${inArc?' in-archived':''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
       <div class="cell-left">
         <div class="emp-badge ${m.corp}" title="${m.corp==='reg'?'正编（带队）':'基地'}">
           <span class="el">${m.corp==='reg'?'正编':'基地'}</span>
@@ -1419,32 +1724,56 @@ function renderPerson(){
           ${L.pct>110?'<i class="olflag" title="超载">!</i>':''}
         </div>
         <div class="who">
-          <div class="nm">${G?`<span class="gdot-grade" style="background:${G.col}" title="${G.label}级"></span>`:''}${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':''}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}</div>
+          <div class="nm">${G?`<span class="gdot-grade" style="background:${G.col}" title="${G.label}级"></span>`:''}${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':''}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
           <div class="tags">
-            ${m.corp==='reg'?`<span class="ltag lead" title="带队负责：${m.lead}">👑 带 ${m.lead}</span>`:(m.lead&&m.lead!=='—'&&m.lead!=='-'?`<span class="ltag belong" title="所属正编 ${m.lead}${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">隶属 ${m.lead}</span>`:'')}
+            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：带队负责的模块（可下拉选预设，也可自行输入）">👑 带 ${escAttr(m.lead)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">隶属 ${(m.lead&&m.lead!=='—'&&m.lead!=='-')?escAttr(m.lead):'（未指定）'}<i class="edp">✎</i></span>`)}
             <span class="ltag eff" title="效率系数（1.0 为基准产能，>1 更快、<1 更慢）">⚡ 效率 ${m.eff}</span>
           </div>
         </div>
         <div class="load"><div class="pct" style="color:${L.col}">${L.pct}% ${L.cls}</div>
           <div class="bar-l${L.pct>110?' over':''}"><i style="width:${Math.min(L.pct,100)}%;background:${L.col}"></i></div></div>
       </div>
-      <div class="timeline" style="width:${DAYS*DAY_W}px"><button class="row-add" title="给 ${m.name} 新分配一条任务（选择需求与起止）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')"><span class="pl">＋</span>加任务</button>${bars}</div>
+      <div class="timeline" style="width:${DAYS*DAY_W}px">${bars}</div>
     </div>`;
-  });
-  paint(rows);
 }
 
 /* ============ 视图2：按需求 ============ */
 function renderReq(){
-  let rows='';
-  // 可见需求行（联调附属不单独成行）。用数组+索引，便于判断上一行/下一行是否同品级、同角色，
-  // 从而让左侧三层竖带「同组连成整条」。
+  // 可见需求（联调附属不单独成行）；按分组方式归类，已完结超期的收纳进归档区。
   const vis=reqs.filter(r=>!r.attached);
-  vis.forEach((r,vi)=>{
-    const prevR=vis[vi-1], nextR=vis[vi+1];
+  const live=vis.filter(r=>!reqArchived(r));
+  const archived=vis.filter(r=>reqArchived(r));
+  const mode=GROUP_MODE.req;
+  let rows='';
+  // band 连续性基于"实际相邻渲染的需求"，故按分组排好序后整体连续传 prev/next。
+  const emit=(list)=>{
+    list.forEach((r,i)=>{ rows+=reqRowHTML(r, list[i-1], list[i+1]); });
+  };
+  if(mode==='none'){
+    emit(live);
+  }else{
+    const groups={}, order=[];
+    live.forEach(r=>{ const g=reqGroupKey(r), k=g.key; if(!groups[k]){groups[k]={g,arr:[]};order.push(k);} groups[k].arr.push(r); });
+    // mod 分组按 MOD_META 中出现顺序近似；char 按首次出现。这里统一按首次出现顺序，稳定直观。
+    order.forEach(k=>{
+      const {g,arr}=groups[k];
+      rows+=groupHeaderHTML(g,arr.length,false,'');
+      if(!collapsed[k]) arr.forEach((r,i)=>{ rows+=reqRowHTML(r, arr[i-1], arr[i+1]); });
+    });
+  }
+  if(archived.length){
+    const gk={key:'__arch_req__',label:'已归档需求（完结超期）',color:'#9097a0'};
+    rows+=groupHeaderHTML(gk,archived.length,true,`完结超过 ${archiveLabel()} 自动收纳 · 点击展开`);
+    if(!collapsed[gk.key]) archived.forEach((r,i)=>{ rows+=reqRowHTML(r, archived[i-1], archived[i+1], true); });
+  }
+  paint(rows);
+}
+function reqRowHTML(r, prevR, nextR, inArc){
     const risk=reqRisk(r);
     // 本需求的联调附属(可能多条)
     const addons=(r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
+    // 整条需求无明确时间：当其全部任务段都标记 open（时间待定）时，需求条也铺满整行延长
+    const reqOpen = r.segs.length>0 && r.segs.every(s=>s.open);
     const allS=Math.min(...r.segs.map(s=>idx(s.s)));
     const allE=Math.max(...r.segs.map(s=>idx(s.e)));
     const x=allS*DAY_W,w=(allE-allS)*DAY_W;
@@ -1497,7 +1826,7 @@ function renderReq(){
     const chips = memObjs.length
       ? groupRow('正编',regs,'reg-grp','reg')+groupRow('基地',bases,'base-grp','base')
       : `<div class="who-grp"><div class="grp-chips"><span class="ptag none">未排人</span></div></div>`;
-    const addPersonRow = '';
+    const addPersonRow = `<div class="who-grp add-row"><span class="grp-lab"></span><button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddPersonTo('${r.id}')" title="给「${r.name}」加人（可选正编或基地）"><span class="pl">＋</span>加人</button></div>`;
     // 蓝条内：同样按编制分两行，复用 ptag.mini
     const blRow=(label,arr)=> arr.length
       ? `<div class="bl-row"><span class="bl-cnt">${label}${arr.length}</span>${arr.map(m=>ptag(m,true)).join('')}</div>`
@@ -1518,7 +1847,7 @@ function renderReq(){
     const bands=`<span class="lv-bands" aria-hidden="true">`
       +`<i class="lv lv-grade${contCls(sameGradeUp,sameGradeDown)}" style="background:${gCol}" title="品级：${g.label}"></i>`
       +`</span>`;
-    rows+=`<div class="row req-row" data-req-row="${r.id}">
+    const rowHTML=`<div class="row req-row${inArc?' in-archived':''}" data-req-row="${r.id}">
       <div class="cell-left has-bands">
         ${bands}
         <span class="gdot-grade" style="background:${g.col}" title="${g.label}级"></span>
@@ -1531,8 +1860,17 @@ function renderReq(){
         <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
       </div>
       <div class="timeline" style="width:${DAYS*DAY_W}px">
-        <button class="row-add" title="给「${r.name}」加人（可选正编或基地）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddPersonTo('${r.id}')"><span class="pl">＋</span>加人</button>
         ${(()=>{
+          // 整条需求时间待定：铺满整行、两端羽化的 open 条（不画 L1/L2/联调分段与分割线）
+          if(reqOpen){
+            return `<div class="bar-task req-bar open ${barCls(r,null)}" data-req="${r.id}" style="left:0;width:${DAYS*DAY_W}px"
+            onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
+            <div class="prog" style="--p:${prog}"></div>
+            <i class="sdot"></i>
+            <div class="bl-top"><span class="bl-mic" style="background:${MM.c}">${MM.ic}</span>${charShort(r.char)||r.name}<span class="bl-mod" style="color:#fff;background:${MM.c}cc">${MM.s}</span><span class="bl-pct">${prog}%</span></div>
+            <div class="bl-sub"><div class="bl-rows">${blChips}</div></div>
+            <i class="open-r">»</i></div>`;
+          }
           const ph=getPhases(r);
           const bx=ph.barS*DAY_W, bw=Math.max((ph.barE-ph.barS)*DAY_W,46);
           const span=Math.max(ph.barE-ph.barS,1);
@@ -1561,8 +1899,7 @@ function renderReq(){
         })()}
       </div>
     </div>`;
-  });
-  paint(rows);
+  return rowHTML;
 }
 
 function paint(rows){
@@ -1712,6 +2049,8 @@ let drag=null;
 let phdrag=null;   // L1/L2 分割线拖拽态
 
 grid.addEventListener('pointerdown',e=>{
+  // 只读模式：任何任务条/分割线的拖拽与点击改状态都不允许（仅当点到可交互条时拦截并提示）
+  if((e.target.closest('.bar-task')||e.target.closest('.ph-div')) && !requireWrite()){ e.preventDefault(); return; }
   // —— 优先处理「阶段分割线」：独立拖拽，不触发整条改期/改派 ——
   //    phdiv=1 → L1/L2 分割（设 L1 完成时间，写 r.split）
   //    phdiv=2 → L2/联调 分割（设联调开始时间，写 r.split2）
@@ -1926,6 +2265,7 @@ function openStatusMenu(bar,x,y){
 function hideMenu(){menu.classList.remove('show');menuCtx=null;}
 /* 删除某条任务段（人的排期）。reqId+seg 定位；删空后若该需求无人则保留空需求行。 */
 function removeSeg(reqId, seg){
+  if(!requireWrite())return false;
   const r=reqs.find(z=>z.id===reqId); if(!r||seg==null||!r.segs[seg])return false;
   const nm=memName(r.segs[seg].m);
   pushHistory();
@@ -1946,6 +2286,7 @@ function deleteSeg(){
 }
 function pickStatus(k){
   if(!menuCtx)return;
+  if(!requireWrite()){hideMenu();return;}
   const r=reqs.find(z=>z.id===menuCtx.reqId); if(!r){hideMenu();return;}
   pushHistory();
   if(menuCtx.seg!==null){
@@ -1982,6 +2323,25 @@ function flashReqRow(reqId){
   const row=document.querySelector(`.req-row[data-req-row="${reqId}"]`);
   if(row){row.style.transition='background .2s';row.style.background='#fff7e6';setTimeout(()=>row.style.background='',650);}
 }
+/* 新建成员/需求后：把视图中心拉到它身上并高亮，表示创建成功。
+   kind:'mem'|'req'，id 为实体 id。会自动展开它所在的折叠分组、滚动居中、整行脉冲高亮。 */
+function revealEntity(kind, id){
+  const sel = kind==='mem' ? `.row[data-mem="${id}"]` : `.req-row[data-req-row="${id}"]`;
+  // 若目标落在被折叠的分组里，先展开该分组再渲染，确保 DOM 中存在该行
+  const gkey = (()=>{ try{
+    if(kind==='mem'){ const m=members.find(x=>x.id===id); const g=m&&personGroupKey(m); return g?g.key:null; }
+    const r=reqs.find(x=>x.id===id); const g=r&&reqGroupKey(r); return g?g.key:null;
+  }catch(_){return null;} })();
+  if(gkey && collapsed[gkey]){ collapsed[gkey]=false; try{localStorage.setItem('gantt_collapsed',JSON.stringify(collapsed));}catch(_){ } rerender(); }
+  // 渲染后再定位（rerender 同步重建 DOM）
+  requestAnimationFrame(()=>{
+    const row=document.querySelector(sel);
+    if(!row){ return; }
+    try{ row.scrollIntoView({behavior:'smooth',block:'center',inline:'nearest'}); }catch(_){ row.scrollIntoView(); }
+    row.classList.remove('just-new'); void row.offsetWidth; row.classList.add('just-new');
+    setTimeout(()=>row.classList.remove('just-new'),2700);
+  });
+}
 
 /* ============ 任务条选中（复制/剪切/粘贴的目标） ============ */
 let selectedBar=null;          // {reqId, seg|null}
@@ -2005,7 +2365,7 @@ function reapplySelection(){
 let clip=null;                 // {mode:'copy'|'cut', reqId, seg|null, payload}
 function segPayload(r,si){
   const s=r.segs[si];
-  return {m:s.m, s:idx(s.s), e:idx(s.e), prog:s.prog, status:s.status, support:!!s.support, span:idx(s.e)-idx(s.s)};
+  return {m:s.m, s:idx(s.s), e:idx(s.e), prog:s.prog, status:s.status, support:!!s.support, open:!!s.open, span:idx(s.e)-idx(s.s)};
 }
 function doCopy(cut){
   if(!selectedBar){toast('请先点选一个任务条');return;}
@@ -2024,6 +2384,7 @@ function markCut(){
 }
 function clearCutMark(){document.querySelectorAll('.bar-task.cut-mark').forEach(b=>b.classList.remove('cut-mark'));}
 function doPaste(){
+  if(!requireWrite())return;
   if(!clip){toast('剪贴板为空');return;}
   if(!selectedBar){toast('请先点选要粘贴到的目标需求条');return;}
   const dst=reqs.find(x=>x.id===selectedBar.reqId); if(!dst)return;
@@ -2065,6 +2426,7 @@ function clearClip(){clip=null;clearCutMark();hideClip();toast('剪贴板已清�
 let chipDrag=null;
 grid.addEventListener('pointerdown',e=>{
   const chip=e.target.closest('.ptag[data-chip-mem]'); if(!chip)return;
+  if(!requireWrite()){ e.preventDefault(); return; }   // 只读模式：禁止拖拽改派
   e.preventDefault(); e.stopPropagation();
   chipDrag={memId:chip.dataset.chipMem, srcReq:chip.dataset.chipReq, el:chip,
             startX:e.clientX,startY:e.clientY,moved:false,targetReq:null,ghost:null};
@@ -2140,6 +2502,7 @@ window.addEventListener('keydown',e=>{if(e.key==='Escape'&&addMask.classList.con
 
 /* 给某成员加任务：选择「哪条需求」+ 起止日期 */
 function openAddTaskFor(memId){
+  if(!requireWrite())return;
   const m=memById(memId); if(!m)return;
   addCtx={mode:'task', memId};
   // 该成员尚未参与的需求（已参与的不再重复）
@@ -2155,6 +2518,7 @@ function openAddTaskFor(memId){
       <div class="fld"><label>开始日期</label><input type="date" id="addStart" min="${G_MIN}" max="${G_MAX}"></div>
       <div class="fld"><label>结束日期</label><input type="date" id="addEnd" min="${G_MIN}" max="${G_MAX}"></div>
     </div>
+    <label class="open-chk"><input type="checkbox" id="addOpen" onchange="toggleAddOpen()"> 无明确时间（待定 / 长期）—— 任务条将前后无限延长铺满时间线</label>
     <div class="seg-pre" id="addPre"></div>
     <div class="warn" id="addWarn"></div>`
     : `<div class="ctx">✅ <b>${m.name}</b> 已经参与了全部需求，没有可再新增的需求了。</div>`;
@@ -2164,6 +2528,7 @@ function openAddTaskFor(memId){
 
 /* 给某需求加人：选择「哪位成员」+ 起止日期 */
 function openAddPersonTo(reqId, prefCorp){
+  if(!requireWrite())return;
   const r=reqs.find(x=>x.id===reqId); if(!r)return;
   addCtx={mode:'person', reqId};
   // 尚未在该需求中的成员（离职沉底、可选但给提示）
@@ -2186,6 +2551,7 @@ function openAddPersonTo(reqId, prefCorp){
       <div class="fld"><label>开始日期</label><input type="date" id="addStart" min="${G_MIN}" max="${G_MAX}"></div>
       <div class="fld"><label>结束日期</label><input type="date" id="addEnd" min="${G_MIN}" max="${G_MAX}"></div>
     </div>
+    <label class="open-chk"><input type="checkbox" id="addOpen" onchange="toggleAddOpen()"> 无明确时间（待定 / 长期）—— 任务条将前后无限延长铺满时间线</label>
     <div class="seg-pre" id="addPre"></div>
     <div class="warn" id="addWarn"></div>`
     : `<div class="ctx">✅ 全部成员都已在该需求中，没有可再添加的人了。</div>`;
@@ -2218,8 +2584,23 @@ function addPrefillDates(){
   if(eEl)eEl.onchange=()=>{eEl.dataset.touched=1;updateAddPre();};
   updateAddPre();
 }
+/* 勾选「无明确时间」：禁用起止日期输入（此时不需要精确时间），并刷新预览/校验 */
+function toggleAddOpen(){
+  const op=document.getElementById('addOpen');
+  const sEl=document.getElementById('addStart'), eEl=document.getElementById('addEnd');
+  const on=op&&op.checked;
+  if(sEl){sEl.disabled=on;} if(eEl){eEl.disabled=on;}
+  updateAddPre();
+}
 function updateAddPre(){
   const pre=document.getElementById('addPre'), warn=document.getElementById('addWarn'), ok=document.getElementById('addOk');
+  const op=document.getElementById('addOpen');
+  if(op&&op.checked){   // 无明确时间：跳过日期校验，直接放行
+    if(pre)pre.textContent='时间待定 —— 任务条将前后延长铺满时间线（可后续拖拽改为具体时间）';
+    if(warn){warn.textContent='';warn.classList.remove('show');}
+    if(ok)ok.disabled=false;
+    return;
+  }
   const sEl=document.getElementById('addStart'), eEl=document.getElementById('addEnd');
   if(!sEl||!eEl)return;
   const sd=parseInput(sEl.value), ed=parseInput(eEl.value);
@@ -2234,18 +2615,29 @@ function updateAddPre(){
 
 function confirmAdd(){
   if(!addCtx)return;
+  if(!requireWrite())return;
+  const op=document.getElementById('addOpen');
+  const isOpen=op&&op.checked;
   const sEl=document.getElementById('addStart'), eEl=document.getElementById('addEnd');
   const sd=parseInput(sEl.value), ed=parseInput(eEl.value);
-  if(!sd||!ed||ed<=sd){updateAddPre();return;}
+  if(!isOpen && (!sd||!ed||ed<=sd)){updateAddPre();return;}
   let memId, r;
   if(addCtx.mode==='task'){memId=addCtx.memId;const sel=document.getElementById('addReqSel');r=reqs.find(x=>x.id===sel.value);}
   else{r=reqs.find(x=>x.id===addCtx.reqId);const sel=document.getElementById('addMemSel');memId=sel.value;}
   if(!r||!memId){closeAdd();return;}
   if(r.segs.some(s=>s.m===memId)){toast(memName(memId)+' 已在该需求中');closeAdd();return;}
   pushHistory();
-  // 夹到甘特范围内
-  let ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
-  const seg={m:memId, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'};
+  let seg;
+  if(isOpen){
+    // 无明确时间：给一个占位窗口（仅作排序/兜底用），并标 open=true 让其渲染成铺满延长条；
+    // open 段不计入负载/产能（见 memLoad/reqRisk 已按时长窗口计，open 占位窗口设在今日±少量天，影响可忽略，且渲染走铺满分支）。
+    const ns=Math.max(0,Math.min(idx(TODAY),DAYS-1));
+    seg={m:memId, s:i2d(ns), e:i2d(Math.min(ns+1,DAYS)), prog:0, status:'todo', open:true};
+  }else{
+    // 夹到甘特范围内
+    let ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
+    seg={m:memId, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'};
+  }
   // 跨带队归属 → 标记支援
   const mem=memById(memId), rl=reqLeadOf(r), ml=leadOf(mem);
   if(rl&&ml&&ml!==rl) seg.support=true;
@@ -2257,8 +2649,218 @@ function confirmAdd(){
   // 反馈：两个视图都给高亮
   if(view==='req'){flashReqRow(r.id);} else {flashReq(r.id);}
   toast(addCtx&&addCtx.mode==='person'
-    ? `已为「${r.name}」添加 ${memName(memId)}${seg.support?'（支援）':''}`
-    : `已为 ${memName(memId)} 新增任务：${r.name}${seg.support?'（支援）':''}`);
+    ? `已为「${r.name}」添加 ${memName(memId)}${seg.support?'（支援）':''}${isOpen?'（时间待定）':''}`
+    : `已为 ${memName(memId)} 新增任务：${r.name}${seg.support?'（支援）':''}${isOpen?'（时间待定）':''}`);
+}
+
+/* ============ 新建成员 / 新建需求（写入 members / reqs 数组，纳入持久化） ============ */
+function escAttr(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+/* 由姓名/名称生成唯一英文 id（拼音不可得时用 m/r 前缀 + 随机） */
+function genId(prefix){
+  let id; do{ id=prefix+Math.random().toString(36).slice(2,7); }while(members.some(m=>m.id===id)||reqs.some(r=>r.id===id));
+  return id;
+}
+/* 正编下拉（用于"隶属带队"选择） */
+function regLeaderOpts(sel){
+  const regs=members.filter(m=>m.corp==='reg');
+  return `<option value="—" ${(!sel||sel==='—')?'selected':''}>（无 / 游离人力）</option>`
+    + regs.map(m=>`<option value="${escAttr(m.name)}" ${sel===m.name?'selected':''}>${escAttr(m.name)}</option>`).join('');
+}
+const GRADE_OPTS_LIST=['','金','橙','红'];
+const MOD_OPTS_LIST=['出场','检视','组队','饰品','入局Cuts','TPP','MVP','大厅','本体/3C','武器特效','联调'];
+const LINE_OPTS_LIST=[['-','通用'],['L1','露西亚·管线1'],['L2','比安卡·管线2'],['J','七十·金角线'],['R','女指挥官·红角线']];
+
+function openNewMember(){
+  if(!requireWrite())return;
+  addCtx={mode:'newMember'};
+  const gradeOpt=GRADE_OPTS_LIST.map(g=>`<option value="${g}">${g===''?'常规（无品级）':g+'级'}</option>`).join('');
+  const modOpt=MOD_OPTS_LIST.map(m=>`<option value="${m}" ${m==='出场'?'selected':''}>${m}</option>`).join('');
+  const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
+  const body=`
+    <div class="ctx">添加一名<b>新成员</b>到团队名单。提交后会立即出现在「按人看」列表中，并纳入本地缓存 / 团队链接 / 云端协作同步。</div>
+    <div class="row2">
+      <div class="fld"><label>姓名</label><input type="text" id="nmName" placeholder="如：张三"></div>
+      <div class="fld"><label>编制</label><select id="nmCorp" onchange="nmCorpChange()"><option value="base" selected>基地</option><option value="reg">正编（带队）</option></select></div>
+    </div>
+    <div class="row2">
+      <div class="fld" id="nmLeadFld"><label>隶属带队（正编）</label><select id="nmLead">${regLeaderOpts('—')}</select></div>
+      <div class="fld"><label>模块</label><select id="nmMod">${modOpt}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>品级</label><select id="nmGrade">${gradeOpt}</select></div>
+      <div class="fld"><label>管线</label><select id="nmLine">${lineOpt}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>效率系数</label><input type="number" id="nmEff" value="1.0" step="0.05" min="0"></div>
+      <div class="fld"><label>状态</label><select id="nmStatus"><option value="on" selected>在岗</option><option value="new">新人</option><option value="busy">忙碌</option><option value="leave">请假</option></select></div>
+    </div>
+    <label class="org-chk" style="font-size:12px;margin-bottom:6px"><input type="checkbox" id="nmSupport">外借支援（编制在本团队，不隶属角色线，如武器特效）</label>
+    <div class="warn" id="nmWarn"></div>`;
+  renderAddModal('👤', '添加新成员', body, true);
+  // 重新绑定确定按钮到本流程
+  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmNewMember()');
+  nmCorpChange();
+}
+function nmCorpChange(){
+  const corp=document.getElementById('nmCorp').value;
+  const leadFld=document.getElementById('nmLeadFld');
+  if(leadFld) leadFld.style.opacity = corp==='reg'?'.4':'1';
+  const ld=document.getElementById('nmLead'); if(ld) ld.disabled = corp==='reg';
+}
+function confirmNewMember(){
+  if(!requireWrite())return;
+  const name=(document.getElementById('nmName').value||'').trim();
+  const warn=document.getElementById('nmWarn');
+  if(!name){ warn.textContent='请填写姓名'; warn.classList.add('show'); return; }
+  if(members.some(m=>m.name===name)){ warn.textContent='已存在同名成员，请用其它名称'; warn.classList.add('show'); return; }
+  const corp=document.getElementById('nmCorp').value;
+  const support=document.getElementById('nmSupport').checked;
+  let lead=corp==='reg'?name:(document.getElementById('nmLead').value||'—');
+  if(support) lead='—';   // 外借支援：无角色线归属
+  const eff=parseFloat(document.getElementById('nmEff').value)||1.0;
+  pushHistory();
+  const m={
+    id:genId('m_'), name,
+    role:(corp==='reg'?'正编·带队':'基地')+(support?'·外借支援':''),
+    corp, lead,
+    mod:document.getElementById('nmMod').value,
+    grade:document.getElementById('nmGrade').value,
+    line:document.getElementById('nmLine').value,
+    eff:Math.round(eff*100)/100,
+    status:document.getElementById('nmStatus').value,
+  };
+  if(support) m.support=true;
+  members.push(m);
+  save();broadcast();closeAdd();
+  // 切到「按人看」（成员只在此视图出现），再把视图中心拉到新成员并高亮
+  if(view!=='person'){ const vt=document.querySelector('#viewTabs button:nth-child(1)'); if(vt)setView('person',vt); else rerender(); }
+  else rerender();
+  revealEntity('mem', m.id);
+  toast(`已添加新成员：${name}`);
+}
+
+/* ============ 标签内联编辑：隶属（基地换正编）/ 带队模块（正编可改可选） ============
+   就地把人名行里的归属胶囊替换为编辑控件，回车 / 选中 / 失焦即提交，Esc 取消。
+   只读模式拦截；提交后写入 member、save/broadcast/rerender 全链路同步。 */
+let _editingLead=null;   // 防重入：记录当前正在编辑的标签元素
+function startEditLead(ev, mid, kind){
+  ev.stopPropagation();
+  if(!requireWrite())return;
+  const m=members.find(x=>x.id===mid); if(!m)return;
+  const tag=ev.currentTarget;
+  if(_editingLead===tag)return;
+  _editingLead=tag;
+  const wrap=document.createElement('span');
+  wrap.className='lead-edit';
+  const finish=(commit,val)=>{
+    if(commit){
+      if(kind==='belong'){
+        // 基地成员更换隶属正编：'—' 表示游离/无归属
+        const v=(val||'—');
+        if(v!==m.lead){ pushHistory(); m.lead=v; m.role='基地'+(m.support?'·外借支援':''); save();broadcast(); }
+      }else{
+        // 正编成员修改带队负责的模块/范围（自由文本）
+        const v=(val||'').trim();
+        if(v && v!==m.lead){ pushHistory(); m.lead=v; m.role='正编·带队'; save();broadcast(); }
+      }
+    }
+    _editingLead=null;
+    rerender();
+  };
+  if(kind==='belong'){
+    // 下拉：所有正编 + 「无 / 游离」
+    const sel=document.createElement('select');
+    const regs=members.filter(x=>x.corp==='reg'&&x.status!=='left');
+    const cur=(m.lead&&m.lead!=='—'&&m.lead!=='-')?m.lead:'—';
+    sel.innerHTML=`<option value="—"${cur==='—'?' selected':''}>（无 / 游离人力）</option>`
+      + regs.map(x=>`<option value="${escAttr(x.name)}"${cur===x.name?' selected':''}>${escAttr(x.name)}</option>`).join('');
+    sel.onpointerdown=e=>e.stopPropagation();
+    sel.onclick=e=>e.stopPropagation();
+    sel.onchange=()=>finish(true, sel.value);
+    sel.onkeydown=e=>{ if(e.key==='Escape'){e.preventDefault();finish(false);} };
+    sel.onblur=()=>{ setTimeout(()=>{ if(_editingLead===tag) finish(true, sel.value); },120); };
+    wrap.appendChild(sel);
+    tag.replaceWith(wrap);
+    sel.focus();
+  }else{
+    // 可编辑输入 + 预设 datalist（既可选预设、也可自行输入）
+    const dlId='leadPreset_'+mid;
+    const inp=document.createElement('input');
+    inp.type='text'; inp.value=m.lead||''; inp.setAttribute('list',dlId);
+    inp.placeholder='如：红角 + 金角';
+    const dl=document.createElement('datalist'); dl.id=dlId;
+    LEAD_PRESETS.forEach(p=>{ const o=document.createElement('option'); o.value=p; dl.appendChild(o); });
+    const ok=document.createElement('button'); ok.className='lk ok'; ok.textContent='✓';
+    const cc=document.createElement('button'); cc.className='lk cancel'; cc.textContent='✕';
+    [inp,ok,cc,dl].forEach(el=>{ el.onpointerdown=e=>e.stopPropagation(); el.onclick=e=>e.stopPropagation(); });
+    ok.onclick=e=>{e.stopPropagation();finish(true, inp.value);};
+    cc.onclick=e=>{e.stopPropagation();finish(false);};
+    inp.onkeydown=e=>{ if(e.key==='Enter'){e.preventDefault();finish(true, inp.value);} else if(e.key==='Escape'){e.preventDefault();finish(false);} };
+    wrap.appendChild(inp); wrap.appendChild(ok); wrap.appendChild(cc); wrap.appendChild(dl);
+    tag.replaceWith(wrap);
+    inp.focus(); inp.select();
+  }
+}
+/* 正编「带队负责」常用预设：取自现有正编 lead + 标准模块组合，供 datalist 提示 */
+const LEAD_PRESETS=['红角 + 金角','橙角露西亚·管线1','橙角 检视 / 组队 / 饰品','金角线','红角 女指挥官线','检视 / 组队','饰品','武器特效'];
+
+function openNewReq(){
+  if(!requireWrite())return;
+  addCtx={mode:'newReq'};
+  const gradeOpt=['金','橙','红',''].map(g=>`<option value="${g}" ${g==='橙'?'selected':''}>${g===''?'常规':g+'级'}</option>`).join('');
+  const modOpt=MOD_OPTS_LIST.filter(m=>m!=='联调').map(m=>`<option value="${m}" ${m==='出场'?'selected':''}>${m}</option>`).join('');
+  const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
+  const today=dInput(TODAY), end60=dInput(i2d(Math.min(idx(TODAY)+40,DAYS)));
+  const body=`
+    <div class="ctx">添加一条<b>新需求</b>。提交后出现在「按需求看」列表中，可再用行内「＋加人」分配制作人。纳入本地 / 团队链接 / 云端同步。</div>
+    <div class="row2">
+      <div class="fld"><label>需求名称</label><input type="text" id="nrName" placeholder="如：红蔻 出场特效"></div>
+      <div class="fld"><label>角色名</label><input type="text" id="nrChar" placeholder="如：红蔻·赤焰"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>模块</label><select id="nrMod">${modOpt}</select></div>
+      <div class="fld"><label>品级</label><select id="nrGrade">${gradeOpt}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>管线</label><select id="nrLine">${lineOpt}</select></div>
+      <div class="fld"><label>工作量（人天）</label><input type="number" id="nrEst" value="20" min="1" step="1"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>开始日期</label><input type="date" id="nrStart" min="${G_MIN}" max="${G_MAX}" value="${today}"></div>
+      <div class="fld"><label>结束日期</label><input type="date" id="nrEnd" min="${G_MIN}" max="${G_MAX}" value="${end60}"></div>
+    </div>
+    <div class="warn" id="nrWarn"></div>`;
+  renderAddModal('📋', '添加新需求', body, true);
+  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmNewReq()');
+}
+function confirmNewReq(){
+  if(!requireWrite())return;
+  const name=(document.getElementById('nrName').value||'').trim();
+  const warn=document.getElementById('nrWarn');
+  if(!name){ warn.textContent='请填写需求名称'; warn.classList.add('show'); return; }
+  const sd=parseInput(document.getElementById('nrStart').value), ed=parseInput(document.getElementById('nrEnd').value);
+  if(!sd||!ed||ed<=sd){ warn.textContent='请选择有效的起止日期（结束晚于开始）'; warn.classList.add('show'); return; }
+  const est=Math.max(1,parseInt(document.getElementById('nrEst').value,10)||20);
+  pushHistory();
+  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
+  const r={
+    id:genId('r_'), name,
+    char:(document.getElementById('nrChar').value||'').trim()||name,
+    mod:document.getElementById('nrMod').value,
+    grade:document.getElementById('nrGrade').value,
+    line:document.getElementById('nrLine').value,
+    kind:'fx', estimate:est, done:0, end:i2d(ne),
+    segs:[]   // 新需求暂无制作人，用一段占位窗口保证可见（指向第一位成员但 0 进度，可随后改派/删除）
+  };
+  // 占位 seg：用一名在岗成员承载时间窗口，避免 segs 为空导致 min/max 报错；用户随后用「＋加人」替换
+  const holder=members.find(m=>m.status==='on')||members[0];
+  r.segs.push({m:holder.id, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'});
+  reqs.push(r);
+  save();broadcast();closeAdd();
+  if(view!=='req'){ const vt=document.querySelector('#viewTabs button:nth-child(2)'); if(vt)setView('req',vt); }
+  else rerender();
+  revealEntity('req', r.id);
+  toast(`已添加新需求：${name}（请用「＋加人」分配制作人）`);
 }
 
 
@@ -2270,42 +2872,101 @@ function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearT
 const KEY='gantt_collab_v7_mod';
 function snapshot(){
   return {
-    members:members.map(m=>({id:m.id,status:m.status})),
+    // 成员：除原有 status 外，序列化全部字段，使「新增成员」可在刷新/分享/云端后保留
+    members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null)})),
     effTiers:EFF_TIERS.map(t=>({coef:t.coef,label:t.label,mems:(t.mems||[]).slice()})),
     effLocked:effLocked,
-    stdCfg:STD_CFG.map(t=>({grade:t.grade,col:t.col,weeks:t.weeks,ppl:t.ppl})),
+    stdCfg:STD_CFG.map(t=>({mod:t.mod||'',grade:t.grade,col:t.col,dur:t.dur||'',weeks:t.weeks,ppl:t.ppl})),
     stdLocked:stdLocked,
-    reqs:reqs.map(r=>({id:r.id,end:idx(r.end),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),
-      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:idx(s.e),prog:s.prog,status:s.status,support:!!s.support}))}))
+    archive:{on:ARCHIVE.on,val:ARCHIVE.val,unit:ARCHIVE.unit},
+    groupMode:{person:GROUP_MODE.person,req:GROUP_MODE.req},
+    // 需求：除原有 end/done/split 外，序列化全部字段，使「新增需求」持久化
+    reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',estimate:r.estimate,end:idx(r.end),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),
+      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:idx(s.e),prog:s.prog,status:s.status,support:!!s.support,open:!!s.open}))}))
   };
 }
 function applySnap(snap){
   if(!snap)return;
-  (snap.members||[]).forEach(ms=>{const m=members.find(x=>x.id===ms.id);if(m)m.status=ms.status;});
+  // 成员：按 id 更新现有；找不到则视为「新增成员」push 进数组（保证新建成员跨刷新/分享/云端不丢）
+  (snap.members||[]).forEach(ms=>{
+    let m=members.find(x=>x.id===ms.id);
+    if(m){
+      // 已存在：仅更新可变字段（状态等）；保留原有静态信息为主，但同步快照里的关键字段
+      m.status=ms.status!=null?ms.status:m.status;
+      if(ms.name!=null)m.name=ms.name;
+      if(ms.lead!=null)m.lead=ms.lead;
+      if(ms.eff!=null)m.eff=ms.eff;
+      if(ms.support!=null)m.support=ms.support;
+      if(ms.leftAt!=null)m.leftAt=i2d(ms.leftAt);
+    }else if(ms.name){
+      const nm={id:ms.id,name:ms.name,role:ms.role||'',corp:ms.corp||'base',lead:ms.lead||'—',mod:ms.mod||'',grade:ms.grade||'',line:ms.line||'-',eff:(ms.eff!=null?ms.eff:1.0),status:ms.status||'on'};
+      if(ms.support)nm.support=true;
+      if(ms.tmp)nm.tmp=true;
+      if(ms.leftAt!=null)nm.leftAt=i2d(ms.leftAt);
+      members.push(nm);
+    }
+  });
   if(Array.isArray(snap.effTiers)){
     EFF_TIERS=snap.effTiers.map(t=>({coef:Number(t.coef),label:t.label||'',mems:Array.isArray(t.mems)?t.mems.slice():[]}));
     syncEffFromTiers();
   }
   if(typeof snap.effLocked==='boolean') effLocked=snap.effLocked;
   if(Array.isArray(snap.stdCfg)){
-    STD_CFG=snap.stdCfg.map(t=>({grade:t.grade||'',col:t.col||'#7048e8',weeks:t.weeks||'',ppl:t.ppl||''}));
+    STD_CFG=snap.stdCfg.map(t=>({mod:t.mod||'',grade:t.grade||'',col:t.col||'#7048e8',dur:t.dur||'',weeks:t.weeks||'',ppl:t.ppl||''}));
   }
   if(typeof snap.stdLocked==='boolean') stdLocked=snap.stdLocked;
+  if(snap.archive){
+    const a=snap.archive;
+    if(typeof a.on==='boolean')ARCHIVE.on=a.on;
+    if(a.unit){ ARCHIVE.unit=a.unit; ARCHIVE.val=(a.val!=null?a.val:2); }
+    else if(a.days!=null){ ARCHIVE.unit='day'; ARCHIVE.val=a.days; }   // 兼容旧快照
+  }
+  if(snap.groupMode){ if(snap.groupMode.person)GROUP_MODE.person=snap.groupMode.person; if(snap.groupMode.req)GROUP_MODE.req=snap.groupMode.req; }
   (snap.reqs||[]).forEach(rs=>{
-    const r=reqs.find(x=>x.id===rs.id);if(!r)return;
+    let r=reqs.find(x=>x.id===rs.id);
+    if(!r && rs.name){
+      // 新增需求：按快照重建（含 segs），push 进数组
+      r={id:rs.id,name:rs.name,char:rs.char||'',mod:rs.mod||'',grade:rs.grade||'',line:rs.line||'-',kind:rs.kind||'fx',estimate:rs.estimate||1,done:rs.done||0,end:i2d(rs.end||idx(TODAY)),segs:[]};
+      reqs.push(r);
+    }
+    if(!r)return;
     r.end=i2d(rs.end); if(rs.done!==undefined)r.done=rs.done;
+    if(rs.estimate!==undefined)r.estimate=rs.estimate;
+    if(rs.name!=null)r.name=rs.name;
+    if(rs.char!=null)r.char=rs.char;
+    if(rs.mod!=null)r.mod=rs.mod;
+    if(rs.grade!=null)r.grade=rs.grade;
     if(rs.split!==undefined) r.split=(rs.split==null?undefined:rs.split);   // L1/L2 分割点（绝对日索引）
     if(rs.split2!==undefined) r.split2=(rs.split2==null?undefined:rs.split2); // L2/联调 分割点（绝对日索引）
     // 全量重建 segs（不再按下标合并）：保证「新增/删除人员段」在刷新、分享链接、跨标签同步后都不丢失
     if(Array.isArray(rs.segs)){
-      r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(ss.e),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;return o;});
+      r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(ss.e),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;if(ss.open)o.open=true;return o;});
     }
   });
+  // 同步归档/分组控件 UI
+  syncOrgUI();
+  // 全量快照一致性：移除快照中不存在的成员/需求（使「重置」「他人删除/回滚」生效）。
+  // 仅当快照确实带有成员/需求清单时才裁剪，避免空快照误删。
+  if(Array.isArray(snap.members) && snap.members.length){
+    const keep=new Set(snap.members.map(x=>x.id));
+    for(let i=members.length-1;i>=0;i--){ if(!keep.has(members[i].id)) members.splice(i,1); }
+  }
+  if(Array.isArray(snap.reqs) && snap.reqs.length){
+    const keepR=new Set(snap.reqs.map(x=>x.id));
+    for(let i=reqs.length-1;i>=0;i--){ if(!keepR.has(reqs[i].id)) reqs.splice(i,1); }
+  }
+}
+/* 把 ARCHIVE / GROUP_MODE 当前值反映到工具条控件 */
+function syncOrgUI(){
+  const av=document.getElementById('archiveVal'); if(av)av.value=ARCHIVE.val;
+  const au=document.getElementById('archiveUnit'); if(au)au.value=ARCHIVE.unit;
+  const ao=document.getElementById('archiveOn'); if(ao)ao.checked=ARCHIVE.on;
+  if(typeof updateGroupSelUI==='function') updateGroupSelUI();
 }
 const ORIG=JSON.parse(JSON.stringify(snapshot()));
 function save(){try{localStorage.setItem(KEY,JSON.stringify(snapshot()));}catch(_){}}
 function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.parse(v));}catch(_){}}
-function resetData(){pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();toast('已重置为初始排期');}
+function resetData(){if(!requireWrite())return;pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();toast('已重置为初始排期');}
 
 /* ============ Supabase 云端协作（全员实时读写 + 自动汇集，免后端） ============ */
 const SB_URL='https://pwjowpkaypfwykejhosp.supabase.co';
@@ -2319,11 +2980,25 @@ let cloudCid=localStorage.getItem('gantt_cloud_cid');
 if(!cloudCid){cloudCid='c'+Math.random().toString(36).slice(2,10);localStorage.setItem('gantt_cloud_cid',cloudCid);}
 function cloudWho(){const m=members.find(x=>x.id===meId);return m?m.name:'某成员';}
 function canWrite(){return !!localStorage.getItem(PIN_KEY);}
+/* 写操作守门：只读模式下统一拦截所有数据改动（排期/状态/改派/增删/重置/撤销重做/标准表编辑），
+   仅提示需先解锁，不改动任何数据。返回 true=可写、false=已拦截。
+   节流提示：避免拖拽等连续触发时狂弹 toast。 */
+let _roToastT=0;
+function requireWrite(silent){
+  if(canWrite())return true;
+  if(!silent){
+    const now=Date.now();
+    if(now-_roToastT>1200){ _roToastT=now; toast('🔒 当前为只读模式，点右上角「只读」可解锁编辑'); }
+  }
+  return false;
+}
 function cloudSetStatus(state,txt){
   const el=document.getElementById('cloudInd');if(!el)return;
   el.classList.remove('on','syncing','err','locked');
   if(state)el.classList.add(state);
   const t=el.querySelector('.ci-tx');if(t&&txt!=null)t.textContent=txt;
+  // 同步只读视觉态：只读时给 body 加 ro-mode，CSS 据此把写按钮置灰禁用
+  document.body.classList.toggle('ro-mode', !canWrite());
 }
 function refreshAllUI(){
   rerender();
@@ -2526,6 +3201,7 @@ function updateUndoUI(){
   if(r)r.disabled=redoStack.length===0;
 }
 function undo(){
+  if(!requireWrite())return;
   if(!undoStack.length){toast('没有可撤销的操作');return;}
   redoStack.push(curState());
   const prev=undoStack.pop();
@@ -2536,6 +3212,7 @@ function undo(){
   toast('已撤销');
 }
 function redo(){
+  if(!requireWrite())return;
   if(!redoStack.length){toast('没有可重做的操作');return;}
   undoStack.push(curState());
   const next=redoStack.pop();
@@ -2551,6 +3228,7 @@ window.addEventListener('keydown',e=>{
   if(tag==='input'||tag==='select'||tag==='textarea')return;
   if(e.key==='Escape'){ if(clip){clearClip();} setSelected(null); hideMenu(); return; }
   if(e.key==='Delete'||e.key==='Backspace'){
+    if(!requireWrite())return;   // 只读模式：禁止删除
     if(selectedBar && selectedBar.seg!==null){
       e.preventDefault();
       removeSeg(selectedBar.reqId, selectedBar.seg);
@@ -2562,11 +3240,11 @@ window.addEventListener('keydown',e=>{
   const ctrl=e.ctrlKey||e.metaKey;
   if(!ctrl)return;
   const k=e.key.toLowerCase();
-  if(k==='z'&&!e.shiftKey){e.preventDefault();undo();}
-  else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();redo();}
+  if(k==='z'&&!e.shiftKey){e.preventDefault();if(requireWrite())undo();}
+  else if(k==='y'||(k==='z'&&e.shiftKey)){e.preventDefault();if(requireWrite())redo();}
   else if(k==='c'){e.preventDefault();doCopy(false);}
-  else if(k==='x'){e.preventDefault();doCopy(true);}
-  else if(k==='v'){e.preventDefault();doPaste();}
+  else if(k==='x'){e.preventDefault();if(requireWrite())doCopy(true);}
+  else if(k==='v'){e.preventDefault();if(requireWrite())doPaste();}
 });
 
 /* —— 跨标签页实时同步 —— */
@@ -2655,6 +3333,7 @@ function bindEffTable(){
   const lockBtn=document.getElementById('effLock');
   // 锁定/激活编辑切换
   if(lockBtn&&!lockBtn._bound){lockBtn._bound=1;lockBtn.addEventListener('click',()=>{
+    if(effLocked && !requireWrite())return;   // 只读模式：不允许解锁系数表
     effLocked=!effLocked; applyEffLockUI(); save();broadcast();
     toast(effLocked?'已锁定：系数标定不可编辑':'已激活：可拖拽归档 / 改系数');
   });}
@@ -2762,11 +3441,13 @@ function applyEffLockUI(){
 /* ============ 标准工期 & 标配人力表：渲染 + 编辑交互 ============ */
 function renderStdTable(){
   const box=document.getElementById('stdRows'); if(!box)return;
-  let html='<div class="std-head"><span>品级</span><span>出场标准工期</span><span>标配人力</span><span></span></div>';
+  let html='<div class="std-head"><span>品级（含模块色）</span><span>模块类型</span><span>展示时长</span><span>制作工期</span><span>标配人力</span><span></span></div>';
   STD_CFG.forEach((t,i)=>{
     html+=`<div class="std-row" data-i="${i}">
-      <span class="sd-grade"><input class="sd-col" type="color" value="${effEsc(t.col)}" data-act="col" data-i="${i}" title="品级颜色"${stdLocked?' disabled':''}><input class="sd-name" type="text" value="${effEsc(t.grade)}" data-act="grade" data-i="${i}" placeholder="品级"${stdLocked?' readonly':''}></span>
-      <input class="sd-weeks" type="text" value="${effEsc(t.weeks)}" data-act="weeks" data-i="${i}" placeholder="如 8 周"${stdLocked?' readonly':''}>
+      <span class="sd-grade"><button class="sd-dot" type="button" data-act="colpick" data-i="${i}" style="background:${effEsc(t.col)}" title="${stdLocked?'品级颜色':'点击选择品级颜色'}"${stdLocked?' disabled':''}></button><input class="sd-name" type="text" value="${effEsc(t.grade)}" data-act="grade" data-i="${i}" placeholder="品级"${stdLocked?' readonly':''}></span>
+      <input class="sd-mod" type="text" value="${effEsc(t.mod||'')}" data-act="mod" data-i="${i}" placeholder="如 出场/检视" ${stdLocked?' readonly':''}>
+      <input class="sd-dur" type="text" value="${effEsc(t.dur||'')}" data-act="dur" data-i="${i}" placeholder="如 15 秒" title="效果在游戏内的展示时间长度"${stdLocked?' readonly':''}>
+      <input class="sd-weeks" type="text" value="${effEsc(t.weeks)}" data-act="weeks" data-i="${i}" placeholder="如 8 周" title="制作工期"${stdLocked?' readonly':''}>
       <input class="sd-ppl" type="text" value="${effEsc(t.ppl)}" data-act="ppl" data-i="${i}" placeholder="标配人力说明"${stdLocked?' readonly':''}>
       <button class="std-del" data-act="delRow" data-i="${i}" title="删除该行">×</button>
     </div>`;
@@ -2778,27 +3459,51 @@ function bindStdTable(){
   const addBtn=document.getElementById('stdAddRow');
   const lockBtn=document.getElementById('stdLock');
   if(lockBtn&&!lockBtn._bound){lockBtn._bound=1;lockBtn.addEventListener('click',()=>{
+    if(stdLocked && !requireWrite())return;   // 只读模式：不允许解锁标准工期表
     stdLocked=!stdLocked; applyStdLockUI(); save();broadcast();
     toast(stdLocked?'已锁定：标准工期表不可编辑':'已激活：可编辑品级 / 工期 / 标配人力');
   });}
   if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
     if(stdLocked)return;
     pushHistory();
-    STD_CFG.push({grade:'新品级',col:'#7048e8',weeks:'',ppl:''});
+    STD_CFG.push({grade:'金角',col:GRADE_PRESET[0].col,mod:'新模块',dur:'',weeks:'',ppl:''});
     save();broadcast();renderStdTable();
   });}
   if(!box||box._bound)return; box._bound=1;
-  // 改文本 / 颜色（input 实时、change 落定）
+  // 改文本（input 实时同步、change 落定一次历史）
   const onEdit=e=>{
     if(stdLocked)return;
-    const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act||act==='delRow')return;
+    const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act||act==='delRow'||act==='colpick')return;
     const i=+el.getAttribute('data-i'); if(!STD_CFG[i])return;
-    if(e.type==='change'&&act!=='col') pushHistory();
+    if(e.type==='change') pushHistory();
     STD_CFG[i][act]=el.value;
     save();broadcast();
   };
   box.addEventListener('change',onEdit);
-  box.addEventListener('input',e=>{ if(e.target.getAttribute&&e.target.getAttribute('data-act')==='col') onEdit(e); });
+  box.addEventListener('input',onEdit);
+  // 点击色点：弹出预设颜色浮层，选中即改色
+  const closeColPop=()=>{ const p=box.querySelector('.sd-colpop'); if(p)p.remove(); };
+  box.addEventListener('click',e=>{
+    const el=e.target.closest&&e.target.closest('[data-act="colpick"]');
+    if(!el)return;
+    if(stdLocked)return;
+    e.stopPropagation();
+    const i=+el.getAttribute('data-i'); if(!STD_CFG[i])return;
+    const exist=el.parentNode.querySelector('.sd-colpop');
+    closeColPop();
+    if(exist)return;  // 再次点击同一个色点 → 收起
+    const cur=String(STD_CFG[i].col||'').toLowerCase();
+    const pop=document.createElement('div'); pop.className='sd-colpop';
+    pop.innerHTML=GRADE_PRESET.map(p=>`<button type="button" class="opt${p.col.toLowerCase()===cur?' cur':''}" data-col="${p.col}"><span class="sw" style="background:${p.col}"></span>${p.name}</button>`).join('');
+    pop.querySelectorAll('.opt').forEach(o=>o.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      pushHistory(); STD_CFG[i].col=o.getAttribute('data-col');
+      save();broadcast();renderStdTable();
+    }));
+    el.parentNode.appendChild(pop);
+  });
+  // 点击空白处收起颜色浮层
+  if(!document._stdColPopBound){document._stdColPopBound=1;document.addEventListener('click',()=>{const b=document.getElementById('stdRows');if(b){const p=b.querySelector('.sd-colpop');if(p)p.remove();}});}
   // 删除行
   box.addEventListener('click',e=>{
     if(stdLocked)return;
@@ -2826,7 +3531,7 @@ function rerender(){
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
 }
-function setView(v,btn){view=v;document.querySelectorAll('.bar .tabs')[0].querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();rerender();}
+function setView(v,btn){view=v;document.getElementById('viewTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();updateGroupSelUI();rerender();}
 function updateHint(){
   const h=document.getElementById('hintBar'); if(!h)return;
   if(view==='req'){
@@ -2837,7 +3542,7 @@ function updateHint(){
     h.innerHTML='💡 人力分配视图：按模块汇总在岗人员与管线缺口';
   }
 }
-function setColor(c,btn){colorMode=c;document.querySelectorAll('.bar .tabs')[1].querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();rerender();}
+function setColor(c,btn){colorMode=c;document.getElementById('colorTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();rerender();}
 /* 任务条色彩浓度滑块：百分比=浓度（与截图一致：左端0%最淡泛白 → 右端100%原色最浓）。
    内部用 --wash 表示“淡化量”=(100-浓度)/100：浓度越低越泛白。设置记本机。 */
 const VIVID_KEY='gantt_vivid';
@@ -2916,6 +3621,10 @@ buildMeSel();
 initVivid();
 initZoom();
 initLeftW();
+// 恢复分组方式 / 折叠状态（本机偏好）
+try{const gp=localStorage.getItem('gantt_group_person'); if(gp)GROUP_MODE.person=gp;}catch(_){}
+try{const gr=localStorage.getItem('gantt_group_req'); if(gr)GROUP_MODE.req=gr;}catch(_){}
+try{const cs=localStorage.getItem('gantt_collapsed'); if(cs)collapsed=JSON.parse(cs)||{};}catch(_){}
 // 分享链接优先：URL 带 #s= 时用链接里的排期；否则读本机缓存
 if(loadFromHash()){ hasHashSnap=true; toast('已载入分享链接中的排期'); }
 else { loadSaved(); }
@@ -2926,7 +3635,11 @@ bindStdTable();
 applyStdLockUI();
 updateLegend();
 updateHint();
+updateGroupSelUI();
+syncOrgUI();
 rerender();
+// 初始即反映只读视觉态（不等云端连上）
+document.body.classList.toggle('ro-mode', !canWrite());
 // 启动云端协作（公开读 / 口令写 / Realtime 实时汇集）
 if(typeof cloudInit==='function'){ cloudInit(); }
 </script>
