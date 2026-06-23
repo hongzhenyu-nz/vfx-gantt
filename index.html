@@ -123,7 +123,16 @@
 
   .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:4;transition:background .12s;}
   .row.head .cell-left{background:#fafbfc;z-index:6;}
-  .timeline{position:relative;flex:1;}
+  .timeline{position:relative;flex:1;display:flex;align-items:center;}
+  /* 行内悬浮「+加任务/加人」按钮：sticky 贴在信息栏右缘外侧、随横向滚动常驻，落在信息栏「以外」，不再占用信息栏空间。
+     绝对定位的任务条不参与 flex 流，故按钮可被 align-items 垂直居中而不影响蓝条。 */
+  .row-add{position:sticky;left:calc(var(--left-w) + 8px);z-index:4;flex:0 0 auto;
+    display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;line-height:1;white-space:nowrap;
+    color:#1d6fd6;background:#f4f8ffee;border:1px dashed #cfe0fb;border-radius:8px;padding:3px 9px;cursor:pointer;
+    backdrop-filter:blur(2px);box-shadow:0 1px 4px rgba(0,0,0,.1);transition:.12s;}
+  .row-add:hover{background:#1d6fd6;color:#fff;border-color:#1d6fd6;border-style:solid;box-shadow:0 2px 8px rgba(29,111,214,.3);}
+  .row-add .pl{font-size:12px;font-weight:800;margin-top:-1px;}
+  .row.is-left .row-add{opacity:.5;}
 
   .month-head{position:absolute;top:0;height:26px;border-right:2px solid #c2c8d0;font-size:12px;color:#1f2329;display:flex;align-items:center;justify-content:center;font-weight:700;background:#e9edf2;letter-spacing:.5px;}
   .month-head.alt{background:#f2f5f8;}
@@ -151,6 +160,10 @@
   .bar-task .prog[style*="--p:0"]::after,.bar-task .prog[style*="--p:100"]::after{display:none;}  /* 0%/100% 不显竖线，避免贴边突兀 */
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
+  /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上） */
+  .bar-task .sup-mk{position:absolute;right:3px;top:2px;z-index:2;font-size:8.5px;font-weight:800;line-height:1;
+    color:#fff;background:#f59e0b;border-radius:4px;padding:1px 4px;box-shadow:0 1px 2px rgba(0,0,0,.3);pointer-events:none;
+    text-shadow:none;letter-spacing:.5px;}
   .bar-task.dragging{cursor:grabbing;opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32);z-index:30;}
   .bar-task.flash{animation:barflash .9s ease;}
   @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6)}100%{box-shadow:0 1px 3px rgba(0,0,0,.20)}}
@@ -167,6 +180,31 @@
   .bar-task.k-qa .prog{display:none;}
   .bar-task.k-qa .sdot{background:#ffd23f;}
   .bar-task.k-qa::after{content:'🐞测试';position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;opacity:.9;z-index:2;}
+  /* ===== 按需求看：条内三阶段 L1 | L2 | 联调（背景带 + 可拖拽分割线） =====
+     L1=一审(深，本体色满)、L2=二审(蒙淡白)、联调=斜纹紫(特效完成后接续)。
+     三条都是绝对定位背景带(z-index:0)，位于文字/人名标签(z-index:1)之下；
+     L1/L2 之间一根可拖拽的分割线 .ph-div 用来确定 L1 完成时间。 */
+  .bar-task.req-bar .ph{position:absolute;top:0;bottom:0;z-index:0;pointer-events:none;overflow:hidden;}
+  .bar-task.req-bar .ph-l1{border-radius:inherit;}                                   /* L1：保持本体满色 */
+  .bar-task.req-bar .ph-l2{background:rgba(255,255,255,.24);}                          /* L2：淡白蒙版区分 */
+  .bar-task.req-bar .ph-lt{background:rgba(126,99,181,.55);border-left:1.5px dashed rgba(255,255,255,.85);pointer-events:auto;
+    background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 6px,rgba(255,255,255,0) 6px 12px);} /* 联调：斜纹紫，可悬停看详情 */
+  .bar-task.req-bar .ph-lab{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:9px;font-weight:800;
+    letter-spacing:1px;color:rgba(255,255,255,.72);text-shadow:0 1px 2px rgba(0,0,0,.5);pointer-events:none;z-index:1;}
+  .bar-task.req-bar .ph-lt .ph-lab{color:#fff;opacity:.95;}
+  /* 分割线：高对比白竖线 + 中部抓手；hover 高亮，可独立拖拽（不触发整条改期） */
+  .bar-task.req-bar .ph-div{position:absolute;top:0;bottom:0;width:2px;background:rgba(255,255,255,.95);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.28);z-index:5;cursor:ew-resize;pointer-events:auto;transform:translateX(-1px);}
+  .bar-task.req-bar .ph-div::before{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:10px;height:18px;border-radius:3px;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.42);}
+  .bar-task.req-bar .ph-div::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    width:2px;height:8px;border-left:1px solid #9aa6bf;border-right:1px solid #9aa6bf;}
+  .bar-task.req-bar .ph-div:hover{background:#fff;}
+  .bar-task.req-bar .ph-div.dragging{background:#ffd23f;}
+  .bar-task.req-bar .ph-div.dragging::before{box-shadow:0 0 0 2px rgba(255,210,63,.6),0 2px 6px rgba(0,0,0,.4);}
+  /* 第二根分割线：L2/联调 分界（设定联调开始时间），抓手描一圈紫以与 L1/L2 分割线区分 */
+  .bar-task.req-bar .ph-div2::before{box-shadow:0 0 0 1.5px rgba(126,99,181,.85),0 1px 3px rgba(0,0,0,.42);}
+  .bar-task.req-bar .ph-div2::after{border-left-color:#7e63b5;border-right-color:#7e63b5;}
 
   .av{width:30px;height:30px;border-radius:50%;background:var(--blue-l);color:var(--blue);display:flex;align-items:center;justify-content:center;font-weight:600;font-size:12px;flex-shrink:0;position:relative;}
   .av .mdot{position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;}
@@ -182,13 +220,15 @@
   .emp-badge .ed{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 .5px rgba(0,0,0,.06);}
   .emp-badge .olflag{position:absolute;left:-4px;top:-4px;width:15px;height:15px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(245,65,63,.5);}
   .who{min-width:0;}
-  .who .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;align-items:center;}
+  .who .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center;}
   .ptag{font-size:10px;font-weight:700;border:1px solid;border-radius:5px;padding:1px 6px;background:#fff;white-space:nowrap;}
   .mtag2{font-size:10px;font-weight:600;color:#3a6df0;background:#eef3ff;border:1px solid #c9dbff;border-radius:5px;padding:1px 6px;white-space:nowrap;}
-  .ltag{font-size:10px;font-weight:600;border-radius:5px;padding:1px 6px;white-space:nowrap;}
+  /* 归属标签（带队/隶属）：实心胶囊，主信息 */
+  .ltag{font-size:10.5px;font-weight:600;border-radius:6px;padding:2px 8px;white-space:nowrap;line-height:1.4;}
   .ltag.lead{color:#7c3aed;background:#f3e8ff;border:1px solid #d9c2fb;}
   .ltag.belong{color:#646a73;background:#f2f4f7;border:1px solid #e1e5ea;}
-  .ltag.eff{color:#0a7d3c;background:#e9f8ee;border:1px solid #c2ecd0;}
+  /* 效率：弱化为"指标"态——无填充描边、灰底细框，明显区别于归属胶囊 */
+  .ltag.eff{font-weight:700;color:#0a7d3c;background:transparent;border:1px dashed #b7e0c6;padding:2px 7px;letter-spacing:.2px;}
   .who .nm{font-weight:600;font-size:13px;} .who .ro{color:var(--tx3);font-size:11px;}
   .mstat{cursor:pointer;}
   .emp-badge .ed.mstat:hover{transform:scale(1.35);}
@@ -203,6 +243,7 @@
 
   .req .nm{font-weight:600;} .req .meta{color:var(--tx2);font-size:11px;font-weight:500;}
   .req .meta .left-d{color:#d4380d;font-weight:800;}   /* 剩余工作日醒目：深橙红加粗 */
+  .req .meta-team{margin-top:2px;}                     /* 人员构成另起一行 */
   .gdot-grade{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0;vertical-align:middle;box-shadow:0 0 0 2px rgba(0,0,0,.04);}
   .tmp-tag{display:inline-block;font-size:9px;font-weight:700;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:middle;}
   .corp-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
@@ -320,6 +361,61 @@
   .kmk.lt{color:#7c3aed;background:#f1e9fd;border:1px dashed #c4a9f5;}
   .kmk.qa{color:#fff;background:#2b2f36;}
   .team-cnt{font-size:11px;}
+  /* ===== 新增任务/人员：入口按钮 ===== */
+  .add-btn{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;line-height:1;
+    color:#1d6fd6;background:#eef5ff;border:1px dashed #9cc0f5;border-radius:8px;padding:3px 8px;cursor:pointer;
+    transition:.12s;white-space:nowrap;vertical-align:middle;}
+  .add-btn:hover{background:#1d6fd6;color:#fff;border-color:#1d6fd6;box-shadow:0 2px 8px rgba(29,111,214,.28);}
+  .add-btn .pl{font-size:13px;font-weight:800;margin-top:-1px;}
+  /* 按人看：行内「+加任务」，挂在姓名行末尾——实心浅色按钮态，与下方标签层级分明 */
+  .who .nm .add-task{margin-left:10px;font-size:10px;padding:2px 9px;border-style:solid;border-color:#cfe0fb;background:#f4f8ff;}
+  .who .nm .add-task:hover{background:#1d6fd6;border-color:#1d6fd6;}
+  /* 按需求看：编制分组行末尾「+加人」 */
+  .who-grp .add-person{font-size:10px;padding:2px 7px;align-self:center;}
+  /* 编制分组行内末尾的小加人钮：弱化、虚线、悬停高亮 */
+  .who-grp .grp-add{align-self:center;font-size:10px;padding:1px 7px;border:1px dashed #c4ccd8;background:transparent;color:#9aa3b2;opacity:.85;}
+  .who-grp .grp-add:hover{opacity:1;border-color:#7c3aed;color:#7c3aed;background:#7c3aed0d;}
+  .who-grp.base-grp .grp-add:hover{border-color:#2f6bff;color:#2f6bff;background:#2f6bff0d;}
+  .who-grp .grp-add .pl{font-weight:800;margin-right:1px;}
+  /* 蓝条内「+」加人小钮 */
+  .bar-task.req-bar .bl-add{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
+    border-radius:5px;font-size:12px;font-weight:800;line-height:1;cursor:pointer;flex-shrink:0;margin-left:4px;
+    background:rgba(255,255,255,.9);color:#1d6fd6;box-shadow:0 1px 2px rgba(0,0,0,.25);}
+  .bar-task.req-bar .bl-add:hover{background:#fff;color:#0b56b8;transform:scale(1.12);}
+  /* ===== 添加弹窗 ===== */
+  .add-mask{position:fixed;inset:0;background:rgba(15,20,30,.42);backdrop-filter:blur(2px);
+    display:none;align-items:center;justify-content:center;z-index:10000;}
+  .add-mask.show{display:flex;}
+  .add-modal{width:440px;max-width:92vw;max-height:88vh;overflow:auto;background:#fff;border-radius:14px;
+    box-shadow:0 24px 70px rgba(0,0,0,.34);padding:0;animation:addpop .16s ease-out;}
+  @keyframes addpop{from{transform:translateY(10px) scale(.97);opacity:0;}to{transform:none;opacity:1;}}
+  .add-modal .am-h{display:flex;align-items:center;gap:8px;padding:15px 18px;border-bottom:1px solid #eef0f4;
+    font-size:15px;font-weight:800;color:#1d2330;}
+  .add-modal .am-h .ic{width:26px;height:26px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;
+    background:#eef5ff;color:#1d6fd6;font-size:15px;}
+  .add-modal .am-h .am-x{margin-left:auto;cursor:pointer;color:#9aa3b2;font-size:20px;line-height:1;border:none;background:none;padding:2px 4px;border-radius:6px;}
+  .add-modal .am-h .am-x:hover{background:#f1f2f5;color:#3a3f4a;}
+  .add-modal .am-body{padding:14px 18px 4px;}
+  .add-modal .fld{margin-bottom:13px;}
+  .add-modal .fld>label{display:block;font-size:11px;font-weight:800;color:#7a828f;margin-bottom:5px;letter-spacing:.4px;}
+  .add-modal select,.add-modal input[type=date],.add-modal input[type=number]{
+    width:100%;box-sizing:border-box;font-size:13px;padding:8px 10px;border:1.5px solid #dde2ea;border-radius:9px;
+    background:#fff;color:#1d2330;font-weight:600;outline:none;transition:.12s;}
+  .add-modal select:focus,.add-modal input:focus{border-color:#1d6fd6;box-shadow:0 0 0 3px rgba(29,111,214,.14);}
+  .add-modal .row2{display:flex;gap:10px;}
+  .add-modal .row2 .fld{flex:1;}
+  .add-modal .ctx{font-size:12px;color:#5a626e;background:#f6f8fc;border:1px solid #e7ebf2;border-radius:9px;padding:9px 11px;margin-bottom:13px;line-height:1.5;}
+  .add-modal .ctx b{color:#1d2330;}
+  .add-modal .seg-pre{font-size:11px;color:#7a828f;margin-top:-6px;margin-bottom:12px;}
+  .add-modal .am-foot{display:flex;gap:10px;justify-content:flex-end;padding:6px 18px 17px;}
+  .add-modal .am-foot button{font-size:13px;font-weight:700;padding:9px 18px;border-radius:9px;cursor:pointer;border:1.5px solid transparent;}
+  .add-modal .am-cancel{background:#f1f2f5;color:#5a626e;}
+  .add-modal .am-cancel:hover{background:#e6e8ec;}
+  .add-modal .am-ok{background:#1d6fd6;color:#fff;}
+  .add-modal .am-ok:hover{background:#155cc0;box-shadow:0 4px 14px rgba(29,111,214,.36);}
+  .add-modal .am-ok:disabled{background:#b7c6dc;cursor:not-allowed;box-shadow:none;}
+  .add-modal .warn{color:#d4380d;font-size:11px;font-weight:700;margin-top:-4px;margin-bottom:10px;display:none;}
+  .add-modal .warn.show{display:block;}
   .bar-task .bar-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* 按需求视图：任务条加高，容纳标题 + 按编制分两行的人名标签 */
   .req-row{min-height:82px;}
@@ -362,10 +458,73 @@
   .rule .t{font-weight:600;font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
   .rule .t i{width:10px;height:10px;border-radius:50%;}
   .rule p{color:var(--tx2);font-size:12px;line-height:1.6;}
+  .std-cfg{width:100%;border-collapse:collapse;font-size:12px;margin-top:2px;}
+  .std-cfg th,.std-cfg td{text-align:left;padding:7px 12px;border-bottom:1px solid var(--line);}
+  .std-cfg th{color:var(--tx3);font-weight:600;font-size:11px;background:#fafbfc;}
+  .std-cfg td:first-child{font-weight:600;white-space:nowrap;}
+  .std-cfg tbody tr:last-child td{border-bottom:none;}
+  .std-cfg b{color:var(--tx);}
+  /* —— 可编辑标准工期表 —— */
+  .std-rows{display:flex;flex-direction:column;gap:7px;margin-top:6px;}
+  .std-rows .std-head{display:grid;grid-template-columns:140px 120px 1fr 26px;gap:10px;padding:0 10px;font-size:11px;font-weight:600;color:var(--tx3);}
+  .std-row{display:grid;grid-template-columns:140px 120px 1fr 26px;gap:10px;align-items:center;padding:8px 10px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;}
+  .std-row .sd-grade{display:flex;align-items:center;gap:7px;}
+  .std-row .sd-col{width:20px;height:20px;border:1px solid var(--line);border-radius:50%;padding:0;cursor:pointer;flex-shrink:0;background:none;}
+  .std-row .sd-col::-webkit-color-swatch-wrapper{padding:2px;} .std-row .sd-col::-webkit-color-swatch{border:none;border-radius:50%;}
+  .std-row .sd-name{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--tx);border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 7px;outline:none;}
+  .std-row .sd-weeks{width:100%;font-size:13px;font-weight:700;color:#7048e8;text-align:center;border:1px solid #d9d0f5;background:#fff;border-radius:6px;padding:5px 4px;outline:none;}
+  .std-row .sd-ppl{width:100%;font-size:12px;color:var(--tx2);border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 7px;outline:none;}
+  .std-row .sd-name:focus,.std-row .sd-ppl:focus{border-color:#9aa7b8;} .std-row .sd-weeks:focus{border-color:#7048e8;box-shadow:0 0 0 2px rgba(112,72,232,.12);}
+  .std-row .std-del{cursor:pointer;color:#c4ccd8;font-size:16px;line-height:1;background:none;border:none;padding:4px 2px;}
+  .std-row .std-del:hover{color:#f5413f;}
+  .std-rows.locked .sd-col{pointer-events:none;}
+  .std-rows.locked .std-del{display:none;}
+  .std-rows.locked .sd-name,.std-rows.locked .sd-weeks,.std-rows.locked .sd-ppl{pointer-events:none;background:#f4f5f7;color:var(--tx3);border-color:var(--line);}
+  /* —— 可编辑效率档位表 —— */
+  .eff-add-tier{font-size:11px;color:#0a7d3c;background:#e9f8ee;border:1px solid #c2ecd0;border-radius:6px;padding:2px 9px;cursor:pointer;font-weight:600;}
+  .eff-add-tier:hover{background:#d6f3e0;}
+  .eff-lock{margin-left:auto;font-size:11px;font-weight:700;border-radius:6px;padding:2px 11px;cursor:pointer;border:1px solid;transition:.12s;}
+  .eff-lock.locked{color:#8a6d00;background:#fff7e0;border-color:#f0d68a;}
+  .eff-lock.locked:hover{background:#ffefc2;}
+  .eff-lock.editing{color:#0a7d3c;background:#e9f8ee;border-color:#a6e0bd;}
+  .eff-lock.editing:hover{background:#d6f3e0;}
+  .rule .t{display:flex;align-items:center;gap:6px;}
+  .eff-tiers{display:flex;flex-direction:column;gap:7px;margin-top:6px;}
+  .eff-row{display:grid;grid-template-columns:78px 150px 1fr 26px;gap:10px;align-items:start;padding:8px 10px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;}
+  .eff-row .ef-coef{width:100%;font-size:13px;font-weight:700;color:#0a7d3c;text-align:center;border:1px solid #c2ecd0;background:#fff;border-radius:6px;padding:5px 4px;outline:none;}
+  .eff-row .ef-coef:focus{border-color:#0a7d3c;box-shadow:0 0 0 2px rgba(10,125,60,.12);}
+  .eff-row .ef-label{width:100%;font-size:12px;color:var(--tx2);border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 7px;outline:none;}
+  .eff-row .ef-label:focus{border-color:#9aa7b8;}
+  .eff-mems{display:flex;flex-wrap:wrap;gap:5px;align-items:center;min-height:28px;padding-top:1px;}
+  .eff-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:2px 6px 2px 9px;color:var(--tx);cursor:grab;user-select:none;touch-action:none;transition:opacity .1s;}
+  .eff-chip:active{cursor:grabbing;}
+  .eff-chip.drag-src{opacity:.32;}
+  .eff-row.drop-on,.eff-unassigned.drop-on{background:#eafaf0;border-color:#0a7d3c;box-shadow:0 0 0 2px rgba(10,125,60,.18);}
+  .eff-chip .x{cursor:pointer;color:#b6bfcc;font-weight:700;font-size:13px;line-height:1;padding:0 1px;}
+  .eff-chip .x:hover{color:#f5413f;}
+  .eff-del-tier{cursor:pointer;color:#c4ccd8;font-size:16px;line-height:1;background:none;border:none;padding:4px 2px;align-self:center;}
+  .eff-del-tier:hover{color:#f5413f;}
+  .eff-unassigned{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:#b36b00;margin-top:6px;padding:7px 10px;background:#fffaf0;border:1px dashed #f0d28a;border-radius:8px;min-height:30px;}
+  .eff-unassigned .ua-lab{font-size:11px;font-weight:700;color:#b36b00;margin-right:2px;}
+  .eff-unassigned .eff-chip{background:#fff;border-color:#f0d28a;}
+  /* 拖拽幽灵 chip：跟随光标 */
+  #effGhost{position:fixed;z-index:320;pointer-events:none;font-size:12px;font-weight:600;background:#0a7d3c;color:#fff;border-radius:20px;padding:3px 11px;box-shadow:0 6px 18px rgba(10,125,60,.45);opacity:0;transform:translate(-50%,-130%);white-space:nowrap;}
+  #effGhost.show{opacity:1;}
+  /* 锁定态：禁用一切编辑 */
+  .eff-tiers.locked .eff-chip{cursor:default;}
+  .eff-tiers.locked .eff-chip .x,.eff-tiers.locked .eff-del-tier{display:none;}
+  .eff-tiers.locked .ef-coef,.eff-tiers.locked .ef-label{pointer-events:none;background:#f4f5f7;color:var(--tx3);border-color:var(--line);}
+  .eff-lock-hint{font-size:11px;color:var(--tx3);margin-top:5px;}
   code{background:#f0f2f5;padding:1px 5px;border-radius:4px;font-size:11px;color:#d6336c;}
 
   #tip{position:fixed;background:#1f2329;color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;line-height:1.6;pointer-events:none;opacity:0;transition:opacity .1s;z-index:99;max-width:260px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
   #tip b{color:#fff;} #tip .g{color:#9aa0a6;}
+  #tip.wide{max-width:340px;padding:11px 13px;}
+  #tip .tip-h{font-weight:700;font-size:12.5px;color:#fff;display:block;margin-bottom:5px;padding-bottom:5px;border-bottom:1px solid rgba(255,255,255,.16);}
+  #tip .tip-f{display:block;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,.12);color:#cfd3d8;font-size:11px;}
+  #tip code{background:rgba(255,255,255,.12);color:#ffe08a;padding:1px 5px;border-radius:4px;font-size:11px;}
+  #tip .hi{color:#9ecbff;font-weight:600;} #tip .gn{color:#86e0a3;} #tip .am{color:#ffce6b;} #tip .rd{color:#ff9b96;}
+  .hl-term{border-bottom:1px dashed currentColor;cursor:help;font-weight:600;}
   #dlabel{position:fixed;background:var(--blue);color:#fff;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;pointer-events:none;z-index:100;opacity:0;transition:opacity .08s;white-space:nowrap;box-shadow:0 4px 12px rgba(51,112,255,.4);}
   #menu{position:fixed;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:6px;z-index:200;min-width:150px;opacity:0;pointer-events:none;transform:scale(.96);transition:.1s;transform-origin:top left;}
   #menu.show{opacity:1;pointer-events:auto;transform:scale(1);}
@@ -374,6 +533,10 @@
   #menu .mi:hover{background:#f2f4f7;}
   #menu .mi i{width:11px;height:11px;border-radius:3px;display:inline-block;}
   #menu .mi.cur{font-weight:600;background:#f2f4f7;}
+  #menu .msep{height:1px;background:var(--line);margin:5px 4px;}
+  #menu .mi.danger{color:#d4380d;}
+  #menu .mi.danger:hover{background:#fff1f0;}
+  #menu .mi.danger svg{width:13px;height:13px;}
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;font-size:12px;opacity:0;transition:.2s;z-index:300;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .hide{display:none !important;}
@@ -476,7 +639,7 @@
   </div>
 
   <div class="bar" style="margin-top:-6px">
-    <span class="hint" id="hintBar">💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态 · 选中任务条后 Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求</span>
+    <span class="hint" id="hintBar">💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求</span>
     <div class="spacer"></div>
     <div class="legend" id="legend"></div>
   </div>
@@ -495,13 +658,13 @@
       <div class="rule">
         <div class="t"><i style="background:var(--blue)"></i>工作强度 / 负载率</div>
         <p>负载率 = <code>未来30天已排人天 ÷ 可用人天</code>。人均每日标准产能记为 1 人天。<br>
-        分档：<b style="color:#1a8a3c">≤85% 宽松</b> · <b style="color:#b36b00">85–110% 饱和</b> · <b style="color:#d32320">&gt;110% 超载</b>。</p>
+        分档：<b style="color:#1a8a3c">≤85% 正常</b> · <b style="color:#b36b00">85–110% 饱和</b> · <b style="color:#d32320">&gt;110% 超载</b>。</p>
       </div>
       <div class="rule">
         <div class="t"><i style="background:var(--amber)"></i>需求风险（双维度取高）</div>
-        <p><b>维度A 产能</b>：剩余工作量 vs 投入产能×剩余工作日。<br>
-        <b>维度B 人力结构</b>：该角色管线是否缺人。<br>
-        两者取较高一档作为最终风险。</p>
+        <p><b class="hl-term" style="color:#b36b00" onmousemove="showTermTip(event,'dimA')" onmouseleave="hideTip()">维度A 产能</b>：剩余工作量 vs 投入产能×剩余工作日。<br>
+        <b class="hl-term" style="color:#b36b00" onmousemove="showTermTip(event,'dimB')" onmouseleave="hideTip()">维度B 人力结构</b>：该角色管线是否缺人。<br>
+        <span class="hl-term" onmousemove="showTermTip(event,'finalRisk')" onmouseleave="hideTip()">两者取较高一档</span>作为最终风险。</p>
       </div>
       <div class="rule">
         <div class="t"><i style="background:var(--red)"></i>风险分档</div>
@@ -509,14 +672,33 @@
         <b style="color:#b36b00">中</b> = 产能偏紧，<u>或</u> 管线缺人但尚未开工（后续压力）。<br>
         <b style="color:#1a8a3c">低</b> = 产能充足且管线人力到位。</p>
       </div>
+      <div class="rule" style="grid-column:1/-1;">
+        <div class="t"><i style="background:#7048e8"></i>出场标准工期 &amp; 标配人力（按角色品级）
+          <button class="eff-lock locked" id="stdLock" title="点击激活/锁定编辑">🔒 已锁定</button>
+          <button class="eff-add-tier hide" id="stdAddRow" title="新增一行">＋ 加一行</button>
+        </div>
+        <div id="stdRows" class="std-rows locked"></div>
+        <p style="margin-top:8px;">检视、组队、入局Cuts、TPP、红角 MVP 等模块的基地人力配置，<b>以「人力分配（按模块/缺口）」视图为标准</b>逐模块核定。</p>
+      </div>
+
+      <div class="rule" style="grid-column:1/-1;">
+        <div class="t"><i style="background:#0a7d3c"></i>效率系数标定（实时驱动产能/风险计算）
+          <button class="eff-lock locked" id="effLock" title="点击激活/锁定编辑">🔒 已锁定</button>
+          <button class="eff-add-tier hide" id="effAddTier" title="新增一档">＋ 加一档</button>
+        </div>
+        <div id="effTiers" class="eff-tiers locked"></div>
+        <p style="margin-top:8px;color:var(--tx3);">系数以 <b>1.0 = 一名标准基地人力</b> 为基准；&gt;1 比基准强、&lt;1 偏弱。修改系数、人群说明或把成员在档位间调整后，<b>每位成员的效率、负载率与需求风险会立即按新值重算</b>。</p>
+      </div>
     </div>
   </div>
 </div>
 
 <div id="tip"></div>
 <div id="dlabel"></div>
+<div id="effGhost"></div>
 <div id="menu"></div>
 <div id="toast"></div>
+<div id="addMask" class="add-mask"><div class="add-modal" id="addModal"></div></div>
 
 <script>
 /* ============ 标准化配置 ============ */
@@ -574,6 +756,48 @@ function reqLeadOf(r){
   for(const k in cnt){if(cnt[k]>bn){bn=cnt[k];best=k;}}
   return best;
 }
+/* 动态支援判定：某成员在「某条具体需求」里，若其隶属正编导师 ≠ 该需求的带队归属，即为「跨队支援」。
+   关键点：不依赖静态 support 字段——人被改派回自己导师的需求时支援标记会自动消失，调去别的导师需求时自动出现。
+   特例：本身没有正编导师归属的游离人力（lead='—'，如金潇支援武器特效），用其 support 字段兜底。 */
+function isSupportInReq(m,r){
+  if(!m||!r) return false;
+  const myLead=leadOf(m), reqLead=reqLeadOf(r);
+  if(myLead && reqLead) return myLead!==reqLead;   // 双方归属都明确：不同导师 → 支援
+  return !!m.support;                              // 无明确导师归属的游离人力：按静态字段兜底
+}
+
+/* 某成员的「最早被分配到需求」的开始日（取所有 segs 最小 s）。无任务返回 null。 */
+function firstAssignDate(m){
+  let min=null;
+  reqs.forEach(r=>r.segs.forEach(s=>{
+    if(s.m!==m.id) return;
+    if(min===null || s.s<min) min=s.s;
+  }));
+  return min;
+}
+/* 「临 / 新人」精简为单一标记，且自动失效：
+   ——这两个含义重复(都表示「新进/未稳定」)，统一只显示一个；
+   ——从「最早分配制作需求」起算，超过 1 个月(31天)自动去除该标记(视为已转正常)。
+   返回 'new'(显示新人) | 'tmp'(显示临) | ''(不显示)。新人优先于临。 */
+function rookieFlag(m){
+  if(!m) return '';
+  if(m.status!=='new' && !m.tmp) return '';   // 本就不是新进/临时
+  const fa=firstAssignDate(m);
+  if(fa){
+    const days=(TODAY-fa)/86400000;
+    if(days>31) return '';                     // 分配满 1 个月，自动转正常，去标记
+  }
+  return m.status==='new' ? 'new' : 'tmp';     // 未满月：新人优先，否则临
+}
+
+/* 离职「满 1 个月(31天)」判定：离职超过 1 月的成员从各信息栏/名单中隐藏(视为已彻底离场)。
+   以 leftAt(离职日)起算；若离职但缺 leftAt 则保守不隐藏(仍显示，避免误删)。
+   返回 true 表示「应隐藏」。 */
+function leftLong(m){
+  if(!m || m.status!=='left') return false;
+  if(!m.leftAt) return false;                  // 无离职日：保守保留
+  return (TODAY-m.leftAt)/86400000 > 31;
+}
 
 /* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
 /* 成员 = 出场/检视/组队/武器等模块制作人。
@@ -589,8 +813,8 @@ const members = [
   {id:'ll',  name:'李龙',   role:'基地·支援橙角(隶属余洪震)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on', support:true},
   {id:'zyq', name:'张雍祺', role:'基地·橙(露西亚 管线1)',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.95, status:'on'},
   {id:'zjj', name:'曾俊杰', role:'基地·支援橙角(隶属余洪震)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on', support:true},
-  {id:'zcz', name:'张长喆', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true},
-  {id:'ljy', name:'梁骏源', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true},
+  {id:'zcz', name:'张长喆', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true, leftAt:DT(2026,5,1)},
+  {id:'ljy', name:'梁骏源', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true, leftAt:DT(2026,5,1)},
   {id:'zjh', name:'邹佳豪', role:'基地·橙(露西亚)·新人',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.85, status:'new',  tmp:true},
 
   // ===== 基地：管线2 比安卡线（余洪震统筹，目前仅胡斯雨1名基地同学）=====
@@ -702,10 +926,20 @@ const reqs = [
   /* ===== 红·女指挥官 S5.1 各模块特效（余洪震带，全管线缺人最严重；按版本里程碑顺排） ===== */
   {id:'NV_bt', name:'女指挥官 本体&3C特效', char:'女指挥官（S5.1）', mod:'本体/3C', grade:'红', line:'R', kind:'fx', estimate:45, done:0, end:DT(2026,9,30),
     segs:[{m:'yhz',s:DT(2026,7,1),e:DT(2026,9,30),prog:0,status:'todo'}]},
-  {id:'NV_cc', name:'女指挥官 出场&MVP&入局Cuts特效', char:'女指挥官（S5.1）', mod:'出场/MVP/入局', grade:'红', line:'R', kind:'fx', estimate:50, done:0, end:DT(2026,10,30),
-    segs:[{m:'yhz',s:DT(2026,9,1),e:DT(2026,10,30),prog:0,status:'todo'}]},
-  {id:'NV_tp', name:'女指挥官 TPP&大厅&检视组队特效', char:'女指挥官（S5.1）', mod:'TPP/大厅/检视组队', grade:'红', line:'R', kind:'fx', estimate:40, done:0, end:DT(2026,11,30),
-    segs:[{m:'yhz',s:DT(2026,9,15),e:DT(2026,11,30),prog:0,status:'todo'}]},
+  {id:'NV_cc', name:'女指挥官 出场特效', char:'女指挥官（S5.1）', mod:'出场', grade:'红', line:'R', kind:'fx', estimate:20, done:0, end:DT(2026,11,11),
+    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
+  {id:'NV_mvp', name:'女指挥官 MVP特效', char:'女指挥官（S5.1）', mod:'MVP', grade:'红', line:'R', kind:'fx', estimate:15, done:0, end:DT(2026,11,11),
+    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
+  {id:'NV_rj', name:'女指挥官 入局Cuts特效', char:'女指挥官（S5.1）', mod:'入局', grade:'红', line:'R', kind:'fx', estimate:15, done:0, end:DT(2026,11,11),
+    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
+  {id:'NV_tpp', name:'女指挥官 TPP特效', char:'女指挥官（S5.1）', mod:'TPP', grade:'红', line:'R', kind:'fx', estimate:12, done:0, end:DT(2026,11,11),
+    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
+  {id:'NV_dt', name:'女指挥官 大厅特效', char:'女指挥官（S5.1）', mod:'大厅', grade:'红', line:'R', kind:'fx', estimate:10, done:0, end:DT(2026,11,11),
+    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
+  {id:'NV_cs', name:'女指挥官 检视特效', char:'女指挥官（S5.1）', mod:'检视', grade:'红', line:'R', kind:'fx', estimate:9, done:0, end:DT(2026,11,11),
+    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
+  {id:'NV_zd', name:'女指挥官 组队特效', char:'女指挥官（S5.1）', mod:'组队', grade:'红', line:'R', kind:'fx', estimate:9, done:0, end:DT(2026,11,11),
+    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
   {id:'NV_lt', name:'女指挥官 整体效果联调', char:'女指挥官（S5.1）', mod:'联调', grade:'红', line:'R', kind:'lt', estimate:20, done:0, end:DT(2026,12,25),
     segs:[{m:'yhz',s:DT(2026,12,1),e:DT(2026,12,25),prog:0,status:'todo'}]},
   {id:'NV_qa', name:'女指挥官 全量测试', char:'女指挥官（S5.1）', mod:'全量测试', grade:'红', line:'R', kind:'qa', estimate:0, done:0, end:DT(2027,1,15),
@@ -779,8 +1013,33 @@ const hrData = [
 ];
 const HR_CONCLUSION = {base:14, totalGap:11, detail:'金角4人 / 橙角1号5人 / 橙角2号5人 / 红角11人'};
 
-/* 管线 → 出场环节人力缺口（来自人力分配脑图）。用于把"人不够"并入需求风险 */
-/* L1=露西亚线：常态3人+临时2人=5人，临时缺3人；L2=比安卡线：现1人，缺2人；R=红角女指挥官线缺人最严重 */
+/* 需求 → 基地制作人「标配人数」（应配编制，可按需调整）。
+   缺口 = 标配 − 实际在岗基地人数，由 reqGapPpl(r) 动态算，加人/改派/离职后即时刷新。
+   口径：金角出场 4 基地、橙角出场 3 基地、红角各模块 3 基地（来自评估标准）。
+   未列入的需求(检视/组队/联调等)默认无独立编制缺口(标配=0 → 不显示缺人徽标)。 */
+const REQ_STD = {
+  'LU_cc':3, 'BK_cc':3, 'BL_cc':3, 'HG_cc':3, 'AF_cc':3,   // 橙角出场：3 基地
+  'QS_cc':4, 'HK_cc':4, 'CY_cc':4,                          // 金角出场：4 基地
+  'NV_bt':3, 'NV_cc':3,                                     // 红角本体/出场：3 基地（MVP/入局/TPP/大厅/检视/组队默认标配0，需要可在此补）
+};
+/* 某需求当前「实际在岗基地制作人数」：去重；正编带队不占基地名额、跨队支援不抵消编制、离职不计 */
+function activeBase(r){
+  const seen=new Set();
+  (r&&r.segs||[]).forEach(s=>{
+    const m=memById(s.m); if(!m) return;
+    if(m.corp==='reg') return;          // 正编带队：统筹/带教，不占基地标配
+    if(m.status==='left') return;       // 已离职：不计
+    if(isSupportInReq(m,r)) return;     // 跨队支援：临时借调，不抵消本编制缺口
+    seen.add(m.id);
+  });
+  return seen.size;
+}
+/* 动态人力缺口 = 标配 − 实际在岗（≥0）。无标配的需求恒为 0 */
+function reqGapPpl(r){
+  const std=REQ_STD[r&&r.id]; if(std==null) return 0;
+  return Math.max(0, std-activeBase(r));
+}
+/* 兼容旧调用（按管线粗粒度），现已不参与风险计算 */
 const LINE_GAP = { 'L1':3, 'L2':2, 'J':0, 'R':8, '-':0 };
 const lineGap = line => LINE_GAP[line]||0;
 /* 管线显示名（用于标签/tooltip） */
@@ -792,6 +1051,10 @@ const lineName = line => LINE_NAME[line]||line;
 const MOD_META = {
   '出场':            {ic:'🎬', c:'#e8590c', s:'出场'},
   '出场/MVP/入局':   {ic:'🎬', c:'#e8590c', s:'出场·MVP·入局'},
+  'MVP':             {ic:'🏆', c:'#f08c00', s:'MVP'},
+  '入局':            {ic:'🎞️', c:'#d9480f', s:'入局Cuts'},
+  'TPP':             {ic:'🎭', c:'#c2255c', s:'TPP'},
+  '大厅':            {ic:'🏛️', c:'#9c36b5', s:'大厅'},
   '检视':            {ic:'🔍', c:'#1098ad', s:'检视'},
   '组队':            {ic:'👥', c:'#7048e8', s:'组队'},
   '检视/组队':       {ic:'🔍', c:'#1098ad', s:'检视·组队'},
@@ -831,6 +1094,39 @@ function reqTitleHTML(r, opt){
   return `${nm}${mt}`;
 }
 
+/* ============ 按需求看：条内三阶段模型 L1 / L2 / 联调 ============
+   - 特效本体区间 [s,e]：取该需求所有 segs 的最早开始~最晚结束。
+   - L1(一审) + L2(二审) 平分本体区间，分界由 r.split（绝对日索引）决定，默认五五开。
+   - 联调段 = 该需求 attached 子需求(联调)的区间，紧接特效之后并入同一条；无子需求则只有 L1|L2。
+   返回 {s,e,split,lt,barS,barE,l1,l2}；坐标均为「日索引」。 */
+function getPhases(r){
+  const s=Math.min(...r.segs.map(x=>idx(x.s)));
+  const e=Math.max(...r.segs.map(x=>idx(x.e)));
+  const addons=(r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
+  let lt=null;
+  if(addons.length){
+    const aS=Math.min(...addons.flatMap(a=>a.segs.map(x=>idx(x.s))));
+    const aE=Math.max(...addons.flatMap(a=>a.segs.map(x=>idx(x.e))));
+    lt={s:aS,e:aE,ids:addons.map(a=>a.id),est:addons.reduce((t,a)=>t+a.estimate,0)};
+  }
+  let split=(r.split!=null)?r.split:Math.round((s+e)/2);
+  split=Math.max(s+1,Math.min(e-1,split));        // 至少给 L1/L2 各留 1 天
+  if(e-s<2) split=Math.max(s,Math.min(e,split));  // 区间过窄兜底
+  const barE = lt?Math.max(e,lt.e):e;
+  // L2/联调 分界 split2（联调开始时间，绝对日索引）：仅当存在联调段。
+  // 默认 = 特效终点 e（联调紧接特效之后），可独立拖拽，夹在 [split+1, barE-1] 之间。
+  let split2=null;
+  if(lt){
+    split2=(r.split2!=null)?r.split2:e;
+    split2=Math.max(split+1,Math.min(barE-1,split2));
+  }
+  return {s,e,split,split2,lt,
+    barS:s, barE,
+    l1:{s,e:split},
+    l2:{s:split, e:(lt?split2:e)},
+    lt2:(lt?{s:split2,e:barE}:null)};
+}
+
 /* ============ 计算工具 ============ */
 const dayMs=864e5;
 const idx = d => Math.round((d-START)/dayMs);
@@ -855,6 +1151,65 @@ function focusRole(m){
 }
 const memEff =id=>{const m=members.find(m=>m.id===id);return m?m.eff:1;};
 
+/* ============ 效率系数档位（可编辑，驱动 eff → 产能/负载/风险） ============
+   每档：{coef:系数, label:对应人群说明, mems:[成员id]}。
+   档位的 coef 是该档全部成员 eff 的唯一来源；改档即改算法基线。 */
+let EFF_TIERS = buildDefaultTiers();
+let effLocked = true;  // 系数标定默认锁定，防误操作（在 snapshot/ORIG 之前声明，避免 TDZ）
+function buildDefaultTiers(){
+  // 依据成员当前 eff 自动归档（保持初始数据语义），系数从高到低
+  const meta=[
+    {coef:1.10, label:'带队 / 资深老手'},
+    {coef:1.05, label:'骨干'},
+    {coef:1.00, label:'熟练基地（基准线）'},
+    {coef:0.95, label:'稍弱'},
+    {coef:0.90, label:'新人 / 在成长'},
+    {coef:0.85, label:'新人 / 在成长'},
+  ];
+  const tiers=meta.map(t=>({coef:t.coef,label:t.label,mems:[]}));
+  members.forEach(m=>{
+    let bi=0,bd=1e9;
+    tiers.forEach((t,i)=>{const d=Math.abs((m.eff!=null?m.eff:1)-t.coef);if(d<bd){bd=d;bi=i;}});
+    tiers[bi].mems.push(m.id);
+  });
+  // 合并 label 相同且相邻的空理论档（0.90/0.85 都叫新人），但保留有人的档
+  return tiers.filter((t,i)=>t.mems.length>0 || i<5);
+}
+// 把档位系数刷回每位成员 m.eff（成员落在哪档就取哪档系数）
+function syncEffFromTiers(){
+  const byMem={};
+  EFF_TIERS.forEach(t=>{const c=Number(t.coef);if(!isFinite(c))return;(t.mems||[]).forEach(id=>{byMem[id]=c;});});
+  members.forEach(m=>{ if(byMem[m.id]!=null) m.eff=byMem[m.id]; });
+}
+// 尚未分入任何档位的成员
+function unassignedMems(){
+  const has={};EFF_TIERS.forEach(t=>(t.mems||[]).forEach(id=>has[id]=1));
+  return members.filter(m=>!has[m.id] && !leftLong(m));   // 离职满1月不再列入未分档名单
+}
+// 成员当前所在档 index，未分档返回 -1
+function memTierIndex(id){
+  for(let i=0;i<EFF_TIERS.length;i++){ if((EFF_TIERS[i].mems||[]).indexOf(id)>=0) return i; }
+  return -1;
+}
+// 把某成员移入指定档（先从其它档/未分档清除，再加入），返回是否发生变化
+function effMoveMemToTier(id, ti){
+  if(ti<0||ti>=EFF_TIERS.length)return false;
+  if((EFF_TIERS[ti].mems||[]).indexOf(id)>=0)return false; // 已在本档
+  EFF_TIERS.forEach(t=>{t.mems=(t.mems||[]).filter(x=>x!==id);});
+  EFF_TIERS[ti].mems.push(id);
+  return true;
+}
+
+/* ============ 出场标准工期 & 标配人力（可编辑，按角色品级） ============
+   每行：{grade:品级名, col:圆点颜色, weeks:标准工期, ppl:标配人力说明}。
+   纯展示用配置表，可锁定/激活后编辑、增删行；纳入持久化与协同同步。 */
+let STD_CFG = [
+  {grade:'金角', col:'#f6cf3f', weeks:'8 周',  ppl:'3–4 个基地人力'},
+  {grade:'橙角', col:'#f59e0b', weeks:'12 周', ppl:'1 正编 + 3 个基地人力'},
+  {grade:'红角', col:'#ef3b39', weeks:'16 周', ppl:'1 正编 + 3 个基地人力'},
+];
+let stdLocked = true;  // 标准工期表默认锁定，防误操作
+
 function aggStatus(r){
   const ss=r.segs.map(s=>s.status||'doing');
   if(ss.includes('blocked'))return 'blocked';
@@ -866,10 +1221,13 @@ function aggStatus(r){
 function reqRisk(r){
   const remain = r.estimate - r.done;
   const left = Math.max(workdays(TODAY,r.end),0);
-  // 仍在投入、未完成的任务段
+  // 仍在投入、未完成的任务段（用于产能计算：已完成/已结束的段不再贡献产能）
   const activeSegs = r.segs.filter(s=>s.e>=TODAY && s.status!=='done');
-  // 去重到“人”，同一人多段不重复计数
+  // 去重到“人”，同一人多段不重复计数（产能口径）
   const memIds = [...new Set(activeSegs.map(s=>s.m))];
+  // 展示口径：与「按人看」一致 —— 凡有有效时长(>0)的段都算参与该需求的人，无论是否已完成/已结束，
+  // 保证两视图人员即时同步（拉满进度/改派后名字不再丢失）。
+  const shownIds = [...new Set(r.segs.filter(s=>idx(s.e)>idx(s.s)).map(s=>s.m))];
   // 产能：超载成员对“单个需求”的有效产能按 1/负载比 折损（负载含其全部并行任务）
   const cap = left * memIds.reduce((sum,id)=>{
     const load = memLoad(id).pct;
@@ -880,8 +1238,8 @@ function reqRisk(r){
   const ratio = remain>0 ? gap/remain : 0;
   // 维度A：产能/时间紧迫（0低 1中 2高）
   let capLvl = gap<=0 ? 0 : ratio<=0.2 ? 1 : 2;
-  // 维度B：管线人力结构缺口（来自人力分配脑图）。已开工且缺人=高(2)，未开工但缺人=中(1)
-  const gapPpl = lineGap(r.line);
+  // 维度B：人力结构缺口 = 该需求标配 − 实际在岗基地人数（动态，加人/改派即时重算）。已开工且缺人=高(2)，未开工但缺人=中(1)
+  const gapPpl = reqGapPpl(r);
   const started = r.segs.some(s=>s.status==='doing'||s.status==='review');
   let hrLvl = gapPpl<=0 ? 0 : (started ? 2 : 1);
   // 综合：取两维度较高者
@@ -892,9 +1250,9 @@ function reqRisk(r){
   else if(score===1){lvl='中';cls='rk-mid';txt='b-amber';}
   else{lvl='低';cls='rk-low';txt='b-green';}
   // 风险主因，给 tooltip 用
-  const cause = hrLvl>=capLvl && hrLvl>0 ? (started?`本管线缺${gapPpl}人且已开工`:`本管线缺${gapPpl}人(后续压力)`)
+  const cause = hrLvl>=capLvl && hrLvl>0 ? (started?`本需求缺${gapPpl}人且已开工`:`本需求缺${gapPpl}人(后续压力)`)
               : capLvl>0 ? '产能/工期偏紧' : '产能充足';
-  return {remain,left,ppl:memIds.length,pplNames:memIds.map(memName),cap:Math.round(cap*10)/10,gap:Math.round(gap*10)/10,lvl,cls,txt,overloaded,gapPpl,started,cause};
+  return {remain,left,ppl:shownIds.length,pplNames:shownIds.map(memName),cap:Math.round(cap*10)/10,gap:Math.round(gap*10)/10,lvl,cls,txt,overloaded,gapPpl,started,cause};
 }
 
 function memLoad(id){
@@ -912,7 +1270,7 @@ function memLoad(id){
   });
   const pct=avail>0?assigned/avail:0;
   let cls,col;
-  if(pct<=0.85){cls='宽松';col='var(--green)';}
+  if(pct<=0.85){cls='正常';col='var(--green)';}
   else if(pct<=1.10){cls='饱和';col='var(--amber)';}
   else{cls='超载';col='var(--red)';}
   return {pct:Math.round(pct*100),cls,col,assigned:Math.round(assigned),avail};
@@ -983,6 +1341,7 @@ function assignLanes(items){               // items: [{s,e,...}]，s/e 为天索
 function renderPerson(){
   let rows='';
   members.forEach(m=>{
+    if(leftLong(m)) return;                     // 离职满1个月：整行隐藏
     const fr=focusRole(m);
     if(focusMode==='only' && fr==='') return;   // 只看我和我的团队
     const L=memLoad(m.id);
@@ -990,7 +1349,6 @@ function renderPerson(){
     const G=m.grade?HR_GRADE[m.grade]:null;
     const CP=CORP[m.corp]||CORP.base;
     const isLeft=m.status==='left';
-    const isNew=m.status==='new';
     // 收集此人所有任务段
     const items=[];
     reqs.forEach(r=>r.segs.forEach((s,si)=>{
@@ -999,6 +1357,7 @@ function renderPerson(){
       if(ei0-si0<=0)return;
       items.push({r,sg:s,si,si0,ei0});
     }));
+    // 跨队「支援」改为标注在对应任务条上（见 bars 渲染的 .sup-mk），不再挂在姓名旁。
     // 分配泳道（用天索引判重叠）；s/e 仅作排序索引，seg 对象保存在 sg
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
@@ -1035,6 +1394,7 @@ function renderPerson(){
       bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}</span>
+        ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         <div class="prog" style="--p:${Math.round(sg.prog*100)}"></div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
@@ -1047,18 +1407,16 @@ function renderPerson(){
           ${L.pct>110?'<i class="olflag" title="超载">!</i>':''}
         </div>
         <div class="who">
-          <div class="nm">${G?`<span class="gdot-grade" style="background:${G.col}" title="${G.label}级"></span>`:''}${m.name}${m.tmp?'<span class="tmp-tag">临</span>':''}${isLeft?'<span class="hr-flag left">已离职</span>':''}${isNew?'<span class="hr-flag new">新人</span>':''}${m.support?'<span class="hr-flag sup">支援</span>':''}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}</div>
+          <div class="nm">${G?`<span class="gdot-grade" style="background:${G.col}" title="${G.label}级"></span>`:''}${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':''}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}</div>
           <div class="tags">
-            ${(m.line&&m.line!=='-')?`<span class="ptag" style="border-color:${(G?G.col:'#c9ced6')};color:${(G?G.col:'#646a73')}">${G?G.label+'·':''}${lineName(m.line)}</span>`:''}
-            ${m.mod?`<span class="mtag2">${m.mod}</span>`:''}
-            ${m.corp==='reg'?`<span class="ltag lead" title="带队负责">👑 带 ${m.lead}</span>`:(m.lead&&m.lead!=='—'&&m.lead!=='-'?`<span class="ltag belong" title="所属正编">隶属 ${m.lead}</span>`:'')}
-            <span class="ltag eff" title="效率系数">效率${m.eff}</span>
+            ${m.corp==='reg'?`<span class="ltag lead" title="带队负责：${m.lead}">👑 带 ${m.lead}</span>`:(m.lead&&m.lead!=='—'&&m.lead!=='-'?`<span class="ltag belong" title="所属正编 ${m.lead}${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">隶属 ${m.lead}</span>`:'')}
+            <span class="ltag eff" title="效率系数（1.0 为基准产能，>1 更快、<1 更慢）">⚡ 效率 ${m.eff}</span>
           </div>
         </div>
         <div class="load"><div class="pct" style="color:${L.col}">${L.pct}% ${L.cls}</div>
           <div class="bar-l${L.pct>110?' over':''}"><i style="width:${Math.min(L.pct,100)}%;background:${L.col}"></i></div></div>
       </div>
-      <div class="timeline" style="width:${DAYS*DAY_W}px">${bars}</div>
+      <div class="timeline" style="width:${DAYS*DAY_W}px"><button class="row-add" title="给 ${m.name} 新分配一条任务（选择需求与起止）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')"><span class="pl">＋</span>加任务</button>${bars}</div>
     </div>`;
   });
   paint(rows);
@@ -1082,7 +1440,7 @@ function renderReq(){
     const ag=STATUS[aggStatus(r)];
     const g=HR_GRADE[r.grade]||HR_GRADE[''];
     // 参与本需求的人（去重），带编制信息
-    const memObjs=risk.pplNames.map(n=>members.find(m=>m.name===n)).filter(Boolean);
+    const memObjs=risk.pplNames.map(n=>members.find(m=>m.name===n)).filter(Boolean).filter(m=>!leftLong(m));
     // 组内排序：隶属关系(同带队相邻) → 能力强度(红>金>橙>常规) → 支援关系(本队前/支援后)，离职沉底
     const GRADE_RANK={'红':3,'金':2,'橙':1,'':0};
     const sortMem=arr=>[...arr].sort((a,b)=>{
@@ -1099,16 +1457,14 @@ function renderReq(){
     const regs=sortMem(memObjs.filter(m=>m.corp==='reg'));
     const bases=sortMem(memObjs.filter(m=>m.corp!=='reg'));
     const olTip = risk.overloaded.length?`<br><span class='g' style='color:#ff8f8f'>⚠ 超载占用</span> ${risk.overloaded.join('、')}（产能已折损）`:'';
-    const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 管线缺人</span> ${lineName(r.line)}缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
+    const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 人力缺口</span> 标配${REQ_STD[r.id]}人 · 在岗${activeBase(r)}人 · 缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
     const teamTip = `<br><span class='g'>团队</span> 正编${regs.length}人${regs.length?'（'+regs.map(m=>m.name).join('、')+'）':''} · 基地${bases.length}人${bases.length?'（'+bases.map(m=>m.name).join('、')+'）':''}`;
     const tip=`<b>${r.name}</b><br><span class='g'>角色</span> ${r.char||'-'} · <span style='color:${g.col}'>${g.label}级</span> · ${r.mod||''}<br><span class='g'>状态</span> ${ag.label}　<span class='g'>工作量</span> ${r.estimate}人天 · 已完成${r.done}<br><span class='g'>窗口</span> ${fmt(i2d(allS))} → ${fmt(i2d(allE))} · 剩余${risk.left}工作日${teamTip}<br><span class='g'>风险主因</span> ${risk.cause} → <b>${risk.lvl}风险</b>${gapTip}${olTip}<br><span class='g' style='color:#7da0ff'>单击改整条状态</span>`;
     // 统一人员标签：底色=编制(正编实心紫/基地浅白)，左圆点=隶属带队，橙环=跨队支援，新/临/离=角标。mini=蓝条内小号
     const reqLead = reqLeadOf(r);
     const ptag=(m,mini)=>{
-      const seg=(r.segs||[]).find(s=>s.m===m.id);
       const myLead=leadOf(m);
-      const crossTeam = !!(reqLead && myLead && myLead!==reqLead);
-      const isSup = !!((seg&&seg.support) || m.support || crossTeam);
+      const isSup = isSupportInReq(m,r);   // 动态：仅当该成员隶属导师 ≠ 本需求带队归属才算支援
       const corpCls = m.corp==='reg'?'reg':'base';
       const stCls = m.status==='left'?' is-left':'';
       const supCls = isSup?' is-sup':'';
@@ -1117,18 +1473,19 @@ function renderReq(){
       const dot = myLead?`<i class="team-dot" style="background:${leadColor(myLead)}" title="隶属 ${myLead} 带队"></i>`:'';
       let marks='';
       if(isSup) marks+='<i class="mk mk-sup" title="跨队支援">支</i>';
-      if(m.status==='new') marks+='<i class="mk mk-new" title="新人">新</i>';
-      else if(m.tmp) marks+='<i class="mk mk-tmp" title="临时">临</i>';
+      const rk=rookieFlag(m);
+      if(rk==='new') marks+='<i class="mk mk-new" title="新人（分配未满1个月，满月自动转正常）">新</i>';
+      else if(rk==='tmp') marks+='<i class="mk mk-tmp" title="临时（分配未满1个月，满月自动转正常）">临</i>';
       const ttl=`${m.corp==='reg'?'正编·带队':'基地'}${myLead?' · 隶属'+myLead:''}${isSup?' · 跨队支援'+(reqLead?'('+reqLead+'线)':''):''}${m.status==='left'?' · 已离职':m.status==='new'?' · 新人':''}　[拖拽可改派到其他需求]`;
       return `<span class="ptag ${corpCls}${supCls}${stCls}${miniCls}" title="${ttl}" data-chip-mem="${m.id}" data-chip-req="${r.id}">${crown}${dot}<span class="nm-txt">${m.name}</span>${marks}</span>`;
     };
-    // 左侧：按编制分两行（正编行 / 基地行），不混排
-    const groupRow=(label,arr,cls)=> arr.length
-      ? `<div class="who-grp ${cls}"><span class="grp-lab">${label}</span><div class="grp-chips">${arr.map(m=>ptag(m,false)).join('')}</div></div>`
-      : '';
+    // 左侧：按编制分两行（正编行 / 基地行），不混排。加人按钮统一移到时间线侧（不再每组各放一个）
+    const groupRow=(label,arr,cls,corp)=>
+      `<div class="who-grp ${cls}"><span class="grp-lab">${label}</span><div class="grp-chips">${arr.map(m=>ptag(m,false)).join('')}</div></div>`;
     const chips = memObjs.length
-      ? groupRow('正编',regs,'reg-grp')+groupRow('基地',bases,'base-grp')
+      ? groupRow('正编',regs,'reg-grp','reg')+groupRow('基地',bases,'base-grp','base')
       : `<div class="who-grp"><div class="grp-chips"><span class="ptag none">未排人</span></div></div>`;
+    const addPersonRow = '';
     // 蓝条内：同样按编制分两行，复用 ptag.mini
     const blRow=(label,arr)=> arr.length
       ? `<div class="bl-row"><span class="bl-cnt">${label}${arr.length}</span>${arr.map(m=>ptag(m,true)).join('')}</div>`
@@ -1137,7 +1494,7 @@ function renderReq(){
       ? blRow('正',regs)+blRow('基',bases)
       : '<div class="bl-row"><span class="bl-cnt">未排人</span></div>';
     const teamCount = `<span class="team-cnt"><b style="color:#7c3aed">正编${regs.length}</b> · <b style="color:#5a626e">基地${bases.length}</b></span>`;
-    const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="该管线人力缺口，已计入风险">缺${risk.gapPpl}人</span>`:'';
+    const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="标配${REQ_STD[r.id]}人，当前在岗基地${activeBase(r)}人，缺${risk.gapPpl}人（已计入风险，加人后即时更新）">缺${risk.gapPpl}人</span>`:'';
     const MM = modMeta(r.mod);
     const modTag = `<span class="mod-tag" style="background:${MM.c}1f;color:${MM.c};border-color:${MM.c}66"><i>${MM.ic}</i>${MM.s}</span>`;
     // ===== 左侧单条品级色带：金/橙/红 按角色品级标注颜色 =====
@@ -1154,26 +1511,42 @@ function renderReq(){
         ${bands}
         <span class="gdot-grade" style="background:${g.col}" title="${g.label}级"></span>
         <div class="req" style="flex:1;min-width:0">
-          <div class="nm">${reqTitleHTML(r)}${addons.map(a=>`<span class="addon-mk" title="附属：${a.name}（${a.estimate}人天，特效完成后进入）"><i>🔗</i>${modMeta(a.mod).s}</span>`).join('')}</div>
-          <div class="who-groups">${chips}</div>
-          <div class="meta">${r.estimate}人天 · 完成${prog}% · <span class="left-d">剩${risk.left}工作日</span> · ${teamCount}${addons.length?` · <span style="color:#7c3aed">+联调${addons.reduce((a,x)=>a+x.estimate,0)}人天</span>`:''}</div>
+          <div class="nm">${reqTitleHTML(r)}</div>
+          <div class="who-groups">${chips}${addPersonRow}</div>
+          <div class="meta">${r.estimate}人天 · 完成${prog}% · <span class="left-d">剩${risk.left}工作日</span></div>
+          <div class="meta meta-team">${teamCount}${addons.length?` · <span style="color:#7c3aed">+联调${addons.reduce((a,x)=>a+x.estimate,0)}人天</span>`:''}</div>
         </div>
         <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
       </div>
       <div class="timeline" style="width:${DAYS*DAY_W}px">
-        <div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${x}px;width:${w}px;border-left-color:${gCol}"
+        <button class="row-add" title="给「${r.name}」加人（可选正编或基地）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddPersonTo('${r.id}')"><span class="pl">＋</span>加人</button>
+        ${(()=>{
+          const ph=getPhases(r);
+          const bx=ph.barS*DAY_W, bw=Math.max((ph.barE-ph.barS)*DAY_W,46);
+          const span=Math.max(ph.barE-ph.barS,1);
+          // 三段相对本条左缘的百分比
+          const pc=i=>((i-ph.barS)/span*100);
+          const l1L=pc(ph.l1.s),l1W=pc(ph.l1.e)-pc(ph.l1.s);
+          const l2L=pc(ph.l2.s),l2W=pc(ph.l2.e)-pc(ph.l2.s);
+          const divL=pc(ph.split);
+          const ltSeg = ph.lt2?(()=>{const lL=pc(ph.lt2.s),lW=pc(ph.lt2.e)-pc(ph.lt2.s);return {lL,lW};})():null;
+          const div2L = ph.split2!=null?pc(ph.split2):null;
+          const dvTip=`L1 一审 → ${fmt(i2d(ph.l1.s))} ~ ${fmt(i2d(ph.split))}　|　L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmt(i2d(ph.l2.e))}（拖拽分割线设定 L1 完成时间）`;
+          const dv2Tip = ph.lt2?`L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmt(i2d(ph.split2))}　|　联调 → ${fmt(i2d(ph.split2))} ~ ${fmt(i2d(ph.lt2.e))}（拖拽分割线设定联调开始时间）`:'';
+          const ltTip = ph.lt?`<b>联调</b>（特效完成后进入）<br><span class='g'>工作量</span> ${ph.lt.est}人天<br><span class='g'>窗口</span> ${fmt(i2d(ph.lt2.s))} → ${fmt(i2d(ph.lt2.e))}`:'';
+          return `<div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${bx}px;width:${bw}px;border-left-color:${gCol}"
           onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
+          <div class="ph ph-l1" style="left:${l1L}%;width:${l1W}%"><span class="ph-lab">L1</span></div>
+          <div class="ph ph-l2" style="left:${l2L}%;width:${l2W}%"><span class="ph-lab">L2</span></div>
+          ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span></div>`:''}
           <div class="prog" style="--p:${prog}"></div>
           <i class="sdot"></i>
           <div class="bl-top"><span class="bl-mic" style="background:${MM.c}">${MM.ic}</span>${charShort(r.char)||r.name}<span class="bl-mod" style="color:#fff;background:${MM.c}cc">${MM.s}</span><span class="bl-pct">${prog}%</span></div>
           <div class="bl-sub"><div class="bl-rows">${blChips}</div></div>
-          <i class="grip gl"></i><i class="grip gr"></i></div>
-        ${addons.map(a=>{
-          const aS=Math.min(...a.segs.map(s=>idx(s.s))),aE=Math.max(...a.segs.map(s=>idx(s.e)));
-          const ax=aS*DAY_W,aw=Math.max((aE-aS)*DAY_W,46);
-          const atip=`<b>${a.name}</b>（本体附属）<br><span class='g'>类型</span> 联调（特效完成后进入）<br><span class='g'>工作量</span> ${a.estimate}人天<br><span class='g'>窗口</span> ${fmt(i2d(aS))} → ${fmt(i2d(aE))}<br><span class='g' style='color:#7da0ff'>附属于「${charShort(r.char)} ${MM.s}」</span>`;
-          return `<div class="bar-addon" data-req="${a.id}" style="left:${ax}px;width:${aw}px;background:rgba(126,99,181,.78)" onmousemove="showTip(event,\`${atip}\`)" onmouseleave="hideTip()"><i class="ax-ic">🔗</i>${modMeta(a.mod).s}</div>`;
-        }).join('')}
+          <i class="ph-div" data-req="${r.id}" data-phdiv="1" title="${dvTip}" style="left:${divL}%"></i>
+          ${div2L!=null?`<i class="ph-div ph-div2" data-req="${r.id}" data-phdiv="2" title="${dv2Tip}" style="left:${div2L}%"></i>`:''}
+          <i class="grip gl"></i><i class="grip gr"></i></div>`;
+        })()}
       </div>
     </div>`;
   });
@@ -1242,6 +1615,7 @@ function renderHR(){
       let makersHTML='';
       const mkTag=(n)=>{
         const mem=members.find(x=>x.name===n);
+        if(leftLong(mem)) return '';            // 离职满1月：从角色名单隐藏
         const stt=mem?mem.status:'on';
         if(stt==='left') return `<span class="mk left" title="已离职">${n}·离职</span>`;
         if(stt==='new')  return `<span class="mk new" title="新人">${n}·新人</span>`;
@@ -1254,6 +1628,7 @@ function renderHR(){
       r.tmp.forEach(n=>{
         const base=n.replace(/\(.*\)/,'');
         const mem=members.find(x=>x.name===base);
+        if(leftLong(mem)) return;               // 离职满1月：从临时/储备名单隐藏
         const stt=mem?mem.status:'';
         const cls=stt==='left'?'mk left':stt==='new'?'mk new':'mk tmp';
         const suf=stt==='left'?'·离职':stt==='new'?'·新人':'(临)';
@@ -1295,15 +1670,50 @@ function updateKPIs(){
 
 /* ============ tooltip ============ */
 const tip=document.getElementById('tip');
-function showTip(e,html){if(drag)return;tip.innerHTML=html;tip.style.opacity=1;let x=e.clientX+14,y=e.clientY+14;if(x>innerWidth-280)x=e.clientX-274;tip.style.left=x+'px';tip.style.top=y+'px';}
+function showTip(e,html,wide){if(drag)return;tip.classList.toggle('wide',!!wide);tip.innerHTML=html;tip.style.opacity=1;const w=wide?360:280;let x=e.clientX+14,y=e.clientY+14;if(x>innerWidth-w)x=e.clientX-w+6;if(x<6)x=6;const th=tip.offsetHeight||0;if(y>innerHeight-th-12)y=Math.max(8,innerHeight-th-12);tip.style.left=x+'px';tip.style.top=y+'px';}
 function hideTip(){tip.style.opacity=0;}
+/* ===== 名词释义悬停（规则面板里维度A/维度B等）===== */
+const TERM_TIP={
+  dimA:`<span class="tip-h">维度A · 产能（时间是否够用）</span>
+比一比两个量：<br>
+① <b class="hi">剩余工作量</b> = 总预估人天 − 已完成人天<br>
+② <b class="hi">投入产能</b> = <code>剩余工作日 × Σ(每人 eff × 超载折损)</code><br>
+<span class="g">· 只算还在干、且未完成的人，同一人多段按一个人头</span><br>
+<span class="g">· eff＝效率系数；超载者按 100÷负载 打折</span>
+<span class="tip-f">缺口 gap = ①−② ；比例 ratio = gap÷①。<br><b class="gn">低</b> gap≤0　·　<b class="am">中</b> ratio≤20%　·　<b class="rd">高</b> ratio&gt;20%</span>`,
+  dimB:`<span class="tip-h">维度B · 人力结构（管线是否缺人）</span>
+看该角色管线<b class="hi">缺不缺人</b>，与时间无关：<br>
+· <b class="rd">高</b> = 缺人且<u>已开工</u>（眼下就缺）<br>
+· <b class="am">中</b> = 缺人但<u>未开工</u>（后续压力）<br>
+· <b class="gn">低</b> = 人力到位
+<span class="tip-f">缺口数来自「人力分配（按模块/缺口）」视图的标配核定。</span>`,
+  finalRisk:`<span class="tip-h">最终风险 = 两维取高</span>
+同一需求分别按 <b class="hi">维度A</b> 和 <b class="hi">维度B</b> 各判一档，<br><b>取较高的一档</b>作为该需求最终风险。<br>
+<span class="g">即"产能"和"人力结构"任一告急，需求就告急。</span>`
+};
+function showTermTip(e,key){showTip(e,TERM_TIP[key]||'',true);}
 
 /* ============ 拖拽编辑（改期 + 跨人改派 + 单击改状态） ============ */
 const grid=document.getElementById('grid');
 const dlabel=document.getElementById('dlabel');
 let drag=null;
+let phdrag=null;   // L1/L2 分割线拖拽态
 
 grid.addEventListener('pointerdown',e=>{
+  // —— 优先处理「阶段分割线」：独立拖拽，不触发整条改期/改派 ——
+  //    phdiv=1 → L1/L2 分割（设 L1 完成时间，写 r.split）
+  //    phdiv=2 → L2/联调 分割（设联调开始时间，写 r.split2）
+  const div=e.target.closest('.ph-div');
+  if(div){
+    const bar=div.closest('.bar-task');
+    const r=reqs.find(x=>x.id===div.dataset.req); if(!r){return;}
+    const ph=getPhases(r);
+    const which=div.dataset.phdiv==='2'?2:1;
+    phdrag={div,bar,r,ph,which,startX:e.clientX,split:(which===2?ph.split2:ph.split),moved:false};
+    div.classList.add('dragging');hideTip();hideMenu();
+    e.preventDefault();e.stopPropagation();
+    return;
+  }
   const bar=e.target.closest('.bar-task'); if(!bar)return;
   setSelected(bar);
   const mode=e.target.classList.contains('gl')?'l':e.target.classList.contains('gr')?'r':'m';
@@ -1315,6 +1725,39 @@ grid.addEventListener('pointerdown',e=>{
   e.preventDefault();
 });
 window.addEventListener('pointermove',e=>{
+  // 分割线拖拽：实时移动 + 标签提示
+  if(phdrag){
+    const {ph,bar,which}=phdrag;
+    const dDays=Math.round((e.clientX-phdrag.startX)/DAY_W);
+    let ns=phdrag.split+dDays;
+    const span=Math.max(ph.barE-ph.barS,1);
+    const pcL=i=>((i-ph.barS)/span*100);
+    if(which===2){
+      // L2/联调 分割：夹在 [split+1, barE-1]
+      ns=Math.max(ph.split+1,Math.min(ph.barE-1,ns));
+      phdrag.cur=ns;
+      if(dDays!==0)phdrag.moved=true;
+      phdrag.div.style.left=pcL(ns)+'%';
+      const l2=bar.querySelector('.ph-l2'),ltb=bar.querySelector('.ph-lt');
+      if(l2){l2.style.width=(pcL(ns)-pcL(ph.split))+'%';}
+      if(ltb){ltb.style.left=pcL(ns)+'%';ltb.style.width=(pcL(ph.barE)-pcL(ns))+'%';}
+      dlabel.textContent=`L2 ${fmt(i2d(ph.split))} → ${fmt(i2d(ns))}　|　联调 ${fmt(i2d(ns))} → ${fmt(i2d(ph.barE))}（${workdays(i2d(ns),i2d(ph.barE))}工作日）`;
+    }else{
+      // L1/L2 分割：夹在 [s+1, l2.e-1]（不越过联调起点）
+      ns=Math.max(ph.s+1,Math.min(ph.l2.e-1,ns));
+      phdrag.cur=ns;
+      if(dDays!==0)phdrag.moved=true;
+      phdrag.div.style.left=pcL(ns)+'%';
+      const l1=bar.querySelector('.ph-l1'),l2=bar.querySelector('.ph-l2');
+      if(l1&&l2){
+        l1.style.width=(pcL(ns)-pcL(ph.s))+'%';
+        l2.style.left=pcL(ns)+'%';l2.style.width=(pcL(ph.l2.e)-pcL(ns))+'%';
+      }
+      dlabel.textContent=`L1 ${fmt(i2d(ph.s))} → ${fmt(i2d(ns))}（${workdays(i2d(ph.s),i2d(ns))}工作日）　|　L2 ${fmt(i2d(ns))} → ${fmt(i2d(ph.l2.e))}`;
+    }
+    dlabel.style.opacity=1;dlabel.style.left=(e.clientX+14)+'px';dlabel.style.top=(e.clientY-32)+'px';
+    return;
+  }
   if(!drag)return;
   drag.lastX=e.clientX;drag.lastY=e.clientY;
   drag.movedPx=Math.abs(e.clientX-drag.startX)+Math.abs(e.clientY-drag.startY);
@@ -1337,6 +1780,21 @@ window.addEventListener('pointermove',e=>{
   showDragLabel(e);
 });
 window.addEventListener('pointerup',()=>{
+  // 分割线拖拽收尾：写回 r.split（L1 完成时间）或 r.split2（联调开始时间）
+  if(phdrag){
+    const {div,r,cur,moved,which}=phdrag;
+    div.classList.remove('dragging');
+    hideDragLabel();
+    phdrag=null;
+    if(moved && cur!=null){
+      pushHistory();
+      if(which===2){ r.split2=cur; }
+      else{ r.split=cur; }
+      save();broadcast();rerender();
+      toast(which===2?`已设定联调开始时间 ${fmt(i2d(cur))}`:`已设定 L1 完成时间 ${fmt(i2d(cur))}`);
+    }else{ rerender(); }
+    return;
+  }
   if(!drag)return;
   const {bar,delta,mode,movedPx,targetMember}=drag;
   bar.classList.remove('dragging');
@@ -1411,12 +1869,20 @@ function applyEdit(bar,delta,mode){
       if(minS+d<0)d=-minS;
       if(maxE+d>DAYS)d=DAYS-maxE;
       r.segs.forEach(x=>{x.s=i2d(idx(x.s)+d);x.e=i2d(idx(x.e)+d);});
+      if(r.split!=null)r.split+=d;          // 整条平移：L1/L2 分割点随之平移，保持相对位置
+      if(r.split2!=null)r.split2+=d;         // L2/联调 分割点同步平移
     }else if(mode==='r'){
       const seg=r.segs.reduce((a,b)=>idx(b.e)>idx(a.e)?b:a);
       const e=Math.min(Math.max(idx(seg.e)+delta,idx(seg.s)+1),DAYS);seg.e=i2d(e);
     }else if(mode==='l'){
       const seg=r.segs.reduce((a,b)=>idx(b.s)<idx(a.s)?b:a);
       const s=Math.max(Math.min(idx(seg.s)+delta,idx(seg.e)-1),0);seg.s=i2d(s);
+    }
+    // 改期后将 split 夹回新的特效区间内（getPhases 也会兜底，这里持久化一致性）
+    if(r.split!=null){
+      const ns=Math.min(...r.segs.map(x=>idx(x.s))), ne=Math.max(...r.segs.map(x=>idx(x.e)));
+      r.split=Math.max(ns+1,Math.min(ne-1,r.split));
+      if(r.split2!=null) r.split2=Math.max(r.split+1, r.split2);
     }
   }
   r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e))));
@@ -1435,12 +1901,37 @@ function openStatusMenu(bar,x,y){
     const s=STATUS[k];
     items+=`<div class="mi ${k===cur?'cur':''}" onclick="pickStatus('${k}')"><i style="background:${s.col}"></i>${s.label}</div>`;
   });
+  if(isSeg){
+    const sg=r.segs[+bar.dataset.seg];
+    items+=`<div class="msep"></div>`;
+    items+=`<div class="mi danger" onclick="deleteSeg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>删除任务（${memName(sg.m)}）</div>`;
+  }
   menu.innerHTML=items;
   menu.classList.add('show');
-  let mx=x, my=y; if(mx>innerWidth-170)mx=innerWidth-170; if(my>innerHeight-220)my=innerHeight-220;
+  let mx=x, my=y; if(mx>innerWidth-170)mx=innerWidth-170; if(my>innerHeight-(isSeg?290:220))my=innerHeight-(isSeg?290:220);
   menu.style.left=mx+'px';menu.style.top=my+'px';
 }
 function hideMenu(){menu.classList.remove('show');menuCtx=null;}
+/* 删除某条任务段（人的排期）。reqId+seg 定位；删空后若该需求无人则保留空需求行。 */
+function removeSeg(reqId, seg){
+  const r=reqs.find(z=>z.id===reqId); if(!r||seg==null||!r.segs[seg])return false;
+  const nm=memName(r.segs[seg].m);
+  pushHistory();
+  r.segs.splice(seg,1);
+  if(r.segs.length) r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e))));
+  // 清理可能失效的选中/剪贴板引用
+  if(clip&&clip.reqId===reqId){ if(clip.seg===seg){clearClip();} else if(clip.seg>seg){clip.seg--;} }
+  setSelected(null);
+  save();broadcast();rerender();
+  toast('已删除任务：'+nm+' · '+r.name);
+  return true;
+}
+function deleteSeg(){
+  if(!menuCtx||menuCtx.seg==null){hideMenu();return;}
+  const reqId=menuCtx.reqId, seg=menuCtx.seg;
+  hideMenu();
+  removeSeg(reqId, seg);
+}
 function pickStatus(k){
   if(!menuCtx)return;
   const r=reqs.find(z=>z.id===menuCtx.reqId); if(!r){hideMenu();return;}
@@ -1622,6 +2113,142 @@ function workdaysSpanDefault(dst){
   return Math.max(e-s,7);
 }
 
+/* ============ 新增任务 / 新增人员（双视图共用同一份 reqs.segs，提交后即时同步） ============ */
+const addMask=document.getElementById('addMask');
+const addModal=document.getElementById('addModal');
+let addCtx=null;   // {mode:'task'|'person', memId|reqId}
+/* Date <-> input[type=date] 的本地日期串，避免 toISOString 的时区偏移 */
+function dInput(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),da=String(d.getDate()).padStart(2,'0');return `${y}-${m}-${da}`;}
+function parseInput(s){const a=String(s).split('-').map(Number);if(a.length!==3||!a[0])return null;return new Date(a[0],a[1]-1,a[2]);}
+const G_MIN=dInput(i2d(0)), G_MAX=dInput(i2d(DAYS));
+
+function closeAdd(){addMask.classList.remove('show');addCtx=null;}
+addMask.addEventListener('pointerdown',e=>{if(e.target===addMask)closeAdd();});
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&addMask.classList.contains('show'))closeAdd();},true);
+
+/* 给某成员加任务：选择「哪条需求」+ 起止日期 */
+function openAddTaskFor(memId){
+  const m=memById(memId); if(!m)return;
+  addCtx={mode:'task', memId};
+  // 该成员尚未参与的需求（已参与的不再重复）
+  const avail=reqs.filter(r=>!r.segs.some(s=>s.m===memId));
+  const optHTML=avail.length
+    ? avail.map(r=>{const g=HR_GRADE[r.grade]||HR_GRADE[''];const lbl=`${r.char?charShort(r.char)+' · ':''}${r.name}（${g.label}${r.line&&r.line!=='-'?'·'+lineName(r.line):''}）`;return `<option value="${r.id}">${lbl}</option>`;}).join('')
+    : '';
+  const body = avail.length ? `
+    <div class="ctx">为 <b>${m.name}</b>（${m.corp==='reg'?'正编·带队':'基地'}${m.grade?' · '+m.grade+'级':''}）新分配一条任务。提交后，「按需求看」对应需求的蓝色标签里会同步出现该成员。</div>
+    <div class="fld"><label>分配到哪条需求</label>
+      <select id="addReqSel" onchange="addPrefillDates()">${optHTML}</select></div>
+    <div class="row2">
+      <div class="fld"><label>开始日期</label><input type="date" id="addStart" min="${G_MIN}" max="${G_MAX}"></div>
+      <div class="fld"><label>结束日期</label><input type="date" id="addEnd" min="${G_MIN}" max="${G_MAX}"></div>
+    </div>
+    <div class="seg-pre" id="addPre"></div>
+    <div class="warn" id="addWarn"></div>`
+    : `<div class="ctx">✅ <b>${m.name}</b> 已经参与了全部需求，没有可再新增的需求了。</div>`;
+  renderAddModal('＋', `给 ${m.name} 加任务`, body, avail.length>0);
+  if(avail.length){addPrefillDates();}
+}
+
+/* 给某需求加人：选择「哪位成员」+ 起止日期 */
+function openAddPersonTo(reqId, prefCorp){
+  const r=reqs.find(x=>x.id===reqId); if(!r)return;
+  addCtx={mode:'person', reqId};
+  // 尚未在该需求中的成员（离职沉底、可选但给提示）
+  const inReq=new Set(r.segs.map(s=>s.m));
+  const avail=members.filter(m=>!inReq.has(m.id) && !leftLong(m));   // 离职满1月不再出现在加人下拉
+  const grp=(label,arr)=>arr.length?`<optgroup label="${label}">${arr.map(m=>`<option value="${m.id}">${m.name}（${m.role}）${m.status==='left'?' · 已离职':m.status==='new'?' · 新人':''}</option>`).join('')}</optgroup>`:'';
+  const regs=avail.filter(m=>m.corp==='reg'), bases=avail.filter(m=>m.corp!=='reg'&&m.status!=='left'), lefts=avail.filter(m=>m.corp!=='reg'&&m.status==='left');
+  // 按点击的编制把对应分组排到最前，使默认选中项就是该编制的人
+  const optHTML = prefCorp==='reg'
+    ? grp('正编',regs)+grp('基地',bases)+grp('已离职',lefts)
+    : prefCorp==='base'
+      ? grp('基地',bases)+grp('正编',regs)+grp('已离职',lefts)
+      : grp('正编',regs)+grp('基地',bases)+grp('已离职',lefts);
+  const g=HR_GRADE[r.grade]||HR_GRADE[''];
+  const body = avail.length ? `
+    <div class="ctx">给需求 <b>${r.char?charShort(r.char)+' · ':''}${r.name}</b>（${g.label}级${r.line&&r.line!=='-'?' · '+lineName(r.line):''}）添加一名制作人。提交后，「按人看」里该成员的行会同步出现这条任务。跨带队归属会自动标记为「支援」。</div>
+    <div class="fld"><label>添加哪位成员</label>
+      <select id="addMemSel" onchange="addPrefillDates()">${optHTML}</select></div>
+    <div class="row2">
+      <div class="fld"><label>开始日期</label><input type="date" id="addStart" min="${G_MIN}" max="${G_MAX}"></div>
+      <div class="fld"><label>结束日期</label><input type="date" id="addEnd" min="${G_MIN}" max="${G_MAX}"></div>
+    </div>
+    <div class="seg-pre" id="addPre"></div>
+    <div class="warn" id="addWarn"></div>`
+    : `<div class="ctx">✅ 全部成员都已在该需求中，没有可再添加的人了。</div>`;
+  renderAddModal('＋', `给「${r.name}」加人`, body, avail.length>0);
+  if(avail.length){addPrefillDates();}
+}
+
+function renderAddModal(icon,title,bodyHTML,withOk){
+  addModal.innerHTML=`
+    <div class="am-h"><span class="ic">${icon}</span>${title}<button class="am-x" onclick="closeAdd()" title="关闭">×</button></div>
+    <div class="am-body">${bodyHTML}</div>
+    <div class="am-foot">
+      <button class="am-cancel" onclick="closeAdd()">取消</button>
+      ${withOk?'<button class="am-ok" id="addOk" onclick="confirmAdd()">确定添加</button>':''}
+    </div>`;
+  addMask.classList.add('show');
+}
+
+/* 选择改变时，自动用「目标需求窗口」预填起止日期，给个合理默认 */
+function addPrefillDates(){
+  let r=null;
+  if(addCtx.mode==='task'){const sel=document.getElementById('addReqSel');r=sel&&reqs.find(x=>x.id===sel.value);}
+  else{r=reqs.find(x=>x.id===addCtx.reqId);}
+  if(!r)return;
+  const s=Math.min(...r.segs.map(x=>idx(x.s))), e=Math.max(...r.segs.map(x=>idx(x.e)));
+  const sEl=document.getElementById('addStart'), eEl=document.getElementById('addEnd');
+  if(sEl&&!sEl.dataset.touched) sEl.value=dInput(i2d(isFinite(s)?s:idx(TODAY)));
+  if(eEl&&!eEl.dataset.touched) eEl.value=dInput(i2d(isFinite(e)?e:idx(TODAY)+14));
+  if(sEl)sEl.onchange=()=>{sEl.dataset.touched=1;updateAddPre();};
+  if(eEl)eEl.onchange=()=>{eEl.dataset.touched=1;updateAddPre();};
+  updateAddPre();
+}
+function updateAddPre(){
+  const pre=document.getElementById('addPre'), warn=document.getElementById('addWarn'), ok=document.getElementById('addOk');
+  const sEl=document.getElementById('addStart'), eEl=document.getElementById('addEnd');
+  if(!sEl||!eEl)return;
+  const sd=parseInput(sEl.value), ed=parseInput(eEl.value);
+  let msg='', bad=false;
+  if(!sd||!ed){bad=true;msg='请选择开始与结束日期';}
+  else if(ed<=sd){bad=true;msg='结束日期必须晚于开始日期';}
+  else{pre.textContent=`工期约 ${workdays(sd,ed)} 个工作日（${fmt(sd)} → ${fmt(ed)}）`;}
+  if(warn){warn.textContent=msg;warn.classList.toggle('show',!!msg);}
+  if(ok)ok.disabled=bad;
+  if(bad&&pre)pre.textContent='';
+}
+
+function confirmAdd(){
+  if(!addCtx)return;
+  const sEl=document.getElementById('addStart'), eEl=document.getElementById('addEnd');
+  const sd=parseInput(sEl.value), ed=parseInput(eEl.value);
+  if(!sd||!ed||ed<=sd){updateAddPre();return;}
+  let memId, r;
+  if(addCtx.mode==='task'){memId=addCtx.memId;const sel=document.getElementById('addReqSel');r=reqs.find(x=>x.id===sel.value);}
+  else{r=reqs.find(x=>x.id===addCtx.reqId);const sel=document.getElementById('addMemSel');memId=sel.value;}
+  if(!r||!memId){closeAdd();return;}
+  if(r.segs.some(s=>s.m===memId)){toast(memName(memId)+' 已在该需求中');closeAdd();return;}
+  pushHistory();
+  // 夹到甘特范围内
+  let ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
+  const seg={m:memId, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'};
+  // 跨带队归属 → 标记支援
+  const mem=memById(memId), rl=reqLeadOf(r), ml=leadOf(mem);
+  if(rl&&ml&&ml!==rl) seg.support=true;
+  r.segs.push(seg);
+  r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e))));
+  save();broadcast();
+  closeAdd();
+  rerender();
+  // 反馈：两个视图都给高亮
+  if(view==='req'){flashReqRow(r.id);} else {flashReq(r.id);}
+  toast(addCtx&&addCtx.mode==='person'
+    ? `已为「${r.name}」添加 ${memName(memId)}${seg.support?'（支援）':''}`
+    : `已为 ${memName(memId)} 新增任务：${r.name}${seg.support?'（支援）':''}`);
+}
+
 
 /* ============ toast ============ */
 const toastEl=document.getElementById('toast');let toastT=null;
@@ -1632,23 +2259,41 @@ const KEY='gantt_collab_v7_mod';
 function snapshot(){
   return {
     members:members.map(m=>({id:m.id,status:m.status})),
-    reqs:reqs.map(r=>({id:r.id,end:idx(r.end),done:r.done,
-      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:idx(s.e),prog:s.prog,status:s.status}))}))
+    effTiers:EFF_TIERS.map(t=>({coef:t.coef,label:t.label,mems:(t.mems||[]).slice()})),
+    effLocked:effLocked,
+    stdCfg:STD_CFG.map(t=>({grade:t.grade,col:t.col,weeks:t.weeks,ppl:t.ppl})),
+    stdLocked:stdLocked,
+    reqs:reqs.map(r=>({id:r.id,end:idx(r.end),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),
+      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:idx(s.e),prog:s.prog,status:s.status,support:!!s.support}))}))
   };
 }
 function applySnap(snap){
   if(!snap)return;
   (snap.members||[]).forEach(ms=>{const m=members.find(x=>x.id===ms.id);if(m)m.status=ms.status;});
+  if(Array.isArray(snap.effTiers)){
+    EFF_TIERS=snap.effTiers.map(t=>({coef:Number(t.coef),label:t.label||'',mems:Array.isArray(t.mems)?t.mems.slice():[]}));
+    syncEffFromTiers();
+  }
+  if(typeof snap.effLocked==='boolean') effLocked=snap.effLocked;
+  if(Array.isArray(snap.stdCfg)){
+    STD_CFG=snap.stdCfg.map(t=>({grade:t.grade||'',col:t.col||'#7048e8',weeks:t.weeks||'',ppl:t.ppl||''}));
+  }
+  if(typeof snap.stdLocked==='boolean') stdLocked=snap.stdLocked;
   (snap.reqs||[]).forEach(rs=>{
     const r=reqs.find(x=>x.id===rs.id);if(!r)return;
     r.end=i2d(rs.end); if(rs.done!==undefined)r.done=rs.done;
-    rs.segs.forEach((ss,i)=>{if(r.segs[i]){r.segs[i].m=ss.m;r.segs[i].s=i2d(ss.s);r.segs[i].e=i2d(ss.e);r.segs[i].prog=ss.prog;r.segs[i].status=ss.status;}});
+    if(rs.split!==undefined) r.split=(rs.split==null?undefined:rs.split);   // L1/L2 分割点（绝对日索引）
+    if(rs.split2!==undefined) r.split2=(rs.split2==null?undefined:rs.split2); // L2/联调 分割点（绝对日索引）
+    // 全量重建 segs（不再按下标合并）：保证「新增/删除人员段」在刷新、分享链接、跨标签同步后都不丢失
+    if(Array.isArray(rs.segs)){
+      r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(ss.e),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;return o;});
+    }
   });
 }
 const ORIG=JSON.parse(JSON.stringify(snapshot()));
 function save(){try{localStorage.setItem(KEY,JSON.stringify(snapshot()));}catch(_){}}
 function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.parse(v));}catch(_){}}
-function resetData(){pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}broadcast();rerender();toast('已重置为初始排期');}
+function resetData(){pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();toast('已重置为初始排期');}
 
 /* ============ 团队链接分享（把当前排期编码进 URL，零后端、永不过期） ============ */
 // 用 URL 安全的 base64 编码 JSON 快照
@@ -1758,6 +2403,8 @@ function undo(){
   const prev=undoStack.pop();
   applySnap(JSON.parse(prev));
   updateUndoUI();save();broadcast();rerender();
+  if(typeof applyEffLockUI==='function')applyEffLockUI();
+  if(typeof applyStdLockUI==='function')applyStdLockUI();
   toast('已撤销');
 }
 function redo(){
@@ -1766,6 +2413,8 @@ function redo(){
   const next=redoStack.pop();
   applySnap(JSON.parse(next));
   updateUndoUI();save();broadcast();rerender();
+  if(typeof applyEffLockUI==='function')applyEffLockUI();
+  if(typeof applyStdLockUI==='function')applyStdLockUI();
   toast('已重做');
 }
 /* 快捷键：Ctrl/Cmd+Z 撤销，Ctrl+Y / Ctrl+Shift+Z 重做，Ctrl+C 复制，Ctrl+X 剪切，Ctrl+V 粘贴，Esc 取消 */
@@ -1773,6 +2422,15 @@ window.addEventListener('keydown',e=>{
   const tag=(e.target.tagName||'').toLowerCase();
   if(tag==='input'||tag==='select'||tag==='textarea')return;
   if(e.key==='Escape'){ if(clip){clearClip();} setSelected(null); hideMenu(); return; }
+  if(e.key==='Delete'||e.key==='Backspace'){
+    if(selectedBar && selectedBar.seg!==null){
+      e.preventDefault();
+      removeSeg(selectedBar.reqId, selectedBar.seg);
+    }else if(selectedBar){
+      toast('请选中某个人的任务段再删除（按人看里更精确）');
+    }
+    return;
+  }
   const ctrl=e.ctrlKey||e.metaKey;
   if(!ctrl)return;
   const k=e.key.toLowerCase();
@@ -1795,12 +2453,14 @@ if(bc){
     if(!ev.data||ev.data.from===meId)return;
     applySnap(JSON.parse(ev.data.data));
     rerender();
+    if(typeof applyEffLockUI==='function')applyEffLockUI();
+    if(typeof applyStdLockUI==='function')applyStdLockUI();
     toast('收到协作更新（来自其他标签页）');
   };
 }
 // localStorage 跨标签兜底
 window.addEventListener('storage',e=>{
-  if(e.key===KEY && e.newValue){applySnap(JSON.parse(e.newValue));rerender();}
+  if(e.key===KEY && e.newValue){applySnap(JSON.parse(e.newValue));rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();}
 });
 
 /* ============ “我是谁” ============ */
@@ -1832,6 +2492,207 @@ function changeFocus(){
 /* ============ 切换 / 渲染 ============ */
 let view='person';
 let colorMode='status';
+/* ============ 效率档位表：渲染 + 编辑交互 ============ */
+function effEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function memNm(id){const m=members.find(x=>x.id===id);return m?m.name:id;}
+function renderEffTable(){
+  const box=document.getElementById('effTiers'); if(!box)return;
+  const ua=unassignedMems();
+  let html='';
+  EFF_TIERS.forEach((t,ti)=>{
+    const chips=(t.mems||[]).filter(id=>!leftLong(members.find(x=>x.id===id))).map(id=>`<span class="eff-chip" data-ti="${ti}" data-id="${id}" title="拖到其它档可移动；拖到底部黄色区=移出">${effEsc(memNm(id))}<span class="x" data-act="rmMem" data-ti="${ti}" data-id="${id}" title="移出该档">×</span></span>`).join('');
+    html+=`<div class="eff-row" data-droptier="${ti}">
+      <input class="ef-coef" type="number" step="0.05" min="0" value="${t.coef}" data-act="coef" data-ti="${ti}" title="效率系数"${effLocked?' readonly':''}>
+      <input class="ef-label" type="text" value="${effEsc(t.label)}" data-act="label" data-ti="${ti}" placeholder="对应人群说明"${effLocked?' readonly':''}>
+      <div class="eff-mems">${chips||'<span style="font-size:11px;color:var(--tx3)">（拖人到此档）</span>'}</div>
+      <button class="eff-del-tier" data-act="delTier" data-ti="${ti}" title="删除该档">×</button>
+    </div>`;
+  });
+  // 未分档区：可拖放（data-droptier=-1），成员渲成可拖拽 chip
+  const uaChips=ua.map(m=>`<span class="eff-chip" data-ti="-1" data-id="${m.id}" title="拖到上面任意一档完成归档">${effEsc(m.name)}</span>`).join('');
+  html+=`<div class="eff-unassigned" data-droptier="-1"><span class="ua-lab">⚠ 未分档（按 1.0 计）</span>${uaChips||'<span style="font-size:11px;color:#b36b00">（无）</span>'}</div>`;
+  box.innerHTML=html;
+}
+// 编辑后统一收尾：回写 eff → 持久化 → 广播 → 重渲甘特 → 重渲本表
+function effApplyChange(reRenderTable){
+  syncEffFromTiers();
+  save();broadcast();rerender();
+  if(reRenderTable!==false) renderEffTable();
+}
+// 事件委托（绑定一次）
+function bindEffTable(){
+  const box=document.getElementById('effTiers');
+  const addBtn=document.getElementById('effAddTier');
+  const lockBtn=document.getElementById('effLock');
+  // 锁定/激活编辑切换
+  if(lockBtn&&!lockBtn._bound){lockBtn._bound=1;lockBtn.addEventListener('click',()=>{
+    effLocked=!effLocked; applyEffLockUI(); save();broadcast();
+    toast(effLocked?'已锁定：系数标定不可编辑':'已激活：可拖拽归档 / 改系数');
+  });}
+  if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
+    if(effLocked)return;
+    pushHistory();
+    EFF_TIERS.push({coef:1.0,label:'自定义档位',mems:[]});
+    renderEffTable();
+  });}
+  if(!box||box._bound)return; box._bound=1;
+  // 改系数 / 改说明
+  box.addEventListener('change',e=>{
+    if(effLocked)return;
+    const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act)return;
+    const ti=+el.getAttribute('data-ti');
+    if(act==='coef'){
+      let v=parseFloat(el.value); if(!isFinite(v)||v<0)v=1.0; v=Math.round(v*100)/100;
+      pushHistory(); EFF_TIERS[ti].coef=v; el.value=v; effApplyChange(false);
+      toast('系数已更新，计算已重算');
+    }else if(act==='label'){
+      pushHistory(); EFF_TIERS[ti].label=el.value; save();broadcast();
+    }
+  });
+  // 移出成员 / 删除档位
+  box.addEventListener('click',e=>{
+    if(effLocked)return;
+    const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act)return;
+    if(act==='rmMem'){
+      const ti=+el.getAttribute('data-ti'), id=el.getAttribute('data-id');
+      pushHistory(); EFF_TIERS[ti].mems=(EFF_TIERS[ti].mems||[]).filter(x=>x!==id);
+      effApplyChange(); toast(`${memNm(id)} 已移出（未分档按 1.0 计）`);
+    }else if(act==='delTier'){
+      const ti=+el.getAttribute('data-ti');
+      if(EFF_TIERS.length<=1){toast('至少保留一档');return;}
+      const moved=(EFF_TIERS[ti].mems||[]).length;
+      pushHistory(); EFF_TIERS.splice(ti,1);
+      effApplyChange(); toast(moved?`已删档，${moved}人转为未分档(按1.0计)`:'已删除该档');
+    }
+  });
+  // —— 指针拖拽：把成员 chip 拖到任意档行 / 未分档区即可移动（含移出）——
+  const ghost=document.getElementById('effGhost');
+  let ed=null; // {id,srcTi,chip,started}
+  function rowAt(x,y){
+    const el=document.elementFromPoint(x,y);
+    return el&&el.closest?el.closest('[data-droptier]'):null;
+  }
+  function clearDrop(){document.querySelectorAll('.drop-on').forEach(r=>r.classList.remove('drop-on'));}
+  box.addEventListener('pointerdown',e=>{
+    if(effLocked)return;
+    if(e.target.closest&&e.target.closest('.x'))return; // 点×号是移出，不触发拖拽
+    const chip=e.target.closest&&e.target.closest('.eff-chip'); if(!chip)return;
+    ed={id:chip.getAttribute('data-id'),srcTi:+chip.getAttribute('data-ti'),chip,started:false,sx:e.clientX,sy:e.clientY};
+    try{chip.setPointerCapture(e.pointerId);}catch(_){}
+    e.preventDefault();
+  });
+  box.addEventListener('pointermove',e=>{
+    if(!ed)return;
+    if(!ed.started){
+      if(Math.abs(e.clientX-ed.sx)<4&&Math.abs(e.clientY-ed.sy)<4)return;
+      ed.started=true; ed.chip.classList.add('drag-src');
+      ghost.textContent=memNm(ed.id); ghost.classList.add('show');
+    }
+    ghost.style.left=e.clientX+'px'; ghost.style.top=e.clientY+'px';
+    const row=rowAt(e.clientX,e.clientY);
+    clearDrop();
+    if(row && +row.getAttribute('data-droptier')!==ed.srcTi) row.classList.add('drop-on');
+  });
+  function endDrag(e){
+    if(!ed)return;
+    const wasStarted=ed.started, id=ed.id, srcTi=ed.srcTi, chip=ed.chip;
+    try{chip.releasePointerCapture(e.pointerId);}catch(_){}
+    ghost.classList.remove('show'); chip.classList.remove('drag-src');
+    const cur=ed; ed=null;
+    if(!wasStarted){clearDrop();return;} // 没真正拖动=当点击处理
+    const row=rowAt(e.clientX,e.clientY); clearDrop();
+    if(!row){return;}
+    const ti=+row.getAttribute('data-droptier');
+    if(ti===srcTi){return;} // 落回原处不动
+    pushHistory();
+    if(ti<0){ // 拖到未分档区 = 移出
+      EFF_TIERS.forEach(t=>{t.mems=(t.mems||[]).filter(x=>x!==id);});
+      effApplyChange(); toast(`${memNm(id)} 已移出（未分档按 1.0 计）`);
+    }else{
+      effMoveMemToTier(id, ti);
+      effApplyChange(); toast(`${memNm(id)} 已移入 ${EFF_TIERS[ti].coef} 档`);
+    }
+  }
+  box.addEventListener('pointerup',endDrag);
+  box.addEventListener('pointercancel',e=>{if(ed){ghost.classList.remove('show');ed.chip.classList.remove('drag-src');ed=null;clearDrop();}});
+}
+// 锁定态 UI：切按钮样式、显隐加档钮、给档位容器加 .locked、重渲（让输入框只读态生效）
+function applyEffLockUI(){
+  const lockBtn=document.getElementById('effLock');
+  const addBtn=document.getElementById('effAddTier');
+  const box=document.getElementById('effTiers');
+  if(lockBtn){
+    lockBtn.className='eff-lock '+(effLocked?'locked':'editing');
+    lockBtn.textContent=effLocked?'🔒 已锁定':'✏ 编辑中';
+  }
+  if(addBtn) addBtn.classList.toggle('hide', effLocked);
+  if(box) box.classList.toggle('locked', effLocked);
+  renderEffTable();
+}
+
+/* ============ 标准工期 & 标配人力表：渲染 + 编辑交互 ============ */
+function renderStdTable(){
+  const box=document.getElementById('stdRows'); if(!box)return;
+  let html='<div class="std-head"><span>品级</span><span>出场标准工期</span><span>标配人力</span><span></span></div>';
+  STD_CFG.forEach((t,i)=>{
+    html+=`<div class="std-row" data-i="${i}">
+      <span class="sd-grade"><input class="sd-col" type="color" value="${effEsc(t.col)}" data-act="col" data-i="${i}" title="品级颜色"${stdLocked?' disabled':''}><input class="sd-name" type="text" value="${effEsc(t.grade)}" data-act="grade" data-i="${i}" placeholder="品级"${stdLocked?' readonly':''}></span>
+      <input class="sd-weeks" type="text" value="${effEsc(t.weeks)}" data-act="weeks" data-i="${i}" placeholder="如 8 周"${stdLocked?' readonly':''}>
+      <input class="sd-ppl" type="text" value="${effEsc(t.ppl)}" data-act="ppl" data-i="${i}" placeholder="标配人力说明"${stdLocked?' readonly':''}>
+      <button class="std-del" data-act="delRow" data-i="${i}" title="删除该行">×</button>
+    </div>`;
+  });
+  box.innerHTML=html;
+}
+function bindStdTable(){
+  const box=document.getElementById('stdRows');
+  const addBtn=document.getElementById('stdAddRow');
+  const lockBtn=document.getElementById('stdLock');
+  if(lockBtn&&!lockBtn._bound){lockBtn._bound=1;lockBtn.addEventListener('click',()=>{
+    stdLocked=!stdLocked; applyStdLockUI(); save();broadcast();
+    toast(stdLocked?'已锁定：标准工期表不可编辑':'已激活：可编辑品级 / 工期 / 标配人力');
+  });}
+  if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
+    if(stdLocked)return;
+    pushHistory();
+    STD_CFG.push({grade:'新品级',col:'#7048e8',weeks:'',ppl:''});
+    save();broadcast();renderStdTable();
+  });}
+  if(!box||box._bound)return; box._bound=1;
+  // 改文本 / 颜色（input 实时、change 落定）
+  const onEdit=e=>{
+    if(stdLocked)return;
+    const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act||act==='delRow')return;
+    const i=+el.getAttribute('data-i'); if(!STD_CFG[i])return;
+    if(e.type==='change'&&act!=='col') pushHistory();
+    STD_CFG[i][act]=el.value;
+    save();broadcast();
+  };
+  box.addEventListener('change',onEdit);
+  box.addEventListener('input',e=>{ if(e.target.getAttribute&&e.target.getAttribute('data-act')==='col') onEdit(e); });
+  // 删除行
+  box.addEventListener('click',e=>{
+    if(stdLocked)return;
+    const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(act!=='delRow')return;
+    if(STD_CFG.length<=1){toast('至少保留一行');return;}
+    const i=+el.getAttribute('data-i');
+    pushHistory(); STD_CFG.splice(i,1);
+    save();broadcast();renderStdTable(); toast('已删除该行');
+  });
+}
+function applyStdLockUI(){
+  const lockBtn=document.getElementById('stdLock');
+  const addBtn=document.getElementById('stdAddRow');
+  const box=document.getElementById('stdRows');
+  if(lockBtn){
+    lockBtn.className='eff-lock '+(stdLocked?'locked':'editing');
+    lockBtn.textContent=stdLocked?'🔒 已锁定':'✏ 编辑中';
+  }
+  if(addBtn) addBtn.classList.toggle('hide', stdLocked);
+  if(box) box.classList.toggle('locked', stdLocked);
+  renderStdTable();
+}
+
 function rerender(){
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
@@ -1842,7 +2703,7 @@ function updateHint(){
   if(view==='req'){
     h.innerHTML='💡 左侧竖带=角色品级色：<b style="color:#e0a400">金</b> / <b style="color:#f59e0b">橙</b> / <b style="color:#ef3b39">红</b>，同品级相邻行连成整条 · 人名标签：<b style="color:#fff;background:#7c3aed;padding:0 6px;border-radius:8px">👑正编</b> 实心紫 / <span style="color:#39455a;background:#fbfcfe;border:1px solid #cdd6e3;padding:0 6px;border-radius:8px">基地</span> 浅白，左圆点=隶属带队 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
   }else if(view==='person'){
-    h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态 · 选中任务条后 Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求';
+    h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求';
   }else{
     h.innerHTML='💡 人力分配视图：按模块汇总在岗人员与管线缺口';
   }
@@ -1929,6 +2790,11 @@ initLeftW();
 // 分享链接优先：URL 带 #s= 时用链接里的排期；否则读本机缓存
 if(loadFromHash()){ toast('已载入分享链接中的排期'); }
 else { loadSaved(); }
+syncEffFromTiers();
+bindEffTable();
+applyEffLockUI();
+bindStdTable();
+applyStdLockUI();
 updateLegend();
 updateHint();
 rerender();
