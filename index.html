@@ -1398,12 +1398,11 @@ function getPhases(r){
   if(e-s<2) split=Math.max(s,Math.min(e,split));  // 区间过窄兜底
   const barE = lt?Math.max(e,lt.e):e;
   // L2/联调 分界 split2（联调开始时间，绝对日索引）：仅当存在联调段。
-  // 默认 = 特效终点 e（联调紧接特效之后），可独立拖拽，夹在 [split+1, barE-1] 之间。
+  // 【单一数据源】split2 直接派生自联调子需求的真实开始 lt.s —— 与「按人看」里那条联调任务条用的是同一份数据，
+  // 从根上消除两视图脱钩（不再读独立存储的 r.split2；拖动分割线时改的是联调子需求的真实 segs，见 pointerup）。
   let split2=null;
   if(lt){
-    split2=(r.split2!=null)?r.split2:e;
-    // 上限放开到 barE：当 L2/联调 分割线拖到最右端，L2 完全覆盖联调段（联调窗口=0，标签消失，可拖回恢复）
-    split2=Math.max(split+1,Math.min(barE,split2));
+    split2=Math.max(split+1,Math.min(barE,lt.s));
   }
   return {s,e,split,split2,lt,
     barS:s, barE,
@@ -2179,7 +2178,19 @@ window.addEventListener('pointerup',()=>{
     phdrag=null;
     if(moved && cur!=null){
       pushHistory();
-      if(which===2){ r.split2=cur; }
+      if(which===2){
+        // 【单一数据源】L2/联调 分割线 = 联调子需求的开始时间。
+        // 不再写独立的 r.split2，而是直接 resize 联调子需求 segs 的起点（锚定结束），
+        // 这样「按人看」里那条联调任务条会同步跟着变（两视图共用同一份数据）。
+        const addons=(r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
+        addons.forEach(a=>a.segs.forEach(sg=>{
+          const se=idx(sg.e);
+          const ns=Math.min(Math.max(cur,0),se);   // 起点夹在 [0, 该段结束]，拖到结束即联调窗口=0（被 L2 覆盖）
+          sg.s=i2d(ns);
+        }));
+        addons.forEach(a=>{ if(a.segs.length) a.end=i2d(Math.max(...a.segs.map(x=>idx(x.e)))); });
+        _logDesc='调整「'+r.name+'」联调开始时间';
+      }
       else{ r.split=cur; }
       save();broadcast();rerender();
       toast(which===2?`已设定联调开始时间 ${fmt(i2d(cur))}`:`已设定 L1 完成时间 ${fmt(i2d(cur))}`);
@@ -2293,7 +2304,12 @@ function applyEdit(bar,delta,mode){
       if(maxE+d>DAYS)d=DAYS-maxE;
       r.segs.forEach(x=>{x.s=i2d(idx(x.s)+d);x.e=i2d(idx(x.e)+d);});
       if(r.split!=null)r.split+=d;          // 整条平移：L1/L2 分割点随之平移，保持相对位置
-      if(r.split2!=null)r.split2+=d;         // L2/联调 分割点同步平移
+      // 整条平移：联调子需求的真实 segs 一起平移（它们是独立 reqs，不在 r.segs 里），
+      // 否则「按需求看」联调段与「按人看」联调任务条会错位。split2 由 lt.s 派生，自然同步。
+      (r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean).forEach(a=>{
+        a.segs.forEach(x=>{x.s=i2d(idx(x.s)+d);x.e=i2d(idx(x.e)+d);});
+        if(a.segs.length) a.end=i2d(Math.max(...a.segs.map(x=>idx(x.e))));
+      });
     }else if(mode==='r'){
       const seg=r.segs.reduce((a,b)=>idx(b.e)>idx(a.e)?b:a);
       const e=Math.min(Math.max(idx(seg.e)+delta,idx(seg.s)+1),DAYS);seg.e=i2d(e);
@@ -2305,7 +2321,6 @@ function applyEdit(bar,delta,mode){
     if(r.split!=null){
       const ns=Math.min(...r.segs.map(x=>idx(x.s))), ne=Math.max(...r.segs.map(x=>idx(x.e)));
       r.split=Math.max(ns+1,Math.min(ne-1,r.split));
-      if(r.split2!=null) r.split2=Math.max(r.split+1, r.split2);
     }
   }
   r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e))));
