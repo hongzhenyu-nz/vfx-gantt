@@ -1755,29 +1755,47 @@ const CLANE_H=17, CLANE_GAP=4;
    位置按「相对本条左缘的百分比」给出，与 L1/L2 同坐标系，自动对齐。
    返回 {html, h, nRows}；html 为待注入条内的 .bl-lanes 块。 */
 function capacityLanesHTML(r){
-  const cb = reqCapacityBreakdown(r);
-  if(!cb) return null;
-  const {left,parts} = cb;
+  if(reqClosed(r)) return null;                          // 已完成/废弃需求不画泳道
   const segsAll = r.segs.filter(s=>idx(s.e)>idx(s.s) && !s.open);
-  if(!segsAll.length || !parts.length) return null;      // 无固定窗口/无人：不画
+  if(!segsAll.length) return null;                       // 无固定窗口：不画
+  const cb = reqCapacityBreakdown(r);
+  const left = cb?cb.left:0;
+  const capOf={}; if(cb) cb.parts.forEach(p=>{capOf[p.id]=p;});
+  // 画甘特条的口径 = 所有在本需求「有真实固定档期段」的人，与「剩余产能」解耦：
+  // 即便档期已过、剩余产能为 0，也照常画出其历史档期条，避免回退成只剩名字标签。
+  const memIds=[...new Set(segsAll.map(s=>s.m))].filter(id=>memName(id));
+  if(!memIds.length) return null;
+  const capVal=id=>capOf[id]?capOf[id].cap:0;
+  memIds.sort((a,b)=>{
+    const ma=members.find(x=>x.id===a),mb=members.find(x=>x.id===b);
+    const la=(leadOf(ma)||'~'),lb=(leadOf(mb)||'~');
+    return la.localeCompare(lb,'zh-Hans-CN') || (capVal(b)-capVal(a));
+  });
   const ph = getPhases(r);
   const span = Math.max(ph.barE-ph.barS,1);
   const pc=i=>Math.max(0,Math.min(100,((i-ph.barS)/span*100)));
   let lanes='', nRows=0;
-  parts.forEach(p=>{
-    const psegs = r.segs.filter(s=>s.m===p.id && idx(s.e)>idx(s.s) && !s.open)
+  memIds.forEach(id=>{
+    const psegs = r.segs.filter(s=>s.m===id && idx(s.e)>idx(s.s) && !s.open)
                         .sort((a,b)=>idx(a.s)-idx(b.s));
     if(!psegs.length) return;
     nRows++;
-    const tip=`<b>${p.name}</b>${p.lead?` · 隶属${p.lead}`:''}<br><span class='g'>效率系数</span> ${p.eff}　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>预计可消化</span> <b style='color:#7da0ff'>${r1(p.cap)}</b> 人天　<span class='g'>(剩余窗口 ${left} 工作日)</span>`;
+    const m=members.find(x=>x.id===id);
+    const lead=leadOf(m), col=leadColor(lead);
+    const p = capOf[id] || {id, name:memName(id), cap:0, eff:memEff(id), load:(memLoad(id)||{}).pct, of:1, lead, col};
+    const capTxt = p.cap>0
+      ? `<b style='color:#7da0ff'>${r1(p.cap)}</b> 人天　<span class='g'>(剩余窗口 ${left} 工作日)</span>`
+      : `<span class='g'>剩余窗口已结束 · 不计剩余产能</span>`;
+    const tip=`<b>${p.name}</b>${p.lead?` · 隶属${p.lead}`:''}<br><span class='g'>效率系数</span> ${p.eff}　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>预计可消化</span> ${capTxt}`;
     let segs='';
     psegs.forEach(s=>{
       const l=pc(idx(s.s)), w=Math.max(pc(idx(s.e))-l,0.6);
-      segs+=`<i class="bl-seg" style="left:${l}%;width:${w}%;background:${p.col}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
+      segs+=`<i class="bl-seg" style="left:${l}%;width:${w}%;background:${col}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
     });
     const labL=pc(idx(psegs[0].s));
-    const dot = p.lead?`<i class="bl-seg-dot" style="background:${p.col}"></i>`:'';
-    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${dot}${p.name}<b>${r1(p.cap)}d</b></span></div>`;
+    const dot = lead?`<i class="bl-seg-dot" style="background:${col}"></i>`:'';
+    const capLab = p.cap>0?`<b>${r1(p.cap)}d</b>`:'';
+    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${dot}${p.name}${capLab}</span></div>`;
   });
   if(!nRows) return null;
   const H=nRows*(CLANE_H+CLANE_GAP)+2;
