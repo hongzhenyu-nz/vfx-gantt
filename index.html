@@ -292,6 +292,12 @@
   .bar-task.req-bar .ph-lab{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:9px;font-weight:800;
     letter-spacing:1px;color:rgba(255,255,255,.72);text-shadow:0 1px 2px rgba(0,0,0,.5);pointer-events:none;z-index:1;}
   .bar-task.req-bar .ph-lt .ph-lab{color:#fff;opacity:.95;}
+  /* 联调删除角标：默认隐藏，hover 联调段才浮现（避免误触）；点击删除该需求的联调 */
+  .bar-task.req-bar .ph-lt .lt-del{position:absolute;top:2px;right:3px;width:14px;height:14px;line-height:13px;text-align:center;
+    font-size:10px;font-weight:900;color:#fff;background:rgba(0,0,0,.32);border-radius:50%;cursor:pointer;z-index:6;
+    opacity:0;transform:scale(.8);transition:opacity .12s,transform .12s,background .12s;pointer-events:none;}
+  .bar-task.req-bar .ph-lt:hover .lt-del{opacity:1;transform:scale(1);pointer-events:auto;}
+  .bar-task.req-bar .ph-lt .lt-del:hover{background:#ef3b39;box-shadow:0 1px 4px rgba(239,59,57,.6);}
   /* 分割线：默认完全隐藏（只在悬停整条时浮现），不再常驻干扰画面；可独立拖拽（不触发整条改期） */
   .bar-task.req-bar .ph-div{position:absolute;top:0;bottom:0;width:2px;background:transparent;
     z-index:5;cursor:ew-resize;pointer-events:auto;transform:translateX(-1px);transition:background .12s;}
@@ -1335,17 +1341,39 @@ const reqs = [
 ];
 
 /* ============ 需求预处理：删除全量测试(qa) + 联调(lt)降为本体附属(不单独成行) ============ */
+/* 联调重挂关系（attached / children）。删除联调、云同步、撤销后都重跑一次，使关系始终与现存 lt 需求一致。 */
+function relinkLt(){
+  reqs.forEach(r=>{ if(r.children) r.children=[]; });   // 清空旧关系，按现存 lt 重建
+  reqs.filter(r=>r.kind==='lt').forEach(lt=>{
+    const host = reqs.find(r=>r.char===lt.char && r.kind==='fx' && /_cc$/.test(r.id))
+              || reqs.find(r=>r.char===lt.char && r.kind==='fx');
+    if(host){ lt.attached=host.id; (host.children=host.children||[]).push(lt.id); }
+    else { delete lt.attached; }
+  });
+}
 (function prepReqs(){
   // 1) 删除全部"全量测试"需求 —— 不再以独立需求存在
   for(let i=reqs.length-1;i>=0;i--){ if(reqs[i].kind==='qa') reqs.splice(i,1); }
   // 2) 联调 = 同角色"本体需求"的附属(出场_cc 优先，否则该角色首个特效需求)。
   //    仍保留在 reqs 中(负载/拖拽/复制等交互不变)，仅标记 attached：渲染时不单独成行，挂在本体条之后一起显示。
-  reqs.filter(r=>r.kind==='lt').forEach(lt=>{
-    const host = reqs.find(r=>r.char===lt.char && r.kind==='fx' && /_cc$/.test(r.id))
-              || reqs.find(r=>r.char===lt.char && r.kind==='fx');
-    if(host){ lt.attached=host.id; (host.children=host.children||[]).push(lt.id); }
-  });
+  relinkLt();
 })();
+/* 删除某需求的联调（物理删除其全部 lt 子需求 + 解绑），用于「该任务没有联调时间」。可撤销、可云同步。 */
+function deleteLt(hostId){
+  if(!requireWrite())return;
+  const host=reqs.find(r=>r.id===hostId); if(!host)return;
+  const kids=(host.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
+  if(!kids.length){ toast('该需求没有联调'); return; }
+  const names=kids.map(k=>k.name).join('、');
+  if(!confirm(`确定删除「${host.name}」的联调（${ names }）吗？\n删除后该需求只保留 L1 / L2，可用 Ctrl+Z 撤销。`)) return;
+  pushHistory();
+  const delIds=new Set(kids.map(k=>k.id));
+  for(let i=reqs.length-1;i>=0;i--){ if(delIds.has(reqs[i].id)) reqs.splice(i,1); }
+  relinkLt();
+  _logDesc='删除「'+host.name+'」的联调';
+  save();broadcast();rerender();
+  toast('已删除联调，可 Ctrl+Z 撤销');
+}
 
 /* ============ 人力分配数据（来源：当前人力分配脑图 / 企微表「当前人力分配」子表） ============ */
 /* 结论：目前基地总人数 14 人，未来常规管线共缺 11 人（金角4人 / 橙角1号5人 / 橙角2号5人 / 红角11人） */
@@ -2138,7 +2166,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
           onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
           <div class="ph ph-l1" style="left:${l1L}%;width:${l1W}%"><span class="ph-lab">L1</span></div>
           <div class="ph ph-l2" style="left:${l2L}%;width:${l2W}%"><span class="ph-lab">L2</span></div>
-          ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span></div>`:''}
+          ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span><i class="lt-del" title="删除联调（该任务无联调时间）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();deleteLt('${r.id}')">✕</i></div>`:''}
           <div class="prog" style="--p:${prog}"></div>
           <i class="sdot"></i>
           <div class="bl-top"><span class="bl-mic" style="background:${MM.c}">${MM.ic}</span>${charShort(r.char)||r.name}<span class="bl-mod" style="color:#fff;background:${MM.c}cc">${MM.s}</span><span class="bl-pct">${prog}%</span></div>
@@ -2517,6 +2545,13 @@ function applyEdit(bar,delta,mode){
     s=Math.max(0,s);e=Math.min(DAYS,e);
     seg.s=i2d(s);seg.e=i2d(e);
   }else{
+    // 拖头/尾改期前：若 L1/L2 分界仍是默认（r.split 未手动设过），先按当前区间中点固化成「绝对日索引」。
+    // 否则它每次都由 getPhases 重算中点 (s+e)/2 —— 拖尾时 e 变大，中点随之右移，表现为「分界线跟着尾巴跑」。
+    // 固化后 split 是定值，拖尾只动 e、分界纹丝不动（按固定日期标定）。
+    if((mode==='r'||mode==='l') && r.split==null){
+      const ps=Math.min(...r.segs.map(x=>idx(x.s))), pe=Math.max(...r.segs.map(x=>idx(x.e)));
+      r.split=Math.max(ps+1,Math.min(pe-1,Math.round((ps+pe)/2)));
+    }
     if(mode==='m'){
       let minS=Math.min(...r.segs.map(x=>idx(x.s)));
       let maxE=Math.max(...r.segs.map(x=>idx(x.e)));
@@ -3402,6 +3437,8 @@ function applySnap(snap){
     const keepR=new Set(snap.reqs.map(x=>x.id));
     for(let i=reqs.length-1;i>=0;i--){ if(!keepR.has(reqs[i].id)) reqs.splice(i,1); }
   }
+  // 按现存需求重建联调挂载关系（使「他人删除联调 / 撤销恢复」在本端正确反映）
+  if(typeof relinkLt==='function') relinkLt();
 }
 /* 把 ARCHIVE / GROUP_MODE 当前值反映到工具条控件 */
 function syncOrgUI(){
