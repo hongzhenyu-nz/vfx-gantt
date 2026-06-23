@@ -71,6 +71,10 @@
   .cloud-ind.err{border-color:#f5413f;background:#fff0f0;color:#d63a39;}
   .cloud-ind.err .ci-dot{background:#f5413f;}
   .cloud-ind.locked{opacity:.92;}
+  .cloud-ind.locked .ci-dot{background:#7a8290;}
+  .cloud-ind.busy{border-color:#e08c00;background:#fff4e0;color:#b8730b;}
+  .cloud-ind.busy .ci-dot{background:#e08c00;box-shadow:0 0 0 3px rgba(224,140,0,.18);animation:cipulse2 1.6s infinite;}
+  @keyframes cipulse2{0%,100%{box-shadow:0 0 0 0 rgba(224,140,0,.4);}50%{box-shadow:0 0 0 4px rgba(224,140,0,0);}}
   @keyframes cipulse{0%,100%{box-shadow:0 0 0 0 rgba(55,178,77,.35);}50%{box-shadow:0 0 0 4px rgba(55,178,77,0);}}
   /* 新建实体按钮（+新成员 / +新需求）：醒目主色描边 */
   .add-ent{border-color:#7c3aed!important;color:#6d28d9!important;background:#f5effe!important;}
@@ -753,7 +757,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="cloud-ind hd-cloud" id="cloudInd" title="云端协作同步状态（点击解锁编辑）" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
+    <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
   </div>
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
 
@@ -3255,7 +3259,21 @@ let sb=null, sbChan=null, cloudReady=false, cloudPushT=null, lastSyncJSON='', ap
 let cloudCid=localStorage.getItem('gantt_cloud_cid');
 if(!cloudCid){cloudCid='c'+Math.random().toString(36).slice(2,10);localStorage.setItem('gantt_cloud_cid',cloudCid);}
 function cloudWho(){const m=members.find(x=>x.id===meId);return m?m.name:'某成员';}
-function canWrite(){return !!localStorage.getItem(PIN_KEY);}
+
+/* ===== 编辑锁（同一时刻仅一人可编辑，其他人只读等待） =====
+   机制：board_state 行上的 lock_holder/lock_name/lock_at 三字段构成一把分布式互斥锁。
+   - 申请编辑 = 一条带条件的原子 UPDATE（仅当锁空闲/已过期/本就是我时才更新成功）→ 天然防并发抢占。
+   - 抢到锁的人会被强制拉取并应用云端最新快照，确保永远在最新数据上编辑（满足"下一个人需被强制刷新"）。
+   - 持有者每 30s 心跳续期；超过 90s 无心跳视为失效，可被他人抢占（应对崩溃/断网/直接关页）。
+   - 结束编辑 / 关闭页面 = 把最终数据推上去并清空锁，下一个人立刻可编辑。 */
+const LOCK_TTL=90*1000;        // 锁有效期(ms)：超过此时长无续期视为失效可被抢占
+const LOCK_HEARTBEAT=30*1000;  // 持有者续锁心跳间隔
+let lockMine=false;            // 我当前是否持有编辑锁（=唯一的可写依据）
+let lockHolderCid='';          // 云端当前锁持有者的客户端ID
+let lockHolderName='';         // 云端当前锁持有者姓名（用于提示"XX正在编辑"）
+let lockHeartT=null;           // 心跳定时器句柄
+function lockExpiryISO(){return new Date(Date.now()-LOCK_TTL).toISOString();} // 早于此时刻的锁判定为过期
+function canWrite(){return lockMine===true;}   // 只有持锁者可写（替代旧的本地口令开关）
 /* 写操作守门：只读模式下统一拦截所有数据改动（排期/状态/改派/增删/重置/撤销重做/标准表编辑），
    仅提示需先解锁，不改动任何数据。返回 true=可写、false=已拦截。
    节流提示：避免拖拽等连续触发时狂弹 toast。 */
@@ -3264,17 +3282,28 @@ function requireWrite(silent){
   if(canWrite())return true;
   if(!silent){
     const now=Date.now();
-    if(now-_roToastT>1200){ _roToastT=now; toast('🔒 当前为只读模式，点右上角「只读」可解锁编辑'); }
+    if(now-_roToastT>1200){
+      _roToastT=now;
+      const who=(lockHolderName&&lockHolderCid&&lockHolderCid!==cloudCid)?('「'+lockHolderName+'」正在编辑，请等待'):'点右上角「申请编辑」获取编辑权';
+      toast('🔒 当前为只读模式 · '+who);
+    }
   }
   return false;
 }
 function cloudSetStatus(state,txt){
   const el=document.getElementById('cloudInd');if(!el)return;
-  el.classList.remove('on','syncing','err','locked');
+  el.classList.remove('on','syncing','err','locked','busy');
   if(state)el.classList.add(state);
   const t=el.querySelector('.ci-tx');if(t&&txt!=null)t.textContent=txt;
   // 同步只读视觉态：只读时给 body 加 ro-mode，CSS 据此把写按钮置灰禁用
   document.body.classList.toggle('ro-mode', !canWrite());
+}
+/* 统一刷新指示器：持锁=on(绿，编辑中)，他人持锁=busy(琥珀，等待)，空闲=locked(灰，可申请) */
+function syncLockUI(){
+  if(!cloudReady){ return; }
+  if(lockMine) cloudSetStatus('on',lockBtnLabel());
+  else if(lockHolderCid && lockHolderCid!==cloudCid) cloudSetStatus('busy',lockBtnLabel());
+  else cloudSetStatus('locked',lockBtnLabel());
 }
 function refreshAllUI(){
   rerender();
@@ -3287,7 +3316,7 @@ async function cloudInit(){
   try{
     sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:5}}});
     cloudSetStatus('syncing','连接中…');
-    const {data,error}=await sb.from(SB_TABLE).select('snap,editor_name').eq('id',SB_ROW).maybeSingle();
+    const {data,error}=await sb.from(SB_TABLE).select('snap,editor_name,lock_holder,lock_name,lock_at').eq('id',SB_ROW).maybeSingle();
     if(error)throw error;
     if(data&&data.snap){
       const snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
@@ -3297,14 +3326,17 @@ async function cloudInit(){
       toast('☁ 已载入云端最新排期');
     }else{
       lastSyncJSON=JSON.stringify(snapshot());
-      if(canWrite()) cloudPush(true);  // 云端尚无数据：有写权限则用本地当前状态初始化
     }
+    if(data) updateLockFromRow(data);   // 读取当前锁状态（谁在编辑）
     cloudReady=true;
-    cloudSetStatus(canWrite()?'on':'locked', canWrite()?'已连接·实时':'只读（点此解锁编辑）');
+    syncLockUI();
     sbChan=sb.channel('board-'+SB_ROW)
       .on('postgres_changes',{event:'*',schema:'public',table:SB_TABLE,filter:'id=eq.'+SB_ROW},payload=>{
-        const row=payload.new; if(!row||!row.snap)return;
+        const row=payload.new; if(!row)return;
+        updateLockFromRow(row);                                // 先更新锁状态（即便快照没变也要刷新"谁在编辑"）
+        if(!row.snap)return;
         if(row.editor===cloudCid)return;                       // 自己刚推的，忽略
+        if(lockMine)return;                                    // 我正持锁编辑，不让远端快照覆盖我的改动
         const incoming=(typeof row.snap==='string')?row.snap:JSON.stringify(row.snap);
         if(incoming===lastSyncJSON)return;
         try{
@@ -3324,35 +3356,139 @@ function cloudPush(immediate){
   if(!canWrite())return;             // 只读模式：本页改动不外推
   clearTimeout(cloudPushT);
   const doPush=async()=>{
+    if(!lockMine)return;             // 推送前再确认仍持锁（避免锁被抢走后还写数据）
     const snap=snapshot(); const json=JSON.stringify(snap);
     if(json===lastSyncJSON)return;
-    cloudSetStatus('syncing','同步中…');
+    cloudSetStatus('syncing','保存中…');
     try{
-      const {error}=await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()});
+      // 带上锁字段并续期，确保保存过程中锁不被 TTL 判过期
+      const {error}=await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),
+        lock_holder:cloudCid,lock_name:cloudWho(),lock_at:new Date().toISOString(),updated_at:new Date().toISOString()});
       if(error)throw error;
-      lastSyncJSON=json; cloudSetStatus('on','已连接·实时');
-    }catch(e){ cloudSetStatus('err','同步失败'); console.warn('cloud push failed',e); }
+      lastSyncJSON=json; cloudSetStatus('on',lockBtnLabel());
+    }catch(e){ cloudSetStatus('err','保存失败'); console.warn('cloud push failed',e); }
   };
   if(immediate)doPush(); else cloudPushT=setTimeout(doPush,700);
 }
+
+/* 根据云端行更新本地"谁在编辑"的认知；过期的锁视为无人持有 */
+function updateLockFromRow(row){
+  const holder=row.lock_holder||'';
+  const at=row.lock_at?Date.parse(row.lock_at):0;
+  const fresh=holder && at && (Date.now()-at < LOCK_TTL);
+  lockHolderCid = fresh?holder:'';
+  lockHolderName = fresh?(row.lock_name||'某成员'):'';
+  // 若云端显示锁已不在我手里（被强制接管/过期清空），本地立即降级为只读
+  if(lockMine && lockHolderCid!==cloudCid){
+    lockMine=false; stopHeart();
+    toast('⚠ 你的编辑权已被释放/接管，已切回只读');
+  }
+  syncLockUI();
+}
+function lockBtnLabel(){
+  if(lockMine) return '编辑中·点此提交';
+  if(lockHolderCid && lockHolderCid!==cloudCid) return lockHolderName+' 编辑中';
+  return '申请编辑';
+}
+function startHeart(){
+  stopHeart();
+  lockHeartT=setInterval(async()=>{
+    if(!lockMine||!sb){stopHeart();return;}
+    try{ await sb.from(SB_TABLE).update({lock_at:new Date().toISOString()}).eq('id',SB_ROW).eq('lock_holder',cloudCid); }
+    catch(_){}
+  },LOCK_HEARTBEAT);
+}
+function stopHeart(){ if(lockHeartT){clearInterval(lockHeartT);lockHeartT=null;} }
+
+/* 申请编辑：原子抢锁 → 强制拉取并应用云端最新快照 → 进入可编辑态 */
+async function acquireLock(force){
+  if(!cloudReady||!sb){ toast('云端尚未连接，稍后再试'); return false; }
+  cloudSetStatus('syncing','申请编辑中…');
+  try{
+    const nowISO=new Date().toISOString();
+    // 条件抢占：仅当(无人持锁 OR 锁已过期 OR 本就是我 OR 强制接管)时才能写成功
+    let q=sb.from(SB_TABLE).update({lock_holder:cloudCid,lock_name:cloudWho(),lock_at:nowISO}).eq('id',SB_ROW);
+    if(!force){
+      // or 条件：lock_holder 为空 / 锁过期(lock_at < 现在-TTL) / 已经是我
+      q=q.or('lock_holder.is.null,lock_at.lt.'+lockExpiryISO()+',lock_holder.eq.'+cloudCid);
+    }
+    const {data,error}=await q.select('snap,editor,editor_name,lock_holder,lock_name,lock_at');
+    if(error)throw error;
+    if(!data||!data.length){
+      // 没抢到：可能有人正持有有效锁，也可能云端这行还不存在（首次使用）
+      await refreshLockStatus();
+      if(!lockHolderCid){
+        // 无人持锁却更新到 0 行 → 多半是行不存在，创建并占锁
+        const {error:e2}=await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:snapshot(),editor:cloudCid,editor_name:cloudWho(),
+          lock_holder:cloudCid,lock_name:cloudWho(),lock_at:nowISO,updated_at:nowISO});
+        if(e2)throw e2;
+        lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho();
+        lastSyncJSON=JSON.stringify(snapshot()); startHeart();
+        cloudSetStatus('on',lockBtnLabel());
+        toast('✅ 已获取编辑权。改动实时保存，编辑完请点「提交」释放');
+        return true;
+      }
+      cloudSetStatus('locked',lockBtnLabel());
+      toast('✋ '+(lockHolderName||'有人')+' 正在编辑，请等其提交后再申请');
+      return false;
+    }
+    // 抢到锁：强制以云端最新快照刷新本地，保证在最新数据上编辑
+    const row=data[0];
+    if(row.snap){
+      const obj=(typeof row.snap==='string')?JSON.parse(row.snap):row.snap;
+      applyingRemote=true; applySnap(obj); applyingRemote=false;
+      lastSyncJSON=JSON.stringify(snapshot());
+      refreshAllUI();
+    }else{
+      lastSyncJSON=JSON.stringify(snapshot());
+    }
+    lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho();
+    startHeart();
+    syncLockUI();
+    toast('✅ 已获取编辑权（已同步至最新）。改动实时保存，编辑完请点「提交」释放');
+    return true;
+  }catch(e){
+    cloudSetStatus('err','申请失败'); console.warn('acquire lock failed',e);
+    toast('申请编辑失败，请重试');
+    return false;
+  }
+}
+/* 释放编辑锁：先把最终数据推上去，再清空锁字段，下一个人立即可编辑 */
+async function releaseLock(silent){
+  stopHeart();
+  if(!sb){ lockMine=false; cloudSetStatus('locked',lockBtnLabel()); return; }
+  try{
+    if(lockMine){
+      const snap=snapshot();
+      await sb.from(SB_TABLE).update({snap:snap,editor:cloudCid,editor_name:cloudWho(),
+        lock_holder:null,lock_name:null,lock_at:null,updated_at:new Date().toISOString()}).eq('id',SB_ROW).eq('lock_holder',cloudCid);
+      lastSyncJSON=JSON.stringify(snap);
+    }
+  }catch(e){ console.warn('release lock failed',e); }
+  lockMine=false; lockHolderCid=''; lockHolderName='';
+  syncLockUI();
+  if(!silent) toast('已提交并释放编辑权，其他人现在可以编辑了');
+}
+/* 仅刷新锁状态（用于抢锁失败后了解是谁占着） */
+async function refreshLockStatus(){
+  try{
+    const {data}=await sb.from(SB_TABLE).select('lock_holder,lock_name,lock_at').eq('id',SB_ROW).maybeSingle();
+    if(data) updateLockFromRow(data);
+  }catch(_){}
+}
+/* 右上角云端指示器点击入口：在"申请编辑 ↔ 提交释放"之间切换 */
 function cloudUnlock(){
-  if(!cloudReady && !canWrite()){ toast('云端尚未连接，稍后再试'); return; }
-  if(canWrite()){
-    // 已是可编辑：点一下切回只读
-    localStorage.removeItem(PIN_KEY);
-    cloudSetStatus(cloudReady?'locked':'err', cloudReady?'只读（点此解锁编辑）':'云端连接失败');
-    toast('已切到只读模式');
+  if(!cloudReady){ toast('云端尚未连接，稍后再试'); return; }
+  if(lockMine){ releaseLock(); return; }
+  if(lockHolderCid && lockHolderCid!==cloudCid){
+    // 有人正在编辑：默认提示等待；若对方明显离线(锁将过期)给出强制接管选项
+    const at=lockExpiryISO();   // 仅用于文案，真正判定在 acquireLock
+    if(confirm('当前「'+lockHolderName+'」正在编辑。\n\n点「确定」尝试强制接管编辑权（仅在对方已离开时建议这么做，可能覆盖其未保存的改动）；\n点「取消」继续等待。')){
+      acquireLock(true);
+    }
     return;
   }
-  // 只读 → 一键解锁，无需口令
-  // 【如需恢复口令保护】把下面三行换成原来的 prompt 校验逻辑：
-  //   const pin=prompt('输入团队写入口令：'); if(pin==null)return;
-  //   if(pin.trim()!==TEAM_PIN){toast('口令不正确');return;}
-  //   （校验通过后再执行下面三行）
-  localStorage.setItem(PIN_KEY,'1');
-  cloudSetStatus('on','已连接·实时');
-  toast('✅ 已解锁，可以编辑了，改动将实时同步给全员');
-  cloudPush(true);
+  acquireLock(false);
 }
 
 /* ============ 团队链接分享（把当前排期编码进 URL，零后端、永不过期） ============ */
@@ -3989,8 +4125,22 @@ syncOrgUI();
 rerender();
 // 初始即反映只读视觉态（不等云端连上）
 document.body.classList.toggle('ro-mode', !canWrite());
-// 启动云端协作（公开读 / 口令写 / Realtime 实时汇集）
+// 启动云端协作（公开读 / 编辑锁互斥写 / Realtime 实时汇集）
 if(typeof cloudInit==='function'){ cloudInit(); }
+// 关闭/刷新页面时若持有编辑锁，立即释放，避免锁悬挂阻塞他人（用 keepalive 同步发出）
+window.addEventListener('pagehide',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });
+window.addEventListener('beforeunload',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });
+/* 关页瞬间用 fetch+keepalive 直发 REST，确保锁被清空（普通 await 可能来不及） */
+function releaseLockBeacon(){
+  stopHeart();
+  const url=SB_URL+'/rest/v1/'+SB_TABLE+'?id=eq.'+SB_ROW+'&lock_holder=eq.'+cloudCid;
+  try{
+    fetch(url,{method:'PATCH',keepalive:true,
+      headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
+      body:JSON.stringify({lock_holder:null,lock_name:null,lock_at:null})});
+  }catch(_){}
+  lockMine=false;
+}
 </script>
 </body>
 </html>
