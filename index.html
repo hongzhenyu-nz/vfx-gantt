@@ -2009,8 +2009,20 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const allS=Math.min(...r.segs.map(s=>idx(s.s)));
     const allE=Math.max(...r.segs.map(s=>idx(s.e)));
     const x=allS*DAY_W,w=(allE-allS)*DAY_W;
-    const prog=r.estimate>0?Math.round(r.done/r.estimate*100):0;
+    // 剩余工作日：独立计算（不走 risk，终态需求也保留真实数字）。
+    const endD=r.end||i2d(allE);
+    const leftWD = reqOpen?0:Math.max(workdays(TODAY, endD),0);
+    // 进度口径：时间进度 =（总工作日 − 剩余工作日）/ 总工作日。不再用「工作量 done/estimate」。
+    const prog=(()=>{
+      if(reqOpen) return 0;
+      const totalWD=workdays(i2d(allS), endD);
+      if(totalWD<=0) return (TODAY>=endD)?100:0;
+      const p=Math.round((totalWD-leftWD)/totalWD*100);
+      return Math.max(0,Math.min(100,p));
+    })();
     const ag=STATUS[aggStatus(r)];
+    // 状态文案：优先认人工设定的需求级终态（已完成/废弃/暂停），否则按段聚合状态
+    const stLabel = reqState(r)==='done'?'已完成':reqState(r)==='dropped'?'已废弃':reqState(r)==='paused'?'已暂停':ag.label;
     const g=HR_GRADE[r.grade]||HR_GRADE[''];
     // 参与本需求的人（去重），带编制信息
     const memObjs=risk.pplNames.map(n=>members.find(m=>m.name===n)).filter(Boolean).filter(m=>!leftLong(m));
@@ -2032,7 +2044,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const olTip = risk.overloaded.length?`<br><span class='g' style='color:#ff8f8f'>⚠ 超载占用</span> ${risk.overloaded.join('、')}（产能已折损）`:'';
     const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 人力缺口</span> 标配${REQ_STD[r.id]}人 · 在岗${activeBase(r)}人 · 缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
     const teamTip = `<br><span class='g'>团队</span> 正编${regs.length}人${regs.length?'（'+regs.map(m=>m.name).join('、')+'）':''} · 基地${bases.length}人${bases.length?'（'+bases.map(m=>m.name).join('、')+'）':''}`;
-    const tip=`<b>${r.name}</b><br><span class='g'>角色</span> ${r.char||'-'} · <span style='color:${g.col}'>${g.label}级</span> · ${r.mod||''}<br><span class='g'>状态</span> ${ag.label}　<span class='g'>工作量</span> ${r.estimate}人天 · 已完成${r.done}<br><span class='g'>窗口</span> ${fmt(i2d(allS))} → ${fmt(i2d(allE))} · 剩余${risk.left}工作日${teamTip}<br><span class='g'>风险主因</span> ${risk.cause} → <b>${risk.lvl}风险</b>${gapTip}${olTip}<br><span class='g' style='color:#7da0ff'>单击改整条状态</span>`;
+    const tip=`<b>${r.name}</b><br><span class='g'>角色</span> ${r.char||'-'} · <span style='color:${g.col}'>${g.label}级</span> · ${r.mod||''}<br><span class='g'>状态</span> ${stLabel}　<span class='g'>时间进度</span> ${prog}% · 剩余${leftWD}工作日<br><span class='g'>窗口</span> ${fmt(i2d(allS))} → ${fmt(i2d(allE))}${teamTip}<br><span class='g'>风险主因</span> ${risk.cause} → <b>${risk.lvl}风险</b>${gapTip}${olTip}<br><span class='g' style='color:#7da0ff'>单击改整条状态</span>`;
     // 统一人员标签：底色=编制(正编实心紫/基地浅白)，左圆点=隶属带队，橙环=跨队支援，新/临/离=角标。mini=蓝条内小号
     const reqLead = reqLeadOf(r);
     const ptag=(m,mini)=>{
@@ -2091,7 +2103,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
         <div class="req" style="flex:1;min-width:0">
           <div class="nm">${reqTitleHTML(r)}${reqStateTag(r)}</div>
           <div class="who-groups">${chips}${addPersonRow}</div>
-          <div class="meta">${r.estimate}人天 · 完成${prog}% · <span class="left-d">剩${risk.left}工作日</span></div>
+          <div class="meta">${r.estimate}人天 · 进度${prog}% · <span class="left-d">剩${leftWD}工作日</span></div>
           <div class="meta meta-team">${teamCount}${addons.length?` · <span id="lt-meta-${r.id}" style="color:#7c3aed">${(()=>{const lw=reqOpen?0:(()=>{const p=getPhases(r);return (p.lt2&&p.lt2.e>p.lt2.s)?workdays(i2d(p.lt2.s),i2d(p.lt2.e)):0;})();return lw>0?`+联调${lw}工作日`:'<span style=\"color:#a7adb8\">联调已并入L2</span>';})()}</span>`:''}</div>
         </div>
         <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
