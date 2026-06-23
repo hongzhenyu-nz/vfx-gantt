@@ -108,6 +108,25 @@
   .row.in-archived{opacity:.72;}
   .share-box{position:fixed;inset:0;background:rgba(20,24,32,.5);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;}
   .share-box.show{display:flex;}
+  /* ===== 变更记录抽屉 ===== */
+  .log-panel{position:fixed;top:0;right:0;width:380px;max-width:92vw;height:100%;background:#fff;z-index:9998;box-shadow:-8px 0 30px rgba(0,0,0,.18);transform:translateX(100%);transition:transform .22s ease;display:flex;flex-direction:column;}
+  .log-panel.show{transform:translateX(0);}
+  .log-panel .lp-h{padding:15px 18px;border-bottom:1px solid #e8ecf2;display:flex;align-items:center;justify-content:space-between;}
+  .log-panel .lp-h b{font-size:15px;color:#1f2630;}
+  .log-panel .lp-h .lp-x{background:none;border:none;font-size:20px;color:#8a93a0;cursor:pointer;line-height:1;}
+  .log-panel .lp-tip{padding:8px 18px;font-size:11.5px;color:#7a828f;line-height:1.5;background:#f7f9fc;border-bottom:1px solid #eef1f6;}
+  .log-panel .lp-list{flex:1;overflow-y:auto;padding:6px 0;}
+  .log-panel .lp-empty{padding:40px 18px;text-align:center;color:#9aa2ae;font-size:13px;}
+  .log-item{padding:10px 18px;border-bottom:1px solid #f1f4f8;display:flex;gap:10px;align-items:flex-start;}
+  .log-item:hover{background:#f7faff;}
+  .log-item .li-dot{width:8px;height:8px;border-radius:50%;background:#7048e8;margin-top:5px;flex-shrink:0;}
+  .log-item .li-main{flex:1;min-width:0;}
+  .log-item .li-desc{font-size:13px;color:#2a313b;font-weight:600;line-height:1.4;word-break:break-word;}
+  .log-item .li-meta{font-size:11px;color:#9aa2ae;margin-top:2px;}
+  .log-item .li-meta b{color:#5566cc;font-weight:600;}
+  .log-item .li-revert{flex-shrink:0;font-size:11px;color:#7048e8;background:#f3effe;border:1px solid #ddd0fa;border-radius:6px;padding:3px 8px;cursor:pointer;align-self:center;white-space:nowrap;}
+  .log-item .li-revert:hover{background:#7048e8;color:#fff;border-color:#7048e8;}
+  body.ro-mode .log-item .li-revert{display:none;}
   .share-box .sb-card{background:#fff;border-radius:14px;max-width:620px;width:100%;padding:22px 24px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
   .share-box .sb-h{font-size:17px;font-weight:800;color:#2f9e44;margin-bottom:8px;}
   .share-box .sb-tip{font-size:13px;color:#4a515c;line-height:1.6;margin-bottom:12px;}
@@ -737,6 +756,7 @@
     <div class="undo-grp">
       <button class="ubtn" id="undoBtn" onclick="undo()" title="撤销 (Ctrl+Z)" disabled>↶ 撤销</button>
       <button class="ubtn" id="redoBtn" onclick="redo()" title="重做 (Ctrl+Y)" disabled>↷ 重做</button>
+      <button class="ubtn" id="logBtn" onclick="toggleLogPanel()" title="查看变更记录，可一键回退到任意历史版本">🕑 变更记录</button>
     </div>
     <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
     <button class="ubtn sync-btn" onclick="exportSync()" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">📋 一键复制排期</button>
@@ -2156,13 +2176,16 @@ window.addEventListener('pointerup',()=>{
   if(delta!==0 || targetMember){
     pushHistory();
     applyEdit(bar,delta,mode);
+    const _r0=reqs.find(x=>x.id===bar.dataset.req);
     if(targetMember && bar.dataset.seg!==undefined){
       const r=reqs.find(x=>x.id===bar.dataset.req);
       if(r&&r.segs[+bar.dataset.seg]){
         r.segs[+bar.dataset.seg].m=targetMember;
         toast(`已改派给 ${memName(targetMember)}`);
+        _logDesc='把「'+r.name+'」任务改派给'+memName(targetMember);
       }
     }
+    if(!_logDesc&&_r0) _logDesc=(mode==='m'?'移动':'调整')+'「'+_r0.name+'」任务条时间';
     save();broadcast();rerender();
   }else{ rerender(); }
 });
@@ -2274,6 +2297,7 @@ function removeSeg(reqId, seg){
   // 清理可能失效的选中/剪贴板引用
   if(clip&&clip.reqId===reqId){ if(clip.seg===seg){clearClip();} else if(clip.seg>seg){clip.seg--;} }
   setSelected(null);
+  _logDesc='删除任务条：'+nm+' · '+r.name;
   save();broadcast();rerender();
   toast('已删除任务：'+nm+' · '+r.name);
   return true;
@@ -2295,6 +2319,7 @@ function pickStatus(k){
   }else{
     r.segs.forEach(s=>{s.status=k;if(k==='done')s.prog=1;});
   }
+  _logDesc='把「'+r.name+'」状态改为'+STATUS[k].label;
   hideMenu();save();broadcast();
   const reqId=r.id;
   rerender();
@@ -2643,6 +2668,7 @@ function confirmAdd(){
   if(rl&&ml&&ml!==rl) seg.support=true;
   r.segs.push(seg);
   r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e))));
+  _logDesc='给「'+r.name+'」新增任务条（'+memName(memId)+'）';
   save();broadcast();
   closeAdd();
   rerender();
@@ -2731,6 +2757,7 @@ function confirmNewMember(){
   };
   if(support) m.support=true;
   members.push(m);
+  _logDesc='新增成员：'+m.name;
   save();broadcast();closeAdd();
   // 切到「按人看」（成员只在此视图出现），再把视图中心拉到新成员并高亮
   if(view!=='person'){ const vt=document.querySelector('#viewTabs button:nth-child(1)'); if(vt)setView('person',vt); else rerender(); }
@@ -2757,11 +2784,11 @@ function startEditLead(ev, mid, kind){
       if(kind==='belong'){
         // 基地成员更换隶属正编：'—' 表示游离/无归属
         const v=(val||'—');
-        if(v!==m.lead){ pushHistory(); m.lead=v; m.role='基地'+(m.support?'·外借支援':''); save();broadcast(); }
+        if(v!==m.lead){ pushHistory(); m.lead=v; m.role='基地'+(m.support?'·外借支援':''); _logDesc='把「'+m.name+'」隶属改为'+v; save();broadcast(); }
       }else{
         // 正编成员修改带队负责的模块/范围（自由文本）
         const v=(val||'').trim();
-        if(v && v!==m.lead){ pushHistory(); m.lead=v; m.role='正编·带队'; save();broadcast(); }
+        if(v && v!==m.lead){ pushHistory(); m.lead=v; m.role='正编·带队'; _logDesc='把「'+m.name+'」带队范围改为'+v; save();broadcast(); }
       }
     }
     _editingLead=null;
@@ -2856,6 +2883,7 @@ function confirmNewReq(){
   const holder=members.find(m=>m.status==='on')||members[0];
   r.segs.push({m:holder.id, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'});
   reqs.push(r);
+  _logDesc='新增需求：'+r.name;
   save();broadcast();closeAdd();
   if(view!=='req'){ const vt=document.querySelector('#viewTabs button:nth-child(2)'); if(vt)setView('req',vt); }
   else rerender();
@@ -2870,7 +2898,29 @@ function toast(msg){toastEl.textContent=msg;toastEl.classList.add('show');clearT
 
 /* ============ 本地保存 / 协同广播 ============ */
 const KEY='gantt_collab_v7_mod';
+/* ============ 变更记录（留痕 + 回退历史版本） ============
+   CHANGELOG 每条 = {id, t:时间戳, who:操作人, desc:做了什么, snap:当时的完整排期(core)}。
+   它被塞进 snapshot()._log，随 本地缓存/分享链接/云端 三链路自动持久化与同步，
+   因此全团队都能看到同一份变更记录，并可一键回退到任意历史版本。 */
+let CHANGELOG=[]; let _logSeq=0; let _logDesc='';
+const LOG_MAX=120;
+function mergeLog(incoming){
+  if(!Array.isArray(incoming)||!incoming.length)return;
+  const seen=new Set(CHANGELOG.map(e=>e.id));
+  let added=false;
+  incoming.forEach(e=>{ if(e&&e.id&&!seen.has(e.id)){ CHANGELOG.push(e); seen.add(e.id); added=true; } });
+  if(added){
+    CHANGELOG.sort((a,b)=>a.t-b.t);
+    if(CHANGELOG.length>LOG_MAX) CHANGELOG.splice(0,CHANGELOG.length-LOG_MAX);
+    if(typeof renderLogPanel==='function' && document.getElementById('logPanel')) renderLogPanel();
+  }
+}
 function snapshot(){
+  const s=coreSnapshot();
+  s._log=CHANGELOG.slice(-LOG_MAX);
+  return s;
+}
+function coreSnapshot(){
   return {
     // 成员：除原有 status 外，序列化全部字段，使「新增成员」可在刷新/分享/云端后保留
     members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null)})),
@@ -2887,6 +2937,8 @@ function snapshot(){
 }
 function applySnap(snap){
   if(!snap)return;
+  // 合并对方带来的变更记录（去重、按时间排序），使留痕在全团队一致
+  if(Array.isArray(snap._log)) mergeLog(snap._log);
   // 成员：按 id 更新现有；找不到则视为「新增成员」push 进数组（保证新建成员跨刷新/分享/云端不丢）
   (snap.members||[]).forEach(ms=>{
     let m=members.find(x=>x.id===ms.id);
@@ -2966,7 +3018,7 @@ function syncOrgUI(){
 const ORIG=JSON.parse(JSON.stringify(snapshot()));
 function save(){try{localStorage.setItem(KEY,JSON.stringify(snapshot()));}catch(_){}}
 function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.parse(v));}catch(_){}}
-function resetData(){if(!requireWrite())return;pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();toast('已重置为初始排期');}
+function resetData(){if(!requireWrite())return;pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}_logDesc='重置为初始排期';broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();toast('已重置为初始排期');}
 
 /* ============ Supabase 云端协作（全员实时读写 + 自动汇集，免后端） ============ */
 const SB_URL='https://pwjowpkaypfwykejhosp.supabase.co';
@@ -3062,21 +3114,21 @@ function cloudPush(immediate){
 function cloudUnlock(){
   if(!cloudReady && !canWrite()){ toast('云端尚未连接，稍后再试'); return; }
   if(canWrite()){
-    if(confirm('当前为「可编辑并同步」模式。\n切回只读？（切回后本页改动不再同步给团队）')){
-      localStorage.removeItem(PIN_KEY);
-      cloudSetStatus(cloudReady?'locked':'err', cloudReady?'只读（点此解锁编辑）':'云端连接失败');
-      toast('已切到只读模式');
-    }
+    // 已是可编辑：点一下切回只读
+    localStorage.removeItem(PIN_KEY);
+    cloudSetStatus(cloudReady?'locked':'err', cloudReady?'只读（点此解锁编辑）':'云端连接失败');
+    toast('已切到只读模式');
     return;
   }
-  const pin=prompt('输入团队写入口令，启用「编辑并实时同步到云端」：');
-  if(pin==null)return;
-  if(pin.trim()===TEAM_PIN){
-    localStorage.setItem(PIN_KEY,'1');
-    cloudSetStatus('on','已连接·实时');
-    toast('✅ 已解锁，改动将实时同步给全员');
-    cloudPush(true);
-  }else{ toast('口令不正确'); }
+  // 只读 → 一键解锁，无需口令
+  // 【如需恢复口令保护】把下面三行换成原来的 prompt 校验逻辑：
+  //   const pin=prompt('输入团队写入口令：'); if(pin==null)return;
+  //   if(pin.trim()!==TEAM_PIN){toast('口令不正确');return;}
+  //   （校验通过后再执行下面三行）
+  localStorage.setItem(PIN_KEY,'1');
+  cloudSetStatus('on','已连接·实时');
+  toast('✅ 已解锁，可以编辑了，改动将实时同步给全员');
+  cloudPush(true);
 }
 
 /* ============ 团队链接分享（把当前排期编码进 URL，零后端、永不过期） ============ */
@@ -3250,10 +3302,83 @@ window.addEventListener('keydown',e=>{
 /* —— 跨标签页实时同步 —— */
 let bc=null;
 try{bc=new BroadcastChannel('gantt_collab');}catch(_){}
+
+/* ============ 变更记录面板 + 回退 ============ */
+function fmtLogTime(t){
+  const d=new Date(t), now=new Date();
+  const pad=n=>('0'+n).slice(-2);
+  const hm=pad(d.getHours())+':'+pad(d.getMinutes());
+  const sameDay=d.toDateString()===now.toDateString();
+  if(sameDay)return '今天 '+hm;
+  const y=new Date(now-86400000);
+  if(d.toDateString()===y.toDateString())return '昨天 '+hm;
+  return (d.getMonth()+1)+'月'+d.getDate()+'日 '+hm;
+}
+function toggleLogPanel(){
+  let p=document.getElementById('logPanel');
+  if(!p){
+    p=document.createElement('div'); p.id='logPanel'; p.className='log-panel';
+    p.innerHTML='<div class="lp-h"><b>🕑 变更记录</b><button class="lp-x" onclick="toggleLogPanel()">×</button></div>'
+      +'<div class="lp-tip">每条改动自动留痕（含时间·操作人）。点「回退」可把整份排期恢复到该条记录时的状态——回退本身也会记一条，可再撤销。记录随团队链接/云端同步。</div>'
+      +'<div class="lp-list" id="logList"></div>';
+    document.body.appendChild(p);
+    requestAnimationFrame(()=>p.classList.add('show'));
+    renderLogPanel();
+    return;
+  }
+  if(p.classList.contains('show')){ p.classList.remove('show'); }
+  else { p.classList.add('show'); renderLogPanel(); }
+}
+function renderLogPanel(){
+  const box=document.getElementById('logList'); if(!box)return;
+  if(!CHANGELOG.length){ box.innerHTML='<div class="lp-empty">暂无变更记录。<br>开始编辑后，这里会自动记录每一步改动。</div>'; return; }
+  const ro=!canWrite();
+  box.innerHTML=CHANGELOG.slice().reverse().map(e=>{
+    const safe=String(e.desc||'数据更新').replace(/</g,'&lt;');
+    const who=String(e.who||'某成员').replace(/</g,'&lt;');
+    return '<div class="log-item"><span class="li-dot"></span><div class="li-main">'
+      +'<div class="li-desc">'+safe+'</div>'
+      +'<div class="li-meta"><b>'+who+'</b> · '+fmtLogTime(e.t)+'</div></div>'
+      +(ro?'':'<button class="li-revert" onclick="revertTo(\''+e.id+'\')">回退到此</button>')
+      +'</div>';
+  }).join('');
+}
+function revertTo(id){
+  if(!requireWrite())return;
+  const e=CHANGELOG.find(x=>x.id===id); if(!e||!e.snap){toast('该记录已失效');return;}
+  if(!confirm('确定把整份排期回退到这条记录时的状态？\n\n「'+e.desc+'」\n'+fmtLogTime(e.t)+'　'+e.who+'\n\n（回退会保留之前所有记录，且本次回退也可撤销）'))return;
+  pushHistory();
+  // 用历史快照覆盖当前数据（保留 CHANGELOG 本身，不被快照里的旧 _log 截断）
+  const keepLog=CHANGELOG.slice();
+  applySnap(JSON.parse(JSON.stringify(e.snap)));
+  CHANGELOG=keepLog;
+  _logDesc='回退到「'+e.desc+'」（'+fmtLogTime(e.t)+'）';
+  save();broadcast();rerender();
+  if(typeof applyEffLockUI==='function')applyEffLockUI();
+  if(typeof applyStdLockUI==='function')applyStdLockUI();
+  renderLogPanel();
+  toast('已回退到该历史版本');
+}
+
 function broadcast(){
+  // 留痕：每次本地改动落一条变更记录（拖拽等连续操作做合并，避免刷屏）
+  if(!applyingRemote) recordLog(_logDesc||'排期更新');
+  _logDesc='';
   const payload=JSON.stringify(snapshot());
   if(bc)bc.postMessage({from:meId,data:payload});
   if(typeof cloudPush==='function')cloudPush();   // 同步到云端（防抖，仅有写权限时生效）
+}
+/* 记录变更：1.5 秒内同一类操作合并为一条（更新其时间与结果快照） */
+function recordLog(desc){
+  const now=Date.now();
+  const last=CHANGELOG[CHANGELOG.length-1];
+  if(last && last.who===(typeof cloudWho==='function'?cloudWho():'某成员') && last.desc===desc && (now-last.t)<1500){
+    last.t=now; last.snap=coreSnapshot();
+  }else{
+    CHANGELOG.push({ id:now+'-'+cloudCid+'-'+(_logSeq++), t:now, who:(typeof cloudWho==='function'?cloudWho():'某成员'), desc:desc||'数据更新', snap:coreSnapshot() });
+    if(CHANGELOG.length>LOG_MAX) CHANGELOG.splice(0,CHANGELOG.length-LOG_MAX);
+  }
+  if(document.getElementById('logPanel')) renderLogPanel();
 }
 if(bc){
   bc.onmessage=ev=>{
