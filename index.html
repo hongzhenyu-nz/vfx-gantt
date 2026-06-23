@@ -379,6 +379,7 @@
   .cl-lab.cl-oklab{color:#2b8a3e;text-shadow:0 1px 2px rgba(255,255,255,.9);}
   body.ro-mode .cap-lanes{opacity:.96;}
   .row.req-dropped .cap-lanes{display:none;}             /* 废弃需求不显示泳道 */
+  .row.req-done .cap-lanes{display:none;}                 /* 已完成需求不显示泳道 */
   .gdot-grade{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0;vertical-align:middle;box-shadow:0 0 0 2px rgba(0,0,0,.04);}
   .tmp-tag{display:inline-block;font-size:9px;font-weight:700;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:middle;}
   .corp-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
@@ -422,6 +423,7 @@
   .rstate-tag.active:hover{color:#5a626e;border-color:#c7cdd6;background:#eef1f5;}
   .rstate-tag.active .rs-caret{font-size:9px;opacity:.7;}
   .rstate-tag.paused{color:#fff;background:#e08c00;border-color:#c47a00;box-shadow:0 1px 3px rgba(224,140,0,.3);}
+  .rstate-tag.done{color:#fff;background:#16a34a;border-color:#128a3e;box-shadow:0 1px 3px rgba(22,163,74,.3);}
   .rstate-tag.dropped{color:#fff;background:#9097a0;border-color:#7d838c;box-shadow:0 1px 3px rgba(0,0,0,.18);}
   body.ro-mode .rstate-tag.active{display:none;}   /* 只读模式隐藏正常态的设置入口（暂停/废弃徽标仍展示供识别） */
   /* 暂停需求：整行加黄色条纹底纹 + 状态标签醒目，但保留统计 */
@@ -433,6 +435,11 @@
   .row.req-dropped .cell-left{opacity:.7;}
   .row.req-dropped .bar-task{filter:grayscale(1);opacity:.45;}
   .row.req-dropped .bar-task.req-bar::after{content:'已废弃';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(100,106,115,.92);color:#fff;font-size:11px;font-weight:800;letter-spacing:1px;padding:2px 10px;border-radius:6px;z-index:6;pointer-events:none;}
+  /* 已完成需求：保留正常配色（不灰化），需求条罩一层绿色「已完成」标 + 名字旁绿色对勾感；整行轻微提亮 */
+  .row.req-done .req .rt-nm{color:#128a3e;}
+  .row.req-done .bar-task.req-bar{filter:saturate(.85) brightness(.98);}
+  .row.req-done .bar-task.req-bar::after{content:'✓ 已完成';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(22,163,74,.92);color:#fff;font-size:11px;font-weight:800;letter-spacing:1px;padding:2px 10px;border-radius:6px;z-index:6;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.2);}
+  .row.req-done .timeline{background-image:repeating-linear-gradient(45deg,rgba(22,163,74,.05) 0 8px,transparent 8px 16px);}
   .req .char-nm{font-weight:700;}
   /* 模块类型标签：图标+短名+主题色，强化区分同角色不同模块 */
   .mod-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;vertical-align:middle;line-height:1.5;}
@@ -946,18 +953,21 @@ const STATUS_ORDER=['todo','doing','review','done','blocked'];
 const RSTATE={
   active: {label:'正常', col:'#1fae5a'},
   paused: {label:'暂停', col:'#e08c00'},
+  done:   {label:'已完成', col:'#16a34a'},
   dropped:{label:'废弃', col:'#9097a0'},
 };
-const RSTATE_PICK=['active','paused','dropped'];
+const RSTATE_PICK=['active','paused','done','dropped'];
 function reqState(r){ return (r&&r.state)||'active'; }
+/* 「终态」需求：已完成 / 已废弃——均不计风险、不计产能、自动归档。区别仅在视觉与语义。 */
+function reqClosed(r){ const s=reqState(r); return s==='done'||s==='dropped'; }
 /* 需求名旁的状态标签：正常态只显示一个低调的下拉箭头入口；暂停/废弃态显示醒目彩色徽标。点击弹状态菜单。 */
 function reqStateTag(r){
   const st=reqState(r);
   if(st==='active'){
-    return `<span class="rstate-tag active editable" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openReqStateMenu(event,'${r.id}')" title="点击设置需求状态（正常/暂停/废弃）">状态<i class="rs-caret">▾</i></span>`;
+    return `<span class="rstate-tag active editable" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openReqStateMenu(event,'${r.id}')" title="点击设置需求状态（正常/暂停/已完成/废弃）">状态<i class="rs-caret">▾</i></span>`;
   }
   const s=RSTATE[st];
-  const ic = st==='paused'?'⏸':'✕';
+  const ic = st==='paused'?'⏸':st==='done'?'✓':'✕';
   return `<span class="rstate-tag ${st} editable" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openReqStateMenu(event,'${r.id}')" title="当前：${s.label}（点击更改）">${ic} ${s.label}</span>`;
 }
 const MSTATUS={
@@ -1071,7 +1081,7 @@ function memArchived(m){
 /* 需求是否"应归档"：废弃需求立即归档；或已完结（已完成或结束日已过）且结束日超过阈值。 */
 function reqArchived(r){
   if(!ARCHIVE.on || !r) return false;
-  if(reqState(r)==='dropped') return true;   // 废弃需求：立即折叠进归档区
+  if(reqClosed(r)) return true;   // 已完成/废弃需求：立即折叠进归档区
   if(!r.end) return false;
   const done = (r.estimate>0 && r.done>=r.estimate) || (typeof aggStatus==='function' && aggStatus(r)==='done');
   const ended = r.end < TODAY;
@@ -1600,10 +1610,10 @@ function aggStatus(r){
 }
 
 function reqRisk(r){
-  // 废弃需求：不参与任何风险/产能/缺口计算，统一返回「无风险」占位
-  if(reqState(r)==='dropped'){
+  // 终态需求（已完成/废弃）：不参与任何风险/产能/缺口计算，统一返回「无风险」占位
+  if(reqClosed(r)){
     const shown=[...new Set(r.segs.filter(s=>idx(s.e)>idx(s.s)).map(s=>s.m))];
-    return {remain:0,left:0,ppl:shown.length,pplNames:shown.map(memName),cap:0,gap:0,lvl:'—',cls:'rk-low',txt:'b-gray',overloaded:[],gapPpl:0,started:false,cause:'已废弃'};
+    return {remain:0,left:0,ppl:shown.length,pplNames:shown.map(memName),cap:0,gap:0,lvl:'—',cls:'rk-low',txt:'b-gray',overloaded:[],gapPpl:0,started:false,cause:reqState(r)==='done'?'已完成':'已废弃'};
   }
   const remain = r.estimate - r.done;
   const left = Math.max(workdays(TODAY,r.end),0);
@@ -1645,7 +1655,7 @@ function reqRisk(r){
    口径与 reqRisk 完全一致：每人可消化人天 = 剩余工作日(left) × 效率(eff) × 超载折损(of)。
    返回 parts(每人一块)、totalCap(合计可消化)、gap(无法消化的缺口)、surplus(产能富余)。*/
 function reqCapacityBreakdown(r){
-  if(reqState(r)==='dropped') return null;                 // 废弃需求不计产能
+  if(reqClosed(r)) return null;                 // 已完成/废弃需求不计产能
   const remain = Math.max(r.estimate - r.done, 0);          // 剩余工作量(人天)
   const left = r.end ? Math.max(workdays(TODAY,r.end),0) : 0;// 剩余工作日窗口
   const activeSegs = r.segs.filter(s=>s.e>=TODAY && s.status!=='done');
@@ -2060,7 +2070,8 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const bands=`<span class="lv-bands" aria-hidden="true">`
       +`<i class="lv lv-grade${contCls(sameGradeUp,sameGradeDown)}" style="background:${gCol}" title="品级：${g.label}"></i>`
       +`</span>`;
-    const rsCls = reqState(r)==='dropped'?' req-dropped':reqState(r)==='paused'?' req-paused':'';
+    const rs=reqState(r);
+    const rsCls = rs==='dropped'?' req-dropped':rs==='paused'?' req-paused':rs==='done'?' req-done':'';
     // 产能消化泳道（一人一行甘特）：废弃/时间待定不画
     const laneObj = reqOpen ? null : capacityLanesHTML(r);
     const laneH = laneObj ? laneObj.h : 0;
@@ -2501,8 +2512,17 @@ function applyEdit(bar,delta,mode){
         if(a.segs.length) a.end=i2d(Math.max(...a.segs.map(x=>idx(x.e))));
       });
     }else if(mode==='r'){
-      const seg=r.segs.reduce((a,b)=>idx(b.e)>idx(a.e)?b:a);
-      const e=Math.min(Math.max(idx(seg.e)+delta,idx(seg.s)+1),DAYS);seg.e=i2d(e);
+      // 整条需求的可见右端 barE = max(主特效段结束, 联调子需求结束)。拖右把手要移动的是这条「整体尾巴」。
+      // 它可能由联调子需求决定——若只改主特效段尾巴、联调仍停在更右，bar 宽度(barE)不变 → 表现为「拖完回弹」。
+      // 故跨「主 segs + 联调子需求 segs」找出结束最晚的所有档，整体平移到新尾巴并保持对齐。
+      const kids=(r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
+      const pools=[r.segs, ...kids.map(k=>k.segs)];
+      let maxE=-Infinity; pools.forEach(arr=>arr.forEach(sg=>{ if(idx(sg.e)>maxE)maxE=idx(sg.e); }));
+      const ctrl=[]; pools.forEach(arr=>arr.forEach(sg=>{ if(idx(sg.e)===maxE) ctrl.push(sg); }));
+      const maxS=Math.max(...ctrl.map(sg=>idx(sg.s)));
+      const ne=Math.min(Math.max(maxE+delta, maxS+1), DAYS);
+      ctrl.forEach(sg=>{ sg.e=i2d(ne); });
+      kids.forEach(k=>{ if(k.segs.length) k.end=i2d(Math.max(...k.segs.map(x=>idx(x.e)))); });
     }else if(mode==='l'){
       const seg=r.segs.reduce((a,b)=>idx(b.s)<idx(a.s)?b:a);
       const s=Math.max(Math.min(idx(seg.s)+delta,idx(seg.e)-1),0);seg.s=i2d(s);
@@ -2590,7 +2610,7 @@ function openReqStateMenu(e,reqId){
   let items=`<div class="mtitle">${r.name} — 需求状态</div>`;
   RSTATE_PICK.forEach(k=>{
     const s=RSTATE[k];
-    const hint = k==='active'?'正常推进':k==='paused'?'暂停（保留统计，仅标记）':'废弃（不计风险，自动归档）';
+    const hint = k==='active'?'正常推进':k==='paused'?'暂停（保留统计，仅标记）':k==='done'?'已完成（不计风险，自动归档）':'废弃（不计风险，自动归档）';
     items+=`<div class="mi ${k===cur?'cur':''}" onclick="pickReqState('${k}')"><i style="background:${s.col};border-radius:50%"></i><div style="display:flex;flex-direction:column;line-height:1.25"><span>${s.label}</span><span style="font-size:10px;color:var(--tx3)">${hint}</span></div></div>`;
   });
   menu.innerHTML=items;
