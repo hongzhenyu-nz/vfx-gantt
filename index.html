@@ -243,6 +243,9 @@
     color:#fff;background:#f59e0b;border-radius:4px;padding:1px 4px;box-shadow:0 1px 2px rgba(0,0,0,.3);pointer-events:none;
     text-shadow:none;letter-spacing:.5px;}
   .bar-task.dragging{cursor:grabbing;opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32);z-index:30;}
+  /* Shift 拖拽复制：拖动中的源条加复制标识（虚线描边 + 右上角 ＋ 角标） */
+  .bar-task.dup-src{outline:2px dashed rgba(255,255,255,.9);outline-offset:-3px;}
+  .bar-task.dup-src::after{content:'＋';position:absolute;top:-9px;right:-7px;width:18px;height:18px;line-height:17px;text-align:center;font-size:13px;font-weight:800;color:#fff;background:#3370ff;border:1.5px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.3);z-index:31;}
   .bar-task.flash{animation:barflash .9s ease;}
   @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6)}100%{box-shadow:0 1px 3px rgba(0,0,0,.20)}}
   .b-blue{background:#4d80ff;} .b-green{background:#16a34a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#7d92b3;}
@@ -2087,12 +2090,16 @@ grid.addEventListener('pointerdown',e=>{
   }
   const bar=e.target.closest('.bar-task'); if(!bar)return;
   setSelected(bar);
-  const mode=e.target.classList.contains('gl')?'l':e.target.classList.contains('gr')?'r':'m';
-  drag={bar,mode,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,
+  let mode=e.target.classList.contains('gl')?'l':e.target.classList.contains('gr')?'r':'m';
+  // 按住 Shift 拖某人的任务段 → 复制模式：原段保留，落点复制出一份新段（仅整体移动有效，强制 mode='m'）
+  const isSeg=bar.dataset.seg!==undefined && bar.dataset.seg!=='';
+  const dup=e.shiftKey && isSeg;
+  if(dup) mode='m';
+  drag={bar,mode,dup,startX:e.clientX,startY:e.clientY,lastX:e.clientX,lastY:e.clientY,
         origLeft:parseFloat(bar.style.left),origW:parseFloat(bar.style.width),
         delta:0,movedPx:0,targetMember:null,
-        srcMember:bar.dataset.seg!==undefined?reqs.find(r=>r.id===bar.dataset.req).segs[+bar.dataset.seg].m:null};
-  bar.classList.add('dragging');hideTip();hideMenu();
+        srcMember:isSeg?reqs.find(r=>r.id===bar.dataset.req).segs[+bar.dataset.seg].m:null};
+  bar.classList.add('dragging'); if(dup)bar.classList.add('dup-src'); hideTip();hideMenu();
   e.preventDefault();
 });
 window.addEventListener('pointermove',e=>{
@@ -2143,7 +2150,8 @@ window.addEventListener('pointermove',e=>{
   drag.targetMember=null;
   if(view==='person' && mode==='m' && drag.srcMember){
     const tm=rowMemberAt(e.clientX,e.clientY);
-    if(tm && tm!==drag.srcMember){
+    // 普通拖拽：落到他人行才算改派；复制模式：落到任意行都高亮（含本人，复制一份给该人）
+    if(tm && (drag.dup || tm!==drag.srcMember)){
       const row=document.querySelector(`.row[data-mem="${tm}"]`);
       if(row){row.classList.add('row-target');drag.targetMember=tm;}
     }
@@ -2167,11 +2175,39 @@ window.addEventListener('pointerup',()=>{
     return;
   }
   if(!drag)return;
-  const {bar,delta,mode,movedPx,targetMember}=drag;
-  bar.classList.remove('dragging');
+  const {bar,delta,mode,movedPx,targetMember,dup}=drag;
+  bar.classList.remove('dragging','dup-src');
   document.querySelectorAll('.row-target').forEach(r=>r.classList.remove('row-target'));
   hideDragLabel();
   const d=drag;drag=null;
+  // —— 复制模式（Shift 拖拽）：原段不动，落点复制出一份新段 ——
+  if(dup){
+    if(movedPx<5 && !targetMember){ rerender(); return; }   // 几乎没动且未跨人 → 视为放弃
+    const r=reqs.find(x=>x.id===bar.dataset.req);
+    if(r && bar.dataset.seg!==undefined && r.segs[+bar.dataset.seg]){
+      pushHistory();
+      const src=r.segs[+bar.dataset.seg];
+      let s=idx(src.s)+delta, e=idx(src.e)+delta;
+      if(s<0){e-=s;s=0;} if(e>DAYS){s-=(e-DAYS);e=DAYS;} s=Math.max(0,s);e=Math.min(DAYS,e);
+      const newSeg={m:src.m, s:i2d(s), e:i2d(e), prog:src.prog, status:src.status};
+      if(src.support) newSeg.support=true;
+      if(src.open) newSeg.open=true;
+      if(targetMember && targetMember!==src.m){
+        newSeg.m=targetMember;
+        const mem=memById(targetMember), rl=reqLeadOf(r), ml=leadOf(mem);
+        newSeg.support=(rl&&ml&&ml!==rl)?true:!!src.support;
+        _logDesc='复制「'+r.name+'」任务段给'+memName(targetMember);
+        toast('已复制一份给 '+memName(targetMember));
+      }else{
+        _logDesc='复制「'+r.name+'」任务段（'+memName(src.m)+'）';
+        toast('已复制一份：'+memName(src.m));
+      }
+      r.segs.push(newSeg);
+      r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e))));
+      save();broadcast();rerender();
+    }else{ rerender(); }
+    return;
+  }
   if(movedPx<5 && mode==='m'){ openStatusMenu(bar,d.lastX,d.lastY); return; }
   if(delta!==0 || targetMember){
     pushHistory();
@@ -2198,11 +2234,12 @@ function rowMemberAt(x,y){
 }
 
 function showDragLabel(e){
-  const {bar,targetMember}=drag;
+  const {bar,targetMember,dup}=drag;
   const l=parseFloat(bar.style.left),w=parseFloat(bar.style.width);
   const si=Math.round(l/DAY_W),ei=Math.round((l+w)/DAY_W);
   let txt=fmt(i2d(si))+' → '+fmt(i2d(ei))+'（'+workdays(i2d(si),i2d(ei))+'工作日）';
-  if(targetMember) txt='改派 → '+memName(targetMember)+'　'+txt;
+  if(targetMember) txt=(dup?'复制 → ':'改派 → ')+memName(targetMember)+'　'+txt;
+  else if(dup) txt='＋复制一份　'+txt;
   dlabel.textContent=txt;
   dlabel.style.opacity=1;
   dlabel.style.left=(e.clientX+14)+'px';
