@@ -379,6 +379,8 @@
   .bar-task.req-bar .bl-lane-lab{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:3;display:inline-flex;align-items:center;gap:3px;height:15px;padding:0 6px;border-radius:5px;font-size:9.5px;font-weight:800;line-height:1;color:#fff;background:rgba(0,0,0,.34);box-shadow:0 1px 2px rgba(0,0,0,.28);white-space:nowrap;}
   .bar-task.req-bar .bl-lane-lab b{font-weight:800;opacity:.95;margin-left:3px;}
   .bar-task.req-bar .bl-seg-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+  /* 编制徽标（正/基/借）：方形小色块，底色=编制色，与本人甘特条同色，一眼对应 */
+  .bar-task.req-bar .bl-corp{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:3px;flex-shrink:0;font-size:9px;font-weight:800;color:#fff;line-height:1;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);font-style:normal;}
   /* 泳道容器（旧·条下方版，已停用，保留兼容） */
   .cap-lanes{position:absolute;left:0;top:calc(82px - 8px);right:0;padding-top:3px;}
   /* 每人一行：行首一枚人员图标（与条内同一套 ptag，sticky 钉在左缘随横向滚动常驻），其后是该人按真实档期画的甘特条 */
@@ -1193,6 +1195,16 @@ function isExtLoan(m){
   return !m.lead || m.lead==='—' || m.lead==='-';
 }
 
+/* 编制三态着色（统一口径，与「按人看·corp 分组」一致）：
+   外借支援(橙) / 正编带队(紫) / 基地(灰)。
+   返回 {key,label,col,short}；供「一人一行甘特」的条色与标签编制徽标统一取色——
+   即甘特按"编制"上色，而非"隶属带队"。short 为标签徽标单字。 */
+function corpStyle(m){
+  if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借'};
+  if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#7c3aed',short:'正'};
+  return {key:'base',label:'基地',col:'#646a73',short:'基'};
+}
+
 /* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
 /* 成员 = 出场/检视/组队/武器等模块制作人。
    corp=编制(reg正编带队/base基地)，lead=该正编带队负责的范围，mod=模块，grade=品级，line=管线，tmp=临时，status含 left离职/new新人 */
@@ -1707,7 +1719,7 @@ function reqCapacityBreakdown(r){
     const of = load>100 ? 100/load : 1;                     // 超载折损系数(与 reqRisk 同口径)
     const cap = left * memEff(id) * of;                     // 该人在剩余窗口内预计可消化人天
     const m = members.find(x=>x.id===id);
-    return { id, name:memName(id), cap, eff:memEff(id), load, of, lead:leadOf(m), col:leadColor(leadOf(m)) };
+    return { id, name:memName(id), cap, eff:memEff(id), load, of, lead:leadOf(m), col:corpStyle(m).col };
   }).filter(p=>p.cap>0 && p.name);
   // 同隶属相邻、产能大的在前 —— 与人员标签的分组排序视觉呼应
   parts.sort((a,b)=> (a.lead||'~').localeCompare(b.lead||'~','zh-Hans-CN') || b.cap-a.cap);
@@ -1748,8 +1760,8 @@ function capacityBarHTML(r){
 
 /* ============ 产能消化泳道（一人一行甘特）============
    在右侧时间轴里、需求主条下方，按各制作人「真实投入日期段」画一人一行的甘特小条：
-   每行 = 行首一枚人员图标（与条内同一套配色：正编紫/基地灰，圆点=隶属带队）+ 其后按真实档期画的甘特条。
-   颜色按隶属带队上色；图标上标注该人预计可消化人天。缺口/富余不单独成行，已并入需求条内的文字摘要。*/
+   每行 = 行首一枚编制徽标（正/基/借，色=编制色）+ 人名 + 该人剩余可消化天数；其后按真实档期画的甘特条。
+   颜色按「编制」上色（正编紫/基地灰/外借橙），不再按隶属带队。缺口/富余不单独成行，已并入需求条内的文字摘要。*/
 const CLANE_H=17, CLANE_GAP=4;
 /* 一人一行甘特（条内版）：覆盖在任务条内部、取代原角色标签。
    位置按「相对本条左缘的百分比」给出，与 L1/L2 同坐标系，自动对齐。
@@ -1781,21 +1793,22 @@ function capacityLanesHTML(r){
     if(!psegs.length) return;
     nRows++;
     const m=members.find(x=>x.id===id);
-    const lead=leadOf(m), col=leadColor(lead);
+    const lead=leadOf(m);
+    const cs=corpStyle(m), col=cs.col;            // 甘特条按「编制」着色：正编紫/基地灰/外借橙（不再按隶属带队色）
     const p = capOf[id] || {id, name:memName(id), cap:0, eff:memEff(id), load:(memLoad(id)||{}).pct, of:1, lead, col};
     const capTxt = p.cap>0
-      ? `<b style='color:#7da0ff'>${r1(p.cap)}</b> 人天　<span class='g'>(剩余窗口 ${left} 工作日)</span>`
-      : `<span class='g'>剩余窗口已结束 · 不计剩余产能</span>`;
-    const tip=`<b>${p.name}</b>${p.lead?` · 隶属${p.lead}`:''}<br><span class='g'>效率系数</span> ${p.eff}　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>预计可消化</span> ${capTxt}`;
+      ? `还可消化 <b style='color:#7da0ff'>${r1(p.cap)} 个工作日</b>的活　<span class='g'>(按剩余窗口 ${left} 个工作日 × 效率估算)</span>`
+      : `<span class='g'>剩余窗口已结束 · 暂无可消化产能</span>`;
+    const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff}　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>剩余产能</span> ${capTxt}`;
     let segs='';
     psegs.forEach(s=>{
       const l=pc(idx(s.s)), w=Math.max(pc(idx(s.e))-l,0.6);
       segs+=`<i class="bl-seg" style="left:${l}%;width:${w}%;background:${col}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
     });
     const labL=pc(idx(psegs[0].s));
-    const dot = lead?`<i class="bl-seg-dot" style="background:${col}"></i>`:'';
-    const capLab = p.cap>0?`<b>${r1(p.cap)}d</b>`:'';
-    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${dot}${p.name}${capLab}</span></div>`;
+    const corpBadge=`<i class="bl-corp" style="background:${col}">${cs.short}</i>`;   // 编制徽标：正/基/借
+    const capLab = p.cap>0?`<b>余${r1(p.cap)}天</b>`:'';                              // 余N天 = 该人在本需求剩余窗口内预计还能消化的工作量
+    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${p.name}${capLab}</span></div>`;
   });
   if(!nRows) return null;
   const H=nRows*(CLANE_H+CLANE_GAP)+2;
