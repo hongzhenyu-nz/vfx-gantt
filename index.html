@@ -356,6 +356,20 @@
   .req .nm{font-weight:600;} .req .meta{color:var(--tx2);font-size:11px;font-weight:500;}
   .req .meta .left-d{color:#d4380d;font-weight:800;}   /* 剩余工作日醒目：深橙红加粗 */
   .req .meta-team{margin-top:2px;}                     /* 人员构成另起一行 */
+  /* ===== 产能消化占比条（需求视图）：各人产能色块 + 红斜纹缺口 + 富余完成线 ===== */
+  .cap-wrap{margin-top:5px;cursor:default;}
+  .cap-bar{position:relative;display:flex;height:16px;width:100%;border-radius:5px;overflow:hidden;background:#f0f2f5;border:1px solid var(--line);box-sizing:border-box;}
+  .cap-seg{position:relative;display:flex;align-items:center;justify-content:center;gap:3px;height:100%;min-width:0;overflow:hidden;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;box-shadow:inset -1px 0 0 rgba(255,255,255,.35);transition:filter .1s;}
+  .cap-seg:hover{filter:brightness(1.08);}
+  .cap-seg .cap-nm{overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.22);}
+  .cap-seg .cap-num{opacity:.92;font-size:9px;text-shadow:0 1px 1px rgba(0,0,0,.22);}
+  .cap-seg.cap-gap{background:repeating-linear-gradient(45deg,#ffd6d2,#ffd6d2 5px,#ffe9e7 5px,#ffe9e7 10px);color:#c0392b;box-shadow:inset 0 0 0 1px #f3a9a2;}
+  .cap-seg.cap-gap .cap-num{color:#c0392b;text-shadow:none;font-weight:800;}
+  .cap-seg.cap-done{background:#52c08a;font-size:10px;}
+  .cap-line{position:absolute;top:-2px;bottom:-2px;width:0;border-left:2px dashed #2b8a3e;z-index:3;pointer-events:none;}
+  .cap-surplus{position:absolute;right:3px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:800;color:#2b8a3e;z-index:4;pointer-events:none;text-shadow:0 1px 2px rgba(255,255,255,.9);}
+  body.ro-mode .cap-wrap{opacity:.96;}
+  .row.req-dropped .cap-wrap{display:none;}              /* 废弃需求不显示产能条 */
   .gdot-grade{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0;vertical-align:middle;box-shadow:0 0 0 2px rgba(0,0,0,.04);}
   .tmp-tag{display:inline-block;font-size:9px;font-weight:700;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:middle;}
   .corp-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
@@ -1618,6 +1632,59 @@ function reqRisk(r){
   return {remain,left,ppl:shownIds.length,pplNames:shownIds.map(memName),cap:Math.round(cap*10)/10,gap:Math.round(gap*10)/10,lvl,cls,txt,overloaded,gapPpl,started,cause};
 }
 
+/* ============ 产能消化分解：把"剩余工作量"按各制作人在剩余窗口内的预计产能拆开 ============
+   口径与 reqRisk 完全一致：每人可消化人天 = 剩余工作日(left) × 效率(eff) × 超载折损(of)。
+   返回 parts(每人一块)、totalCap(合计可消化)、gap(无法消化的缺口)、surplus(产能富余)。*/
+function reqCapacityBreakdown(r){
+  if(reqState(r)==='dropped') return null;                 // 废弃需求不计产能
+  const remain = Math.max(r.estimate - r.done, 0);          // 剩余工作量(人天)
+  const left = r.end ? Math.max(workdays(TODAY,r.end),0) : 0;// 剩余工作日窗口
+  const activeSegs = r.segs.filter(s=>s.e>=TODAY && s.status!=='done');
+  const memIds = [...new Set(activeSegs.map(s=>s.m))];       // 去重到人(产能口径，与 reqRisk 一致)
+  let parts = memIds.map(id=>{
+    const load = memLoad(id).pct;
+    const of = load>100 ? 100/load : 1;                     // 超载折损系数(与 reqRisk 同口径)
+    const cap = left * memEff(id) * of;                     // 该人在剩余窗口内预计可消化人天
+    const m = members.find(x=>x.id===id);
+    return { id, name:memName(id), cap, eff:memEff(id), load, of, lead:leadOf(m), col:leadColor(leadOf(m)) };
+  }).filter(p=>p.cap>0 && p.name);
+  // 同隶属相邻、产能大的在前 —— 与人员标签的分组排序视觉呼应
+  parts.sort((a,b)=> (a.lead||'~').localeCompare(b.lead||'~','zh-Hans-CN') || b.cap-a.cap);
+  const totalCap = parts.reduce((s,p)=>s+p.cap,0);
+  const gap = Math.max(remain - totalCap, 0);               // 无法消化的工作量
+  const surplus = Math.max(totalCap - remain, 0);           // 产能富余
+  return { remain, left, parts, totalCap, gap, surplus };
+}
+
+const r1=v=>Math.round(v*10)/10;
+/* 渲染需求行内的"产能消化占比条"：各人色块(按隶属上色) + 红斜纹缺口块 + 富余完成线 */
+function capacityBarHTML(r){
+  const cb = reqCapacityBreakdown(r);
+  if(!cb) return '';                                        // 废弃需求：不显示
+  const {remain,left,parts,totalCap,gap,surplus} = cb;
+  if(remain<=0){                                            // 已无剩余工作量
+    return `<div class="cap-wrap" onmousemove="showTip(event,\`<b>${r.name}</b><br>剩余工作量为 0，已无需消化\`,true)" onmouseleave="hideTip()"><div class="cap-bar done"><div class="cap-seg cap-done" style="width:100%">已完成 · 无剩余工作量</div></div></div>`;
+  }
+  const barTotal = Math.max(remain, totalCap) || 1;
+  const pc = v => (v/barTotal*100);
+  let segs='';
+  parts.forEach(p=>{
+    const w=pc(p.cap); if(w<=0) return;
+    const tip=`<b>${p.name}</b>${p.lead?` · 隶属${p.lead}`:''}<br><span class='g'>效率系数</span> ${p.eff}　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>预计可消化</span> <b style='color:#7da0ff'>${r1(p.cap)}</b> 人天　<span class='g'>(剩余窗口 ${left} 工作日)</span>`;
+    segs+=`<div class="cap-seg" style="width:${w}%;background:${p.col}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"><span class="cap-nm">${p.name}</span><span class="cap-num">${r1(p.cap)}</span></div>`;
+  });
+  if(gap>0){
+    const w=pc(gap);
+    segs+=`<div class="cap-seg cap-gap" style="width:${w}%" onmousemove="event.stopPropagation();showTip(event,\`<b style='color:#d4380d'>消化缺口</b><br>现有人力预计<b>无法消化 ${r1(gap)} 人天</b><br><span class='g'>需 加人 / 延期 / 提效</span>\`,true)" onmouseleave="hideTip()"><span class="cap-num">缺${r1(gap)}</span></div>`;
+  }
+  let lineEl='';
+  if(surplus>0){                                            // 产能 > 需求：画完成线 + 富余标记
+    lineEl=`<i class="cap-line" style="left:${pc(remain)}%"></i><span class="cap-surplus">余${r1(surplus)}</span>`;
+  }
+  const headTip=`<b>${r.name} · 产能消化</b><br><span class='g'>剩余工作量</span> ${remain} 人天　<span class='g'>剩余窗口</span> ${left} 工作日<br><span class='g'>在做</span> ${parts.length} 人 · 合计可消化 <b>${r1(totalCap)}</b> 人天<br>${gap>0?`<span style='color:#d4380d'>⚠ 缺口 ${r1(gap)} 人天无法消化</span>`:`<span style='color:#2b8a3e'>✓ 产能可覆盖${surplus>0?`，富余 ${r1(surplus)} 人天`:''}</span>`}`;
+  return `<div class="cap-wrap" onmousemove="showTip(event,\`${headTip}\`,true)" onmouseleave="hideTip()"><div class="cap-bar">${segs}${lineEl}</div></div>`;
+}
+
 function memLoad(id){
   const horizonEnd = new Date(TODAY.getTime()+30*dayMs);   // 未来30天负载窗口（长周期排期）
   const avail = workdays(TODAY,horizonEnd);
@@ -1947,6 +2014,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
           <div class="who-groups">${chips}${addPersonRow}</div>
           <div class="meta">${r.estimate}人天 · 完成${prog}% · <span class="left-d">剩${risk.left}工作日</span></div>
           <div class="meta meta-team">${teamCount}${addons.length?` · <span id="lt-meta-${r.id}" style="color:#7c3aed">${(()=>{const lw=reqOpen?0:(()=>{const p=getPhases(r);return (p.lt2&&p.lt2.e>p.lt2.s)?workdays(i2d(p.lt2.s),i2d(p.lt2.e)):0;})();return lw>0?`+联调${lw}工作日`:'<span style=\"color:#a7adb8\">联调已并入L2</span>';})()}</span>`:''}</div>
+          ${capacityBarHTML(r)}
         </div>
         <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
       </div>
