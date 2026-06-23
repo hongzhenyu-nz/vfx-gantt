@@ -389,6 +389,23 @@
   /* 按需求视图：可读人员标签（区分正编/基地/离职/新人） */
   .req .rmod{font-size:10px;font-weight:600;color:#3a6df0;background:#eef3ff;border:1px solid #c9dbff;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
   .req .nm{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+  /* 需求生命周期状态标签（正常/暂停/废弃），点击弹菜单 */
+  .rstate-tag{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;cursor:pointer;vertical-align:middle;line-height:1.6;user-select:none;transition:.12s;}
+  .rstate-tag.active{color:#8a93a3;background:#f4f6f9;border-color:#e2e6ec;font-weight:600;}
+  .rstate-tag.active:hover{color:#5a626e;border-color:#c7cdd6;background:#eef1f5;}
+  .rstate-tag.active .rs-caret{font-size:9px;opacity:.7;}
+  .rstate-tag.paused{color:#fff;background:#e08c00;border-color:#c47a00;box-shadow:0 1px 3px rgba(224,140,0,.3);}
+  .rstate-tag.dropped{color:#fff;background:#9097a0;border-color:#7d838c;box-shadow:0 1px 3px rgba(0,0,0,.18);}
+  body.ro-mode .rstate-tag.active{display:none;}   /* 只读模式隐藏正常态的设置入口（暂停/废弃徽标仍展示供识别） */
+  /* 暂停需求：整行加黄色条纹底纹 + 状态标签醒目，但保留统计 */
+  .row.req-paused .timeline{background-image:repeating-linear-gradient(45deg,rgba(224,140,0,.07) 0 8px,transparent 8px 16px);}
+  .row.req-paused .bar-task.req-bar{filter:saturate(.6);}
+  .row.req-paused .bar-task.req-bar::after{content:'暂停中';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(224,140,0,.92);color:#fff;font-size:11px;font-weight:800;letter-spacing:1px;padding:2px 10px;border-radius:6px;z-index:6;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25);}
+  /* 废弃需求：整行删除线灰化 */
+  .row.req-dropped .req .rt-nm{text-decoration:line-through;text-decoration-color:#b0b5bd;color:#9097a0;}
+  .row.req-dropped .cell-left{opacity:.7;}
+  .row.req-dropped .bar-task{filter:grayscale(1);opacity:.45;}
+  .row.req-dropped .bar-task.req-bar::after{content:'已废弃';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(100,106,115,.92);color:#fff;font-size:11px;font-weight:800;letter-spacing:1px;padding:2px 10px;border-radius:6px;z-index:6;pointer-events:none;}
   .req .char-nm{font-weight:700;}
   /* 模块类型标签：图标+短名+主题色，强化区分同角色不同模块 */
   .mod-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;vertical-align:middle;line-height:1.5;}
@@ -674,6 +691,20 @@
   #menu .mi.danger{color:#d4380d;}
   #menu .mi.danger:hover{background:#fff1f0;}
   #menu .mi.danger svg{width:13px;height:13px;}
+  /* 离职日期选择浮层 */
+  .date-pop-mask{position:fixed;inset:0;background:rgba(20,24,32,.42);z-index:9997;display:flex;align-items:center;justify-content:center;}
+  .date-pop{background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(15,23,42,.3);width:300px;overflow:hidden;}
+  .date-pop .dp-h{font-size:14px;font-weight:700;color:var(--tx);padding:15px 18px 10px;}
+  .date-pop .dp-b{padding:0 18px 6px;}
+  .date-pop .dp-b input[type=date]{width:100%;box-sizing:border-box;font-size:14px;padding:9px 11px;border:1px solid var(--line);border-radius:8px;color:var(--tx);outline:none;}
+  .date-pop .dp-b input[type=date]:focus{border-color:#9aa7b8;}
+  .date-pop .dp-tip{font-size:11px;color:var(--tx3);margin-top:8px;line-height:1.5;}
+  .date-pop .dp-f{display:flex;gap:8px;justify-content:flex-end;padding:12px 18px 16px;}
+  .date-pop .dp-f button{font-size:13px;font-weight:600;padding:7px 16px;border-radius:8px;cursor:pointer;border:1px solid transparent;}
+  .date-pop .dp-cancel{background:#f2f4f7;color:var(--tx2);border-color:var(--line);}
+  .date-pop .dp-cancel:hover{background:#e8ebf0;}
+  .date-pop .dp-ok{background:#6b7280;color:#fff;}
+  .date-pop .dp-ok:hover{background:#586070;}
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;font-size:12px;opacity:0;transition:.2s;z-index:300;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .hide{display:none !important;}
@@ -882,6 +913,26 @@ const STATUS = {
   blocked:{label:'卡住',   cls:'b-red',   col:'#f5413f'},
 };
 const STATUS_ORDER=['todo','doing','review','done','blocked'];
+/* 需求生命周期状态（独立于任务段聚合状态）：
+   active=正常推进（默认）；paused=暂停（保留统计，仅打标+条纹）；dropped=废弃（不计风险、自动归档、删除线灰化）。
+   存于 r.state（不设/为 active 即正常）。随 snapshot 三链路持久化。 */
+const RSTATE={
+  active: {label:'正常', col:'#1fae5a'},
+  paused: {label:'暂停', col:'#e08c00'},
+  dropped:{label:'废弃', col:'#9097a0'},
+};
+const RSTATE_PICK=['active','paused','dropped'];
+function reqState(r){ return (r&&r.state)||'active'; }
+/* 需求名旁的状态标签：正常态只显示一个低调的下拉箭头入口；暂停/废弃态显示醒目彩色徽标。点击弹状态菜单。 */
+function reqStateTag(r){
+  const st=reqState(r);
+  if(st==='active'){
+    return `<span class="rstate-tag active editable" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openReqStateMenu(event,'${r.id}')" title="点击设置需求状态（正常/暂停/废弃）">状态<i class="rs-caret">▾</i></span>`;
+  }
+  const s=RSTATE[st];
+  const ic = st==='paused'?'⏸':'✕';
+  return `<span class="rstate-tag ${st} editable" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openReqStateMenu(event,'${r.id}')" title="当前：${s.label}（点击更改）">${ic} ${s.label}</span>`;
+}
 const MSTATUS={
   on:  {label:'在岗', col:'#34c759'},
   busy:{label:'忙碌', col:'#ff9f0a'},
@@ -990,9 +1041,11 @@ function memArchived(m){
   const d=(TODAY-m.leftAt)/86400000;
   return d>archiveDays();
 }
-/* 需求是否"应归档"：已完结（已完成或结束日已过）且结束日超过阈值。 */
+/* 需求是否"应归档"：废弃需求立即归档；或已完结（已完成或结束日已过）且结束日超过阈值。 */
 function reqArchived(r){
-  if(!ARCHIVE.on || !r || !r.end) return false;
+  if(!ARCHIVE.on || !r) return false;
+  if(reqState(r)==='dropped') return true;   // 废弃需求：立即折叠进归档区
+  if(!r.end) return false;
   const done = (r.estimate>0 && r.done>=r.estimate) || (typeof aggStatus==='function' && aggStatus(r)==='done');
   const ended = r.end < TODAY;
   if(!done && !ended) return false;
@@ -1520,6 +1573,11 @@ function aggStatus(r){
 }
 
 function reqRisk(r){
+  // 废弃需求：不参与任何风险/产能/缺口计算，统一返回「无风险」占位
+  if(reqState(r)==='dropped'){
+    const shown=[...new Set(r.segs.filter(s=>idx(s.e)>idx(s.s)).map(s=>s.m))];
+    return {remain:0,left:0,ppl:shown.length,pplNames:shown.map(memName),cap:0,gap:0,lvl:'—',cls:'rk-low',txt:'b-gray',overloaded:[],gapPpl:0,started:false,cause:'已废弃'};
+  }
   const remain = r.estimate - r.done;
   const left = Math.max(workdays(TODAY,r.end),0);
   // 仍在投入、未完成的任务段（用于产能计算：已完成/已结束的段不再贡献产能）
@@ -1748,7 +1806,7 @@ function personRowHTML(m,inArc){
       <div class="cell-left">
         <div class="emp-badge ${m.corp}" title="${m.corp==='reg'?'正编（带队）':'基地'}">
           <span class="el">${m.corp==='reg'?'正编':'基地'}</span>
-          <i class="ed mstat" data-mem="${m.id}" style="background:${MS.col}" title="${MS.label}（点击切换在岗/忙碌/请假）"></i>
+          <i class="ed mstat" data-mem="${m.id}" style="background:${MS.col}" title="${MS.label}（点击设置：在岗/忙碌/请假/外出/离职/新人）"></i>
           ${L.pct>110?'<i class="olflag" title="超载">!</i>':''}
         </div>
         <div class="who">
@@ -1875,12 +1933,13 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const bands=`<span class="lv-bands" aria-hidden="true">`
       +`<i class="lv lv-grade${contCls(sameGradeUp,sameGradeDown)}" style="background:${gCol}" title="品级：${g.label}"></i>`
       +`</span>`;
-    const rowHTML=`<div class="row req-row${inArc?' in-archived':''}" data-req-row="${r.id}">
+    const rsCls = reqState(r)==='dropped'?' req-dropped':reqState(r)==='paused'?' req-paused':'';
+    const rowHTML=`<div class="row req-row${inArc?' in-archived':''}${rsCls}" data-req-row="${r.id}">
       <div class="cell-left has-bands">
         ${bands}
         <span class="gdot-grade" style="background:${g.col}" title="${g.label}级"></span>
         <div class="req" style="flex:1;min-width:0">
-          <div class="nm">${reqTitleHTML(r)}</div>
+          <div class="nm">${reqTitleHTML(r)}${reqStateTag(r)}</div>
           <div class="who-groups">${chips}${addPersonRow}</div>
           <div class="meta">${r.estimate}人天 · 完成${prog}% · <span class="left-d">剩${risk.left}工作日</span></div>
           <div class="meta meta-team">${teamCount}${addons.length?` · <span id="lt-meta-${r.id}" style="color:#7c3aed">${(()=>{const lw=reqOpen?0:(()=>{const p=getPhases(r);return (p.lt2&&p.lt2.e>p.lt2.s)?workdays(i2d(p.lt2.s),i2d(p.lt2.e)):0;})();return lw>0?`+联调${lw}工作日`:'<span style=\"color:#a7adb8\">联调已并入L2</span>';})()}</span>`:''}</div>
@@ -2349,7 +2408,7 @@ function openStatusMenu(bar,x,y){
   let mx=x, my=y; if(mx>innerWidth-170)mx=innerWidth-170; if(my>innerHeight-(isSeg?290:220))my=innerHeight-(isSeg?290:220);
   menu.style.left=mx+'px';menu.style.top=my+'px';
 }
-function hideMenu(){menu.classList.remove('show');menuCtx=null;}
+function hideMenu(){menu.classList.remove('show');menuCtx=null;memMenuCtx=null;reqStateCtx=null;}
 /* 删除某条任务段（人的排期）。reqId+seg 定位；删空后若该需求无人则保留空需求行。 */
 function removeSeg(reqId, seg){
   if(!requireWrite())return false;
@@ -2390,17 +2449,117 @@ function pickStatus(k){
   flashReq(reqId);
   toast('状态已更新：'+STATUS[k].label);
 }
+/* ===== 需求生命周期状态菜单（正常/暂停/废弃） ===== */
+let reqStateCtx=null;
+function openReqStateMenu(e,reqId){
+  if(!requireWrite())return;
+  const r=reqs.find(z=>z.id===reqId); if(!r)return;
+  reqStateCtx={reqId};
+  const cur=reqState(r);
+  let items=`<div class="mtitle">${r.name} — 需求状态</div>`;
+  RSTATE_PICK.forEach(k=>{
+    const s=RSTATE[k];
+    const hint = k==='active'?'正常推进':k==='paused'?'暂停（保留统计，仅标记）':'废弃（不计风险，自动归档）';
+    items+=`<div class="mi ${k===cur?'cur':''}" onclick="pickReqState('${k}')"><i style="background:${s.col};border-radius:50%"></i><div style="display:flex;flex-direction:column;line-height:1.25"><span>${s.label}</span><span style="font-size:10px;color:var(--tx3)">${hint}</span></div></div>`;
+  });
+  menu.innerHTML=items;
+  menu.classList.add('show');
+  const x=e.clientX,y=e.clientY;
+  let mx=x,my=y; if(mx>innerWidth-200)mx=innerWidth-200; if(my>innerHeight-200)my=innerHeight-200;
+  menu.style.left=mx+'px';menu.style.top=my+'px';
+}
+function pickReqState(k){
+  if(!reqStateCtx){hideMenu();return;}
+  if(!requireWrite()){hideMenu();return;}
+  const r=reqs.find(z=>z.id===reqStateCtx.reqId); if(!r){hideMenu();return;}
+  hideMenu();
+  if(reqState(r)===k)return;
+  pushHistory();
+  if(k==='active') delete r.state; else r.state=k;
+  _logDesc='把需求「'+r.name+'」设为'+RSTATE[k].label;
+  save();broadcast();rerender();
+  toast('「'+r.name+'」：'+RSTATE[k].label);
+}
 document.addEventListener('pointerdown',e=>{ if(menu.classList.contains('show') && !e.target.closest('#menu') && !e.target.closest('.bar-task')) hideMenu(); });
 
-/* ============ 成员状态切换（点左侧） ============ */
+/* ============ 成员状态切换（点左侧状态点 → 弹完整状态菜单） ============
+   原来是「在岗→忙碌→外出→请假」循环，点不出离职。改为弹菜单：可直接选 在岗/忙碌/请假/外出/已离职/新人。
+   选「已离职」时再弹日期选择框，录入具体离职日（决定何时灰化/归档）；改回非离职态则清除离职日。 */
+const MSTAT_PICK=['on','busy','leave','out','left','new'];   // 菜单内可选的人员状态
+function openMemStatusMenu(memId,x,y){
+  const m=members.find(z=>z.id===memId); if(!m)return;
+  memMenuCtx={memId};
+  const cur=m.status||'on';
+  let items=`<div class="mtitle">${m.name} — 设置状态</div>`;
+  MSTAT_PICK.forEach(k=>{
+    const s=MSTATUS[k];
+    items+=`<div class="mi ${k===cur?'cur':''}" onclick="pickMemStatus('${k}')"><i style="background:${s.col};border-radius:50%"></i>${s.label}${k==='left'?' …':''}</div>`;
+  });
+  menu.innerHTML=items;
+  menu.classList.add('show');
+  let mx=x,my=y; if(mx>innerWidth-170)mx=innerWidth-170; if(my>innerHeight-260)my=innerHeight-260;
+  menu.style.left=mx+'px';menu.style.top=my+'px';
+}
+let memMenuCtx=null;
+function pickMemStatus(k){
+  if(!memMenuCtx){hideMenu();return;}
+  if(!requireWrite()){hideMenu();return;}
+  const m=members.find(z=>z.id===memMenuCtx.memId); if(!m){hideMenu();return;}
+  hideMenu();
+  if(k==='left'){
+    // 离职：弹日期选择，录入具体离职日（留空=今天）
+    askLeaveDate(m);
+    return;
+  }
+  pushHistory();
+  m.status=k;
+  if(k!=='left') delete m.leftAt;     // 改回非离职态：清除离职日，恢复正常显示/统计
+  _logDesc=m.name+' 状态改为'+MSTATUS[k].label;
+  save();broadcast();rerender();
+  toast(m.name+'：'+MSTATUS[k].label);
+}
+/* 离职日期选择浮层：默认填今天，可改具体日期；确定后写 m.leftAt + status='left' */
+function askLeaveDate(m){
+  const def=fmtInputDate(m.leftAt||TODAY);
+  const ov=document.createElement('div');
+  ov.className='date-pop-mask';
+  ov.innerHTML=`<div class="date-pop" onclick="event.stopPropagation()">
+    <div class="dp-h">设置「${m.name}」离职日期</div>
+    <div class="dp-b">
+      <input type="date" id="leaveDateInp" value="${def}">
+      <div class="dp-tip">离职超过设定阈值将自动折叠进「已归档」区。留空默认今天。</div>
+    </div>
+    <div class="dp-f">
+      <button class="dp-cancel" id="leaveCancel">取消</button>
+      <button class="dp-ok" id="leaveOk">确定离职</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',close);
+  ov.querySelector('#leaveCancel').onclick=close;
+  ov.querySelector('#leaveOk').onclick=()=>{
+    const v=ov.querySelector('#leaveDateInp').value;
+    const d=v?new Date(v+'T00:00:00'):new Date(TODAY);
+    pushHistory();
+    m.status='left'; m.leftAt=d;
+    _logDesc=m.name+' 设为已离职（'+fmt(d)+'）';
+    save();broadcast();rerender();
+    toast(m.name+'：已离职 · '+fmt(d));
+    close();
+  };
+  setTimeout(()=>{const i=ov.querySelector('#leaveDateInp');if(i)i.focus();},30);
+}
+/* 把 Date 转成 <input type=date> 需要的 yyyy-mm-dd（本地时区，不用 toISOString 以免 UTC 偏移串日） */
+function fmtInputDate(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${dd}`;
+}
 grid.addEventListener('click',e=>{
   const ms=e.target.closest('.mstat'); if(!ms)return;
-  const m=members.find(x=>x.id===ms.dataset.mem); if(!m)return;
-  pushHistory();
-  const i=MSTATUS_ORDER.indexOf(m.status||'on');
-  m.status=MSTATUS_ORDER[(i+1)%MSTATUS_ORDER.length];
-  save();broadcast();rerender();
-  toast(m.name+'：'+MSTATUS[m.status].label);
+  if(!requireWrite())return;
+  const rect=ms.getBoundingClientRect();
+  openMemStatusMenu(ms.dataset.mem, rect.left, rect.bottom+4);
 });
 
 function flashReq(reqId){
@@ -2995,7 +3154,7 @@ function coreSnapshot(){
     archive:{on:ARCHIVE.on,val:ARCHIVE.val,unit:ARCHIVE.unit},
     groupMode:{person:GROUP_MODE.person,req:GROUP_MODE.req},
     // 需求：除原有 end/done/split 外，序列化全部字段，使「新增需求」持久化
-    reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',estimate:r.estimate,end:idx(r.end),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),
+    reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',state:r.state||'active',estimate:r.estimate,end:idx(r.end),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),
       segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:idx(s.e),prog:s.prog,status:s.status,support:!!s.support,open:!!s.open}))}))
   };
 }
@@ -3042,10 +3201,11 @@ function applySnap(snap){
     let r=reqs.find(x=>x.id===rs.id);
     if(!r && rs.name){
       // 新增需求：按快照重建（含 segs），push 进数组
-      r={id:rs.id,name:rs.name,char:rs.char||'',mod:rs.mod||'',grade:rs.grade||'',line:rs.line||'-',kind:rs.kind||'fx',estimate:rs.estimate||1,done:rs.done||0,end:i2d(rs.end||idx(TODAY)),segs:[]};
+      r={id:rs.id,name:rs.name,char:rs.char||'',mod:rs.mod||'',grade:rs.grade||'',line:rs.line||'-',kind:rs.kind||'fx',state:rs.state||'active',estimate:rs.estimate||1,done:rs.done||0,end:i2d(rs.end||idx(TODAY)),segs:[]};
       reqs.push(r);
     }
     if(!r)return;
+    if(rs.state!==undefined){ if(rs.state&&rs.state!=='active')r.state=rs.state; else delete r.state; }
     r.end=i2d(rs.end); if(rs.done!==undefined)r.done=rs.done;
     if(rs.estimate!==undefined)r.estimate=rs.estimate;
     if(rs.name!=null)r.name=rs.name;
