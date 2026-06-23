@@ -356,20 +356,29 @@
   .req .nm{font-weight:600;} .req .meta{color:var(--tx2);font-size:11px;font-weight:500;}
   .req .meta .left-d{color:#d4380d;font-weight:800;}   /* 剩余工作日醒目：深橙红加粗 */
   .req .meta-team{margin-top:2px;}                     /* 人员构成另起一行 */
-  /* ===== 产能消化占比条（需求视图）：各人产能色块 + 红斜纹缺口 + 富余完成线 ===== */
-  .cap-wrap{margin-top:5px;cursor:default;}
-  .cap-bar{position:relative;display:flex;height:16px;width:100%;border-radius:5px;overflow:hidden;background:#f0f2f5;border:1px solid var(--line);box-sizing:border-box;}
-  .cap-seg{position:relative;display:flex;align-items:center;justify-content:center;gap:3px;height:100%;min-width:0;overflow:hidden;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;box-shadow:inset -1px 0 0 rgba(255,255,255,.35);transition:filter .1s;}
-  .cap-seg:hover{filter:brightness(1.08);}
-  .cap-seg .cap-nm{overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 1px rgba(0,0,0,.22);}
-  .cap-seg .cap-num{opacity:.92;font-size:9px;text-shadow:0 1px 1px rgba(0,0,0,.22);}
-  .cap-seg.cap-gap{background:repeating-linear-gradient(45deg,#ffd6d2,#ffd6d2 5px,#ffe9e7 5px,#ffe9e7 10px);color:#c0392b;box-shadow:inset 0 0 0 1px #f3a9a2;}
-  .cap-seg.cap-gap .cap-num{color:#c0392b;text-shadow:none;font-weight:800;}
-  .cap-seg.cap-done{background:#52c08a;font-size:10px;}
-  .cap-line{position:absolute;top:-2px;bottom:-2px;width:0;border-left:2px dashed #2b8a3e;z-index:3;pointer-events:none;}
-  .cap-surplus{position:absolute;right:3px;top:50%;transform:translateY(-50%);font-size:9px;font-weight:800;color:#2b8a3e;z-index:4;pointer-events:none;text-shadow:0 1px 2px rgba(255,255,255,.9);}
-  body.ro-mode .cap-wrap{opacity:.96;}
-  .row.req-dropped .cap-wrap{display:none;}              /* 废弃需求不显示产能条 */
+  /* ===== 产能消化泳道（需求视图·右侧时间轴，一人一行甘特）===== */
+  /* 有泳道时：行高 = 基础需求行高 + 泳道总高；主条与泳道在时间轴里上下排布 */
+  .req-row.has-lanes{min-height:calc(82px + var(--lane-h));}
+  .req-row.has-lanes .cell-left{min-height:calc(82px + var(--lane-h));}
+  /* 主条容器：有泳道时把主条钉在上半部定高，给下方泳道腾出 var(--lane-h) */
+  .req-row.has-lanes .timeline{align-items:flex-start;}
+  .req-row.has-lanes .bar-task.req-bar{top:8px;bottom:auto;height:calc(82px - 18px);}
+  .req-row.has-lanes .bar-addon{top:8px;bottom:auto;height:calc(82px - 18px);}
+  /* 泳道容器：贴在主条正下方，与时间轴同坐标系（left=天×DAY_W） */
+  .cap-lanes{position:absolute;left:0;top:calc(82px - 8px);right:0;padding-top:3px;}
+  /* 需求窗口底框：白色 = 该窗口内"应被覆盖"的范围，露白处即人力缺口 */
+  .cl-box{position:absolute;top:0;bottom:2px;background:#fff;border:1px dashed #c9d2e0;border-radius:4px;box-shadow:inset 0 0 0 100px rgba(245,247,250,.55);z-index:0;}
+  /* 每人一行：相对定位在正常流里依次堆叠；行内甘特条按天绝对定位 */
+  .cap-lanes .cl-row{position:relative;height:15px;margin-bottom:4px;z-index:1;}
+  .cl-bar{position:absolute;top:1px;height:13px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.18);cursor:default;z-index:2;}
+  .cl-bar:hover{filter:brightness(1.08);}
+  .cl-bar.cl-gap{background:repeating-linear-gradient(45deg,#ffd1cc,#ffd1cc 4px,#ffe9e7 4px,#ffe9e7 8px)!important;box-shadow:inset 0 0 0 1px #f0a59d;}
+  .cl-lab{position:absolute;top:0;height:15px;line-height:15px;font-size:9px;font-weight:700;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.4);white-space:nowrap;padding-left:4px;z-index:3;pointer-events:none;}
+  .cl-lab b{font-size:9px;opacity:.95;}
+  .cl-lab.cl-gaplab{color:#c0392b;text-shadow:0 1px 2px rgba(255,255,255,.9);font-weight:800;}
+  .cl-lab.cl-oklab{color:#2b8a3e;text-shadow:0 1px 2px rgba(255,255,255,.9);}
+  body.ro-mode .cap-lanes{opacity:.96;}
+  .row.req-dropped .cap-lanes{display:none;}             /* 废弃需求不显示泳道 */
   .gdot-grade{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;flex-shrink:0;vertical-align:middle;box-shadow:0 0 0 2px rgba(0,0,0,.04);}
   .tmp-tag{display:inline-block;font-size:9px;font-weight:700;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:middle;}
   .corp-tag{display:inline-block;font-size:9px;font-weight:700;border-radius:4px;padding:0 5px;margin-left:6px;vertical-align:middle;}
@@ -1685,6 +1694,53 @@ function capacityBarHTML(r){
   return `<div class="cap-wrap" onmousemove="showTip(event,\`${headTip}\`,true)" onmouseleave="hideTip()"><div class="cap-bar">${segs}${lineEl}</div></div>`;
 }
 
+/* ============ 产能消化泳道（一人一行甘特）============
+   在右侧时间轴里、需求主条下方，按各制作人「真实投入日期段」画一人一行的甘特小条，
+   颜色按隶属带队上色；条上标注该人预计可消化人天。
+   白色区域 = 需求窗口内没人覆盖的时间（人力缺口）；底部红斜纹条 = 按工作量算的消化缺口。*/
+const CLANE_H=15, CLANE_GAP=4;
+function capacityLanesHTML(r){
+  const cb = reqCapacityBreakdown(r);
+  if(!cb) return null;
+  const {remain,left,parts,totalCap,gap,surplus} = cb;
+  const segsAll = r.segs.filter(s=>idx(s.e)>idx(s.s) && !s.open);
+  if(!segsAll.length || !parts.length) return null;      // 无固定窗口/无人：不画泳道
+  const boxS = Math.min(...segsAll.map(s=>idx(s.s)));
+  const boxE = Math.max(...segsAll.map(s=>idx(s.e)));
+  const span = Math.max(boxE-boxS,1);
+  const boxL = boxS*DAY_W, boxW = Math.max(span*DAY_W,DAY_W);
+  // —— 每人一行：真实投入段甘特条 ——
+  let lanes='';
+  parts.forEach(p=>{
+    const psegs = r.segs.filter(s=>s.m===p.id && idx(s.e)>idx(s.s) && !s.open)
+                        .sort((a,b)=>idx(a.s)-idx(b.s));
+    if(!psegs.length) return;
+    const tip=`<b>${p.name}</b>${p.lead?` · 隶属${p.lead}`:''}<br><span class='g'>效率系数</span> ${p.eff}　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>预计可消化</span> <b style='color:#7da0ff'>${r1(p.cap)}</b> 人天　<span class='g'>(剩余窗口 ${left} 工作日)</span>`;
+    let bars='';
+    psegs.forEach(s=>{
+      const l=idx(s.s)*DAY_W, w=Math.max((idx(s.e)-idx(s.s))*DAY_W,6);
+      bars+=`<i class="cl-bar" style="left:${l}px;width:${w}px;background:${p.col}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
+    });
+    const labL=idx(psegs[0].s)*DAY_W;
+    lanes+=`<div class="cl-row">${bars}<span class="cl-lab" style="left:${labL}px">${p.name} <b>${r1(p.cap)}d</b></span></div>`;
+  });
+  // —— 末行：按工作量的消化缺口 / 富余 ——
+  let tailRow='';
+  if(gap>0){
+    const gd=Math.min(gap/(remain||1)*span, span);        // 缺口折算成「贴近截止」的天数
+    const gl=(boxE-gd)*DAY_W, gw=Math.max(gd*DAY_W,6);
+    const gtip=`<b style='color:#d4380d'>消化缺口</b><br>现有人力预计<b>无法消化 ${r1(gap)} 人天</b><br><span class='g'>剩余工作量 ${remain} · 合计可消化 ${r1(totalCap)}</span><br><span class='g'>需 加人 / 延期 / 提效</span>`;
+    tailRow=`<div class="cl-row"><i class="cl-bar cl-gap" style="left:${gl}px;width:${gw}px" onmousemove="event.stopPropagation();showTip(event,\`${gtip}\`,true)" onmouseleave="hideTip()"></i><span class="cl-lab cl-gaplab" style="left:${gl}px">缺 ${r1(gap)}d</span></div>`;
+  }else if(surplus>0){
+    tailRow=`<div class="cl-row"><span class="cl-lab cl-oklab" style="left:${boxL}px">✓ 产能可覆盖 · 余 ${r1(surplus)}d</span></div>`;
+  }
+  const nRows=parts.filter(p=>r.segs.some(s=>s.m===p.id&&idx(s.e)>idx(s.s)&&!s.open)).length + ((gap>0||surplus>0)?1:0);
+  const H=nRows*(CLANE_H+CLANE_GAP)+6;
+  const headTip=`<b>${r.name} · 产能消化（一人一行）</b><br><span class='g'>剩余工作量</span> ${remain} 人天　<span class='g'>剩余窗口</span> ${left} 工作日<br><span class='g'>在做</span> ${parts.length} 人 · 合计可消化 <b>${r1(totalCap)}</b> 人天<br>${gap>0?`<span style='color:#d4380d'>⚠ 缺口 ${r1(gap)} 人天无法消化（白色/红斜纹区）</span>`:`<span style='color:#2b8a3e'>✓ 产能可覆盖${surplus>0?`，富余 ${r1(surplus)} 人天`:''}</span>`}<br><span class='g'>每行 = 一名制作人的真实投入档期；白色 = 该时段无人覆盖</span>`;
+  const html=`<div class="cap-lanes" style="height:${H}px"><div class="cl-box" style="left:${boxL}px;width:${boxW}px" onmousemove="showTip(event,\`${headTip}\`,true)" onmouseleave="hideTip()"></div>${lanes}${tailRow}</div>`;
+  return {html, h:H};
+}
+
 function memLoad(id){
   const horizonEnd = new Date(TODAY.getTime()+30*dayMs);   // 未来30天负载窗口（长周期排期）
   const avail = workdays(TODAY,horizonEnd);
@@ -2005,7 +2061,10 @@ function reqRowHTML(r, prevR, nextR, inArc){
       +`<i class="lv lv-grade${contCls(sameGradeUp,sameGradeDown)}" style="background:${gCol}" title="品级：${g.label}"></i>`
       +`</span>`;
     const rsCls = reqState(r)==='dropped'?' req-dropped':reqState(r)==='paused'?' req-paused':'';
-    const rowHTML=`<div class="row req-row${inArc?' in-archived':''}${rsCls}" data-req-row="${r.id}">
+    // 产能消化泳道（一人一行甘特）：废弃/时间待定不画
+    const laneObj = reqOpen ? null : capacityLanesHTML(r);
+    const laneH = laneObj ? laneObj.h : 0;
+    const rowHTML=`<div class="row req-row${inArc?' in-archived':''}${rsCls}${laneH?' has-lanes':''}" data-req-row="${r.id}" style="--lane-h:${laneH}px">
       <div class="cell-left has-bands">
         ${bands}
         <span class="gdot-grade" style="background:${g.col}" title="${g.label}级"></span>
@@ -2014,7 +2073,6 @@ function reqRowHTML(r, prevR, nextR, inArc){
           <div class="who-groups">${chips}${addPersonRow}</div>
           <div class="meta">${r.estimate}人天 · 完成${prog}% · <span class="left-d">剩${risk.left}工作日</span></div>
           <div class="meta meta-team">${teamCount}${addons.length?` · <span id="lt-meta-${r.id}" style="color:#7c3aed">${(()=>{const lw=reqOpen?0:(()=>{const p=getPhases(r);return (p.lt2&&p.lt2.e>p.lt2.s)?workdays(i2d(p.lt2.s),i2d(p.lt2.e)):0;})();return lw>0?`+联调${lw}工作日`:'<span style=\"color:#a7adb8\">联调已并入L2</span>';})()}</span>`:''}</div>
-          ${capacityBarHTML(r)}
         </div>
         <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
       </div>
@@ -2057,6 +2115,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
           ${div2L!=null?`<i class="ph-div ph-div2" data-req="${r.id}" data-phdiv="2" title="${dv2Tip}" style="left:${div2L}%"></i>`:''}
           <i class="grip gl"></i><i class="grip gr"></i></div>`;
         })()}
+        ${laneObj?laneObj.html:''}
       </div>
     </div>`;
   return rowHTML;
