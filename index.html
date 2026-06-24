@@ -2107,7 +2107,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 人力缺口</span> 标配${REQ_STD[r.id]}人 · 在岗${activeBase(r)}人 · 缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
     const teamTip = `<br><span class='g'>团队</span> 正编${regs.length}人${regs.length?'（'+regs.map(m=>m.name).join('、')+'）':''} · 基地${bases.length}人${bases.length?'（'+bases.map(m=>m.name).join('、')+'）':''}`;
     const tip=`<b>${r.name}</b><br><span class='g'>角色</span> ${r.char||'-'} · <span style='color:${g.col}'>${g.label}级</span> · ${r.mod||''}<br><span class='g'>状态</span> ${stLabel}　<span class='g'>时间进度</span> ${prog}% · 剩余${leftWD}工作日<br><span class='g'>窗口</span> ${fmt(i2d(allS))} → ${fmt(i2d(allE))}${teamTip}<br><span class='g'>风险主因</span> ${risk.cause} → <b>${risk.lvl}风险</b>${gapTip}${olTip}<br><span class='g' style='color:#7da0ff'>单击改整条状态</span>`;
-    // 统一人员标签：底色=编制(正编实心紫/基地浅白)，左圆点=隶属带队，橙环=跨队支援，新/临/离=角标。mini=蓝条内小号
+    // 统一人员标签：底色=编制(正编蓝/基地淡白)，橙环=跨队支援，新/临/离=角标。mini=蓝条内小号。隶属带队色圆点已去除（与编制色冲突）
     const reqLead = reqLeadOf(r);
     const ptag=(m,mini)=>{
       const myLead=leadOf(m);
@@ -2117,7 +2117,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
       const supCls = isSup?' is-sup':'';
       const miniCls = mini?' mini':'';
       const crown = m.corp==='reg'?'<i class="crown">👑</i>':'';
-      const dot = myLead?`<i class="team-dot" style="background:${leadColor(myLead)}" title="隶属 ${myLead} 带队"></i>`:'';
+      const dot = '';   // 已去除隶属带队色圆点：编制已统一按 corpStyle 着色，隶属圆点冗余且与编制色混淆
       let marks='';
       if(isSup) marks+='<i class="mk mk-sup" title="跨队支援">支</i>';
       const rk=rookieFlag(m);
@@ -4286,7 +4286,7 @@ function setView(v,btn){view=v;document.getElementById('viewTabs').querySelector
 function updateHint(){
   const h=document.getElementById('hintBar'); if(!h)return;
   if(view==='req'){
-    h.innerHTML='💡 左侧竖带=角色品级色：<b style="color:#e0a400">金</b> / <b style="color:#f59e0b">橙</b> / <b style="color:#ef3b39">红</b>，同品级相邻行连成整条 · 人名标签：<b style="color:#fff;background:#0052d9;padding:0 6px;border-radius:8px">👑正编</b> 实心蓝 / <span style="color:#56607a;background:#eef1f7;border:1px solid #c4ccdb;padding:0 6px;border-radius:8px">基地</span> 淡白，左圆点=隶属带队 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
+    h.innerHTML='💡 左侧竖带=角色品级色：<b style="color:#e0a400">金</b> / <b style="color:#f59e0b">橙</b> / <b style="color:#ef3b39">红</b>，同品级相邻行连成整条 · 人名标签：<b style="color:#fff;background:#0052d9;padding:0 6px;border-radius:8px">👑正编</b> 实心蓝 / <span style="color:#56607a;background:#eef1f7;border:1px solid #c4ccdb;padding:0 6px;border-radius:8px">基地</span> 淡白 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
   }else if(view==='person'){
     h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求';
   }else{
