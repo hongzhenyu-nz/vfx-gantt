@@ -474,9 +474,9 @@
   /* 按人看：条内统一标题（深色条上：模块标签转白系；图标随标签一体） */
   .bar-task .rt-line{display:inline-flex;align-items:center;gap:5px;position:relative;z-index:1;overflow:hidden;pointer-events:none;}
   .bar-task .rt-line .rt-nm{color:#fff;font-size:14px;text-shadow:0 1px 1px rgba(0,0,0,.22);}
-  .bar-task .rt-line .rt-mod{color:#fff!important;background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.45)!important;}
-  .bar-task .rt-line .rt-md{color:#fff!important;background:rgba(255,255,255,.20)!important;border-color:rgba(255,255,255,.42)!important;}
-  .bar-task .rt-line .rt-md small{opacity:.9;}
+  /* 条内模块/人天徽标改用与左侧信息栏完全一致的浅底深字（不再白字白底，保证可读） */
+  .bar-task .rt-line .rt-md{color:#475067!important;background:#eef1f7!important;border-color:#d7dce6!important;box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  .bar-task .rt-line .rt-md small{opacity:.75;}
   /* 联调附属小条：虚线胶囊，挂在本体条之后 */
   .bar-addon{position:absolute;height:20px;top:31px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));cursor:grab;z-index:2;user-select:none;touch-action:none;}
   .bar-addon .ax-ic{font-size:9px;}
@@ -648,7 +648,7 @@
   .bar-task.req-bar .bl-ok{color:#dfffe9;font-weight:800;}
   .bar-task.req-bar .qa-flag{font-size:11px;font-weight:700;color:#e8eaed;letter-spacing:.5px;padding-left:14px;}
   .bar-task.req-bar .prog{inset:0;height:auto;border-radius:inherit;}  /* 需求条进度沿用全高蒙版方案 */
-  .bar-task.req-bar .sdot{position:absolute;left:8px;top:8px;}
+  .bar-task.req-bar .sdot{display:none;}
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:18px;}
   .panel h3{font-size:14px;font-weight:600;margin-bottom:10px;}
@@ -733,6 +733,22 @@
   .eff-tiers.locked .eff-chip .x,.eff-tiers.locked .eff-del-tier{display:none;}
   .eff-tiers.locked .ef-coef,.eff-tiers.locked .ef-label{pointer-events:none;background:#f4f5f7;color:var(--tx3);border-color:var(--line);}
   .eff-lock-hint{font-size:11px;color:var(--tx3);margin-top:5px;}
+  /* 投入比 / 精力分配 固定数据表 */
+  .inv-table{width:100%;border-collapse:separate;border-spacing:0;margin-top:8px;font-size:12px;border:1px solid var(--line);border-radius:10px;overflow:hidden;}
+  .inv-table th,.inv-table td{padding:9px 12px;text-align:left;vertical-align:middle;border-bottom:1px solid var(--line2);}
+  .inv-table thead th{background:#f4f6f9;color:var(--tx2);font-size:11px;font-weight:800;letter-spacing:.3px;border-bottom:1px solid var(--line);}
+  .inv-table tbody tr:last-child td{border-bottom:none;}
+  .inv-table tbody tr:hover{background:#fafbfc;}
+  .inv-table .it-type{font-weight:800;color:var(--tx);white-space:nowrap;}
+  .inv-table .it-type i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle;}
+  .inv-table .it-val{font-weight:800;font-size:13px;text-align:center;white-space:nowrap;}
+  .inv-table .it-val b{display:inline-block;min-width:34px;padding:2px 8px;border-radius:6px;}
+  .inv-table .it-desc{color:var(--tx2);line-height:1.55;}
+  .inv-table .it-desc b{color:var(--tx);}
+  .inv-table .it-scene{color:var(--tx3);font-size:11px;line-height:1.5;white-space:nowrap;}
+  .inv-foot{margin-top:9px;color:var(--tx3);font-size:11.5px;line-height:1.7;}
+  .inv-foot b{color:var(--tx2);}
+  .inv-foot code{background:#eef1f7;color:#0a7d3c;}
   code{background:#f0f2f5;padding:1px 5px;border-radius:4px;font-size:11px;color:#d6336c;}
 
   #tip{position:fixed;background:#1f2329;color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;line-height:1.6;pointer-events:none;opacity:0;transition:opacity .1s;z-index:99;max-width:260px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
@@ -946,6 +962,49 @@
         </div>
         <div id="effTiers" class="eff-tiers locked"></div>
         <p style="margin-top:8px;color:var(--tx3);">系数以 <b>1.0 = 一名标准基地人力</b> 为基准；&gt;1 比基准强、&lt;1 偏弱。修改系数、人群说明或把成员在档位间调整后，<b>每位成员的效率、负载率与需求风险会立即按新值重算</b>。</p>
+      </div>
+
+      <div class="rule" style="grid-column:1/-1;">
+        <div class="t"><i style="background:#0a7d3c"></i>投入比 / 精力分配（消化工作量计算）</div>
+        <table class="inv-table">
+          <thead><tr><th style="width:140px">类型</th><th style="width:92px;text-align:center">投入比</th><th>行为 / 计算规则</th><th style="width:150px">典型场景</th></tr></thead>
+          <tbody>
+            <tr>
+              <td class="it-type"><i style="background:#0a7d3c"></i>全人力制作</td>
+              <td class="it-val"><b style="background:#e9f8ee;color:#0a7d3c">1.0</b></td>
+              <td class="it-desc">全力投入单条产出。若某人<b>同一天并行 N 条全人力制作</b>，当天对每条<b>自动平摊为 1/N</b>（并行越多、单条消化越慢，零维护随排期自动变）。</td>
+              <td class="it-scene">主力特效师独立<br>承制一条需求</td>
+            </tr>
+            <tr>
+              <td class="it-type"><i style="background:#b36b00"></i>完整跟进</td>
+              <td class="it-val"><b style="background:#fff1da;color:#b36b00">0.5</b></td>
+              <td class="it-desc">持续跟进效果但非全力制作。<b>固定投入比</b>，不参与并行分摊。</td>
+              <td class="it-scene">资深盯方向 /<br>全程把控品质</td>
+            </tr>
+            <tr>
+              <td class="it-type"><i style="background:#d6a000"></i>部分跟进</td>
+              <td class="it-val"><b style="background:#fdf6e3;color:#a07800">0.3</b></td>
+              <td class="it-desc">花一部分精力跟进反馈效果。<b>固定投入比</b>，不参与并行分摊。</td>
+              <td class="it-scene">兼顾多条 /<br>定期 review</td>
+            </tr>
+            <tr>
+              <td class="it-type"><i style="background:#c4ccd8"></i>轻度跟进</td>
+              <td class="it-val"><b style="background:#f4f6f9;color:#646a73">0.2</b></td>
+              <td class="it-desc">仅偶尔介入、轻度反馈。<b>固定投入比</b>，不参与并行分摊。</td>
+              <td class="it-scene">挂名顾问 /<br>临时支援反馈</td>
+            </tr>
+            <tr>
+              <td class="it-type"><i style="background:var(--amber)"></i>支援(外借)</td>
+              <td class="it-val"><b style="background:#fff1da;color:#b36b00">不打折</b></td>
+              <td class="it-desc">仅表<b>编制隶属</b>状态（人来自其他基地/借调），<u>不改变投入比</u>，消化量按其实际投入比（全人力或跟进）计算。</td>
+              <td class="it-scene">跨基地借调<br>支援本组</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="inv-foot">
+          <b>计算公式：</b><code>已消化人天 = Σ(每个工作日的投入比) × 效率系数</code>　·　投入比刻画「精力分配」，效率系数刻画「个人产能强弱」，两者<b>相互独立、相乘</b>。<br>
+          <b>举例：</b>投入 10 个工作日、全程单线全人力(投入比1.0)、效率1.1 → 消化 <b>11 人天</b>；若这 10 天里平均并行 2 条全人力 → 折合投入 5 工作日 × 1.1 = <b>5.5 人天</b>。
+        </div>
       </div>
     </div>
   </div>
@@ -1740,6 +1799,53 @@ function reqCapacityBreakdown(r){
 }
 
 const r1=v=>Math.round(v*10)/10;
+
+/* ============ 投入比（精力分配）口径 ============
+   消化人天 = Σ(每个工作日的投入比) × 效率系数。投入比分两类：
+   ① 跟进型：seg.inv 显式 <1（部分跟进 0.2~0.3 / 完整跟进 0.5）——该人本来就只投入部分精力，
+      固定折算，不参与并行分摊；
+   ② 全人力制作：seg.inv 未设或 =1 —— 该人当天若同时在跑 N 条「全人力制作」段，
+      当天对每条的投入比自动平摊为 1/N（并行越多、单条消化越慢）。
+   support（支援）只表编制隶属，不打折。 */
+function segIsFollow(s){ return s.inv!=null && s.inv<1; }        // 跟进型(固定投入比)
+function segInvBase(s){ return (s.inv!=null && s.inv<1) ? s.inv : 1; }  // 全人力制作记为 1（参与分摊）
+/* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
+function personDayFullCount(id, t){
+  let n=0;
+  reqs.forEach(rr=>{
+    if(reqState(rr)==='dropped') return;
+    rr.segs.forEach(s=>{
+      if(s.m!==id || s.open) return;
+      if(segIsFollow(s)) return;                    // 跟进型不参与并行分摊计数
+      if(t>=s.s.getTime() && t<s.e.getTime()) n++;
+    });
+  });
+  return n;
+}
+/* 计算某人在某需求的「已消化工作量」：逐工作日累加投入比，再 × 效率 */
+function digestPersonReq(r, id){
+  const psegs = r.segs.filter(s=>s.m===id && idx(s.e)>idx(s.s) && !s.open);
+  const eff = memEff(id);
+  let investWD=0, invSum=0, hasFollow=false, hasFull=false, parSum=0, parDays=0;
+  psegs.forEach(seg=>{
+    const follow = segIsFollow(seg);
+    if(follow) hasFollow=true; else hasFull=true;
+    for(let t=seg.s.getTime(); t<seg.e.getTime(); t+=dayMs){
+      const w=new Date(t).getDay();
+      if(w===0||w===6) continue;                    // 仅工作日
+      investWD++;
+      if(follow){ invSum += segInvBase(seg); }
+      else{
+        const par = personDayFullCount(id, t) || 1; // 当天全人力并行条数
+        invSum += 1/par; parSum += par; parDays++;
+      }
+    }
+  });
+  const avgPar = parDays ? parSum/parDays : 1;       // 全人力段的平均并行条数(用于 tip 说明)
+  const followPct = hasFollow ? segInvBase(psegs.find(segIsFollow)) : null;
+  return { investWD, invSum:r1(invSum), eff, digest:r1(invSum*eff), hasFollow, hasFull, avgPar:r1(avgPar), followPct };
+}
+
 /* 渲染需求行内的"产能消化占比条"：各人色块(按隶属上色) + 红斜纹缺口块 + 富余完成线 */
 function capacityBarHTML(r){
   const cb = reqCapacityBreakdown(r);
@@ -1810,11 +1916,18 @@ function capacityLanesHTML(r){
     const p = capOf[id] || {id, name:memName(id), cap:0, eff:memEff(id), load:(memLoad(id)||{}).pct, of:1, lead, col};
     const effv=(p.eff!=null?p.eff:1);
     const investWD = psegs.reduce((s,seg)=>s+workdays(seg.s,seg.e),0);   // 本需求投入工作日(各档期段跨度合计)
-    const digest = r1(investWD*effv);                                    // 已消化工作量(人天) = 投入工作日 × 效率
+    const dg = digestPersonReq(r, id);                                   // 逐工作日累加投入比 × 效率
+    const digest = dg.digest;                                            // 已消化工作量(人天)
+    // 投入比说明文案：区分「部分/完整跟进」与「全人力制作(并行自动分摊)」
+    const invDesc = dg.hasFollow
+      ? `按<b>跟进投入比 ${dg.followPct}</b>${dg.hasFull?` + 全人力制作段`:''}折算`
+      : (dg.avgPar>1.05
+          ? `全人力制作，期间平均并行 <b>${dg.avgPar}</b> 条 → 自动分摊（折合 <b>${dg.invSum}</b> 满工作日）`
+          : `全人力制作（无并行，投入比 1.0）`);
     const capTxt = p.cap>0
       ? `还可消化 <b style='color:#7da0ff'>${r1(p.cap)} 个工作日</b>的活　<span class='g'>(按剩余窗口 ${left} 个工作日 × 效率估算)</span>`
       : `<span class='g'>剩余窗口已结束 · 暂无可消化产能</span>`;
-    const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff} <span class='g'>(条越粗=效率越高)</span>　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}（共 ${investWD} 工作日）<br><span class='g'>已消化工作量</span> 投入 ${investWD} 工作日 × 效率 ${effv} = <b style='color:#5fd08a'>${digest} 人天</b>　<span class='g'>(条越长=投入越多·越粗=效率越高)</span><br><span class='g'>剩余产能</span> ${capTxt}`;
+    const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff} <span class='g'>(条越粗=效率越高)</span>　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}（共 ${investWD} 工作日）<br><span class='g'>精力分配</span> ${invDesc}<br><span class='g'>已消化工作量</span> 折合投入 ${dg.invSum} 工作日 × 效率 ${effv} = <b style='color:#5fd08a'>${digest} 人天</b>　<span class='g'>(条越长=投入越多·越粗=效率越高)</span><br><span class='g'>剩余产能</span> ${capTxt}`;
     const segBord=cs.bord?`;box-shadow:inset 0 0 0 1px ${cs.bord},0 1px 2px rgba(0,0,0,.18)`:'';   // 淡白条加描边才看得见
     const segH=Math.round(Math.max(6,Math.min(26, 15+(effv-1)*90)));   // 条高随效率：差异拉大(斜率90)——效率越高越粗、越低越细（0.85→6 / 0.95→11 / 1.0→15 / 1.05→20 / 1.10→24px）
     let segs='';
@@ -2512,6 +2625,7 @@ window.addEventListener('pointerup',()=>{
       const newSeg={m:src.m, s:i2d(s), e:i2d(e), prog:src.prog, status:src.status};
       if(src.support) newSeg.support=true;
       if(src.open) newSeg.open=true;
+      if(src.inv!=null) newSeg.inv=src.inv;
       if(targetMember && targetMember!==src.m){
         newSeg.m=targetMember;
         const mem=memById(targetMember), rl=reqLeadOf(r), ml=leadOf(mem);
@@ -2867,7 +2981,7 @@ function reapplySelection(){
 let clip=null;                 // {mode:'copy'|'cut', reqId, seg|null, payload}
 function segPayload(r,si){
   const s=r.segs[si];
-  return {m:s.m, s:idx(s.s), e:idx(s.e), prog:s.prog, status:s.status, support:!!s.support, open:!!s.open, span:idx(s.e)-idx(s.s)};
+  return {m:s.m, s:idx(s.s), e:idx(s.e), prog:s.prog, status:s.status, support:!!s.support, open:!!s.open, inv:(s.inv!=null?s.inv:null), span:idx(s.e)-idx(s.s)};
 }
 function doCopy(cut){
   if(!selectedBar){toast('请先点选一个任务条');return;}
@@ -2897,6 +3011,7 @@ function doPaste(){
   const dstStart=Math.min(...dst.segs.map(s=>idx(s.s)));
   let ns=dstStart, ne=Math.min(dstStart+p.span, DAYS);
   const newSeg={m:p.m, s:i2d(ns), e:i2d(ne), prog:p.prog, status:p.status};
+  if(p.inv!=null) newSeg.inv=p.inv;
   // 跨队支援判定：粘到的需求带队归属 ≠ 此人隶属 → 标记支援
   const mem=memById(p.m), rl=reqLeadOf(dst), ml=leadOf(mem);
   if(p.support || (rl&&ml&&ml!==rl)) newSeg.support=true;
@@ -3002,6 +3117,15 @@ function closeAdd(){addMask.classList.remove('show');addCtx=null;}
 addMask.addEventListener('pointerdown',e=>{if(e.target===addMask)closeAdd();});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&addMask.classList.contains('show'))closeAdd();},true);
 
+/* 投入比下拉（加人/加任务弹窗共用）：全人力制作=1(并行自动分摊)、完整跟进=0.5、部分跟进=0.2~0.3 */
+const INV_SELECT_HTML = `<div class="fld"><label>投入比（精力分配）</label>
+      <select id="addInv">
+        <option value="1" selected>全人力制作（1.0 · 并行多条时自动分摊）</option>
+        <option value="0.5">完整跟进（0.5 · 持续跟进效果，非全力）</option>
+        <option value="0.3">部分跟进（0.3 · 花部分精力跟进反馈）</option>
+        <option value="0.2">轻度跟进（0.2 · 偶尔介入、轻度反馈）</option>
+      </select></div>`;
+
 /* 给某成员加任务：选择「哪条需求」+ 起止日期 */
 function openAddTaskFor(memId){
   if(!requireWrite())return;
@@ -3021,6 +3145,7 @@ function openAddTaskFor(memId){
       <div class="fld"><label>结束日期</label><input type="date" id="addEnd" min="${G_MIN}" max="${G_MAX}"></div>
     </div>
     <label class="open-chk"><input type="checkbox" id="addOpen" onchange="toggleAddOpen()"> 无明确时间（待定 / 长期）—— 任务条将前后无限延长铺满时间线</label>
+    ${INV_SELECT_HTML}
     <div class="seg-pre" id="addPre"></div>
     <div class="warn" id="addWarn"></div>`
     : `<div class="ctx">✅ <b>${m.name}</b> 已经参与了全部需求，没有可再新增的需求了。</div>`;
@@ -3054,6 +3179,7 @@ function openAddPersonTo(reqId, prefCorp){
       <div class="fld"><label>结束日期</label><input type="date" id="addEnd" min="${G_MIN}" max="${G_MAX}"></div>
     </div>
     <label class="open-chk"><input type="checkbox" id="addOpen" onchange="toggleAddOpen()"> 无明确时间（待定 / 长期）—— 任务条将前后无限延长铺满时间线</label>
+    ${INV_SELECT_HTML}
     <div class="seg-pre" id="addPre"></div>
     <div class="warn" id="addWarn"></div>`
     : `<div class="ctx">✅ 全部成员都已在该需求中，没有可再添加的人了。</div>`;
@@ -3140,9 +3266,12 @@ function confirmAdd(){
     let ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
     seg={m:memId, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'};
   }
+  // 投入比（精力分配）：!=1 时写入 seg.inv；=1(全人力)不写，走自动并行分摊
+  const invEl=document.getElementById('addInv');
+  const invV=invEl?parseFloat(invEl.value):1;
+  if(invV>0 && invV<1) seg.inv=invV;
   // 跨带队归属 → 标记支援
-  const mem=memById(memId), rl=reqLeadOf(r), ml=leadOf(mem);
-  if(rl&&ml&&ml!==rl) seg.support=true;
+  const mem=memById(memId), rl=reqLeadOf(r), ml=leadOf(mem);  if(rl&&ml&&ml!==rl) seg.support=true;
   r.segs.push(seg);
   r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e))));
   _logDesc='给「'+r.name+'」新增任务条（'+memName(memId)+'）';
@@ -3409,7 +3538,7 @@ function coreSnapshot(){
     groupMode:{person:GROUP_MODE.person,req:GROUP_MODE.req},
     // 需求：除原有 end/done/split 外，序列化全部字段，使「新增需求」持久化
     reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',state:r.state||'active',estimate:r.estimate,end:idx(r.end),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),
-      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:idx(s.e),prog:s.prog,status:s.status,support:!!s.support,open:!!s.open}))}))
+      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:idx(s.e),prog:s.prog,status:s.status,support:!!s.support,open:!!s.open,...(s.inv!=null?{inv:s.inv}:{})}))}))
   };
 }
 function applySnap(snap){
@@ -3470,7 +3599,7 @@ function applySnap(snap){
     if(rs.split2!==undefined) r.split2=(rs.split2==null?undefined:rs.split2); // L2/联调 分割点（绝对日索引）
     // 全量重建 segs（不再按下标合并）：保证「新增/删除人员段」在刷新、分享链接、跨标签同步后都不丢失
     if(Array.isArray(rs.segs)){
-      r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(ss.e),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;if(ss.open)o.open=true;return o;});
+      r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(ss.e),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;if(ss.open)o.open=true;if(ss.inv!=null)o.inv=ss.inv;return o;});
     }
   });
   // 同步归档/分组控件 UI
