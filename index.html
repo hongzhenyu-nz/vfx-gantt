@@ -1196,13 +1196,14 @@ function isExtLoan(m){
 }
 
 /* 编制三态着色（统一口径，与「按人看·corp 分组」一致）：
-   外借支援(橙) / 正编带队(紫) / 基地(灰)。
+   外借支援(橙) / 正编带队(紫) / 基地(青绿)。
    返回 {key,label,col,short}；供「一人一行甘特」的条色与标签编制徽标统一取色——
-   即甘特按"编制"上色，而非"隶属带队"。short 为标签徽标单字。 */
+   即甘特按"编制"上色，而非"隶属带队"。short 为标签徽标单字。
+   注：基地避开灰色（灰易被误读为废弃态），统一用青绿 #0d9488。 */
 function corpStyle(m){
   if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借'};
   if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#7c3aed',short:'正'};
-  return {key:'base',label:'基地',col:'#646a73',short:'基'};
+  return {key:'base',label:'基地',col:'#0d9488',short:'基'};
 }
 
 /* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
