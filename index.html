@@ -1769,6 +1769,8 @@ function capacityBarHTML(r){
 const CLANE_H=24, CLANE_GAP=5;
 /* 一人一行甘特（条内版）：覆盖在任务条内部、取代原角色标签。
    位置按「相对本条左缘的百分比」给出，与 L1/L2 同坐标系，自动对齐。
+   每人标签的「消化N天」= 该人本需求投入工作日 × 效率系数（衡量已承担/消化的工作量，
+   不依赖剩余窗口，只要有档期就有值）；条长=投入工期、条粗=效率。
    返回 {html, h, nRows}；html 为待注入条内的 .bl-lanes 块。 */
 function capacityLanesHTML(r){
   if(reqState(r)==='dropped') return null;               // 仅废弃需求不画泳道；已完成同样有真实档期，照画
@@ -1800,12 +1802,14 @@ function capacityLanesHTML(r){
     const lead=leadOf(m);
     const cs=corpStyle(m), col=cs.col;            // 甘特条按「编制」着色：正编蓝/基地淡白/外借橙（不再按隶属带队色）
     const p = capOf[id] || {id, name:memName(id), cap:0, eff:memEff(id), load:(memLoad(id)||{}).pct, of:1, lead, col};
+    const effv=(p.eff!=null?p.eff:1);
+    const investWD = psegs.reduce((s,seg)=>s+workdays(seg.s,seg.e),0);   // 本需求投入工作日(各档期段跨度合计)
+    const digest = r1(investWD*effv);                                    // 已消化工作量(人天) = 投入工作日 × 效率
     const capTxt = p.cap>0
       ? `还可消化 <b style='color:#7da0ff'>${r1(p.cap)} 个工作日</b>的活　<span class='g'>(按剩余窗口 ${left} 个工作日 × 效率估算)</span>`
       : `<span class='g'>剩余窗口已结束 · 暂无可消化产能</span>`;
-    const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff} <span class='g'>(条越粗=效率越高)</span>　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>剩余产能</span> ${capTxt}`;
+    const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff} <span class='g'>(条越粗=效率越高)</span>　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}（共 ${investWD} 工作日）<br><span class='g'>已消化工作量</span> 投入 ${investWD} 工作日 × 效率 ${effv} = <b style='color:#5fd08a'>${digest} 人天</b>　<span class='g'>(条越长=投入越多·越粗=效率越高)</span><br><span class='g'>剩余产能</span> ${capTxt}`;
     const segBord=cs.bord?`;box-shadow:inset 0 0 0 1px ${cs.bord},0 1px 2px rgba(0,0,0,.18)`:'';   // 淡白条加描边才看得见
-    const effv=(p.eff!=null?p.eff:1);
     const segH=Math.round(Math.max(6,Math.min(26, 15+(effv-1)*90)));   // 条高随效率：差异拉大(斜率90)——效率越高越粗、越低越细（0.85→6 / 0.95→11 / 1.0→15 / 1.05→20 / 1.10→24px）
     let segs='';
     psegs.forEach(s=>{
@@ -1814,7 +1818,7 @@ function capacityLanesHTML(r){
     });
     const labL=pc(idx(psegs[0].s));
     const corpBadge=`<i class="bl-corp" style="background:${col};color:${cs.txt};box-shadow:inset 0 0 0 1px ${cs.bord||'rgba(255,255,255,.35)'}">${cs.short}</i>`;   // 编制徽标：正/基/借
-    const capLab = p.cap>0?`<b>余${r1(p.cap)}天</b>`:'';                              // 余N天 = 该人在本需求剩余窗口内预计还能消化的工作量
+    const capLab = digest>0?`<b>消化${digest}天</b>`:'';                            // 消化N天 = 该人在本需求已投入工作日 × 效率（不依赖剩余窗口，有档期即有值）
     lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${p.name}${capLab}</span></div>`;
   });
   if(!nRows) return null;
