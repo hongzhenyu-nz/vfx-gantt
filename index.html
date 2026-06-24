@@ -749,6 +749,19 @@
   .inv-foot{margin-top:9px;color:var(--tx3);font-size:11.5px;line-height:1.7;}
   .inv-foot b{color:var(--tx2);}
   .inv-foot code{background:#eef1f7;color:#0a7d3c;}
+  /* 投入比表可编辑态：输入框 + 删除钮（锁定时隐藏/置灰） */
+  .inv-table .it-dot{cursor:pointer;border:none;padding:0;}
+  .inv-table .iv-name{border:1px solid transparent;background:transparent;font-weight:800;color:var(--tx);font-size:12px;border-radius:5px;padding:2px 5px;width:88px;}
+  .inv-table .iv-val{border:1px solid transparent;background:transparent;font-weight:800;font-size:13px;text-align:center;border-radius:6px;padding:2px 4px;width:52px;}
+  .inv-table .iv-desc,.inv-table .iv-scene{border:1px solid transparent;background:transparent;color:inherit;font:inherit;border-radius:5px;padding:2px 5px;width:100%;resize:none;line-height:1.5;font-family:inherit;}
+  .inv-table:not(.locked) .iv-name,.inv-table:not(.locked) .iv-val,.inv-table:not(.locked) .iv-desc,.inv-table:not(.locked) .iv-scene{border-color:var(--line);background:#fff;}
+  .inv-table:not(.locked) .it-dot:hover{box-shadow:0 0 0 2px rgba(0,0,0,.06) inset,0 0 0 3px rgba(112,72,232,.25);}
+  .inv-table .iv-del{display:none;width:20px;height:20px;border:none;background:#fbeaea;color:#d32320;border-radius:5px;cursor:pointer;font-weight:800;line-height:1;}
+  .inv-table:not(.locked) .iv-del{display:inline-flex;align-items:center;justify-content:center;}
+  .inv-table.locked .iv-name,.inv-table.locked .iv-val,.inv-table.locked .iv-desc,.inv-table.locked .iv-scene{pointer-events:none;}
+  .inv-table.locked .it-dot{cursor:default;}
+  .inv-table .it-fixed td{background:#fafbfc;}
+  .inv-table .it-fixrow{font-size:10px;color:var(--tx3);font-weight:700;border:1px solid var(--line);border-radius:4px;padding:0 5px;margin-left:5px;white-space:nowrap;}
   code{background:#f0f2f5;padding:1px 5px;border-radius:4px;font-size:11px;color:#d6336c;}
 
   #tip{position:fixed;background:#1f2329;color:#fff;padding:9px 12px;border-radius:8px;font-size:12px;line-height:1.6;pointer-events:none;opacity:0;transition:opacity .1s;z-index:99;max-width:260px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
@@ -965,42 +978,11 @@
       </div>
 
       <div class="rule" style="grid-column:1/-1;">
-        <div class="t"><i style="background:#0a7d3c"></i>投入比 / 精力分配（消化工作量计算）</div>
-        <table class="inv-table">
-          <thead><tr><th style="width:140px">类型</th><th style="width:92px;text-align:center">投入比</th><th>行为 / 计算规则</th><th style="width:150px">典型场景</th></tr></thead>
-          <tbody>
-            <tr>
-              <td class="it-type"><i style="background:#0a7d3c"></i>全人力制作</td>
-              <td class="it-val"><b style="background:#e9f8ee;color:#0a7d3c">1.0</b></td>
-              <td class="it-desc">全力投入单条产出。若某人<b>同一天并行 N 条全人力制作</b>，当天对每条<b>自动平摊为 1/N</b>（并行越多、单条消化越慢，零维护随排期自动变）。</td>
-              <td class="it-scene">主力特效师独立<br>承制一条需求</td>
-            </tr>
-            <tr>
-              <td class="it-type"><i style="background:#b36b00"></i>完整跟进</td>
-              <td class="it-val"><b style="background:#fff1da;color:#b36b00">0.5</b></td>
-              <td class="it-desc">持续跟进效果但非全力制作。<b>固定投入比</b>，不参与并行分摊。</td>
-              <td class="it-scene">资深盯方向 /<br>全程把控品质</td>
-            </tr>
-            <tr>
-              <td class="it-type"><i style="background:#d6a000"></i>部分跟进</td>
-              <td class="it-val"><b style="background:#fdf6e3;color:#a07800">0.3</b></td>
-              <td class="it-desc">花一部分精力跟进反馈效果。<b>固定投入比</b>，不参与并行分摊。</td>
-              <td class="it-scene">兼顾多条 /<br>定期 review</td>
-            </tr>
-            <tr>
-              <td class="it-type"><i style="background:#c4ccd8"></i>轻度跟进</td>
-              <td class="it-val"><b style="background:#f4f6f9;color:#646a73">0.2</b></td>
-              <td class="it-desc">仅偶尔介入、轻度反馈。<b>固定投入比</b>，不参与并行分摊。</td>
-              <td class="it-scene">挂名顾问 /<br>临时支援反馈</td>
-            </tr>
-            <tr>
-              <td class="it-type"><i style="background:var(--amber)"></i>支援(外借)</td>
-              <td class="it-val"><b style="background:#fff1da;color:#b36b00">不打折</b></td>
-              <td class="it-desc">仅表<b>编制隶属</b>状态（人来自其他基地/借调），<u>不改变投入比</u>，消化量按其实际投入比（全人力或跟进）计算。</td>
-              <td class="it-scene">跨基地借调<br>支援本组</td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="t"><i style="background:#0a7d3c"></i>投入比 / 精力分配（消化工作量计算）
+          <button class="eff-lock locked" id="invLock" title="点击激活/锁定编辑">🔒 已锁定</button>
+          <button class="eff-add-tier hide" id="invAddTier" title="新增一类">＋ 加一类</button>
+        </div>
+        <table class="inv-table" id="invTable"></table>
         <div class="inv-foot">
           <b>计算公式：</b><code>已消化人天 = Σ(每个工作日的投入比) × 效率系数</code>　·　投入比刻画「精力分配」，效率系数刻画「个人产能强弱」，两者<b>相互独立、相乘</b>。<br>
           <b>举例：</b>投入 10 个工作日、全程单线全人力(投入比1.0)、效率1.1 → 消化 <b>11 人天</b>；若这 10 天里平均并行 2 条全人力 → 折合投入 5 工作日 × 1.1 = <b>5.5 人天</b>。
@@ -1723,6 +1705,15 @@ let STD_CFG = [
   {grade:'红角', col:'#ef3b39', mod:'红角 MVP', dur:'', weeks:'',  ppl:'按模块/缺口视图核定'},
 ];
 let stdLocked = true;  // 标准工期表默认锁定，防误操作
+
+/* 投入比 / 精力分配 档位（数据驱动、可编辑、带锁定）。val<1=跟进型(固定投入比、不分摊)；val=1=全人力制作(并行自动平摊)。
+   col=色块颜色, vbg/vfg=投入比徽标底色/字色, desc=行为规则, scene=典型场景。支援(外借)为固定行，不在此数组内。*/
+let INV_TIERS = [
+  {key:'full',  name:'全人力制作', val:1.0, col:'#0a7d3c', vbg:'#e9f8ee', vfg:'#0a7d3c', desc:'全力投入单条产出。若某人<b>同一天并行 N 条全人力制作</b>，当天对每条<b>自动平摊为 1/N</b>（并行越多、单条消化越慢，零维护随排期自动变）。', scene:'主力特效师独立\n承制一条需求'},
+  {key:'follow',name:'完整跟进', val:0.5, col:'#b36b00', vbg:'#fff1da', vfg:'#b36b00', desc:'持续跟进效果但非全力制作。<b>固定投入比</b>，不参与并行分摊。', scene:'资深盯方向 /\n全程把控品质'},
+  {key:'part',  name:'部分跟进', val:0.3, col:'#d6a000', vbg:'#fdf6e3', vfg:'#a07800', desc:'花一部分精力跟进反馈效果。<b>固定投入比</b>，不参与并行分摊。', scene:'兼顾多条 /\n定期 review'},
+];
+let invLocked = true;  // 投入比表默认锁定，防误操作
 
 function aggStatus(r){
   const ss=r.segs.map(s=>s.status||'doing');
@@ -3118,13 +3109,13 @@ addMask.addEventListener('pointerdown',e=>{if(e.target===addMask)closeAdd();});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&addMask.classList.contains('show'))closeAdd();},true);
 
 /* 投入比下拉（加人/加任务弹窗共用）：全人力制作=1(并行自动分摊)、完整跟进=0.5、部分跟进=0.2~0.3 */
-const INV_SELECT_HTML = `<div class="fld"><label>投入比（精力分配）</label>
-      <select id="addInv">
-        <option value="1" selected>全人力制作（1.0 · 并行多条时自动分摊）</option>
-        <option value="0.5">完整跟进（0.5 · 持续跟进效果，非全力）</option>
-        <option value="0.3">部分跟进（0.3 · 花部分精力跟进反馈）</option>
-        <option value="0.2">轻度跟进（0.2 · 偶尔介入、轻度反馈）</option>
-      </select></div>`;
+let INV_SELECT_HTML = '';
+function syncInvSelectHTML(){
+  const opts = INV_TIERS.map((t,i)=>`<option value="${t.val}"${i===0?' selected':''}>${effEsc(t.name)}（${t.val}${t.val>=1?' · 并行多条时自动分摊':' · 固定投入比、不分摊'}）</option>`).join('');
+  INV_SELECT_HTML = `<div class="fld"><label>投入比（精力分配）</label>
+      <select id="addInv">${opts}</select></div>`;
+}
+syncInvSelectHTML();
 
 /* 给某成员加任务：选择「哪条需求」+ 起止日期 */
 function openAddTaskFor(memId){
@@ -3534,6 +3525,8 @@ function coreSnapshot(){
     effLocked:effLocked,
     stdCfg:STD_CFG.map(t=>({mod:t.mod||'',grade:t.grade,col:t.col,dur:t.dur||'',weeks:t.weeks,ppl:t.ppl})),
     stdLocked:stdLocked,
+    invTiers:INV_TIERS.map(t=>({key:t.key,name:t.name,val:t.val,col:t.col,vbg:t.vbg,vfg:t.vfg,desc:t.desc,scene:t.scene})),
+    invLocked:invLocked,
     archive:{on:ARCHIVE.on,val:ARCHIVE.val,unit:ARCHIVE.unit},
     groupMode:{person:GROUP_MODE.person,req:GROUP_MODE.req},
     // 需求：除原有 end/done/split 外，序列化全部字段，使「新增需求」持久化
@@ -3573,6 +3566,11 @@ function applySnap(snap){
     STD_CFG=snap.stdCfg.map(t=>({mod:t.mod||'',grade:t.grade||'',col:t.col||'#7048e8',dur:t.dur||'',weeks:t.weeks||'',ppl:t.ppl||''}));
   }
   if(typeof snap.stdLocked==='boolean') stdLocked=snap.stdLocked;
+  if(Array.isArray(snap.invTiers) && snap.invTiers.length){
+    INV_TIERS=snap.invTiers.map(t=>({key:t.key||('inv'+Math.random().toString(36).slice(2,7)),name:t.name||'',val:Number(t.val),col:t.col||'#0a7d3c',vbg:t.vbg||'#e9f8ee',vfg:t.vfg||'#0a7d3c',desc:t.desc||'',scene:t.scene||''}));
+    if(typeof syncInvSelectHTML==='function') syncInvSelectHTML();
+  }
+  if(typeof snap.invLocked==='boolean') invLocked=snap.invLocked;
   if(snap.archive){
     const a=snap.archive;
     if(typeof a.on==='boolean')ARCHIVE.on=a.on;
@@ -3627,7 +3625,7 @@ function syncOrgUI(){
 const ORIG=JSON.parse(JSON.stringify(snapshot()));
 function save(){try{localStorage.setItem(KEY,JSON.stringify(snapshot()));}catch(_){}}
 function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.parse(v));}catch(_){}}
-function resetData(){if(!requireWrite())return;pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}_logDesc='重置为初始排期';broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();toast('已重置为初始排期');}
+function resetData(){if(!requireWrite())return;pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}_logDesc='重置为初始排期';broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();if(typeof applyInvLockUI==='function')applyInvLockUI();toast('已重置为初始排期');}
 
 /* ============ Supabase 云端协作（全员实时读写 + 自动汇集，免后端） ============ */
 const SB_URL='https://pwjowpkaypfwykejhosp.supabase.co';
@@ -3708,7 +3706,7 @@ function syncLockUI(){
 function refreshAllUI(){
   rerender();
   if(typeof applyEffLockUI==='function')applyEffLockUI();
-  if(typeof applyStdLockUI==='function')applyStdLockUI();
+  if(typeof applyStdLockUI==='function')applyStdLockUI();if(typeof applyInvLockUI==='function')applyInvLockUI();
 }
 async function cloudInit(){
   if(!window.supabase||!window.supabase.createClient){cloudSetStatus('err','云端库未加载');return;}
@@ -4029,7 +4027,7 @@ function undo(){
   applySnap(JSON.parse(prev));
   updateUndoUI();save();broadcast();rerender();
   if(typeof applyEffLockUI==='function')applyEffLockUI();
-  if(typeof applyStdLockUI==='function')applyStdLockUI();
+  if(typeof applyStdLockUI==='function')applyStdLockUI();if(typeof applyInvLockUI==='function')applyInvLockUI();
   toast('已撤销');
 }
 function redo(){
@@ -4040,7 +4038,7 @@ function redo(){
   applySnap(JSON.parse(next));
   updateUndoUI();save();broadcast();rerender();
   if(typeof applyEffLockUI==='function')applyEffLockUI();
-  if(typeof applyStdLockUI==='function')applyStdLockUI();
+  if(typeof applyStdLockUI==='function')applyStdLockUI();if(typeof applyInvLockUI==='function')applyInvLockUI();
   toast('已重做');
 }
 /* 快捷键：Ctrl/Cmd+Z 撤销，Ctrl+Y / Ctrl+Shift+Z 重做，Ctrl+C 复制，Ctrl+X 剪切，Ctrl+V 粘贴，Esc 取消 */
@@ -4124,7 +4122,7 @@ function revertTo(id){
   _logDesc='回退到「'+e.desc+'」（'+fmtLogTime(e.t)+'）';
   save();broadcast();rerender();
   if(typeof applyEffLockUI==='function')applyEffLockUI();
-  if(typeof applyStdLockUI==='function')applyStdLockUI();
+  if(typeof applyStdLockUI==='function')applyStdLockUI();if(typeof applyInvLockUI==='function')applyInvLockUI();
   renderLogPanel();
   toast('已回退到该历史版本');
 }
@@ -4155,13 +4153,13 @@ if(bc){
     applySnap(JSON.parse(ev.data.data));
     rerender();
     if(typeof applyEffLockUI==='function')applyEffLockUI();
-    if(typeof applyStdLockUI==='function')applyStdLockUI();
+    if(typeof applyStdLockUI==='function')applyStdLockUI();if(typeof applyInvLockUI==='function')applyInvLockUI();
     toast('收到协作更新（来自其他标签页）');
   };
 }
 // localStorage 跨标签兜底
 window.addEventListener('storage',e=>{
-  if(e.key===KEY && e.newValue){applySnap(JSON.parse(e.newValue));rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();}
+  if(e.key===KEY && e.newValue){applySnap(JSON.parse(e.newValue));rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();if(typeof applyInvLockUI==='function')applyInvLockUI();}
 });
 
 /* ============ “我是谁” ============ */
@@ -4330,6 +4328,88 @@ function applyEffLockUI(){
   if(addBtn) addBtn.classList.toggle('hide', effLocked);
   if(box) box.classList.toggle('locked', effLocked);
   renderEffTable();
+}
+
+/* ============ 投入比 / 精力分配表：渲染 + 编辑交互（数据驱动 + 锁定） ============ */
+function renderInvTable(){
+  const box=document.getElementById('invTable'); if(!box)return;
+  const ro=invLocked?' readonly':'', rod=invLocked?' disabled':'';
+  let html='<thead><tr><th style="width:150px">类型</th><th style="width:80px;text-align:center">投入比</th><th>行为 / 计算规则</th><th style="width:150px">典型场景</th><th style="width:28px"></th></tr></thead><tbody>';
+  INV_TIERS.forEach((t,i)=>{
+    html+=`<tr data-i="${i}">
+      <td class="it-type"><button class="it-dot" type="button" data-act="col" data-i="${i}" style="background:${effEsc(t.col)};display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle" title="${invLocked?'类型色':'点击改类型色'}"${rod}></button><input class="iv-name" type="text" value="${effEsc(t.name)}" data-act="name" data-i="${i}" placeholder="类型名"${ro}></td>
+      <td class="it-val"><input class="iv-val" type="number" step="0.05" min="0" max="1" value="${t.val}" data-act="val" data-i="${i}" title="投入比 (0~1，<1=跟进型不分摊，=1=全人力可分摊)"${ro} style="background:${effEsc(t.vbg)};color:${effEsc(t.vfg)}"></td>
+      <td class="it-desc"><textarea class="iv-desc" rows="2" data-act="desc" data-i="${i}" placeholder="行为/计算规则（可含<b>等标签）"${ro}>${effEsc(t.desc)}</textarea></td>
+      <td class="it-scene"><textarea class="iv-scene" rows="2" data-act="scene" data-i="${i}" placeholder="典型场景"${ro}>${effEsc(t.scene)}</textarea></td>
+      <td><button class="iv-del" data-act="del" data-i="${i}" title="删除该类">×</button></td>
+    </tr>`;
+  });
+  // 固定行：支援(外借) —— 不可编辑/删除，仅说明编制隶属
+  html+=`<tr class="it-fixed"><td class="it-type"><i style="background:var(--amber);display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle"></i>支援(外借)<span class="it-fixrow">固定项</span></td>
+    <td class="it-val"><b style="background:#fff1da;color:#b36b00;display:inline-block;min-width:34px;padding:2px 8px;border-radius:6px">不打折</b></td>
+    <td class="it-desc">仅表<b>编制隶属</b>状态（人来自其他基地/借调），<u>不改变投入比</u>，消化量按其实际投入比（全人力或跟进）计算。</td>
+    <td class="it-scene">跨基地借调<br>支援本组</td><td></td></tr>`;
+  html+='</tbody>';
+  box.innerHTML=html;
+}
+function invApplyChange(reRender){ save();broadcast();rerender(); if(reRender!==false) renderInvTable(); }
+function bindInvTable(){
+  const box=document.getElementById('invTable');
+  const addBtn=document.getElementById('invAddTier');
+  const lockBtn=document.getElementById('invLock');
+  if(lockBtn&&!lockBtn._bound){lockBtn._bound=1;lockBtn.addEventListener('click',()=>{
+    if(invLocked && !requireWrite())return;   // 只读模式：不允许解锁投入比表
+    invLocked=!invLocked; applyInvLockUI(); save();broadcast();
+    toast(invLocked?'已锁定：投入比表不可编辑':'已激活：可编辑投入比类型 / 比值 / 说明');
+  });}
+  if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
+    if(invLocked)return;
+    pushHistory();
+    INV_TIERS.push({key:'inv'+Date.now().toString(36),name:'自定义跟进',val:0.3,col:'#d6a000',vbg:'#fdf6e3',vfg:'#a07800',desc:'自定义投入比说明。<b>固定投入比</b>，不参与并行分摊。',scene:''});
+    save();broadcast();renderInvTable(); syncInvSelectHTML();
+  });}
+  if(!box||box._bound)return; box._bound=1;
+  box.addEventListener('change',e=>{
+    if(invLocked)return;
+    const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act)return;
+    const i=+el.getAttribute('data-i'); const t=INV_TIERS[i]; if(!t)return;
+    if(act==='val'){
+      let v=parseFloat(el.value); if(!isFinite(v)||v<0)v=0.3; if(v>1)v=1; v=Math.round(v*100)/100;
+      pushHistory(); t.val=v; el.value=v; invApplyChange(false);
+      toast('投入比已更新，消化工作量已重算'); syncInvSelectHTML();
+    }else if(act==='name'){ pushHistory(); t.name=el.value; save();broadcast(); syncInvSelectHTML(); }
+    else if(act==='desc'){ pushHistory(); t.desc=el.value; save();broadcast(); }
+    else if(act==='scene'){ pushHistory(); t.scene=el.value; save();broadcast(); }
+  });
+  box.addEventListener('click',e=>{
+    if(invLocked)return;
+    const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act)return;
+    const i=+el.getAttribute('data-i'); const t=INV_TIERS[i]; if(!t)return;
+    if(act==='del'){
+      if(INV_TIERS.length<=1){toast('至少保留一类');return;}
+      pushHistory(); INV_TIERS.splice(i,1);
+      save();broadcast();renderInvTable(); syncInvSelectHTML(); toast('已删除该投入比类型');
+    }else if(act==='col'){
+      const cur=t.col||'#0a7d3c';
+      const inp=document.createElement('input'); inp.type='color'; inp.value=/^#([0-9a-f]{6})$/i.test(cur)?cur:'#0a7d3c';
+      inp.style.position='fixed'; inp.style.left='-9999px'; document.body.appendChild(inp);
+      inp.addEventListener('input',()=>{ t.col=inp.value; el.style.background=inp.value; });
+      inp.addEventListener('change',()=>{ pushHistory(); t.col=inp.value; save();broadcast();renderInvTable(); inp.remove(); });
+      inp.click();
+    }
+  });
+}
+function applyInvLockUI(){
+  const lockBtn=document.getElementById('invLock');
+  const addBtn=document.getElementById('invAddTier');
+  const box=document.getElementById('invTable');
+  if(lockBtn){
+    lockBtn.className='eff-lock '+(invLocked?'locked':'editing');
+    lockBtn.textContent=invLocked?'🔒 已锁定':'✏ 编辑中';
+  }
+  if(addBtn) addBtn.classList.toggle('hide', invLocked);
+  if(box) box.classList.toggle('locked', invLocked);
+  renderInvTable();
 }
 
 /* ============ 标准工期 & 标配人力表：渲染 + 编辑交互 ============ */
@@ -4527,6 +4607,8 @@ bindEffTable();
 applyEffLockUI();
 bindStdTable();
 applyStdLockUI();
+bindInvTable();
+applyInvLockUI();
 updateLegend();
 updateHint();
 updateGroupSelUI();
