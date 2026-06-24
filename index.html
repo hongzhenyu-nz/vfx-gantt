@@ -316,10 +316,10 @@
   /* 编制岗位徽章（替代圆形头像）：一眼区分 正编/基地/支援 + 在职色点 */
   .emp-badge{position:relative;width:38px;height:38px;border-radius:9px;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1.5px solid;box-sizing:border-box;}
   .emp-badge .el{font-size:12px;font-weight:800;line-height:1;writing-mode:vertical-rl;letter-spacing:1px;}
-  .emp-badge.reg{background:#f3e8ff;border-color:#c4a5f5;}
-  .emp-badge.reg .el{color:#7c3aed;}
-  .emp-badge.base{background:#f1edff;border-color:#cdb8f7;}
-  .emp-badge.base .el{color:#7c5fe0;}
+  .emp-badge.reg{background:#e7f0ff;border-color:#a9c7f7;}
+  .emp-badge.reg .el{color:#0052d9;}
+  .emp-badge.base{background:#eef1f7;border-color:#c4ccdb;}
+  .emp-badge.base .el{color:#56607a;}
   .emp-badge.sup{background:#cffafe;border-color:#67e8f9;}
   .emp-badge.sup .el{color:#0e7490;}
   .emp-badge .ed{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 .5px rgba(0,0,0,.06);}
@@ -388,8 +388,8 @@
   .cl-chip{position:sticky;left:2px;z-index:5;display:inline-flex;align-items:center;gap:3px;height:16px;
     padding:0 7px 0 5px;border-radius:5px;font-size:9.5px;font-weight:700;line-height:1;white-space:nowrap;
     border:1px solid;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.1);}
-  .cl-chip.reg{color:#7c3aed;border-color:#cdb2f6;background:#f6efff;}
-  .cl-chip.base{color:#6d5bd0;border-color:#d8ccfb;background:#f1edff;}
+  .cl-chip.reg{color:#0052d9;border-color:#a9c7f7;background:#e7f0ff;}
+  .cl-chip.base{color:#56607a;border-color:#c4ccdb;background:#eef1f7;}
   .cl-chip .cl-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
   .cl-chip .cl-cap{font-weight:800;opacity:.95;}
   .cl-bar{position:absolute;top:2px;height:13px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.16);cursor:default;z-index:2;opacity:.92;}
@@ -492,8 +492,8 @@
   .ptag .nm-txt{font-style:normal;}
   .ptag .crown{font-style:normal;font-size:10px;line-height:1;}
   /* 编制主色（仅两种，差异强烈） */
-  .ptag.reg{background:#7c3aed;color:#fff;border-color:#6d28d9;}
-  .ptag.base{background:#f1edff;color:#6d5bd0;border-color:#d8ccfb;}
+  .ptag.reg{background:#0052d9;color:#fff;border-color:#0044b5;}
+  .ptag.base{background:#eef1f7;color:#56607a;border-color:#c4ccdb;}
   /* 隶属带队圆点 */
   .ptag .team-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 1.5px rgba(255,255,255,.85);}
   .ptag.reg .team-dot{box-shadow:0 0 0 1.5px rgba(255,255,255,.5);}
@@ -519,8 +519,8 @@
   .who-groups{display:flex;flex-direction:column;gap:6px;margin:6px 0 3px;}
   .who-grp{display:flex;align-items:flex-start;gap:6px;flex-wrap:wrap;min-height:24px;}
   .who-grp .grp-lab{font-size:10px;font-weight:800;color:#9aa3b2;flex-shrink:0;width:28px;text-align:right;letter-spacing:1px;line-height:19px;}
-  .who-grp.reg-grp .grp-lab{color:#7c3aed;}
-  .who-grp.base-grp .grp-lab{color:#8e7bf0;}
+  .who-grp.reg-grp .grp-lab{color:#0052d9;}
+  .who-grp.base-grp .grp-lab{color:#56607a;}
   .who-grp .grp-chips{display:flex;flex-wrap:wrap;gap:5px;flex:1;min-width:0;}
   /* 拖拽人名标签：高亮目标需求行 */
   .req-row.chip-target{background:#fffaf2;}
@@ -558,8 +558,8 @@
   .who-grp .add-person{font-size:10px;padding:2px 7px;align-self:center;}
   /* 编制分组行内末尾的小加人钮：弱化、虚线、悬停高亮 */
   .who-grp .grp-add{align-self:center;font-size:10px;padding:1px 7px;border:1px dashed #c4ccd8;background:transparent;color:#9aa3b2;opacity:.85;}
-  .who-grp .grp-add:hover{opacity:1;border-color:#7c3aed;color:#7c3aed;background:#7c3aed0d;}
-  .who-grp.base-grp .grp-add:hover{border-color:#2f6bff;color:#2f6bff;background:#2f6bff0d;}
+  .who-grp .grp-add:hover{opacity:1;border-color:#0052d9;color:#0052d9;background:#0052d90d;}
+  .who-grp.base-grp .grp-add:hover{border-color:#56607a;color:#56607a;background:#56607a0d;}
   .who-grp .grp-add .pl{font-weight:800;margin-right:1px;}
   /* 蓝条内「+」加人小钮 */
   .bar-task.req-bar .bl-add{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
@@ -1003,7 +1003,7 @@ const MSTATUS={
 };
 const MSTATUS_ORDER=['on','busy','out','leave'];   // 点击循环仅在日常考勤态间切换；离职/新人为HR态，展示用
 /* 正编/基地：corp='reg' 正编(带队) | 'base' 基地 */
-const CORP={reg:{label:'正编',col:'#7c3aed',bg:'#f3e8ff'},base:{label:'基地',col:'#8e7bf0',bg:'#f1edff'}};
+const CORP={reg:{label:'正编',col:'#0052d9',bg:'#e7f0ff'},base:{label:'基地',col:'#56607a',bg:'#eef1f7'}};
 
 /* 隶属带队配色：每位带队正编一个固定色，用作人名标签上的小圆点，一眼看出"这人归谁带"。
    key = 带队正编姓名；其余/无归属用灰。 */
@@ -1119,7 +1119,7 @@ function personGroupKey(m){
   if(mode==='lead'){ const L=leadOf(m); return L?{key:'lead:'+L,label:'隶属 '+L,color:leadColor(L)}:{key:'lead:free',label:'游离 / 无带队归属',color:'#a3acba'}; }
   if(mode==='corp'){
     if(isExtLoan(m)) return {key:'corp:loan',label:'外借支援（非角色线）',color:'#f08c00'};
-    return m.corp==='reg'?{key:'corp:reg',label:'正编（带队）',color:'#7c3aed'}:{key:'corp:base',label:'基地',color:'#8e7bf0'};
+    return m.corp==='reg'?{key:'corp:reg',label:'正编（带队）',color:'#0052d9'}:{key:'corp:base',label:'基地',color:'#56607a'};
   }
   return null;   // none
 }
@@ -1197,14 +1197,14 @@ function isExtLoan(m){
 }
 
 /* 编制三态着色（统一口径，与「按人看·corp 分组」一致）：
-   外借支援(橙) / 正编带队(深紫) / 基地(淡紫)。
-   返回 {key,label,col,short}；供「一人一行甘特」的条色与标签编制徽标统一取色——
-   即甘特按"编制"上色，而非"隶属带队"。short 为标签徽标单字。
-   注：基地避开灰色与绿色（灰易误读为废弃、绿易误读为完成），用淡紫 #8e7bf0，与正编深紫同色系深浅区分。 */
+   外借支援(橙) / 正编带队(蓝) / 基地(淡白)。
+   返回 {key,label,col,short,txt,bord}：col=底色(甘特条/徽标背景)，txt=前景字色，bord=内描边色(空串表示无)。
+   供「一人一行甘特」的条色与标签编制徽标统一取色——即甘特按"编制"上色，而非"隶属带队"。short 为标签徽标单字。
+   注：基地用淡白底，需深字 txt + 描边 bord 才能在深色需求条上可见(纯白条/白字会看不见)；正编/外借为实色底配白字。 */
 function corpStyle(m){
-  if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借'};
-  if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#7c3aed',short:'正'};
-  return {key:'base',label:'基地',col:'#8e7bf0',short:'基'};
+  if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借',txt:'#fff',bord:''};
+  if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#0052d9',short:'正',txt:'#fff',bord:''};
+  return {key:'base',label:'基地',col:'#eef1f7',short:'基',txt:'#56607a',bord:'#c4ccdb'};
 }
 
 /* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
@@ -1796,19 +1796,20 @@ function capacityLanesHTML(r){
     nRows++;
     const m=members.find(x=>x.id===id);
     const lead=leadOf(m);
-    const cs=corpStyle(m), col=cs.col;            // 甘特条按「编制」着色：正编深紫/基地淡紫/外借橙（不再按隶属带队色）
+    const cs=corpStyle(m), col=cs.col;            // 甘特条按「编制」着色：正编蓝/基地淡白/外借橙（不再按隶属带队色）
     const p = capOf[id] || {id, name:memName(id), cap:0, eff:memEff(id), load:(memLoad(id)||{}).pct, of:1, lead, col};
     const capTxt = p.cap>0
       ? `还可消化 <b style='color:#7da0ff'>${r1(p.cap)} 个工作日</b>的活　<span class='g'>(按剩余窗口 ${left} 个工作日 × 效率估算)</span>`
       : `<span class='g'>剩余窗口已结束 · 暂无可消化产能</span>`;
     const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff}　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>剩余产能</span> ${capTxt}`;
+    const segBord=cs.bord?`;box-shadow:inset 0 0 0 1px ${cs.bord},0 1px 2px rgba(0,0,0,.18)`:'';   // 淡白条加描边才看得见
     let segs='';
     psegs.forEach(s=>{
       const l=pc(idx(s.s)), w=Math.max(pc(idx(s.e))-l,0.6);
-      segs+=`<i class="bl-seg" style="left:${l}%;width:${w}%;background:${col}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
+      segs+=`<i class="bl-seg" style="left:${l}%;width:${w}%;background:${col}${segBord}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
     });
     const labL=pc(idx(psegs[0].s));
-    const corpBadge=`<i class="bl-corp" style="background:${col}">${cs.short}</i>`;   // 编制徽标：正/基/借
+    const corpBadge=`<i class="bl-corp" style="background:${col};color:${cs.txt};box-shadow:inset 0 0 0 1px ${cs.bord||'rgba(255,255,255,.35)'}">${cs.short}</i>`;   // 编制徽标：正/基/借
     const capLab = p.cap>0?`<b>余${r1(p.cap)}天</b>`:'';                              // 余N天 = 该人在本需求剩余窗口内预计还能消化的工作量
     lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${p.name}${capLab}</span></div>`;
   });
@@ -2139,7 +2140,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const blChips = memObjs.length
       ? blRow('正',regs)+blRow('基',bases)
       : '<div class="bl-row"><span class="bl-cnt">未排人</span></div>';
-    const teamCount = `<span class="team-cnt"><b style="color:#7c3aed">正编${regs.length}</b> · <b style="color:#8e7bf0">基地${bases.length}</b></span>`;
+    const teamCount = `<span class="team-cnt"><b style="color:#0052d9">正编${regs.length}</b> · <b style="color:#56607a">基地${bases.length}</b></span>`;
     const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="标配${REQ_STD[r.id]}人，当前在岗基地${activeBase(r)}人，缺${risk.gapPpl}人（已计入风险，加人后即时更新）">缺${risk.gapPpl}人</span>`:'';
     const MM = modMeta(r.mod);
     const modTag = `<span class="mod-tag" style="background:${MM.c}1f;color:${MM.c};border-color:${MM.c}66"><i>${MM.ic}</i>${MM.s}</span>`;
@@ -2255,8 +2256,8 @@ function renderHR(){
   // 编制/状态图例
   html+=`<div class="hr-legend">
     <span class="lg-t">编制与带队：</span>
-    <span class="lg"><i class="corp-tag" style="background:#f3e8ff;color:#7c3aed">正编</i> 余洪震(红角+金角) · 薛旭阳(露西亚 管线1) · 陈琛(检视/组队/饰品)</span>
-    <span class="lg"><i class="corp-tag" style="background:#f1edff;color:#8e7bf0">基地</i> 由正编带领搭配</span>
+    <span class="lg"><i class="corp-tag" style="background:#e7f0ff;color:#0052d9">正编</i> 余洪震(红角+金角) · 薛旭阳(露西亚 管线1) · 陈琛(检视/组队/饰品)</span>
+    <span class="lg"><i class="corp-tag" style="background:#eef1f7;color:#56607a;border:1px solid #c4ccdb">基地</i> 由正编带领搭配</span>
     <span class="lg-div">|</span>
     <span class="lg-t">状态：</span>
     <span class="lg"><i class="hr-flag new" style="margin:0">新人</i> 蓝色(新进)</span>
@@ -4285,7 +4286,7 @@ function setView(v,btn){view=v;document.getElementById('viewTabs').querySelector
 function updateHint(){
   const h=document.getElementById('hintBar'); if(!h)return;
   if(view==='req'){
-    h.innerHTML='💡 左侧竖带=角色品级色：<b style="color:#e0a400">金</b> / <b style="color:#f59e0b">橙</b> / <b style="color:#ef3b39">红</b>，同品级相邻行连成整条 · 人名标签：<b style="color:#fff;background:#7c3aed;padding:0 6px;border-radius:8px">👑正编</b> 实心深紫 / <span style="color:#6d5bd0;background:#f1edff;border:1px solid #d8ccfb;padding:0 6px;border-radius:8px">基地</span> 淡紫，左圆点=隶属带队 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
+    h.innerHTML='💡 左侧竖带=角色品级色：<b style="color:#e0a400">金</b> / <b style="color:#f59e0b">橙</b> / <b style="color:#ef3b39">红</b>，同品级相邻行连成整条 · 人名标签：<b style="color:#fff;background:#0052d9;padding:0 6px;border-radius:8px">👑正编</b> 实心蓝 / <span style="color:#56607a;background:#eef1f7;border:1px solid #c4ccdb;padding:0 6px;border-radius:8px">基地</span> 淡白，左圆点=隶属带队 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
   }else if(view==='person'){
     h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求';
   }else{
