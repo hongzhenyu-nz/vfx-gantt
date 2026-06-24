@@ -374,7 +374,7 @@
   .req-row.has-lanes .bar-task.req-bar{justify-content:flex-start;gap:2px;}
   /* —— 条内「一人一行甘特」：绝对覆盖在条体内（与 L1/L2 同一坐标系，左缘对齐），取代原角色标签 —— */
   .bar-task.req-bar .bl-lanes{position:absolute;left:0;right:0;top:25px;bottom:5px;display:flex;flex-direction:column;gap:3px;z-index:2;}
-  .bar-task.req-bar .bl-lane{position:relative;flex:1;min-height:13px;}
+  .bar-task.req-bar .bl-lane{position:relative;flex:1;min-height:20px;}
   .bar-task.req-bar .bl-seg{position:absolute;top:50%;transform:translateY(-50%);height:14px;min-width:5px;border-radius:3px;box-shadow:0 1px 2px rgba(0,0,0,.22);opacity:.97;z-index:1;cursor:default;}
   .bar-task.req-bar .bl-seg:hover{filter:brightness(1.1);opacity:1;}
   .bar-task.req-bar .bl-lane-lab{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:3;display:inline-flex;align-items:center;gap:3px;height:15px;padding:0 6px;border-radius:5px;font-size:9.5px;font-weight:800;line-height:1;color:#fff;background:rgba(0,0,0,.34);box-shadow:0 1px 2px rgba(0,0,0,.28);white-space:nowrap;}
@@ -464,13 +464,13 @@
   .mod-tag i{font-style:normal;font-size:11px;line-height:1;}
   /* 统一需求标题家族（两视图共用）：角色短名(主体) + 合并的「图标+模块短名」类型标签 */
   .rt-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:5px;font-size:10px;line-height:1;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.2);}
-  .rt-nm{font-weight:700;}
-  /* 模块类型标牌：实色底+白字+图标，做成「分类标牌」形态，与描边式人员标签(.ptag)拉开层级、不混淆 */
-  .rt-mod{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;letter-spacing:.3px;color:#fff;border:none;border-radius:4px;padding:1px 7px 1px 6px;line-height:1.5;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.16);}
+  .rt-nm{font-weight:800;font-size:14.5px;letter-spacing:.2px;}
+  /* 模块类型标牌：淡底+主题色字+细描边，淡白质感不突兀，紧贴需求名后 */
+  .rt-mod{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;letter-spacing:.2px;border-radius:4px;padding:1px 6px;line-height:1.5;flex-shrink:0;margin-left:-1px;}
   .rt-mod .rt-mi{font-style:normal;font-size:10px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));}
   /* 按人看：条内统一标题（深色条上：模块标签转白系；图标随标签一体） */
   .bar-task .rt-line{display:inline-flex;align-items:center;gap:5px;position:relative;z-index:1;overflow:hidden;pointer-events:none;}
-  .bar-task .rt-line .rt-nm{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.22);}
+  .bar-task .rt-line .rt-nm{color:#fff;font-size:13px;text-shadow:0 1px 1px rgba(0,0,0,.22);}
   .bar-task .rt-line .rt-mod{color:#fff!important;background:rgba(255,255,255,.22)!important;border-color:rgba(255,255,255,.45)!important;}
   /* 联调附属小条：虚线胶囊，挂在本体条之后 */
   .bar-addon{position:absolute;height:20px;top:31px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18);opacity:calc(1 - var(--wash) * 0.72);cursor:grab;z-index:2;user-select:none;touch-action:none;}
@@ -1522,7 +1522,7 @@ function reqTitleHTML(r, opt){
   const MM=modMeta(r.mod);
   const short=charShort(r.char)||r.name;
   const nm=`<span class="rt-nm">${short}</span>`;
-  const mt=`<span class="rt-mod" style="color:#fff;background:${MM.c};border-color:${MM.c}"><i class="rt-mi">${MM.ic}</i>${MM.s}</span>`;
+  const mt=`<span class="rt-mod" style="color:${MM.c};background:${MM.c}14;border:1px solid ${MM.c}33;box-shadow:none"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`;
   return `${nm}${mt}`;
 }
 
@@ -1766,7 +1766,7 @@ function capacityBarHTML(r){
    在右侧时间轴里、需求主条下方，按各制作人「真实投入日期段」画一人一行的甘特小条：
    每行 = 行首一枚编制徽标（正/基/借，色=编制色）+ 人名 + 该人剩余可消化天数；其后按真实档期画的甘特条。
    颜色按「编制」上色（正编深紫/基地淡紫/外借橙），不再按隶属带队。缺口/富余不单独成行，已并入需求条内的文字摘要。*/
-const CLANE_H=17, CLANE_GAP=4;
+const CLANE_H=24, CLANE_GAP=5;
 /* 一人一行甘特（条内版）：覆盖在任务条内部、取代原角色标签。
    位置按「相对本条左缘的百分比」给出，与 L1/L2 同坐标系，自动对齐。
    返回 {html, h, nRows}；html 为待注入条内的 .bl-lanes 块。 */
@@ -1806,7 +1806,7 @@ function capacityLanesHTML(r){
     const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff} <span class='g'>(条越粗=效率越高)</span>　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>剩余产能</span> ${capTxt}`;
     const segBord=cs.bord?`;box-shadow:inset 0 0 0 1px ${cs.bord},0 1px 2px rgba(0,0,0,.18)`:'';   // 淡白条加描边才看得见
     const effv=(p.eff!=null?p.eff:1);
-    const segH=Math.round(Math.max(7,Math.min(19, 14+(effv-1)*40)));   // 条高随效率：效率越高越粗、越低越细（0.85→8 / 1.0→14 / 1.10→18px）
+    const segH=Math.round(Math.max(6,Math.min(26, 15+(effv-1)*90)));   // 条高随效率：差异拉大(斜率90)——效率越高越粗、越低越细（0.85→6 / 0.95→11 / 1.0→15 / 1.05→20 / 1.10→24px）
     let segs='';
     psegs.forEach(s=>{
       const l=pc(idx(s.s)), w=Math.max(pc(idx(s.e))-l,0.6);
