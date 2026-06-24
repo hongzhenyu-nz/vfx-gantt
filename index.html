@@ -3694,7 +3694,15 @@ function cloudSetStatus(state,txt){
   if(state)el.classList.add(state);
   const t=el.querySelector('.ci-tx');if(t&&txt!=null)t.textContent=txt;
   // 同步只读视觉态：只读时给 body 加 ro-mode，CSS 据此把写按钮置灰禁用
-  document.body.classList.toggle('ro-mode', !canWrite());
+  const wasRo=document.body.classList.contains('ro-mode');
+  const nowRo=!canWrite();
+  document.body.classList.toggle('ro-mode', nowRo);
+  // 只读/可写切换时，三张配置表的「已锁定/编辑中」显示态需跟着刷新
+  if(wasRo!==nowRo){
+    if(typeof applyEffLockUI==='function')applyEffLockUI();
+    if(typeof applyStdLockUI==='function')applyStdLockUI();
+    if(typeof applyInvLockUI==='function')applyInvLockUI();
+  }
 }
 /* 统一刷新指示器：持锁=on(绿，编辑中)，他人持锁=busy(琥珀，等待)，空闲=locked(灰，可申请) */
 function syncLockUI(){
@@ -4197,12 +4205,13 @@ function memNm(id){const m=members.find(x=>x.id===id);return m?m.name:id;}
 function renderEffTable(){
   const box=document.getElementById('effTiers'); if(!box)return;
   const ua=unassignedMems();
+  const EL=effLockedView();
   let html='';
   EFF_TIERS.forEach((t,ti)=>{
     const chips=(t.mems||[]).filter(id=>!leftLong(members.find(x=>x.id===id))).map(id=>`<span class="eff-chip" data-ti="${ti}" data-id="${id}" title="拖到其它档可移动；拖到底部黄色区=移出">${effEsc(memNm(id))}<span class="x" data-act="rmMem" data-ti="${ti}" data-id="${id}" title="移出该档">×</span></span>`).join('');
     html+=`<div class="eff-row" data-droptier="${ti}">
-      <input class="ef-coef" type="number" step="0.05" min="0" value="${t.coef}" data-act="coef" data-ti="${ti}" title="效率系数"${effLocked?' readonly':''}>
-      <input class="ef-label" type="text" value="${effEsc(t.label)}" data-act="label" data-ti="${ti}" placeholder="对应人群说明"${effLocked?' readonly':''}>
+      <input class="ef-coef" type="number" step="0.05" min="0" value="${t.coef}" data-act="coef" data-ti="${ti}" title="效率系数"${EL?' readonly':''}>
+      <input class="ef-label" type="text" value="${effEsc(t.label)}" data-act="label" data-ti="${ti}" placeholder="对应人群说明"${EL?' readonly':''}>
       <div class="eff-mems">${chips||'<span style="font-size:11px;color:var(--tx3)">（拖人到此档）</span>'}</div>
       <button class="eff-del-tier" data-act="delTier" data-ti="${ti}" title="删除该档">×</button>
     </div>`;
@@ -4225,12 +4234,12 @@ function bindEffTable(){
   const lockBtn=document.getElementById('effLock');
   // 锁定/激活编辑切换
   if(lockBtn&&!lockBtn._bound){lockBtn._bound=1;lockBtn.addEventListener('click',()=>{
-    if(effLocked && !requireWrite())return;   // 只读模式：不允许解锁系数表
+    if(effLockedView() && !requireWrite())return;   // 只读模式：不允许解锁系数表
     effLocked=!effLocked; applyEffLockUI(); save();broadcast();
     toast(effLocked?'已锁定：系数标定不可编辑':'已激活：可拖拽归档 / 改系数');
   });}
   if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
-    if(effLocked)return;
+    if(effLockedView())return;
     pushHistory();
     EFF_TIERS.push({coef:1.0,label:'自定义档位',mems:[]});
     renderEffTable();
@@ -4238,7 +4247,7 @@ function bindEffTable(){
   if(!box||box._bound)return; box._bound=1;
   // 改系数 / 改说明
   box.addEventListener('change',e=>{
-    if(effLocked)return;
+    if(effLockedView())return;
     const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act)return;
     const ti=+el.getAttribute('data-ti');
     if(act==='coef'){
@@ -4251,7 +4260,7 @@ function bindEffTable(){
   });
   // 移出成员 / 删除档位
   box.addEventListener('click',e=>{
-    if(effLocked)return;
+    if(effLockedView())return;
     const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act)return;
     if(act==='rmMem'){
       const ti=+el.getAttribute('data-ti'), id=el.getAttribute('data-id');
@@ -4274,7 +4283,7 @@ function bindEffTable(){
   }
   function clearDrop(){document.querySelectorAll('.drop-on').forEach(r=>r.classList.remove('drop-on'));}
   box.addEventListener('pointerdown',e=>{
-    if(effLocked)return;
+    if(effLockedView())return;
     if(e.target.closest&&e.target.closest('.x'))return; // 点×号是移出，不触发拖拽
     const chip=e.target.closest&&e.target.closest('.eff-chip'); if(!chip)return;
     ed={id:chip.getAttribute('data-id'),srcTi:+chip.getAttribute('data-ti'),chip,started:false,sx:e.clientX,sy:e.clientY};
@@ -4317,27 +4326,35 @@ function bindEffTable(){
   box.addEventListener('pointercancel',e=>{if(ed){ghost.classList.remove('show');ed.chip.classList.remove('drag-src');ed=null;clearDrop();}});
 }
 // 锁定态 UI：切按钮样式、显隐加档钮、给档位容器加 .locked、重渲（让输入框只读态生效）
+/* 只读模式(未持有编辑锁)时，三张配置表一律强制按「已锁定」呈现，
+   且不污染真正持久化的 effLocked/invLocked/stdLocked（协作时各端独立） */
+function roLocked(){ return (typeof canWrite==='function') ? !canWrite() : false; }
+function effLockedView(){ return effLocked || roLocked(); }
+function invLockedView(){ return invLocked || roLocked(); }
+function stdLockedView(){ return stdLocked || roLocked(); }
 function applyEffLockUI(){
   const lockBtn=document.getElementById('effLock');
   const addBtn=document.getElementById('effAddTier');
   const box=document.getElementById('effTiers');
+  const L=effLockedView();
   if(lockBtn){
-    lockBtn.className='eff-lock '+(effLocked?'locked':'editing');
-    lockBtn.textContent=effLocked?'🔒 已锁定':'✏ 编辑中';
+    lockBtn.className='eff-lock '+(L?'locked':'editing');
+    lockBtn.textContent=L?'🔒 已锁定':'✏ 编辑中';
   }
-  if(addBtn) addBtn.classList.toggle('hide', effLocked);
-  if(box) box.classList.toggle('locked', effLocked);
+  if(addBtn) addBtn.classList.toggle('hide', L);
+  if(box) box.classList.toggle('locked', L);
   renderEffTable();
 }
 
 /* ============ 投入比 / 精力分配表：渲染 + 编辑交互（数据驱动 + 锁定） ============ */
 function renderInvTable(){
   const box=document.getElementById('invTable'); if(!box)return;
-  const ro=invLocked?' readonly':'', rod=invLocked?' disabled':'';
+  const IL=invLockedView();
+  const ro=IL?' readonly':'', rod=IL?' disabled':'';
   let html='<thead><tr><th style="width:150px">类型</th><th style="width:80px;text-align:center">投入比</th><th>行为 / 计算规则</th><th style="width:150px">典型场景</th><th style="width:28px"></th></tr></thead><tbody>';
   INV_TIERS.forEach((t,i)=>{
     html+=`<tr data-i="${i}">
-      <td class="it-type"><button class="it-dot" type="button" data-act="col" data-i="${i}" style="background:${effEsc(t.col)};display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle" title="${invLocked?'类型色':'点击改类型色'}"${rod}></button><input class="iv-name" type="text" value="${effEsc(t.name)}" data-act="name" data-i="${i}" placeholder="类型名"${ro}></td>
+      <td class="it-type"><button class="it-dot" type="button" data-act="col" data-i="${i}" style="background:${effEsc(t.col)};display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle" title="${IL?'类型色':'点击改类型色'}"${rod}></button><input class="iv-name" type="text" value="${effEsc(t.name)}" data-act="name" data-i="${i}" placeholder="类型名"${ro}></td>
       <td class="it-val"><input class="iv-val" type="number" step="0.05" min="0" max="1" value="${t.val}" data-act="val" data-i="${i}" title="投入比 (0~1，<1=跟进型不分摊，=1=全人力可分摊)"${ro} style="background:${effEsc(t.vbg)};color:${effEsc(t.vfg)}"></td>
       <td class="it-desc"><textarea class="iv-desc" rows="2" data-act="desc" data-i="${i}" placeholder="行为/计算规则（可含<b>等标签）"${ro}>${effEsc(t.desc)}</textarea></td>
       <td class="it-scene"><textarea class="iv-scene" rows="2" data-act="scene" data-i="${i}" placeholder="典型场景"${ro}>${effEsc(t.scene)}</textarea></td>
@@ -4358,19 +4375,19 @@ function bindInvTable(){
   const addBtn=document.getElementById('invAddTier');
   const lockBtn=document.getElementById('invLock');
   if(lockBtn&&!lockBtn._bound){lockBtn._bound=1;lockBtn.addEventListener('click',()=>{
-    if(invLocked && !requireWrite())return;   // 只读模式：不允许解锁投入比表
+    if(invLockedView() && !requireWrite())return;   // 只读模式：不允许解锁投入比表
     invLocked=!invLocked; applyInvLockUI(); save();broadcast();
     toast(invLocked?'已锁定：投入比表不可编辑':'已激活：可编辑投入比类型 / 比值 / 说明');
   });}
   if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
-    if(invLocked)return;
+    if(invLockedView())return;
     pushHistory();
     INV_TIERS.push({key:'inv'+Date.now().toString(36),name:'自定义跟进',val:0.3,col:'#d6a000',vbg:'#fdf6e3',vfg:'#a07800',desc:'自定义投入比说明。<b>固定投入比</b>，不参与并行分摊。',scene:''});
     save();broadcast();renderInvTable(); syncInvSelectHTML();
   });}
   if(!box||box._bound)return; box._bound=1;
   box.addEventListener('change',e=>{
-    if(invLocked)return;
+    if(invLockedView())return;
     const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act)return;
     const i=+el.getAttribute('data-i'); const t=INV_TIERS[i]; if(!t)return;
     if(act==='val'){
@@ -4382,7 +4399,7 @@ function bindInvTable(){
     else if(act==='scene'){ pushHistory(); t.scene=el.value; save();broadcast(); }
   });
   box.addEventListener('click',e=>{
-    if(invLocked)return;
+    if(invLockedView())return;
     const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act)return;
     const i=+el.getAttribute('data-i'); const t=INV_TIERS[i]; if(!t)return;
     if(act==='del'){
@@ -4403,26 +4420,28 @@ function applyInvLockUI(){
   const lockBtn=document.getElementById('invLock');
   const addBtn=document.getElementById('invAddTier');
   const box=document.getElementById('invTable');
+  const L=invLockedView();
   if(lockBtn){
-    lockBtn.className='eff-lock '+(invLocked?'locked':'editing');
-    lockBtn.textContent=invLocked?'🔒 已锁定':'✏ 编辑中';
+    lockBtn.className='eff-lock '+(L?'locked':'editing');
+    lockBtn.textContent=L?'🔒 已锁定':'✏ 编辑中';
   }
-  if(addBtn) addBtn.classList.toggle('hide', invLocked);
-  if(box) box.classList.toggle('locked', invLocked);
+  if(addBtn) addBtn.classList.toggle('hide', L);
+  if(box) box.classList.toggle('locked', L);
   renderInvTable();
 }
 
 /* ============ 标准工期 & 标配人力表：渲染 + 编辑交互 ============ */
 function renderStdTable(){
   const box=document.getElementById('stdRows'); if(!box)return;
+  const SL=stdLockedView();
   let html='<div class="std-head"><span>品级（含模块色）</span><span>模块类型</span><span>展示时长</span><span>制作工期</span><span>标配人力</span><span></span></div>';
   STD_CFG.forEach((t,i)=>{
     html+=`<div class="std-row" data-i="${i}">
-      <span class="sd-grade"><button class="sd-dot" type="button" data-act="colpick" data-i="${i}" style="background:${effEsc(t.col)}" title="${stdLocked?'品级颜色':'点击选择品级颜色'}"${stdLocked?' disabled':''}></button><input class="sd-name" type="text" value="${effEsc(t.grade)}" data-act="grade" data-i="${i}" placeholder="品级"${stdLocked?' readonly':''}></span>
-      <input class="sd-mod" type="text" value="${effEsc(t.mod||'')}" data-act="mod" data-i="${i}" placeholder="如 出场/检视" ${stdLocked?' readonly':''}>
-      <input class="sd-dur" type="text" value="${effEsc(t.dur||'')}" data-act="dur" data-i="${i}" placeholder="如 15 秒" title="效果在游戏内的展示时间长度"${stdLocked?' readonly':''}>
-      <input class="sd-weeks" type="text" value="${effEsc(t.weeks)}" data-act="weeks" data-i="${i}" placeholder="如 8 周" title="制作工期"${stdLocked?' readonly':''}>
-      <input class="sd-ppl" type="text" value="${effEsc(t.ppl)}" data-act="ppl" data-i="${i}" placeholder="标配人力说明"${stdLocked?' readonly':''}>
+      <span class="sd-grade"><button class="sd-dot" type="button" data-act="colpick" data-i="${i}" style="background:${effEsc(t.col)}" title="${SL?'品级颜色':'点击选择品级颜色'}"${SL?' disabled':''}></button><input class="sd-name" type="text" value="${effEsc(t.grade)}" data-act="grade" data-i="${i}" placeholder="品级"${SL?' readonly':''}></span>
+      <input class="sd-mod" type="text" value="${effEsc(t.mod||'')}" data-act="mod" data-i="${i}" placeholder="如 出场/检视" ${SL?' readonly':''}>
+      <input class="sd-dur" type="text" value="${effEsc(t.dur||'')}" data-act="dur" data-i="${i}" placeholder="如 15 秒" title="效果在游戏内的展示时间长度"${SL?' readonly':''}>
+      <input class="sd-weeks" type="text" value="${effEsc(t.weeks)}" data-act="weeks" data-i="${i}" placeholder="如 8 周" title="制作工期"${SL?' readonly':''}>
+      <input class="sd-ppl" type="text" value="${effEsc(t.ppl)}" data-act="ppl" data-i="${i}" placeholder="标配人力说明"${SL?' readonly':''}>
       <button class="std-del" data-act="delRow" data-i="${i}" title="删除该行">×</button>
     </div>`;
   });
@@ -4433,12 +4452,12 @@ function bindStdTable(){
   const addBtn=document.getElementById('stdAddRow');
   const lockBtn=document.getElementById('stdLock');
   if(lockBtn&&!lockBtn._bound){lockBtn._bound=1;lockBtn.addEventListener('click',()=>{
-    if(stdLocked && !requireWrite())return;   // 只读模式：不允许解锁标准工期表
+    if(stdLockedView() && !requireWrite())return;   // 只读模式：不允许解锁标准工期表
     stdLocked=!stdLocked; applyStdLockUI(); save();broadcast();
     toast(stdLocked?'已锁定：标准工期表不可编辑':'已激活：可编辑品级 / 工期 / 标配人力');
   });}
   if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
-    if(stdLocked)return;
+    if(stdLockedView())return;
     pushHistory();
     STD_CFG.push({grade:'金角',col:GRADE_PRESET[0].col,mod:'新模块',dur:'',weeks:'',ppl:''});
     save();broadcast();renderStdTable();
@@ -4446,7 +4465,7 @@ function bindStdTable(){
   if(!box||box._bound)return; box._bound=1;
   // 改文本（input 实时同步、change 落定一次历史）
   const onEdit=e=>{
-    if(stdLocked)return;
+    if(stdLockedView())return;
     const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(!act||act==='delRow'||act==='colpick')return;
     const i=+el.getAttribute('data-i'); if(!STD_CFG[i])return;
     if(e.type==='change') pushHistory();
@@ -4460,7 +4479,7 @@ function bindStdTable(){
   box.addEventListener('click',e=>{
     const el=e.target.closest&&e.target.closest('[data-act="colpick"]');
     if(!el)return;
-    if(stdLocked)return;
+    if(stdLockedView())return;
     e.stopPropagation();
     const i=+el.getAttribute('data-i'); if(!STD_CFG[i])return;
     const exist=el.parentNode.querySelector('.sd-colpop');
@@ -4480,7 +4499,7 @@ function bindStdTable(){
   if(!document._stdColPopBound){document._stdColPopBound=1;document.addEventListener('click',()=>{const b=document.getElementById('stdRows');if(b){const p=b.querySelector('.sd-colpop');if(p)p.remove();}});}
   // 删除行
   box.addEventListener('click',e=>{
-    if(stdLocked)return;
+    if(stdLockedView())return;
     const el=e.target, act=el.getAttribute&&el.getAttribute('data-act'); if(act!=='delRow')return;
     if(STD_CFG.length<=1){toast('至少保留一行');return;}
     const i=+el.getAttribute('data-i');
@@ -4492,12 +4511,13 @@ function applyStdLockUI(){
   const lockBtn=document.getElementById('stdLock');
   const addBtn=document.getElementById('stdAddRow');
   const box=document.getElementById('stdRows');
+  const L=stdLockedView();
   if(lockBtn){
-    lockBtn.className='eff-lock '+(stdLocked?'locked':'editing');
-    lockBtn.textContent=stdLocked?'🔒 已锁定':'✏ 编辑中';
+    lockBtn.className='eff-lock '+(L?'locked':'editing');
+    lockBtn.textContent=L?'🔒 已锁定':'✏ 编辑中';
   }
-  if(addBtn) addBtn.classList.toggle('hide', stdLocked);
-  if(box) box.classList.toggle('locked', stdLocked);
+  if(addBtn) addBtn.classList.toggle('hide', L);
+  if(box) box.classList.toggle('locked', L);
   renderStdTable();
 }
 
