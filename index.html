@@ -1803,12 +1803,14 @@ function capacityLanesHTML(r){
     const capTxt = p.cap>0
       ? `还可消化 <b style='color:#7da0ff'>${r1(p.cap)} 个工作日</b>的活　<span class='g'>(按剩余窗口 ${left} 个工作日 × 效率估算)</span>`
       : `<span class='g'>剩余窗口已结束 · 暂无可消化产能</span>`;
-    const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff}　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>剩余产能</span> ${capTxt}`;
+    const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff} <span class='g'>(条越粗=效率越高)</span>　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}<br><span class='g'>剩余产能</span> ${capTxt}`;
     const segBord=cs.bord?`;box-shadow:inset 0 0 0 1px ${cs.bord},0 1px 2px rgba(0,0,0,.18)`:'';   // 淡白条加描边才看得见
+    const effv=(p.eff!=null?p.eff:1);
+    const segH=Math.round(Math.max(7,Math.min(19, 14+(effv-1)*40)));   // 条高随效率：效率越高越粗、越低越细（0.85→8 / 1.0→14 / 1.10→18px）
     let segs='';
     psegs.forEach(s=>{
       const l=pc(idx(s.s)), w=Math.max(pc(idx(s.e))-l,0.6);
-      segs+=`<i class="bl-seg" style="left:${l}%;width:${w}%;background:${col}${segBord}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
+      segs+=`<i class="bl-seg" style="left:${l}%;width:${w}%;height:${segH}px;background:${col}${segBord}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
     });
     const labL=pc(idx(psegs[0].s));
     const corpBadge=`<i class="bl-corp" style="background:${col};color:${cs.txt};box-shadow:inset 0 0 0 1px ${cs.bord||'rgba(255,255,255,.35)'}">${cs.short}</i>`;   // 编制徽标：正/基/借
