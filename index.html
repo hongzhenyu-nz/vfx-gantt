@@ -81,8 +81,9 @@
   .add-ent:hover{background:#ede3fd!important;border-color:#6d28d9!important;color:#5b21b6!important;}
   /* 只读模式：写操作按钮置灰禁用（不影响视图/分组/配色/归档等查看类控件） */
   body.ro-mode #addMemBtn,body.ro-mode #addReqBtn,body.ro-mode #undoBtn,body.ro-mode #redoBtn,body.ro-mode .reset,
-  body.ro-mode .inl-add{opacity:.4;filter:grayscale(.5);cursor:not-allowed!important;}
-  body.ro-mode #addMemBtn:hover,body.ro-mode #addReqBtn:hover,body.ro-mode .inl-add:hover{background:#f5effe!important;border-color:#7c3aed!important;color:#6d28d9!important;}
+  body.ro-mode #addMemBtn:hover,body.ro-mode #addReqBtn:hover{background:#f5effe!important;border-color:#7c3aed!important;color:#6d28d9!important;}
+  /* 非编辑（只读）状态：整条「＋加人」行直接隐藏，不占位、不与人员标签混排 */
+  body.ro-mode .inl-add,body.ro-mode .who-grp.add-row{display:none!important;}
   body.ro-mode .bar-task{cursor:default!important;}
   /* 分组 / 归档设置工具条 */
   .bar-org{font-size:12px;color:var(--tx2);}
@@ -464,8 +465,9 @@
   /* 统一需求标题家族（两视图共用）：角色短名(主体) + 合并的「图标+模块短名」类型标签 */
   .rt-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:5px;font-size:10px;line-height:1;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.2);}
   .rt-nm{font-weight:700;}
-  .rt-mod{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border:1px solid;border-radius:5px;padding:0 6px 0 5px;line-height:1.5;flex-shrink:0;}
-  .rt-mod .rt-mi{font-style:normal;font-size:10px;line-height:1;}
+  /* 模块类型标牌：实色底+白字+图标，做成「分类标牌」形态，与描边式人员标签(.ptag)拉开层级、不混淆 */
+  .rt-mod{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:800;letter-spacing:.3px;color:#fff;border:none;border-radius:4px;padding:1px 7px 1px 6px;line-height:1.5;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.16);}
+  .rt-mod .rt-mi{font-style:normal;font-size:10px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));}
   /* 按人看：条内统一标题（深色条上：模块标签转白系；图标随标签一体） */
   .bar-task .rt-line{display:inline-flex;align-items:center;gap:5px;position:relative;z-index:1;overflow:hidden;pointer-events:none;}
   .bar-task .rt-line .rt-nm{color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.22);}
@@ -1520,7 +1522,7 @@ function reqTitleHTML(r, opt){
   const MM=modMeta(r.mod);
   const short=charShort(r.char)||r.name;
   const nm=`<span class="rt-nm">${short}</span>`;
-  const mt=`<span class="rt-mod" style="color:${MM.c};background:${MM.c}1a;border-color:${MM.c}66"><i class="rt-mi">${MM.ic}</i>${MM.s}</span>`;
+  const mt=`<span class="rt-mod" style="color:#fff;background:${MM.c};border-color:${MM.c}"><i class="rt-mi">${MM.ic}</i>${MM.s}</span>`;
   return `${nm}${mt}`;
 }
 
