@@ -35,9 +35,24 @@
   .kpi .val.s{color:var(--green);} .kpi .val.w{color:var(--amber);} .kpi .val.d{color:var(--red);}
 
   .bar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  /* 工具栏分区：把同性质控件成组，组间留更大间距并以竖线分隔，分行更整齐 */
+  .bar-section{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .bar-section + .bar-section{padding-left:12px;border-left:1px solid var(--line);}
+  .bar .seg-lab{font-size:11px;color:var(--tx3);font-weight:700;letter-spacing:.3px;white-space:nowrap;margin-right:1px;}
   .tabs{display:inline-flex;background:#eceef1;border-radius:9px;padding:3px;}
   .tabs button{border:none;background:transparent;color:var(--tx2);padding:6px 14px;border-radius:7px;cursor:pointer;font-size:13px;font-weight:500;}
   .tabs button.on{background:#fff;color:var(--tx);box-shadow:0 1px 2px rgba(0,0,0,.06);}
+  /* 主视图切换：醒目蓝色实心选中态，加大加粗，与「着色」拉开层级 */
+  #viewTabs{background:#e7edf8;border-radius:11px;padding:4px;gap:3px;}
+  #viewTabs button{padding:9px 20px;font-size:14px;font-weight:700;color:var(--tx2);border-radius:8px;transition:.14s;}
+  #viewTabs button:hover:not(.on){color:var(--blue);background:rgba(255,255,255,.55);}
+  #viewTabs button.on{background:var(--blue);color:#fff;box-shadow:0 2px 7px rgba(51,112,255,.38);}
+  /* 着色切换：次级小胶囊 + 前缀标签，明确区分 */
+  .color-grp{display:inline-flex;align-items:center;gap:7px;}
+  .color-grp .clab{font-size:12px;color:var(--tx3);font-weight:600;white-space:nowrap;}
+  #colorTabs{background:#f0f1f4;border-radius:8px;padding:3px;}
+  #colorTabs button{font-size:12px;padding:5px 12px;font-weight:600;}
+  #colorTabs button.on{background:#fff;color:var(--tx);}
   .hint{color:var(--tx3);font-size:12px;}
   .spacer{flex:1;}
   .legend{display:flex;gap:14px;align-items:center;color:var(--tx2);font-size:12px;flex-wrap:wrap;}
@@ -859,50 +874,74 @@
   </div>
 
   <div class="bar">
-    <div class="tabs" id="viewTabs">
-      <button class="on" onclick="setView('person',this)">按人看（谁在做什么）</button>
-      <button onclick="setView('req',this)">按需求看（排期/风险）</button>
-      <button onclick="setView('hr',this)">人力分配（按模块/缺口）</button>
+    <div class="bar-section">
+      <div class="tabs" id="viewTabs">
+        <button class="on" onclick="setView('person',this)">按人看（谁在做什么）</button>
+        <button onclick="setView('req',this)">按需求看（排期/风险）</button>
+        <button onclick="setView('hr',this)">人力分配（按模块/缺口）</button>
+      </div>
     </div>
-    <div class="tabs" id="colorTabs" style="margin-left:2px">
-      <button class="on" onclick="setColor('status',this)">按状态着色</button>
-      <button onclick="setColor('risk',this)">按风险着色</button>
+    <div class="bar-section">
+      <span class="color-grp">
+        <span class="clab">🎨 着色</span>
+        <div class="tabs" id="colorTabs">
+          <button class="on" onclick="setColor('status',this)">按状态</button>
+          <button onclick="setColor('risk',this)">按风险</button>
+        </div>
+      </span>
     </div>
     <div class="spacer"></div>
-    <div class="collab">
-      <span class="live"></span>
-      <span class="me">我是
-        <select id="meSel" onchange="changeMe()"></select>
+    <div class="bar-section">
+      <div class="collab">
+        <span class="live"></span>
+        <span class="me">我是
+          <select id="meSel" onchange="changeMe()"></select>
+        </span>
+        <select id="focusSel" class="focus-sel" onchange="changeFocus()" title="基于'我是'的视角：高亮或筛选自己与隶属团队">
+          <option value="off">全部成员</option>
+          <option value="hl">🔆 高亮我和我的团队</option>
+          <option value="only">🔎 只看我和我的团队</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="bar" style="margin-top:-4px">
+    <div class="bar-section">
+      <span class="seg-lab">编辑</span>
+      <div class="undo-grp">
+        <button class="ubtn" id="undoBtn" onclick="undo()" title="撤销 (Ctrl+Z)" disabled>↶ 撤销</button>
+        <button class="ubtn" id="redoBtn" onclick="redo()" title="重做 (Ctrl+Y)" disabled>↷ 重做</button>
+        <button class="ubtn" id="logBtn" onclick="toggleLogPanel()" title="查看变更记录，可一键回退到任意历史版本">🕑 变更记录</button>
+      </div>
+    </div>
+    <div class="bar-section">
+      <span class="seg-lab">新增</span>
+      <button class="ubtn add-ent" id="addMemBtn" onclick="openNewMember()" title="添加一名新成员（姓名、编制、隶属、模块、品级、效率）">＋ 新成员</button>
+      <button class="ubtn add-ent" id="addReqBtn" onclick="openNewReq()" title="添加一条新需求（角色、模块、品级、工作量、起止）">＋ 新需求</button>
+    </div>
+    <div class="bar-section">
+      <span class="seg-lab">协同</span>
+      <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
+      <button class="ubtn sync-btn" onclick="exportSync()" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">📋 一键复制排期</button>
+    </div>
+    <div class="spacer"></div>
+    <div class="bar-section">
+      <span class="vivid-ctrl" title="调节任务条底色的色彩浓度：往左拖越淡（泛白柔和护眼），往右拖越浓（原色鲜明）。仅作用于时间轴任务条。">
+        <span class="vc-ic">🎨</span>
+        <input type="range" id="vividRange" min="0" max="100" step="5" value="100" oninput="setVivid(this.value)">
+        <span class="vc-val" id="vividVal">100%</span>
+        <button class="vc-reset" onclick="setVivid(100,true)" title="恢复原色浓度">↺</button>
       </span>
-      <select id="focusSel" class="focus-sel" onchange="changeFocus()" title="基于'我是'的视角：高亮或筛选自己与隶属团队">
-        <option value="off">全部成员</option>
-        <option value="hl">🔆 高亮我和我的团队</option>
-        <option value="only">🔎 只看我和我的团队</option>
-      </select>
+      <span class="vivid-ctrl" title="调节时间轴密度 / 任务条宽度，觉得条太细可调宽，方便看清">
+        <span class="vc-ic">↔</span>
+        <input type="range" id="zoomRange" min="100" max="320" step="10" value="100" oninput="setZoom(this.value)">
+        <span class="vc-val" id="zoomVal">100%</span>
+        <button class="vc-reset" onclick="setZoom(100,true)" title="恢复默认条宽">↺</button>
+      </span>
+      <button class="ubtn" onclick="autoFitLeftW()" title="自动加宽左侧信息栏，让人名标签尽量不换行、各行宽度一致、版面整齐（也可拖动栏右侧分界线手动调，或双击分界线自动适配）">⇆ 适配栏宽</button>
+      <button class="reset" onclick="resetData()">重置</button>
     </div>
-    <div class="undo-grp">
-      <button class="ubtn" id="undoBtn" onclick="undo()" title="撤销 (Ctrl+Z)" disabled>↶ 撤销</button>
-      <button class="ubtn" id="redoBtn" onclick="redo()" title="重做 (Ctrl+Y)" disabled>↷ 重做</button>
-      <button class="ubtn" id="logBtn" onclick="toggleLogPanel()" title="查看变更记录，可一键回退到任意历史版本">🕑 变更记录</button>
-    </div>
-    <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
-    <button class="ubtn sync-btn" onclick="exportSync()" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">📋 一键复制排期</button>
-    <span class="vivid-ctrl" title="调节任务条底色的色彩浓度：往左拖越淡（泛白柔和护眼），往右拖越浓（原色鲜明）。仅作用于时间轴任务条。">
-      <span class="vc-ic">🎨</span>
-      <input type="range" id="vividRange" min="0" max="100" step="5" value="100" oninput="setVivid(this.value)">
-      <span class="vc-val" id="vividVal">100%</span>
-      <button class="vc-reset" onclick="setVivid(100,true)" title="恢复原色浓度">↺</button>
-    </span>
-    <span class="vivid-ctrl" title="调节时间轴密度 / 任务条宽度，觉得条太细可调宽，方便看清">
-      <span class="vc-ic">↔</span>
-      <input type="range" id="zoomRange" min="100" max="320" step="10" value="100" oninput="setZoom(this.value)">
-      <span class="vc-val" id="zoomVal">100%</span>
-      <button class="vc-reset" onclick="setZoom(100,true)" title="恢复默认条宽">↺</button>
-    </span>
-    <button class="ubtn add-ent" id="addMemBtn" onclick="openNewMember()" title="添加一名新成员（姓名、编制、隶属、模块、品级、效率）">＋ 新成员</button>
-    <button class="ubtn add-ent" id="addReqBtn" onclick="openNewReq()" title="添加一条新需求（角色、模块、品级、工作量、起止）">＋ 新需求</button>
-    <button class="ubtn" onclick="autoFitLeftW()" title="自动加宽左侧信息栏，让人名标签尽量不换行、各行宽度一致、版面整齐（也可拖动栏右侧分界线手动调，或双击分界线自动适配）">⇆ 适配栏宽</button>
-    <button class="reset" onclick="resetData()">重置</button>
   </div>
 
   <div class="bar bar-org" style="margin-top:-4px">
