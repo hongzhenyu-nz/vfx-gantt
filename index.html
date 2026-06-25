@@ -485,7 +485,7 @@
   .row.req-done .bar-task.req-bar .bl-seg{opacity:.5;}                  /* 每人甘特子条降透明度 */
   .row.req-done .bar-task.req-bar .bl-lane-lab{opacity:.62;}           /* 子条上的人名/消化标签淡化 */
   .row.req-done .bar-task.req-bar .bl-add{display:none;}               /* 锁死：隐藏"加人"按钮 */
-  .row.req-done .bar-task.req-bar::after{content:'✓ 已完成';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(78,203,160,.97);color:#fff;font-size:15px;font-weight:800;letter-spacing:2px;padding:5px 18px;border-radius:8px;z-index:8;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.28);opacity:1;}
+  .row.req-done .bar-task.req-bar::after{content:'✓ 已完成';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(78,203,160,.97);color:#fff;font-size:15px;font-weight:800;letter-spacing:2px;padding:5px 18px;border-radius:8px;z-index:3;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.28);opacity:1;}
   .row.req-done .timeline{background-image:repeating-linear-gradient(45deg,rgba(78,203,160,.05) 0 8px,transparent 8px 16px);}
   .req .char-nm{font-weight:700;}
   /* 模块类型标签：图标+短名+主题色，强化区分同角色不同模块 */
@@ -522,7 +522,7 @@
   /* 「按人看」任务段=已完成：与「按需求看」呈现统一——条内信息整体淡化锁定，正中央显示「✓已完成」放大印章 */
   .bar-task.seg-done .rt-line,.bar-task.seg-done-self .rt-line{opacity:.4;filter:saturate(.85);}
   .bar-task.seg-done .prog::after{display:none;}                       /* 已完成不再显示未做斜纹 */
-  .bar-task.seg-done::after,.bar-task.seg-done-self::after{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:800;letter-spacing:1px;padding:2px 11px;border-radius:6px;z-index:8;pointer-events:none;white-space:nowrap;}
+  .bar-task.seg-done::after,.bar-task.seg-done-self::after{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:800;letter-spacing:1px;padding:2px 11px;border-radius:6px;z-index:3;pointer-events:none;white-space:nowrap;}
   .bar-task.seg-done::after{content:'✓ 已完成';background:rgba(78,203,160,.97);color:#fff;font-size:11.5px;box-shadow:0 2px 8px rgba(0,0,0,.26);}
   .bar-task.seg-done-self::after{content:'✓ 本人完成';background:rgba(255,255,255,.96);color:#2f9e44;font-size:10px;border:1px solid #b6ead6;font-weight:800;box-shadow:0 1px 5px rgba(0,0,0,.18);}
   .bar-task.slim.seg-done::after,.bar-task.slim.seg-done-self::after{font-size:9px;padding:1px 6px;letter-spacing:.3px;}
