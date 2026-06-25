@@ -2978,13 +2978,23 @@ function pickStatus(k){
   if(!requireWrite()){hideMenu();return;}
   const r=reqs.find(z=>z.id===menuCtx.reqId); if(!r){hideMenu();return;}
   pushHistory();
-  if(menuCtx.seg!==null){
-    r.segs[menuCtx.seg].status=k;
-    if(k==='done')r.segs[menuCtx.seg].prog=1;
+  if(k==='done'){
+    // 「已完成」是整条封存语义：无论在哪个视图、点的是整条还是某一个人的段，
+    // 都把整条需求标记为完成（所有人段一起 done + 人工置位 reqState=done），
+    // 使「按人看」✓徽标 /「按需求看」封存大标 / 所有人段完全联动。
+    r.segs.forEach(s=>{s.status='done';s.prog=1;});
+    r.state='done';
+    _logDesc='把「'+r.name+'」整条标记为已完成（封存）';
   }else{
-    r.segs.forEach(s=>{s.status=k;if(k==='done')s.prog=1;});
+    if(menuCtx.seg!==null){
+      r.segs[menuCtx.seg].status=k;
+    }else{
+      r.segs.forEach(s=>{s.status=k;});
+    }
+    // 从已完成态切回其它状态：解除人工完成封存位，避免改了状态仍显示「已完成」。
+    if(reqState(r)==='done') delete r.state;
+    _logDesc='把「'+r.name+(menuCtx.seg!==null?(' · '+memName(r.segs[menuCtx.seg].m)):'')+'」状态改为'+STATUS[k].label;
   }
-  _logDesc='把「'+r.name+'」状态改为'+STATUS[k].label;
   hideMenu();save();broadcast();
   const reqId=r.id;
   rerender();
