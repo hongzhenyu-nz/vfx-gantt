@@ -518,6 +518,8 @@
   .bar-task .rt-line .rt-inv{box-shadow:0 1px 2px rgba(0,0,0,.12);}
   /* 「按人看」条内「✓已完成」徽标：白底深绿字醒目印章，与「按需求看」的封存语义统一（任务段已收尾、信息锁定） */
   .rt-done{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;border-radius:4px;padding:1px 7px;line-height:1.5;flex-shrink:0;letter-spacing:.3px;white-space:nowrap;color:#138a67;background:#fff;border:1px solid #b6ead6;box-shadow:0 1px 2px rgba(0,0,0,.20);}
+  /* 仅本人这段完成（整条未收尾）：浅色描边、低调，区别于整条封存的深绿印章 */
+  .rt-done.seg{color:#3a9b78;background:rgba(255,255,255,.78);border-color:#cdeadd;font-weight:700;box-shadow:none;}
   /* 联调附属小条：虚线胶囊，挂在本体条之后 */
   .bar-addon{position:absolute;height:20px;top:31px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));cursor:grab;z-index:2;user-select:none;touch-action:none;}
   .bar-addon .ax-ic{font-size:9px;}
@@ -829,6 +831,10 @@
   #menu .mi:hover{background:#f2f4f7;}
   #menu .mi i{width:11px;height:11px;border-radius:3px;display:inline-block;}
   #menu .mi.cur{font-weight:600;background:#f2f4f7;}
+  /* 已完成二选一：整条 vs 仅本人，右侧灰色小标说明影响范围 */
+  #menu .mi.mi-done{justify-content:flex-start;}
+  #menu .mi.mi-done .mi-tag{margin-left:auto;font-size:10px;color:var(--tx3);font-weight:600;background:#f0f2f6;border:1px solid #e3e7ee;border-radius:5px;padding:1px 6px;white-space:nowrap;}
+  #menu .mi.mi-done.cur .mi-tag{color:var(--tx2);}
   #menu .msep{height:1px;background:var(--line);margin:5px 4px;}
   #menu .mi.danger{color:#d4380d;}
   #menu .mi.danger:hover{background:#fff1f0;}
@@ -1949,12 +1955,15 @@ function segInvBadge(s){
   }
   return `<span class="rt-inv full" title="全人力制作：独占投入比 1.0，无并行；若同一天并行多条全人力将自动平摊为 1/N">全人力</span>`;
 }
-/* 任务段是否处于「已完成」终态：需求级被人工置为已完成，或该段自身状态=已完成。
-   用于「按人看」条内追加「✓已完成」标，与「按需求看」的封存态语义保持统一。 */
-function segIsDone(r,s){ return reqIsDone(r); }   // 口径统一到需求级：整条完成时，该需求下所有人段同步标完成
-/* 「按人看」条内「✓已完成」徽标：以需求为单位，整条完成时该需求所有人段一律显示，白底深绿印章 */
+/* 任务段是否处于「已完成」终态：需求级被人工置为已完成/全段完成派生态(reqIsDone)，或该段自身=已完成。 */
+function segIsDone(r,s){ return reqIsDone(r) || (s&&s.status==='done'); }
+/* 「按人看」条内「✓已完成」徽标：
+   - 整条完成(reqIsDone)：所有人段一律显示深绿封存印章「✓ 已完成」；
+   - 仅本人这段完成(s.status==='done' 但整条未完成)：显示浅色「✓ 本人完成」，提示这段收尾、整条仍在进行。 */
 function segDoneBadge(r,s){
-  return reqIsDone(r) ? `<span class="rt-done" title="该需求已完成、信息锁定">✓ 已完成</span>` : '';
+  if(reqIsDone(r)) return `<span class="rt-done" title="该需求已完成、信息锁定">✓ 已完成</span>`;
+  if(s && s.status==='done') return `<span class="rt-done seg" title="${memName(s.m)}这段已完成，整条需求仍在进行">✓ 本人完成</span>`;
+  return '';
 }
 /* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
 function personDayFullCount(id, t){
@@ -2921,7 +2930,15 @@ function openStatusMenu(bar,x,y){
   let items=`<div class="mtitle">${isSeg?memName(r.segs[+bar.dataset.seg].m)+' · ':''}${r.name} — 改状态</div>`;
   STATUS_ORDER.forEach(k=>{
     const s=STATUS[k];
-    items+=`<div class="mi ${k===cur?'cur':''}" onclick="pickStatus('${k}')"><i style="background:${s.col}"></i>${s.label}</div>`;
+    if(k==='done' && isSeg){
+      // 单击某个人的任务段标「已完成」时，给出二选一：整条需求收尾 vs 仅本人这段完成。
+      const sg2=r.segs[+bar.dataset.seg];
+      const allDone=reqIsDone(r), segDone=sg2.status==='done';
+      items+=`<div class="mi mi-done ${allDone?'cur':''}" onclick="pickStatus('done')"><i style="background:${s.col}"></i>已完成（整条需求）<span class="mi-tag">封存全员</span></div>`;
+      items+=`<div class="mi mi-done ${(segDone&&!allDone)?'cur':''}" onclick="pickSegDone()"><i style="background:${s.col};opacity:.5"></i>已完成（仅本人这段）<span class="mi-tag">不影响他人</span></div>`;
+    }else{
+      items+=`<div class="mi ${k===cur?'cur':''}" onclick="pickStatus('${k}')"><i style="background:${s.col}"></i>${s.label}</div>`;
+    }
   });
   if(isSeg){
     const sg=r.segs[+bar.dataset.seg];
@@ -3001,7 +3018,24 @@ function pickStatus(k){
   flashReq(reqId);
   toast('状态已更新：'+STATUS[k].label);
 }
-/* 修改某任务段的投入比：=1(全人力)清除 inv 字段走自动分摊；<1 写入固定投入比 */
+/* 仅把「当前点选的这一个人段」标为已完成，不收尾整条需求。
+   用于「这个人的活做完了，但整条还没全部完成」的局部完成场景。
+   若此操作恰好让所有段都 done，则整条自然进入派生完成态（reqIsDone 会认）。 */
+function pickSegDone(){
+  if(!menuCtx||menuCtx.seg==null){hideMenu();return;}
+  if(!requireWrite()){hideMenu();return;}
+  const r=reqs.find(z=>z.id===menuCtx.reqId); if(!r){hideMenu();return;}
+  const sg=r.segs[menuCtx.seg]; if(!sg){hideMenu();return;}
+  pushHistory();
+  sg.status='done'; sg.prog=1;
+  // 不整条置位 reqState；但若这次让全员都 done，解除可能残留的非完成封存冲突由 reqIsDone 派生态接管。
+  _logDesc='把「'+r.name+' · '+memName(sg.m)+'」单段标记为已完成（仅本人）';
+  hideMenu();save();broadcast();
+  const reqId=r.id;
+  rerender();
+  flashReq(reqId);
+  toast(reqIsDone(r)?('全员已完成，「'+r.name+'」整条收尾'):('已完成（仅 '+memName(sg.m)+' 这段）'));
+}
 function pickInv(v){
   if(!menuCtx||menuCtx.seg==null){hideMenu();return;}
   if(!requireWrite()){hideMenu();return;}
