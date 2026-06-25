@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>团队需求排期 · 协同甘特图看板</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
@@ -47,6 +50,7 @@
   #viewTabs button{padding:9px 20px;font-size:14px;font-weight:700;color:var(--tx2);border-radius:8px;transition:.14s;}
   #viewTabs button:hover:not(.on){color:var(--blue);background:rgba(255,255,255,.55);}
   #viewTabs button.on{background:var(--blue);color:#fff;box-shadow:0 2px 7px rgba(51,112,255,.38);}
+  .today-chip{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;color:#ef3b39;background:#fff1f0;border:1px solid #ffd4d2;padding:5px 12px;border-radius:9px;white-space:nowrap;}
   /* 着色切换：次级小胶囊 + 前缀标签，明确区分 */
   .color-grp{display:inline-flex;align-items:center;gap:7px;}
   .color-grp .clab{font-size:12px;color:var(--tx3);font-weight:600;white-space:nowrap;}
@@ -913,6 +917,9 @@
           <button onclick="setColor('risk',this)">按风险</button>
         </div>
       </span>
+    </div>
+    <div class="bar-section">
+      <span id="todayChip" class="today-chip" title="红线对应的当前日期（实时取系统时间，跨天自动更新）">📍 今天 --</span>
     </div>
     <div class="spacer"></div>
     <div class="bar-section">
@@ -3948,13 +3955,18 @@ function bindIdleWatch(){
 /* 当前日期红线即时刷新：每分钟检查系统日期，跨天则更新 TODAY 并重绘红线。
    也在标签页重新可见(visibilitychange)时立即校正——避免电脑休眠唤醒后红线滞后。 */
 let _todayWatchBound=false;
+function syncTodayChip(){
+  const el=document.getElementById('todayChip');
+  if(el) el.textContent='📍 今天 '+fmt(TODAY);
+}
 function refreshToday(){
   const t=todayDate();
-  if(t.getTime()===TODAY.getTime())return false;  // 没跨天，无需动
-  TODAY=t; rerender(); return true;                // 跨天：更新基准日并重绘（红线随 idx(TODAY) 跳到新位置）
+  if(t.getTime()===TODAY.getTime()){ syncTodayChip(); return false; }  // 没跨天，仅确保 chip 已填
+  TODAY=t; rerender(); syncTodayChip(); return true;                   // 跨天：更新基准日并重绘（红线随 idx(TODAY) 跳到新位置）
 }
 function bindTodayWatch(){
   if(_todayWatchBound)return; _todayWatchBound=true;
+  syncTodayChip();                                 // 初始化立即把"今天 X/X"填上真实日期
   setInterval(refreshToday,60000);                 // 每 60s 轮询一次系统日期
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshToday(); });
 }
