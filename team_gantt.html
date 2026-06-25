@@ -715,13 +715,17 @@
   .std-rows .std-head span:nth-child(1){padding-left:10px;}
   .std-rows .std-head span:nth-child(3),.std-rows .std-head span:nth-child(4){text-align:center;}
   .std-row{display:grid;grid-template-columns:150px 120px 96px 96px 1fr 26px;gap:10px;align-items:center;padding:8px 10px;background:#fafbfc;border:1px solid var(--line);border-radius:8px;}
-  /* 品级：圆形色点（可点选颜色）+ 品级名，合成一个胶囊 */
+  /* 品级：圆形色点（颜色随品级自动套用）+ 品级下拉，合成一个胶囊 */
   .std-row .sd-grade{display:flex;align-items:center;gap:0;border:1px solid var(--line);background:#fff;border-radius:7px;overflow:visible;padding-left:9px;position:relative;}
   .std-row .sd-dot{width:16px;height:16px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 2px rgba(0,0,0,.06) inset;border:none;padding:0;cursor:default;}
   .std-rows:not(.locked) .std-row .sd-dot{cursor:pointer;}
   .std-rows:not(.locked) .std-row .sd-dot:hover{box-shadow:0 0 0 2px rgba(0,0,0,.06) inset,0 0 0 3px rgba(112,72,232,.25);}
   .std-row .sd-name{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--tx);border:none;background:transparent;padding:5px 8px;outline:none;}
   .std-row .sd-grade:focus-within{border-color:#9aa7b8;}
+  /* 品级色点（只读展示，颜色由品级决定）+ 品级下拉 */
+  .std-row .sd-gdot{width:14px;height:14px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 2px rgba(0,0,0,.06) inset;display:inline-block;}
+  .std-row .sd-gsel{flex:1;min-width:0;font-size:13px;font-weight:700;color:var(--tx);border:none;background:transparent;padding:5px 6px 5px 8px;outline:none;cursor:pointer;appearance:auto;}
+  .std-rows.locked .sd-gsel{pointer-events:none;color:var(--tx2);}
   /* 颜色选择浮层：点击色点弹出，列出预设色 */
   .sd-colpop{position:absolute;top:calc(100% + 6px);left:0;z-index:50;display:flex;gap:8px;padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(20,30,50,.16);}
   .sd-colpop .opt{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;font-size:10px;color:var(--tx3);border:none;background:none;padding:0;}
@@ -1780,6 +1784,20 @@ const GRADE_PRESET = [
   {name:'橙色', col:'#f59e0b'},
   {name:'红色', col:'#ef3b39'},
 ];
+/* 品级定义：品级名 ⇆ 标准颜色 一一绑定。标准工期表的「品级」列从此用下拉选择，
+   选中即自动套用对应颜色，不再手输文字、不再单独选色（颜色随品级走）。 */
+const GRADE_DEFS = [
+  {name:'金角', col:'#f6cf3f'},
+  {name:'橙角', col:'#f59e0b'},
+  {name:'红角', col:'#ef3b39'},
+  {name:'通用', col:'#3b82f6'},
+];
+const gradeDef = name => GRADE_DEFS.find(d=>d.name===name);
+function gradeOptsHTML(cur){
+  let list=GRADE_DEFS.slice();
+  if(cur && !list.some(d=>d.name===cur)) list=list.concat([{name:cur,col:''}]);  // 兜底：保留旧/自定义品级值
+  return list.map(d=>`<option value="${effEsc(d.name)}"${d.name===cur?' selected':''}>${effEsc(d.name)}</option>`).join('');
+}
 let STD_CFG = [
   {grade:'金角', col:'#f6cf3f', mod:'出场', dur:'',  weeks:'8 周',  ppl:'3–4 个基地人力'},
   {grade:'橙角', col:'#f59e0b', mod:'出场', dur:'',  weeks:'12 周', ppl:'1 正编 + 3 个基地人力'},
@@ -4757,7 +4775,7 @@ function renderStdTable(){
   let html='<div class="std-head"><span>品级（含模块色）</span><span>模块类型</span><span>展示时长</span><span>制作工期</span><span>标配人力</span><span></span></div>';
   STD_CFG.forEach((t,i)=>{
     html+=`<div class="std-row" data-i="${i}">
-      <span class="sd-grade"><button class="sd-dot" type="button" data-act="colpick" data-i="${i}" style="background:${effEsc(t.col)}" title="${SL?'品级颜色':'点击选择品级颜色'}"${SL?' disabled':''}></button><input class="sd-name" type="text" value="${effEsc(t.grade)}" data-act="grade" data-i="${i}" placeholder="品级"${SL?' readonly':''}></span>
+      <span class="sd-grade"><i class="sd-gdot" style="background:${effEsc(t.col)}"></i><select class="sd-gsel" data-act="grade" data-i="${i}" title="${SL?'品级（颜色随品级自动套用）':'选择品级，颜色自动套用'}"${SL?' disabled':''}>${gradeOptsHTML(t.grade)}</select></span>
       <input class="sd-mod" type="text" value="${effEsc(t.mod||'')}" data-act="mod" data-i="${i}" placeholder="如 出场/检视" ${SL?' readonly':''}>
       <input class="sd-dur" type="text" value="${effEsc(t.dur||'')}" data-act="dur" data-i="${i}" placeholder="如 15 秒" title="效果在游戏内的展示时间长度"${SL?' readonly':''}>
       <input class="sd-weeks" type="text" value="${effEsc(t.weeks)}" data-act="weeks" data-i="${i}" placeholder="如 8 周" title="制作工期"${SL?' readonly':''}>
@@ -4779,7 +4797,7 @@ function bindStdTable(){
   if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
     if(stdLockedView())return;
     pushHistory();
-    STD_CFG.push({grade:'金角',col:GRADE_PRESET[0].col,mod:'新模块',dur:'',weeks:'',ppl:''});
+    STD_CFG.push({grade:GRADE_DEFS[0].name,col:GRADE_DEFS[0].col,mod:'新模块',dur:'',weeks:'',ppl:''});
     save();broadcast();renderStdTable();
   });}
   if(!box||box._bound)return; box._bound=1;
@@ -4790,33 +4808,11 @@ function bindStdTable(){
     const i=+el.getAttribute('data-i'); if(!STD_CFG[i])return;
     if(e.type==='change') pushHistory();
     STD_CFG[i][act]=el.value;
+    if(act==='grade'){ const d=gradeDef(el.value); if(d) STD_CFG[i].col=d.col; renderStdTable(); }  // 品级⇆颜色绑定：选品级即自动套色
     save();broadcast();
   };
   box.addEventListener('change',onEdit);
   box.addEventListener('input',onEdit);
-  // 点击色点：弹出预设颜色浮层，选中即改色
-  const closeColPop=()=>{ const p=box.querySelector('.sd-colpop'); if(p)p.remove(); };
-  box.addEventListener('click',e=>{
-    const el=e.target.closest&&e.target.closest('[data-act="colpick"]');
-    if(!el)return;
-    if(stdLockedView())return;
-    e.stopPropagation();
-    const i=+el.getAttribute('data-i'); if(!STD_CFG[i])return;
-    const exist=el.parentNode.querySelector('.sd-colpop');
-    closeColPop();
-    if(exist)return;  // 再次点击同一个色点 → 收起
-    const cur=String(STD_CFG[i].col||'').toLowerCase();
-    const pop=document.createElement('div'); pop.className='sd-colpop';
-    pop.innerHTML=GRADE_PRESET.map(p=>`<button type="button" class="opt${p.col.toLowerCase()===cur?' cur':''}" data-col="${p.col}"><span class="sw" style="background:${p.col}"></span>${p.name}</button>`).join('');
-    pop.querySelectorAll('.opt').forEach(o=>o.addEventListener('click',ev=>{
-      ev.stopPropagation();
-      pushHistory(); STD_CFG[i].col=o.getAttribute('data-col');
-      save();broadcast();renderStdTable();
-    }));
-    el.parentNode.appendChild(pop);
-  });
-  // 点击空白处收起颜色浮层
-  if(!document._stdColPopBound){document._stdColPopBound=1;document.addEventListener('click',()=>{const b=document.getElementById('stdRows');if(b){const p=b.querySelector('.sd-colpop');if(p)p.remove();}});}
   // 删除行
   box.addEventListener('click',e=>{
     if(stdLockedView())return;
