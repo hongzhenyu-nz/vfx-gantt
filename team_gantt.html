@@ -512,6 +512,7 @@
   /* 投入比状态徽标：条内显示「全人力制作 / 跟进 0.x」，全人力=蓝、跟进=琥珀 */
   .rt-inv{display:inline-flex;align-items:center;gap:2px;font-size:10.5px;font-weight:800;border-radius:4px;padding:1px 6px;line-height:1.5;flex-shrink:0;letter-spacing:.2px;white-space:nowrap;}
   .rt-inv.full{color:#185fa5;background:#e6f1fb;border:1px solid #b5d4f4;}
+  .rt-inv.par{color:#5f3dc4;background:#efeafd;border:1px solid #c7b6f5;}
   .rt-inv.follow{color:#b36b00;background:#fff1da;border:1px solid #ffd591;}
   .rt-inv b{font-weight:900;}
   .bar-task .rt-line .rt-inv{box-shadow:0 1px 2px rgba(0,0,0,.12);}
@@ -1794,7 +1795,7 @@ let stdLocked = true;  // 标准工期表默认锁定，防误操作
 /* 投入比 / 精力分配 档位（数据驱动、可编辑、带锁定）。val<1=跟进型(固定投入比、不分摊)；val=1=全人力制作(并行自动平摊)。
    col=色块颜色, vbg/vfg=投入比徽标底色/字色, desc=行为规则, scene=典型场景。支援(外借)为固定行，不在此数组内。*/
 let INV_TIERS = [
-  {key:'full',  name:'全人力制作', val:1.0, col:'#0a7d3c', vbg:'#e9f8ee', vfg:'#0a7d3c', desc:'全力投入单条产出。若某人<b>同一天并行 N 条全人力制作</b>，当天对每条<b>自动平摊为 1/N</b>（并行越多、单条消化越慢，零维护随排期自动变）。', scene:'主力特效师独立\n承制一条需求'},
+  {key:'full',  name:'全人力制作', val:1.0, col:'#0a7d3c', vbg:'#e9f8ee', vfg:'#0a7d3c', desc:'全力投入单条产出（投入比 1.0）。若某人<b>同一天并行 N 条全人力制作</b>，系统<b>自动转为「并行人力制作」</b>，当天对每条<b>自动平摊为 1/N</b>（并行越多、单条消化越慢，无需手动设置，随排期实时变化）。', scene:'主力特效师独立\n承制一条需求'},
   {key:'follow',name:'完整跟进', val:0.5, col:'#b36b00', vbg:'#fff1da', vfg:'#b36b00', desc:'持续跟进效果但非全力制作。<b>固定投入比</b>，不参与并行分摊。', scene:'资深盯方向 /\n全程把控品质'},
   {key:'part',  name:'部分跟进', val:0.3, col:'#d6a000', vbg:'#fdf6e3', vfg:'#a07800', desc:'花一部分精力跟进反馈效果。<b>固定投入比</b>，不参与并行分摊。', scene:'兼顾多条 /\n定期 review'},
 ];
@@ -1885,14 +1886,35 @@ const r1=v=>Math.round(v*10)/10;
    support（支援）只表编制隶属，不打折。 */
 function segIsFollow(s){ return s.inv!=null && s.inv<1; }        // 跟进型(固定投入比)
 function segInvBase(s){ return (s.inv!=null && s.inv<1) ? s.inv : 1; }  // 全人力制作记为 1（参与分摊）
-/* 任务段的投入比状态徽标：全人力制作(默认/=1) → 蓝；跟进型(<1) → 琥珀，显示具体投入比 */
+/* 某「全人力制作」段在其工作日上的并行情况：返回 {par:平均并行条数, maxPar:最大并行, days:工作日数}。
+   并行越多 → 单条投入比自动平摊为 1/par。跟进型不计入并行（固定投入比）。 */
+function segParallelInfo(s){
+  if(segIsFollow(s)) return {par:1, maxPar:1, days:0};
+  let sum=0, days=0, mx=1;
+  for(let t=s.s.getTime(); t<s.e.getTime(); t+=dayMs){
+    const w=new Date(t).getDay(); if(w===0||w===6) continue;
+    const n=personDayFullCount(s.m, t)||1;
+    sum+=n; days++; if(n>mx) mx=n;
+  }
+  return {par: days? sum/days : 1, maxPar:mx, days};
+}
+/* 任务段的投入比状态徽标：
+   · 跟进型(<1) → 琥珀，显示固定投入比；
+   · 全人力制作且当天有并行 → 紫「并行人力 1/N」，投入比随并行数自动平摊；
+   · 全人力制作且无并行 → 蓝「全人力」，投入比 1.0。 */
 function segInvBadge(s){
   if(segIsFollow(s)){
     const tier=INV_TIERS.find(t=>Math.abs(t.val-s.inv)<1e-6);
     const nm=tier?tier.name:'跟进';
     return `<span class="rt-inv follow" title="${nm}：固定投入比 ${s.inv}，不参与并行分摊">${nm} <b>${s.inv}</b></span>`;
   }
-  return `<span class="rt-inv full" title="全人力制作：投入比 1.0，并行多条时当天自动平摊为 1/N">全人力</span>`;
+  const pi=segParallelInfo(s);
+  if(pi.maxPar>1){
+    const avg=r1(pi.par);
+    const inv=r1(1/pi.par);
+    return `<span class="rt-inv par" title="并行人力制作：与其它全人力段并行（平均 ${avg} 条），投入比随并行数自动平摊为 1/N ≈ ${inv}，并行越多单条消化越慢">并行人力 <b>1/${pi.maxPar>pi.par+1e-6?'N':pi.maxPar}</b></span>`;
+  }
+  return `<span class="rt-inv full" title="全人力制作：独占投入比 1.0，无并行；若同一天并行多条全人力将自动平摊为 1/N">全人力</span>`;
 }
 /* 任务段是否处于「已完成」终态：需求级被人工置为已完成，或该段自身状态=已完成。
    用于「按人看」条内追加「✓已完成」标，与「按需求看」的封存态语义保持统一。 */
@@ -3778,6 +3800,9 @@ function applySnap(snap){
   if(typeof snap.stdLocked==='boolean') stdLocked=snap.stdLocked;
   if(Array.isArray(snap.invTiers) && snap.invTiers.length){
     INV_TIERS=snap.invTiers.map(t=>({key:t.key||('inv'+Math.random().toString(36).slice(2,7)),name:t.name||'',val:Number(t.val),col:t.col||'#0a7d3c',vbg:t.vbg||'#e9f8ee',vfg:t.vfg||'#0a7d3c',desc:t.desc||'',scene:t.scene||''}));
+    // 迁移：「并行人力制作」已改为自动状态（全人力并行时自动 1/N 平摊），不再作为可手动设置的固定档位 → 剔除残留旧档
+    INV_TIERS=INV_TIERS.filter(t=>!/并行人力/.test(t.name||''));
+    if(!INV_TIERS.length) INV_TIERS=[{key:'full',name:'全人力制作',val:1.0,col:'#0a7d3c',vbg:'#e9f8ee',vfg:'#0a7d3c',desc:'全力投入单条产出（投入比 1.0）。并行多条全人力时自动平摊为 1/N。',scene:''}];
     if(typeof syncInvSelectHTML==='function') syncInvSelectHTML();
   }
   if(typeof snap.invLocked==='boolean') invLocked=snap.invLocked;
@@ -4651,6 +4676,11 @@ function renderInvTable(){
       <td><button class="iv-del" data-act="del" data-i="${i}" title="删除该类">×</button></td>
     </tr>`;
   });
+  // 自动行：并行人力制作 —— 非手动档位，由「全人力」并行时自动派生，投入比随并行数 1/N 平摊
+  html+=`<tr class="it-fixed"><td class="it-type"><i style="background:#5f3dc4;display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle"></i>并行人力制作<span class="it-fixrow">自动</span></td>
+    <td class="it-val"><b style="background:#efeafd;color:#5f3dc4;display:inline-block;min-width:34px;padding:2px 8px;border-radius:6px">1/N</b></td>
+    <td class="it-desc">由<b>全人力制作</b>自动派生：当某人<b>同一天并行 N 条全人力制作</b>时，当天每条投入比<b>自动平摊为 1/N</b>（并行越多、单条消化越慢）。<u>无需手动设置</u>，随排期实时变化。</td>
+    <td class="it-scene">一人同期<br>并行多条特效</td><td></td></tr>`;
   // 固定行：支援(外借) —— 不可编辑/删除，仅说明编制隶属
   html+=`<tr class="it-fixed"><td class="it-type"><i style="background:var(--amber);display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle"></i>支援(外借)<span class="it-fixrow">固定项</span></td>
     <td class="it-val"><b style="background:#fff1da;color:#b36b00;display:inline-block;min-width:34px;padding:2px 8px;border-radius:6px">不打折</b></td>
