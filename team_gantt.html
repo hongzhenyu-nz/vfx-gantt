@@ -643,7 +643,7 @@
   .bar-task .bar-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* 按需求视图：任务条加高，容纳标题 + 按编制分两行的人名标签 */
   .req-row{min-height:82px;}
-  .req-row .cell-left{align-items:flex-start;padding-top:10px;padding-left:20px;position:relative;}
+  .req-row .cell-left{align-items:flex-start;padding-top:10px;padding-left:20px;position:sticky;left:0;z-index:4;}  /* 必须保持 sticky 否则左侧信息栏横向滚动不冻结；sticky 本身即定位上下文，::after 仍可定位 */
   /* ===== 左侧三层嵌套竖带：品级 ⊃ 角色 ⊃ 模块 ===== */
   .cell-left.has-bands{padding-left:20px;}
   .lv-bands{position:absolute;left:0;top:0;bottom:0;display:flex;gap:2px;padding-left:6px;z-index:2;pointer-events:none;}
