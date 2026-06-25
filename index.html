@@ -501,9 +501,11 @@
   .rt-md{display:inline-flex;align-items:baseline;gap:1px;font-size:11.5px;font-weight:800;color:#475067;background:#eef1f7;border:1px solid #d7dce6;border-radius:4px;padding:1px 6px;line-height:1.5;flex-shrink:0;letter-spacing:.2px;}
   .rt-md small{font-size:9px;font-weight:700;opacity:.75;letter-spacing:0;}
   /* 按人看：条内统一标题（深色条上：模块标签转白系；图标随标签一体） */
-  .bar-task .rt-line{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:5px 5px;position:relative;z-index:1;max-width:100%;overflow:hidden;pointer-events:none;}
-  /* 条内标题徽标统一裁切在条体内（不再 visible 外溢）：防止任务条起点早于可视窗口、或条体偏窄时，
-     标签向左/上下溢出，压盖左侧冻结人员栏或相邻行（出框）。放不下的标签在条体边界内被裁，不再外溢错位。 */
+  /* 条内标题徽标：放不下时自动「换行」全部显示（不裁切、不隐藏）。横向仍由父条 overflow:hidden 兜底裁切，
+     防止条体起点早于可视窗口时标签向左溢出压盖左侧冻结人员栏；纵向因整行 rowH 已按标签行数预先加高，
+     换行后的多行标签都落在条体高度内，不会被裁。 */
+  .bar-task .rt-line{display:inline-flex;flex-wrap:wrap;align-items:center;gap:3px 5px;position:relative;z-index:1;max-width:100%;pointer-events:none;line-height:1.3;}
+  /* 父条横向兜底裁切（防左溢压栏），允许内部换行（white-space:normal） */
   .bar-task:has(.rt-line){overflow:hidden;white-space:normal;}
   .bar-task .rt-line .rt-nm{color:#fff;font-size:14px;text-shadow:0 1px 1px rgba(0,0,0,.22);}
   /* 条内模块/人天徽标改用与左侧信息栏完全一致的浅底深字（不再白字白底，保证可读） */
@@ -520,16 +522,12 @@
   .rt-done{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;border-radius:4px;padding:1px 7px;line-height:1.5;flex-shrink:0;letter-spacing:.3px;white-space:nowrap;color:#138a67;background:#fff;border:1px solid #b6ead6;box-shadow:0 1px 2px rgba(0,0,0,.20);}
   /* 仅本人这段完成（整条未收尾）：浅色描边、低调，区别于整条封存的深绿印章 */
   .rt-done.seg{color:#3a9b78;background:rgba(255,255,255,.78);border-color:#cdeadd;font-weight:700;box-shadow:none;}
-  /* 「按人看」任务段=已完成：与「按需求看」呈现统一——条内信息整体淡化锁定，正中央显示「✓已完成」放大印章 */
-  .bar-task.seg-done .rt-line,.bar-task.seg-done-self .rt-line{opacity:.4;filter:saturate(.85);}
-  /* 完成态：隐藏条内人天/投入比徽标，避免与居中「✓已完成」印章在同一水平位相撞（与「按需求看」一致，只留淡化名称＋居中印章） */
-  .bar-task.seg-done .rt-line .rt-md,.bar-task.seg-done .rt-line .rt-inv,
-  .bar-task.seg-done-self .rt-line .rt-md,.bar-task.seg-done-self .rt-line .rt-inv{display:none;}
+  /* 「按人看」任务段=已完成：信息「全部保留显示」（不淡化锁定到看不清、不隐藏徽标、不盖居中印章）。
+     完成语义改由行内「✓ 已完成 / ✓ 本人完成」徽标表达（见 .rt-done），并把条内信息轻微降饱和提示"已封存"，
+     但角色名/模块/人天/投入比仍清晰可读，满足「信息全显示」诉求。 */
+  .bar-task.seg-done .rt-line,.bar-task.seg-done-self .rt-line{opacity:.92;filter:saturate(.9);}
   .bar-task.seg-done .prog::after{display:none;}                       /* 已完成不再显示未做斜纹 */
-  .bar-task.seg-done::after,.bar-task.seg-done-self::after{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:800;letter-spacing:1px;padding:2px 11px;border-radius:6px;z-index:3;pointer-events:none;white-space:nowrap;}
-  .bar-task.seg-done::after{content:'✓ 已完成';background:rgba(78,203,160,.97);color:#fff;font-size:11.5px;box-shadow:0 2px 8px rgba(0,0,0,.26);}
-  .bar-task.seg-done-self::after{content:'✓ 本人完成';background:rgba(255,255,255,.96);color:#2f9e44;font-size:10px;border:1px solid #b6ead6;font-weight:800;box-shadow:0 1px 5px rgba(0,0,0,.18);}
-  .bar-task.slim.seg-done::after,.bar-task.slim.seg-done-self::after{font-size:9px;padding:1px 6px;letter-spacing:.3px;}
+  /* 完成态居中放大印章已停用（改为行内 ✓ 徽标 + 信息全显示），故不再绘制 ::after 覆盖层，避免遮挡条内标签。 */
   /* 联调附属小条：虚线胶囊，挂在本体条之后 */
   .bar-addon{position:absolute;height:20px;top:31px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));cursor:grab;z-index:2;user-select:none;touch-action:none;}
   .bar-addon .ax-ic{font-size:9px;}
@@ -1794,6 +1792,22 @@ function reqTitleHTML(r, opt){
   const md=(r.estimate>0)?`<span class="rt-md" title="总需求工作量">${r.estimate}<small>人天</small></span>`:'';   // 总需求人天徽标（左侧信息栏与条内标签统一展示）
   return `${nm}${mt}${md}`;
 }
+/* 估算「按人看」一条任务条内全部标签（角色名+模块+人天+投入比[+完成标]）横排所需的像素宽度。
+   仅用于预判换行行数，进而把整行 rowH 撑高，让标签全部显示且不裁切（不要求像素级精确）。 */
+function estBarLabelPx(r, sg){
+  const short=(charShort(r.char)||r.name||'').trim();
+  let w=10;                                            // 起始留白 + 状态点
+  w += short.length*14 + 6;                            // 角色名（14px CJK）
+  const MM=modMeta(r.mod);
+  w += 16 + String(MM.s||'').length*12 + 14;           // 模块：图标 + 短名 + padding
+  if(r.estimate>0) w += String(r.estimate).length*7 + 18 + 14;   // 人天徽标（数字 + “人天”小字）
+  let invTxt='全人力';
+  if(segIsFollow(sg)){ const t=INV_TIERS.find(t=>Math.abs(t.val-sg.inv)<1e-6); invTxt=(t?t.name:'跟进')+' '+sg.inv; }
+  else if(personPeakPar(sg.m)>1){ invTxt='并行人力 1/9'; }
+  w += invTxt.length*10.5 + 16;                        // 投入比/跟进徽标
+  if(reqIsDone(r) || (sg && sg.status==='done')) w += 5*11 + 18;  // 行内「✓ 已完成 / ✓ 本人完成」徽标
+  return w;
+}
 
 /* ============ 按需求看：条内三阶段模型 L1 / L2 / 联调 ============
    - 特效本体区间 [s,e]：取该需求所有 segs 的最早开始~最晚结束。
@@ -2401,6 +2415,17 @@ function personRowHTML(m,inArc){
     // 分配泳道（用天索引判重叠）；open 段已在上方归一化为整行 [0,DAYS) 占位，故此处直接用 si0/ei0。
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
+    /* 「时间重叠传递闭包」内的 distinct lane 列表：用于均高等分定位。
+       关键修复——只看「直接重叠」会在链式重叠(A↔B↔C 但 A、C 不重叠)时算出不一致的分母，
+       导致同簇内的条槽位错位、互相压盖(同一垂直位糊成一团)。改用传递闭包后，同一重叠簇内
+       所有条共享同一分母(簇内 distinct lane 数)、各按自身 lane 排名占槽，链式重叠也绝不重叠。
+       不重叠的条各自成簇(lane 数=1)，仍铺满整行，与原行为一致。 */
+    const clusterLanesOf=(it)=>{
+      const inC=new Set([it]); const stk=[it];
+      while(stk.length){ const cur=stk.pop();
+        for(const b of laid.items){ if(inC.has(b))continue; if(b.si0<cur.ei0 && b.ei0>cur.si0){ inC.add(b); stk.push(b);} } }
+      return [...new Set([...inC].map(b=>b.lane))].sort((a,b)=>a-b);
+    };
     /* 自适应条高（关键）：纵向位置/高度全部用「行实际高度的百分比」表达，而不是固定像素。
        这样无论左侧信息栏把行撑多高，蓝条都会自动充满整行：
        · 某条任务所在时段没有别的条目挤占 → 它向上下吞并相邻空泳道，纵向占满整行（填满红框）。
@@ -2408,8 +2433,24 @@ function personRowHTML(m,inArc){
        槽位用 (lo/laneCount ~ hi/laneCount) 的百分比切分，bar 内插 GAP_PX 间距留缝。 */
     const FILL=0.8;                                  // 蓝条只占所在泳道段高度的 80%，上下留白以区分行/条（不再 100% 撑满）
     // 行最小高度：单泳道维持基础行高；多泳道时保证每条不低于可读下限（左侧更高时会再被撑高）
-    const rowH = laneCount<=1 ? ROW_BASE
+    let rowH = laneCount<=1 ? ROW_BASE
                : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
+    /* 「信息全显示」关键：预扫描每条任务条，估算其标签横排所需宽度→换行行数；
+       因每条高度=整行高度×段高占比(segH×FILL)，故按「最吃高度的那条」反推整行需要多高，
+       使换行后的多行标签都落在条体内、全部可见且不裁切（窄条会相应变高）。行数封顶 4，避免极窄条把行撑到离谱。 */
+    const LINE_H=17;                                 // 标签单行高度（含行距）估算
+    laid.items.forEach(it=>{
+      const isOpenP=!!it.sg.open;
+      const barW=isOpenP?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
+      const usableW=Math.max(barW-18,36);            // 条内可排标签的净宽
+      const estPx=estBarLabelPx(it.r,it.sg);
+      const nLines=Math.max(1,Math.min(4,Math.ceil(estPx/usableW)));
+      if(nLines<=1) return;
+      const ovl=clusterLanesOf(it).length||1;
+      const segHp=(1/ovl)*FILL;                      // 本条占整行内高的比例
+      const needRowH=(nLines*LINE_H+10)/Math.max(segHp,0.08);  // 让 segHp×rowH ≥ 标签所需高度
+      if(needRowH>rowH) rowH=Math.round(needRowH);
+    });
     // 判断某泳道在 [s,e) 时段是否被别的条目占用
     const occupied=(lane,s,e)=> laid.items.some(b=> b.lane===lane && b.si0<e && b.ei0>s);
     let bars='';
@@ -2423,9 +2464,9 @@ function personRowHTML(m,inArc){
       // 变超高、相邻条被夹扁，导致同一个人的两条任务高度参差不齐）。改为：与本条时间重叠的若干条，
       // 平均瓜分该时段的整行高度（等高居中），不重叠的条各自按其局部并行数占位——既保证同时段的条
       // 等高、又不为远期泳道预留空白。assignLanes 已保证重叠条 lane 互异，故按重叠集合的 lane 排名定位不会相互压盖。
-      const overlapLanes=[...new Set(laid.items.filter(b=> b.si0<it.ei0 && b.ei0>it.si0).map(b=>b.lane))].sort((a,b)=>a-b);
-      const kPar=Math.max(overlapLanes.length,1);              // 本条所在时段的实际并行条数
-      const posPar=Math.max(overlapLanes.indexOf(it.lane),0);  // 本条在并行组中的次序（0-based）
+      const overlapLanes=clusterLanesOf(it);                   // 本条所在「重叠簇」的 distinct lane 列表（传递闭包，避免链式重叠压盖）
+      const kPar=Math.max(overlapLanes.length,1);              // 本簇并行条数（同簇统一分母）
+      const posPar=Math.max(overlapLanes.indexOf(it.lane),0);  // 本条在簇内的次序（0-based）
       const segTop=posPar/kPar;                                // 本条顶部占比（按局部并行数等分）
       const segH=1/kPar;                                       // 本条占整行高度比（等分）
       const topPct=((segTop+segH*(1-FILL)/2)*100).toFixed(3);
@@ -2441,7 +2482,7 @@ function personRowHTML(m,inArc){
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${doneCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}${segInvBadge(sg)}</span>
+        <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}${segInvBadge(sg)}${segDoneBadge(r,sg)}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(sg.prog*100)}"></div>
@@ -2935,7 +2976,7 @@ window.addEventListener('pointerup',()=>{
       const src=r.segs[+bar.dataset.seg];
       let s=idx(src.s)+delta, e=idx(src.e)+delta;
       if(s<0){e-=s;s=0;} if(e>DAYS){s-=(e-DAYS);e=DAYS;} s=Math.max(0,s);e=Math.min(DAYS,e);
-      const newSeg={m:src.m, s:i2d(s), e:i2d(e), prog:src.prog, status:src.status};
+      const newSeg={m:src.m, s:i2d(s), e:i2d(e), prog:0, status:'todo'};  // 复制派活=全新任务段，进度归零、未开始（不继承源段进度，避免显示成「整体/源进度」）
       if(src.support) newSeg.support=true;
       if(src.open) newSeg.open=true;
       if(src.inv!=null) newSeg.inv=src.inv;
@@ -3446,7 +3487,8 @@ function doPaste(){
     pushHistory();
     const p=clip.payload;
     // 保持原工期位置，仅替换负责人
-    const newSeg={m:selectedMem, s:i2d(p.s), e:i2d(Math.min(p.e,DAYS)), prog:p.prog, status:p.status};
+    const isCut=clip.mode==='cut';  // 剪切=搬移同一段工作(保留进度)；复制=派一份新活(进度归零、未开始)
+    const newSeg={m:selectedMem, s:i2d(p.s), e:i2d(Math.min(p.e,DAYS)), prog:isCut?p.prog:0, status:isCut?p.status:'todo'};
     if(p.inv!=null) newSeg.inv=p.inv;
     const mem=memById(selectedMem), rl=reqLeadOf(dst), ml=leadOf(mem);
     if(rl&&ml&&ml!==rl) newSeg.support=true;
@@ -3469,7 +3511,8 @@ function doPaste(){
   // 落点：保持原工期长度，对齐到目标需求的起始日
   const dstStart=Math.min(...dst.segs.map(s=>idx(s.s)));
   let ns=dstStart, ne=Math.min(dstStart+p.span, DAYS);
-  const newSeg={m:p.m, s:i2d(ns), e:i2d(ne), prog:p.prog, status:p.status};
+  const isCut2=clip.mode==='cut';  // 剪切=搬移同一段工作(保留进度)；复制=派一份新活(进度归零、未开始)
+  const newSeg={m:p.m, s:i2d(ns), e:i2d(ne), prog:isCut2?p.prog:0, status:isCut2?p.status:'todo'};
   if(p.inv!=null) newSeg.inv=p.inv;
   // 跨队支援判定：粘到的需求带队归属 ≠ 此人隶属 → 标记支援
   const mem=memById(p.m), rl=reqLeadOf(dst), ml=leadOf(mem);
