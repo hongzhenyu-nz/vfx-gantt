@@ -3856,6 +3856,22 @@ function startEditLead(ev, mid, kind){
 /* 正编「带队负责」常用预设：取自现有正编 lead + 标准模块组合，供 datalist 提示 */
 const LEAD_PRESETS=['红角 + 金角','橙角露西亚·管线1','橙角 检视 / 组队 / 饰品','金角线','红角 女指挥官线','检视 / 组队','饰品','武器特效'];
 
+/* 「新增需求」里：角色名 / 模块 改动时，自动把「角色短名 + 模块」回填到需求名称。
+   仅当用户没手动编辑过名称(data-touched 为空)时才自动同步，避免覆盖手填内容。 */
+function syncReqName(){
+  const nm=document.getElementById('nrName'); if(!nm) return;
+  if(nm.dataset.touched==='1') return;                 // 用户已手动填写 → 不覆盖
+  const ch=(document.getElementById('nrChar').value||'').trim();
+  const md=(document.getElementById('nrMod').value||'').trim();
+  const auto=composeReqName(ch,md);
+  nm.value=auto;                                       // 仅作预览占位，不算用户输入
+}
+/* 由角色名 + 模块合成需求名称：角色取短名(去品级线/联动CP尾巴)，与模块短名以空格相连。 */
+function composeReqName(ch,md){
+  const short=charShort(ch)||'';
+  const ms=(md? (modMeta(md).s||md) : '');             // 模块短名(如「出场」「检视/组队」)
+  return [short,ms].filter(Boolean).join(' ').trim();
+}
 function openNewReq(){
   if(!requireWrite())return;
   addCtx={mode:'newReq'};
@@ -3871,11 +3887,11 @@ function openNewReq(){
     <div class="ctx">添加一条<b>新需求</b>。提交后出现在「按需求看」列表中，可再用行内「＋加人」分配制作人。纳入本地 / 团队链接 / 云端同步。</div>
     ${memHint}
     <div class="row2">
-      <div class="fld"><label>需求名称</label><input type="text" id="nrName" placeholder="如：红蔻 出场特效"></div>
-      <div class="fld"><label>角色名</label><input type="text" id="nrChar" placeholder="如：红蔻·赤焰"></div>
+      <div class="fld"><label>需求名称 <small style="font-weight:400;color:#8a93a3">可留空，自动＝角色＋模块</small></label><input type="text" id="nrName" placeholder="留空将自动用「角色 模块」合成" oninput="this.dataset.touched=this.value.trim()?'1':''"></div>
+      <div class="fld"><label>角色名</label><input type="text" id="nrChar" placeholder="如：红蔻·赤焰" oninput="syncReqName()"></div>
     </div>
     <div class="row2">
-      <div class="fld"><label>模块</label><select id="nrMod">${modOpt}</select></div>
+      <div class="fld"><label>模块</label><select id="nrMod" onchange="syncReqName()">${modOpt}</select></div>
       <div class="fld"><label>品级</label><select id="nrGrade">${gradeOpt}</select></div>
     </div>
     <div class="row2">
@@ -3892,9 +3908,14 @@ function openNewReq(){
 }
 function confirmNewReq(){
   if(!requireWrite())return;
-  const name=(document.getElementById('nrName').value||'').trim();
+  const nmEl=document.getElementById('nrName');
+  const charV=(document.getElementById('nrChar').value||'').trim();
+  const modV=document.getElementById('nrMod').value;
+  // 名称：用户手填则用手填值；留空(或仅自动预览)则用「角色短名 + 模块」自动合成
+  let name=(nmEl.value||'').trim();
+  if(nmEl.dataset.touched!=='1' || !name) name=composeReqName(charV,modV)||name;
   const warn=document.getElementById('nrWarn');
-  if(!name){ warn.textContent='请填写需求名称'; warn.classList.add('show'); return; }
+  if(!name){ warn.textContent='请填写需求名称，或填写角色名与模块以自动合成'; warn.classList.add('show'); return; }
   const sd=parseInput(document.getElementById('nrStart').value), ed=parseInput(document.getElementById('nrEnd').value);
   if(!sd||!ed||ed<=sd){ warn.textContent='请选择有效的起止日期（结束晚于开始）'; warn.classList.add('show'); return; }
   const est=Math.max(1,parseInt(document.getElementById('nrEst').value,10)||20);
