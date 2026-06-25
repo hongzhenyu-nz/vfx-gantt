@@ -833,6 +833,12 @@
   #menu .mi.miv .miv-nm{flex:1;}
   #menu .mi.miv .miv-sub{font-size:10.5px;color:var(--tx3);font-weight:400;white-space:nowrap;}
   #menu .mi.miv.cur .miv-sub{color:var(--tx2);}
+  /* 模块类型快捷切换：色块 chip 网格，自动换行，点选即改需求模块 */
+  #menu .mod-grid{display:flex;flex-wrap:wrap;gap:5px;padding:3px 8px 6px;max-width:308px;}
+  #menu .mod-chip{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;border-radius:6px;padding:3px 8px;border:1px solid;cursor:pointer;line-height:1.45;white-space:nowrap;transition:.08s;}
+  #menu .mod-chip i{font-style:normal;font-size:11px;line-height:1;}
+  #menu .mod-chip:hover{filter:brightness(.97);transform:translateY(-1px);}
+  #menu .mod-chip.cur{box-shadow:0 0 0 2px #fff,0 0 0 3.5px currentColor;font-weight:900;}
   /* 离职日期选择浮层 */
   .date-pop-mask{position:fixed;inset:0;background:rgba(20,24,32,.42);z-index:9997;display:flex;align-items:center;justify-content:center;}
   .date-pop{background:#fff;border-radius:14px;box-shadow:0 18px 50px rgba(15,23,42,.3);width:300px;overflow:hidden;}
@@ -1620,6 +1626,8 @@ const MOD_META = {
   '全量测试':         {ic:'🐞', c:'#2b2f36', s:'全量测试'},
 };
 const modMeta = mod => MOD_META[mod] || {ic:'✦', c:'#646a73', s:mod||'其他'};
+/* 单击菜单里可快捷切换的模块类型（剔除「联调/全量测试」——它们由附属关系语义管理，不在普通任务条上改）。 */
+const MOD_PICK = ['出场','出场/MVP/入局','MVP','入局','TPP','大厅','检视','组队','检视/组队','本体/3C','武器特效'];
 
 /* 角色配色：每个角色一个固定色，用于左侧竖带的「角色层」。与品级色、模块色错开色相，避免混淆。 */
 const CHAR_COLOR = {
@@ -2869,11 +2877,20 @@ function openStatusMenu(bar,x,y){
       items+=`<div class="mi miv ${on?'cur':''}" onclick="pickInv(${t.val})"><i style="background:${t.col}"></i><span class="miv-nm">${effEsc(t.name)} <b style="color:${t.col}">${t.val}</b></span><span class="miv-sub">${sub}</span></div>`;
     });
     items+=`<div class="msep"></div>`;
+    items+=`<div class="mtitle">模块类型（改本需求归属模块）</div>`;
+    items+=`<div class="mod-grid">`;
+    MOD_PICK.forEach(mk=>{
+      const MM=modMeta(mk);
+      const on=(r.mod||'')===mk;
+      items+=`<span class="mod-chip ${on?'cur':''}" style="color:${MM.c};background:${MM.c}14;border-color:${MM.c}55" onclick="pickMod('${mk.replace(/'/g,"\\'")}')"><i>${MM.ic}</i>${MM.s}</span>`;
+    });
+    items+=`</div>`;
+    items+=`<div class="msep"></div>`;
     items+=`<div class="mi danger" onclick="deleteSeg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>删除任务（${memName(sg.m)}）</div>`;
   }
   menu.innerHTML=items;
   menu.classList.add('show');
-  let mx=x, my=y; if(mx>innerWidth-190)mx=innerWidth-190; if(my>innerHeight-(isSeg?470:220))my=innerHeight-(isSeg?470:220);
+  let mx=x, my=y; if(mx>innerWidth-330)mx=innerWidth-330; if(my>innerHeight-(isSeg?600:220))my=Math.max(8,innerHeight-(isSeg?600:220));
   menu.style.left=mx+'px';menu.style.top=my+'px';
 }
 function hideMenu(){menu.classList.remove('show');menuCtx=null;memMenuCtx=null;reqStateCtx=null;}
@@ -2933,6 +2950,22 @@ function pickInv(v){
   rerender();
   flashReq(reqId);
   toast('投入比已更新：'+(tier?tier.name:'')+' '+v+'，消化工作量已重算');
+}
+/* 修改本需求的模块类型（需求级字段 r.mod）。两视图共享，改后标签/分组/配色随之更新。 */
+function pickMod(mk){
+  if(!menuCtx){hideMenu();return;}
+  if(!requireWrite()){hideMenu();return;}
+  const r=reqs.find(z=>z.id===menuCtx.reqId); if(!r){hideMenu();return;}
+  if((r.mod||'')===mk){hideMenu();return;}
+  pushHistory();
+  const old=r.mod||'(空)';
+  r.mod=mk;
+  _logDesc='把「'+r.name+'」模块类型由'+old+'改为'+mk;
+  hideMenu();save();broadcast();
+  const reqId=r.id;
+  rerender();
+  flashReq(reqId);
+  toast('模块类型已更新：'+modMeta(mk).s);
 }
 /* ===== 需求生命周期状态菜单（正常/暂停/废弃） ===== */
 let reqStateCtx=null;
