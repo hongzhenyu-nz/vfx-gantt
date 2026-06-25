@@ -501,9 +501,10 @@
   .rt-md{display:inline-flex;align-items:baseline;gap:1px;font-size:11.5px;font-weight:800;color:#475067;background:#eef1f7;border:1px solid #d7dce6;border-radius:4px;padding:1px 6px;line-height:1.5;flex-shrink:0;letter-spacing:.2px;}
   .rt-md small{font-size:9px;font-weight:700;opacity:.75;letter-spacing:0;}
   /* 按人看：条内统一标题（深色条上：模块标签转白系；图标随标签一体） */
-  .bar-task .rt-line{display:inline-flex;flex-wrap:wrap;align-items:center;gap:5px 5px;position:relative;z-index:1;max-width:100%;pointer-events:none;}
-  /* 条内标题徽标放不下时自动换行、不裁切（仅作用于含标题行的任务条，普通条/进度条不受影响） */
-  .bar-task:has(.rt-line){overflow:visible;white-space:normal;}
+  .bar-task .rt-line{display:inline-flex;flex-wrap:nowrap;align-items:center;gap:5px 5px;position:relative;z-index:1;max-width:100%;overflow:hidden;pointer-events:none;}
+  /* 条内标题徽标统一裁切在条体内（不再 visible 外溢）：防止任务条起点早于可视窗口、或条体偏窄时，
+     标签向左/上下溢出，压盖左侧冻结人员栏或相邻行（出框）。放不下的标签在条体边界内被裁，不再外溢错位。 */
+  .bar-task:has(.rt-line){overflow:hidden;white-space:normal;}
   .bar-task .rt-line .rt-nm{color:#fff;font-size:14px;text-shadow:0 1px 1px rgba(0,0,0,.22);}
   /* 条内模块/人天徽标改用与左侧信息栏完全一致的浅底深字（不再白字白底，保证可读） */
   .bar-task .rt-line .rt-md{color:#475067!important;background:#eef1f7!important;border-color:#d7dce6!important;box-shadow:0 1px 2px rgba(0,0,0,.12);}
@@ -521,6 +522,9 @@
   .rt-done.seg{color:#3a9b78;background:rgba(255,255,255,.78);border-color:#cdeadd;font-weight:700;box-shadow:none;}
   /* 「按人看」任务段=已完成：与「按需求看」呈现统一——条内信息整体淡化锁定，正中央显示「✓已完成」放大印章 */
   .bar-task.seg-done .rt-line,.bar-task.seg-done-self .rt-line{opacity:.4;filter:saturate(.85);}
+  /* 完成态：隐藏条内人天/投入比徽标，避免与居中「✓已完成」印章在同一水平位相撞（与「按需求看」一致，只留淡化名称＋居中印章） */
+  .bar-task.seg-done .rt-line .rt-md,.bar-task.seg-done .rt-line .rt-inv,
+  .bar-task.seg-done-self .rt-line .rt-md,.bar-task.seg-done-self .rt-line .rt-inv{display:none;}
   .bar-task.seg-done .prog::after{display:none;}                       /* 已完成不再显示未做斜纹 */
   .bar-task.seg-done::after,.bar-task.seg-done-self::after{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:800;letter-spacing:1px;padding:2px 11px;border-radius:6px;z-index:3;pointer-events:none;white-space:nowrap;}
   .bar-task.seg-done::after{content:'✓ 已完成';background:rgba(78,203,160,.97);color:#fff;font-size:11.5px;box-shadow:0 2px 8px rgba(0,0,0,.26);}
