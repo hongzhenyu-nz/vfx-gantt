@@ -179,6 +179,8 @@
   /* 可拉伸高度的双向滚动容器：纵向滚动条=绿框诉求；横向滚动条冻结在容器底部≈屏幕下方；表头随之冻结。
      resize:vertical 让用户拖右下角自由调整看板高度 */
   .scroll{overflow:auto;height:calc(100vh - 250px);min-height:280px;max-height:calc(100vh - 140px);position:relative;resize:vertical;}
+  .scroll.mid-panning{cursor:grabbing;}
+  .scroll.mid-panning *{cursor:grabbing!important;user-select:none!important;}
   /* 拉伸把手提示（右下角） */
   .resize-hint{position:absolute;right:2px;bottom:2px;width:16px;height:16px;pointer-events:none;z-index:7;opacity:.5;
     background:repeating-linear-gradient(135deg,transparent 0 3px,#9097a0 3px 4px);border-radius:0 0 4px 0;}
@@ -3955,6 +3957,31 @@ function bindTodayWatch(){
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshToday(); });
 }
 
+/* 鼠标中键按住拖动平移视图：在滚动容器 #scroll 内按下中键并拖动，即可左右/上下平移时间线。
+   松开中键结束。同时阻止浏览器中键默认的"自动滚动(autoscroll)"模式。 */
+let _midPanBound=false;
+function bindMidDragPan(){
+  if(_midPanBound)return; _midPanBound=true;
+  const sc=document.getElementById('scroll');
+  if(!sc)return;
+  let panning=false, sx=0, sy=0, sl=0, st=0;
+  sc.addEventListener('mousedown',e=>{
+    if(e.button!==1)return;            // 只响应鼠标中键，不干扰左键拖任务条
+    e.preventDefault();                // 阻止中键默认的自动滚动模式
+    panning=true; sx=e.clientX; sy=e.clientY; sl=sc.scrollLeft; st=sc.scrollTop;
+    sc.classList.add('mid-panning');
+  });
+  window.addEventListener('mousemove',e=>{
+    if(!panning)return;
+    sc.scrollLeft = sl - (e.clientX - sx);   // 反向：鼠标右移→内容左移，符合"抓住拖动"直觉
+    sc.scrollTop  = st - (e.clientY - sy);
+  });
+  const endPan=()=>{ if(!panning)return; panning=false; sc.classList.remove('mid-panning'); };
+  window.addEventListener('mouseup',endPan);
+  window.addEventListener('blur',endPan);
+  sc.addEventListener('auxclick',e=>{ if(e.button===1) e.preventDefault(); }); // 兜底拦截中键 auxclick
+}
+
 /* 申请编辑：原子抢锁 → 强制拉取并应用云端最新快照 → 进入可编辑态 */
 async function acquireLock(force){
   if(!cloudReady||!sb){ toast('云端尚未连接，稍后再试'); return false; }
@@ -4787,6 +4814,8 @@ if(typeof cloudInit==='function'){ cloudInit(); }
 if(typeof bindIdleWatch==='function'){ bindIdleWatch(); }
 // 当前日期红线即时刷新：每分钟检查系统日期，跨天自动重绘红线
 if(typeof bindTodayWatch==='function'){ bindTodayWatch(); }
+// 鼠标中键按住拖动平移视图
+if(typeof bindMidDragPan==='function'){ bindMidDragPan(); }
 // 关闭/刷新页面时若持有编辑锁，立即释放，避免锁悬挂阻塞他人（用 keepalive 同步发出）
 window.addEventListener('pagehide',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });
 window.addEventListener('beforeunload',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });
