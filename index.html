@@ -2256,17 +2256,19 @@ function personRowHTML(m,inArc){
       const isOpen=!!sg.open;
       // 无明确时间段：横向铺满整条时间线（前后无限延长，靠 CSS 两端羽化表达"未定/持续"）
       const x=isOpen?0:it.si0*DAY_W, w=isOpen?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
-      // 以本条泳道为中心，向上下吞并自己时段内的空泳道
-      let lo=it.lane, hi=it.lane;
-      while(lo>0 && !occupied(lo-1,it.si0,it.ei0)) lo--;
-      while(hi<laneCount-1 && !occupied(hi+1,it.si0,it.ei0)) hi++;
-      const span=hi-lo+1;
-      // 百分比切分：本条所在泳道段为 [lo, lo+span)，在该段内只占 FILL(80%) 高度并垂直居中，上下各留 (1-FILL)/2 的空白
-      const segTop=lo/laneCount;                      // 本条所在段的顶部占比
-      const segH=span/laneCount;                      // 本条所在段的总高占比
+      // 局部并行密度等分（关键·均高）：每条的纵向高度/位置只取决于它所在时段「真正并行的条数」，
+      // 而不再被远期高并行撑大的全局 laneCount 影响、也不贪心吞并空泳道（旧算法会让某条独吞下方空槽
+      // 变超高、相邻条被夹扁，导致同一个人的两条任务高度参差不齐）。改为：与本条时间重叠的若干条，
+      // 平均瓜分该时段的整行高度（等高居中），不重叠的条各自按其局部并行数占位——既保证同时段的条
+      // 等高、又不为远期泳道预留空白。assignLanes 已保证重叠条 lane 互异，故按重叠集合的 lane 排名定位不会相互压盖。
+      const overlapLanes=[...new Set(laid.items.filter(b=> b.si0<it.ei0 && b.ei0>it.si0).map(b=>b.lane))].sort((a,b)=>a-b);
+      const kPar=Math.max(overlapLanes.length,1);              // 本条所在时段的实际并行条数
+      const posPar=Math.max(overlapLanes.indexOf(it.lane),0);  // 本条在并行组中的次序（0-based）
+      const segTop=posPar/kPar;                                // 本条顶部占比（按局部并行数等分）
+      const segH=1/kPar;                                       // 本条占整行高度比（等分）
       const topPct=((segTop+segH*(1-FILL)/2)*100).toFixed(3);
       const hPct=(segH*FILL*100).toFixed(3);
-      const frac=segH*FILL;                           // 本条实际占整行内高的比例（估算是否纤细）
+      const frac=segH*FILL;                                    // 本条实际占整行内高的比例（估算是否纤细）
       const slimCls = frac<0.34 ? ' slim' : '';
       const risk=reqRisk(r);
       const st=STATUS[sg.status||'doing'];
