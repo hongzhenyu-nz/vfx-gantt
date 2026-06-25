@@ -2045,6 +2045,13 @@ function barCls(r,seg){
   const rs=reqState(r);
   if(rs==='done') return 'b-done'+k;     // 已完成：青绿任务条（区别于低风险安全绿）
   if(rs==='dropped') return 'b-gray'+k;   // 废弃：灰色任务条
+  // 段级终态优先：该任务段自身已完成/废弃时固定按终态着色，避免「按风险」模式下被需求级风险染红
+  if(seg){
+    if(seg.status==='done')    return 'b-done'+k;   // 这段活已完成 → 绿
+    if(seg.status==='dropped') return 'b-gray'+k;   // 这段已废弃 → 灰
+  } else if(aggStatus(r)==='done'){
+    return 'b-done'+k;                                // 整条需求所有段都完成 → 绿（即便生命周期未手动置 done）
+  }
   if(colorMode==='status'){
     return (seg ? STATUS[seg.status||'doing'].cls : STATUS[aggStatus(r)].cls)+k;
   }
