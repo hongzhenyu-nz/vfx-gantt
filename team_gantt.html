@@ -579,6 +579,10 @@
   /* 粘贴目标行高亮 */
   .row.paste-target .cell-left{background:#e7f7ee;box-shadow:inset 4px 0 0 #1fae5a;}
   .row.paste-target{background:#f3fcf6;}
+  /* 「按人看」选中的人员行（粘贴改派目标）：点人员信息栏选中，蓝色与任务条选中同主题 */
+  .row.row-sel .cell-left{background:#eaf2ff;box-shadow:inset 4px 0 0 #1d6fd6;}
+  .row.row-sel{background:#f5f9ff;}
+  .row.row-sel .cell-left::after{content:'粘贴目标';position:absolute;right:10px;top:8px;background:#1d6fd6;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;z-index:5;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.2);}
   /* 剪贴板浮条 */
   #clipchip{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1d2330;color:#fff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.32);display:none;align-items:center;gap:10px;z-index:9998;}
   #clipchip.show{display:inline-flex;}
@@ -3037,10 +3041,24 @@ function fmtInputDate(d){
   return `${y}-${m}-${dd}`;
 }
 grid.addEventListener('click',e=>{
-  const ms=e.target.closest('.mstat'); if(!ms)return;
-  if(!requireWrite())return;
-  const rect=ms.getBoundingClientRect();
-  openMemStatusMenu(ms.dataset.mem, rect.left, rect.bottom+4);
+  const ms=e.target.closest('.mstat');
+  if(ms){
+    if(!requireWrite())return;
+    const rect=ms.getBoundingClientRect();
+    openMemStatusMenu(ms.dataset.mem, rect.left, rect.bottom+4);
+    return;
+  }
+  // 「按人看」：点击人员信息栏空白处 → 选中整行作为粘贴改派目标
+  if(view==='person'){
+    const cl=e.target.closest('.cell-left');
+    // 避开栏内的交互控件（按钮 / 可编辑标签 / 状态点 / 加任务），仅在空白区选中
+    if(cl && !e.target.closest('button,.editable,.mstat,.inl-add,a,input,select')){
+      const row=cl.closest('.row[data-mem]'); if(!row)return;
+      const mid=row.dataset.mem;
+      if(selectedMem===mid){ setSelectedMem(null); }   // 再次点击取消选中
+      else { setSelected(null); setSelectedMem(mid); }  // 选中人员行，取消任务条选中
+    }
+  }
 });
 
 function flashReq(reqId){
@@ -3077,17 +3095,32 @@ let selectedBar=null;          // {reqId, seg|null}
 function setSelected(bar){
   document.querySelectorAll('.bar-task.sel').forEach(b=>b.classList.remove('sel'));
   if(!bar){selectedBar=null;return;}
+  setSelectedMem(null);        // 选中任务条时取消人员行选中（两种粘贴目标互斥）
   bar.classList.add('sel');
   const seg=(bar.dataset.seg!==undefined && bar.dataset.seg!=='')?+bar.dataset.seg:null;
   selectedBar={reqId:bar.dataset.req, seg};
 }
 function reapplySelection(){
+  if(selectedMem){
+    const mr=document.querySelector(`.row[data-mem="${selectedMem}"]`);
+    if(mr)mr.classList.add('row-sel');
+  }
   if(!selectedBar)return;
   const sel = selectedBar.seg!==null
     ? `.bar-task[data-req="${selectedBar.reqId}"][data-seg="${selectedBar.seg}"]`
     : `.bar-task.req-bar[data-req="${selectedBar.reqId}"]`;
   const b=document.querySelector(sel); if(b)b.classList.add('sel');
   if(clip&&clip.mode==='cut')markCut();
+}
+/* ============ 人员行选中（「按人看」粘贴改派目标） ============
+   点击某人的信息栏 → 选中整行；之后 Ctrl+V / 粘贴 会把剪贴板里的任务段「改派」给这个人。 */
+let selectedMem=null;          // 选中的成员 id（仅按人看有意义）
+function setSelectedMem(id){
+  document.querySelectorAll('.row.row-sel').forEach(r=>r.classList.remove('row-sel'));
+  if(!id){selectedMem=null;return;}
+  selectedMem=id;
+  const mr=document.querySelector(`.row[data-mem="${id}"]`);
+  if(mr)mr.classList.add('row-sel');
 }
 
 /* ============ 复制 / 剪切 / 粘贴 ============ */
@@ -3115,7 +3148,29 @@ function clearCutMark(){document.querySelectorAll('.bar-task.cut-mark').forEach(
 function doPaste(){
   if(!requireWrite())return;
   if(!clip){toast('剪贴板为空');return;}
-  if(!selectedBar){toast('请先点选要粘贴到的目标需求条');return;}
+  // 模式一（按人看）：选中了人员行 → 把任务段「改派」给该人，保留来源需求与工期
+  if(selectedMem){
+    const dst=reqs.find(x=>x.id===clip.reqId); if(!dst){toast('来源需求不存在');return;}
+    const src=dst;
+    pushHistory();
+    const p=clip.payload;
+    // 保持原工期位置，仅替换负责人
+    const newSeg={m:selectedMem, s:i2d(p.s), e:i2d(Math.min(p.e,DAYS)), prog:p.prog, status:p.status};
+    if(p.inv!=null) newSeg.inv=p.inv;
+    const mem=memById(selectedMem), rl=reqLeadOf(dst), ml=leadOf(mem);
+    if(rl&&ml&&ml!==rl) newSeg.support=true;
+    dst.segs.push(newSeg);
+    dst.end=i2d(Math.max(...dst.segs.map(x=>idx(x.e))));
+    if(clip.mode==='cut' && src){
+      src.segs.splice(clip.seg,1);
+      if(src.segs.length) src.end=i2d(Math.max(...src.segs.map(x=>idx(x.e))));
+      clip=null; clearCutMark(); hideClip();
+    }
+    save();broadcast();rerender();
+    toast(`已粘贴「${dst.name}」→ ${memName(selectedMem)}`);
+    return;
+  }
+  if(!selectedBar){toast('请先点选目标：人员信息栏（改派给某人）或需求条');return;}
   const dst=reqs.find(x=>x.id===selectedBar.reqId); if(!dst)return;
   const src=reqs.find(x=>x.id===clip.reqId);
   pushHistory();
@@ -3145,7 +3200,7 @@ function showClip(){
   const p=clip.payload, srcR=reqs.find(x=>x.id===clip.reqId);
   el.innerHTML=`<span class="ck ${clip.mode==='cut'?'cut':''}">${clip.mode==='cut'?'剪切':'复制'}</span>
     <span>${memName(p.m)} · ${srcR?srcR.name:''}（${workdays(i2d(p.s),i2d(p.e))}工作日）</span>
-    <button onclick="doPaste()">粘贴到选中需求 (Ctrl+V)</button>
+    <button onclick="doPaste()">粘贴到选中目标 (Ctrl+V)</button>
     <button onclick="clearClip()">清空</button>`;
   el.classList.add('show');
 }
@@ -4255,7 +4310,7 @@ function redo(){
 window.addEventListener('keydown',e=>{
   const tag=(e.target.tagName||'').toLowerCase();
   if(tag==='input'||tag==='select'||tag==='textarea')return;
-  if(e.key==='Escape'){ if(clip){clearClip();} setSelected(null); hideMenu(); return; }
+  if(e.key==='Escape'){ if(clip){clearClip();} setSelected(null); setSelectedMem(null); hideMenu(); return; }
   if(e.key==='Delete'||e.key==='Backspace'){
     if(!requireWrite())return;   // 只读模式：禁止删除
     if(selectedBar && selectedBar.seg!==null){
@@ -4733,7 +4788,7 @@ function updateHint(){
   if(view==='req'){
     h.innerHTML='💡 左侧竖带=角色品级色：<b style="color:#e0a400">金</b> / <b style="color:#f59e0b">橙</b> / <b style="color:#ef3b39">红</b>，同品级相邻行连成整条 · 人名标签：<b style="color:#fff;background:#0052d9;padding:0 6px;border-radius:8px">👑正编</b> 实心蓝 / <span style="color:#56607a;background:#eef1f7;border:1px solid #c4ccdb;padding:0 6px;border-radius:8px">基地</span> 淡白 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
   }else if(view==='person'){
-    h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求';
+    h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 复制任务条(Ctrl+C)后，点人员信息栏选中行再 Ctrl+V，即把该任务改派给选中的人';
   }else{
     h.innerHTML='💡 人力分配视图：按模块汇总在岗人员与管线缺口';
   }
