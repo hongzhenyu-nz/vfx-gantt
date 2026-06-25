@@ -255,17 +255,16 @@
   /* 泛白后底色变浅，文字加深色描边保持可读（白蒙版越浓描边越明显） */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
-  /* 进度表现（自解释、永不遮挡）：左侧「已完成」段保持满色，右侧「未完成」段蒙一层淡白显得更浅，
-     交界处一根细高亮竖线标记当前进度位置。整体铺满条体、绘制在文字下层(z-index:0)、不响应鼠标。 */
-  /* 进度表现：已完成段=纯本体满色；未完成段=覆盖一层「白色斜线阴影」（斜纹是全局统一的"未做/未启动"语言）。
-     交界用一根细白竖线收口。整体铺满条体、位于文字下层(z-index:0)、不响应鼠标。 */
+  /* 进度表现（填充式·无废弃感）：左侧「已完成」段=本体饱和满色；右侧「未完成」段=盖一层半透明白，
+     呈现「浅色空槽待填满」的观感（而非斜纹/废弃）。交界处一根高亮竖线标记当前进度位置，并叠加一层
+     固定颗粒度的竖向格线，让未完成段带「逐格推进」的进度感。整体铺满条体、文字下层(z-index:0)、不响应鼠标。 */
   .bar-task .prog{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;}
   .bar-task .prog::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--p,0)*1%);right:0;
-    background-color:rgba(255,255,255,.05);
-    background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.30) 0 5px,rgba(255,255,255,0) 5px 10px);
-    border-left:1px solid rgba(255,255,255,.5);}
-  .bar-task .prog[style*="--p:100"]::after{display:none;}                 /* 100% 已完成：无斜纹 */
-  .bar-task .prog[style*="--p:0"]::after{border-left:none;}               /* 0% 起步：整条斜纹、不画起点竖线 */
+    background-color:rgba(255,255,255,.52);
+    background-image:repeating-linear-gradient(90deg,rgba(255,255,255,0) 0 11px,rgba(255,255,255,.22) 11px 12px);
+    border-left:2px solid rgba(255,255,255,.92);box-shadow:inset 1px 0 0 rgba(0,0,0,.06);}
+  .bar-task .prog[style*="--p:100"]::after{display:none;}                 /* 100% 已完成：纯满色，无空槽 */
+  .bar-task .prog[style*="--p:0"]::after{border-left:none;background-color:rgba(255,255,255,.46);} /* 0% 起步：整条浅色空槽、不画起点竖线 */
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
   /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上） */
@@ -1942,7 +1941,7 @@ let stdLocked = true;  // 标准工期表默认锁定，防误操作
 /* 投入比 / 精力分配 档位（数据驱动、可编辑、带锁定）。val<1=跟进型(固定投入比、不分摊)；val=1=全人力制作(并行自动平摊)。
    col=色块颜色, vbg/vfg=投入比徽标底色/字色, desc=行为规则, scene=典型场景。支援(外借)为固定行，不在此数组内。*/
 let INV_TIERS = [
-  {key:'full',  name:'全人力制作', val:1.0, col:'#0a7d3c', vbg:'#e9f8ee', vfg:'#0a7d3c', desc:'全力投入单条产出（投入比 1.0）。若某人<b>同一天并行 N 条全人力制作</b>，系统<b>自动转为「并行人力制作」</b>，当天对每条<b>自动平摊为 1/N</b>（并行越多、单条消化越慢，无需手动设置，随排期实时变化）。', scene:'主力特效师独立\n承制一条需求'},
+  {key:'full',  name:'全人力制作', val:1.0, col:'#0a7d3c', vbg:'#e9f8ee', vfg:'#0a7d3c', desc:'全力投入单条产出（投入比 1.0）。仅当该成员<b>全程无任何并行需求</b>时才呈现为「全人力」；一旦此人出现并行需求，其<b>所有</b>全人力需求都会<b>自动转为「并行人力制作」</b>，按天平摊为 1/N（无需手动设置，随排期实时变化）。', scene:'主力特效师独立\n承制一条需求'},
   {key:'follow',name:'完整跟进', val:0.5, col:'#b36b00', vbg:'#fff1da', vfg:'#b36b00', desc:'持续跟进效果但非全力制作。<b>固定投入比</b>，不参与并行分摊。', scene:'资深盯方向 /\n全程把控品质'},
   {key:'part',  name:'部分跟进', val:0.3, col:'#d6a000', vbg:'#fdf6e3', vfg:'#a07800', desc:'花一部分精力跟进反馈效果。<b>固定投入比</b>，不参与并行分摊。', scene:'兼顾多条 /\n定期 review'},
 ];
@@ -2060,12 +2059,18 @@ function segInvBadge(s){
     return `<span class="rt-inv follow" title="${nm}：固定投入比 ${s.inv}，不参与并行分摊">${nm} <b>${s.inv}</b></span>`;
   }
   const pi=segParallelInfo(s);
-  if(pi.maxPar>1){
+  const peak=personPeakPar(s.m);                 // 该人整段排期的并行峰值（≥2 即处于并行制作状态）
+  if(peak>1){                                     // 只要此人存在并行需求 → 其所有全人力段一律「并行人力」
+    const selfPar=pi.maxPar>1;                    // 本段自身是否压在并行日上
     const avg=r1(pi.par);
-    const inv=r1(1/pi.par);
-    return `<span class="rt-inv par" title="并行人力制作：与其它全人力段并行（平均 ${avg} 条），投入比随并行数自动平摊为 1/N ≈ ${inv}，并行越多单条消化越慢">并行人力 <b>1/${pi.maxPar>pi.par+1e-6?'N':pi.maxPar}</b></span>`;
+    const inv=r1(1/Math.max(pi.par,1));
+    const nDisp=selfPar ? (pi.maxPar>pi.par+1e-6?'N':pi.maxPar) : peak;
+    const tip=selfPar
+      ? `并行人力制作：本段与其它全人力段并行（平均 ${avg} 条），投入比随并行数自动平摊为 1/N ≈ ${inv}，并行越多单条消化越慢`
+      : `并行人力制作：${memName(s.m)} 存在并行需求（峰值 ${peak} 条），其全部全人力需求统一计为并行人力；本段当前时段独占，按天实际投入比仍为 1.0`;
+    return `<span class="rt-inv par" title="${tip}">并行人力 <b>1/${nDisp}</b></span>`;
   }
-  return `<span class="rt-inv full" title="全人力制作：独占投入比 1.0，无并行；若同一天并行多条全人力将自动平摊为 1/N">全人力</span>`;
+  return `<span class="rt-inv full" title="全人力制作：独占投入比 1.0；该成员无并行需求">全人力</span>`;
 }
 /* 任务段是否处于「已完成」终态：需求级被人工置为已完成/全段完成派生态(reqIsDone)，或该段自身=已完成。 */
 function segIsDone(r,s){ return reqIsDone(r) || (s&&s.status==='done'); }
@@ -2089,6 +2094,28 @@ function personDayFullCount(id, t){
     });
   });
   return n;
+}
+/* 某人全排期的「全人力并行峰值」：在其所有全人力段覆盖的工作日里，单日最大并行条数。
+   ≥2 表示此人存在并行需求 → 其所有全人力段统一按「并行人力制作」呈现（人级判定，避免同人段间割裂）。
+   带缓存，render 周期内复用，避免 O(段²×天) 重复扫描。 */
+let _peakParCache=null;
+function _resetPeakParCache(){ _peakParCache=null; }
+function personPeakPar(id){
+  if(_peakParCache && _peakParCache.has(id)) return _peakParCache.get(id);
+  if(!_peakParCache) _peakParCache=new Map();
+  let mx=1;
+  reqs.forEach(rr=>{
+    if(reqState(rr)==='dropped') return;
+    rr.segs.forEach(s=>{
+      if(s.m!==id || s.open || segIsFollow(s)) return;
+      for(let t=s.s.getTime(); t<s.e.getTime(); t+=dayMs){
+        const w=new Date(t).getDay(); if(w===0||w===6) continue;
+        const n=personDayFullCount(id,t)||1; if(n>mx) mx=n;
+      }
+    });
+  });
+  _peakParCache.set(id,mx);
+  return mx;
 }
 /* 计算某人在某需求的「已消化工作量」：逐工作日累加投入比，再 × 效率 */
 function digestPersonReq(r, id){
@@ -4913,7 +4940,7 @@ function renderInvTable(){
   // 自动行：并行人力制作 —— 非手动档位，由「全人力」并行时自动派生，投入比随并行数 1/N 平摊
   html+=`<tr class="it-fixed"><td class="it-type"><i style="background:#5f3dc4;display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle"></i>并行人力制作<span class="it-fixrow">自动</span></td>
     <td class="it-val"><b style="background:#efeafd;color:#5f3dc4;display:inline-block;min-width:34px;padding:2px 8px;border-radius:6px">1/N</b></td>
-    <td class="it-desc">由<b>全人力制作</b>自动派生：当某人<b>同一天并行 N 条全人力制作</b>时，当天每条投入比<b>自动平摊为 1/N</b>（并行越多、单条消化越慢）。<u>无需手动设置</u>，随排期实时变化。</td>
+    <td class="it-desc">由<b>全人力制作</b>自动派生：只要某人<b>存在并行需求</b>（任意工作日同时跑 ≥2 条全人力），其<b>全部</b>全人力需求都统一计为「并行人力」，按天平摊为 1/N（独占日仍按 1.0 计、不虚减产能）。<u>无需手动设置</u>，随排期实时变化。</td>
     <td class="it-scene">一人同期<br>并行多条特效</td><td></td></tr>`;
   // 固定行：支援(外借) —— 不可编辑/删除，仅说明编制隶属
   html+=`<tr class="it-fixed"><td class="it-type"><i style="background:var(--amber);display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle"></i>支援(外借)<span class="it-fixrow">固定项</span></td>
@@ -5054,6 +5081,7 @@ function applyStdLockUI(){
 }
 
 function rerender(){
+  _resetPeakParCache();                 // 排期可能变更→清空并行峰值缓存，确保人级并行判定实时
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
 }
