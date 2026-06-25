@@ -1064,7 +1064,8 @@ const D = (y,m,d)=>new Date(y,m,d);
 const DT = (y,mon,d)=>new Date(y,mon-1,d);   // 真实月份(1-12)构造器，避免 0-indexed 误用
 const START = new Date(2026,3,13);   // 2026-04-13（周一）——提前到覆盖最早5月前的排期
 const DAYS  = 335;                    // 覆盖到 2027-03 中（含阿尔法全量测试）
-const TODAY = new Date(2026,5,22);    // 基准日：今天
+function todayDate(){const n=new Date();return new Date(n.getFullYear(),n.getMonth(),n.getDate());} // 真实系统当天 0 点
+let TODAY = todayDate();              // 基准日：动态取真实今天（跨天自动刷新，见 bindTodayWatch）
 const DAY_W_BASE = 8;                 // 基准每天 8px
 let DAY_W = 8;                        // 实际每天宽度 = 基准 × 缩放（条宽滑块联动）
 
@@ -3940,6 +3941,20 @@ function bindIdleWatch(){
   });
 }
 
+/* 当前日期红线即时刷新：每分钟检查系统日期，跨天则更新 TODAY 并重绘红线。
+   也在标签页重新可见(visibilitychange)时立即校正——避免电脑休眠唤醒后红线滞后。 */
+let _todayWatchBound=false;
+function refreshToday(){
+  const t=todayDate();
+  if(t.getTime()===TODAY.getTime())return false;  // 没跨天，无需动
+  TODAY=t; rerender(); return true;                // 跨天：更新基准日并重绘（红线随 idx(TODAY) 跳到新位置）
+}
+function bindTodayWatch(){
+  if(_todayWatchBound)return; _todayWatchBound=true;
+  setInterval(refreshToday,60000);                 // 每 60s 轮询一次系统日期
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) refreshToday(); });
+}
+
 /* 申请编辑：原子抢锁 → 强制拉取并应用云端最新快照 → 进入可编辑态 */
 async function acquireLock(force){
   if(!cloudReady||!sb){ toast('云端尚未连接，稍后再试'); return false; }
@@ -4770,6 +4785,8 @@ document.body.classList.toggle('ro-mode', !canWrite());
 if(typeof cloudInit==='function'){ cloudInit(); }
 // 持锁后 5 分钟无操作自动提交并释放编辑权：一次性绑定全局活动监听
 if(typeof bindIdleWatch==='function'){ bindIdleWatch(); }
+// 当前日期红线即时刷新：每分钟检查系统日期，跨天自动重绘红线
+if(typeof bindTodayWatch==='function'){ bindTodayWatch(); }
 // 关闭/刷新页面时若持有编辑锁，立即释放，避免锁悬挂阻塞他人（用 keepalive 同步发出）
 window.addEventListener('pagehide',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });
 window.addEventListener('beforeunload',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });
