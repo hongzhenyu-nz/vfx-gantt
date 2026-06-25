@@ -1530,6 +1530,111 @@ function deleteLt(hostId){
   save();broadcast();rerender();
   toast('已删除联调，可 Ctrl+Z 撤销');
 }
+/* 找某角色的「本体宿主需求」（出场_cc 优先，否则该角色首个特效需求）。与 relinkLt 的挂载规则保持一致。 */
+function ltHostOf(charName){
+  return reqs.find(r=>r.char===charName && r.kind==='fx' && /_cc$/.test(r.id))
+      || reqs.find(r=>r.char===charName && r.kind==='fx')
+      || reqs.find(r=>r.char===charName && r.kind!=='lt' && r.kind!=='qa');
+}
+/* ＋添加联调：为某角色（以宿主需求 hostId 定位）新建一条 kind:'lt' 联调需求，
+   默认成员=宿主参与的全部制作人，默认窗口=宿主结束次工作日起 N 个工作日（N 由人天估算）。
+   建好后 relinkLt 自动把它挂到本角色本体之后；两视图同步可见。 */
+function addLt(hostId){
+  if(!requireWrite()){hideMenu();return;}
+  const host=reqs.find(r=>r.id===hostId); if(!host){hideMenu();return;}
+  if(reqs.some(r=>r.kind==='lt' && r.char===host.char)){ hideMenu(); toast('本角色已有联调，请用「改联调」'); return; }
+  hideMenu();
+  ltCtx={mode:'add', hostId};
+  // 默认起点：本角色全部特效需求里最晚结束的次日；默认人天=12；默认窗口=人天工作日跨度
+  const sibs=reqs.filter(r=>r.char===host.char && r.kind==='fx');
+  let maxE=idx(host.end); sibs.forEach(s=>{ s.segs.forEach(sg=>{ if(idx(sg.e)>maxE)maxE=idx(sg.e); }); });
+  const s0=Math.min(maxE+1,DAYS-1);
+  const e0=Math.min(s0+18,DAYS);   // 约 12~13 工作日
+  const body=`
+    <div class="ctx" style="background:#f3efff;border-color:#d8c9f5;color:#5b3fa0">为角色 <b>${effEsc(charShort(host.char))}</b> 添加一条<b>联调</b>。联调会自动接续在本体特效之后，并挂到本角色，<b>按需求看</b>条尾、<b>按人看</b>该角色相关成员行都会同步出现。</div>
+    <div class="row2">
+      <div class="fld"><label>联调名称</label><input type="text" id="ltName" value="${escAttr(charShort(host.char)+' 联调')}"></div>
+      <div class="fld"><label>工作量（人天）</label><input type="number" id="ltEst" value="12" min="1" step="1"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>开始日期</label><input type="date" id="ltStart" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(s0))}"></div>
+      <div class="fld"><label>结束日期</label><input type="date" id="ltEnd" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(e0))}"></div>
+    </div>
+    <div class="ctx" style="font-size:12px;color:#646a73">参与联调的制作人默认取本角色全部特效的制作人；建好后可在条上「＋加人 / 改派」调整。</div>
+    <div class="warn" id="ltWarn"></div>`;
+  renderAddModal('🔗', '添加联调', body, true);
+  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmAddLt()');
+}
+function confirmAddLt(){
+  if(!ltCtx||ltCtx.mode!=='add')return;
+  if(!requireWrite())return;
+  const host=reqs.find(r=>r.id===ltCtx.hostId); if(!host){closeAdd();return;}
+  const warn=document.getElementById('ltWarn');
+  const name=(document.getElementById('ltName').value||'').trim()||charShort(host.char)+' 联调';
+  const sd=parseInput(document.getElementById('ltStart').value), ed=parseInput(document.getElementById('ltEnd').value);
+  if(!sd||!ed||ed<=sd){ warn.textContent='请选择有效的起止日期（结束晚于开始）'; warn.classList.add('show'); return; }
+  const est=Math.max(1,parseInt(document.getElementById('ltEst').value,10)||12);
+  pushHistory();
+  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
+  // 参与成员：本角色全部特效里出现过的制作人去重；为空则用宿主第一段成员
+  const mems=[]; reqs.filter(r=>r.char===host.char && r.kind==='fx').forEach(r=>r.segs.forEach(sg=>{ if(!mems.includes(sg.m))mems.push(sg.m); }));
+  if(!mems.length && host.segs[0]) mems.push(host.segs[0].m);
+  const lt={
+    id:genId('lt_'), name, char:host.char, mod:'联调',
+    grade:host.grade||'', line:host.line||'-', kind:'lt', estimate:est, done:0, end:i2d(ne),
+    segs:mems.map(m=>({m, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'}))
+  };
+  reqs.push(lt);
+  relinkLt();
+  _logDesc='为「'+charShort(host.char)+'」添加联调（'+est+'人天）';
+  save();broadcast();closeAdd();
+  rerender();
+  revealEntity('req', host.id);
+  toast('已添加联调：'+name+'（'+est+'人天 · 已挂到本角色）');
+}
+/* 改联调：弹面板修改联调工作量（人天）、名称、起止时间。与本体状态菜单风格一致。 */
+function openEditLt(ltId){
+  if(!requireWrite()){hideMenu();return;}
+  const lt=reqs.find(r=>r.id===ltId && r.kind==='lt'); if(!lt){hideMenu();return;}
+  hideMenu();
+  ltCtx={mode:'edit', ltId};
+  const s0=Math.min(...lt.segs.map(x=>idx(x.s))), e0=Math.max(...lt.segs.map(x=>idx(x.e)));
+  const body=`
+    <div class="ctx" style="background:#f3efff;border-color:#d8c9f5;color:#5b3fa0">修改 <b>${effEsc(charShort(lt.char))}</b> 的<b>联调</b>。改动后<b>按需求看</b>条尾联调段与<b>按人看</b>该联调任务条同步更新（共用同一份数据）。</div>
+    <div class="row2">
+      <div class="fld"><label>联调名称</label><input type="text" id="ltName" value="${escAttr(lt.name)}"></div>
+      <div class="fld"><label>工作量（人天）</label><input type="number" id="ltEst" value="${lt.estimate}" min="1" step="1"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>开始日期</label><input type="date" id="ltStart" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(s0))}"></div>
+      <div class="fld"><label>结束日期</label><input type="date" id="ltEnd" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(e0))}"></div>
+    </div>
+    <div class="warn" id="ltWarn"></div>`;
+  renderAddModal('🔗', '改联调', body, true);
+  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmEditLt()');
+}
+function confirmEditLt(){
+  if(!ltCtx||ltCtx.mode!=='edit')return;
+  if(!requireWrite())return;
+  const lt=reqs.find(r=>r.id===ltCtx.ltId && r.kind==='lt'); if(!lt){closeAdd();return;}
+  const warn=document.getElementById('ltWarn');
+  const name=(document.getElementById('ltName').value||'').trim()||lt.name;
+  const sd=parseInput(document.getElementById('ltStart').value), ed=parseInput(document.getElementById('ltEnd').value);
+  if(!sd||!ed||ed<=sd){ warn.textContent='请选择有效的起止日期（结束晚于开始）'; warn.classList.add('show'); return; }
+  const est=Math.max(1,parseInt(document.getElementById('ltEst').value,10)||lt.estimate);
+  pushHistory();
+  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
+  lt.name=name; lt.estimate=est;
+  lt.segs.forEach(sg=>{ sg.s=i2d(ns); sg.e=i2d(ne); });   // 联调全员同窗口（与原始数据一致）
+  lt.end=i2d(ne);
+  relinkLt();
+  _logDesc='修改「'+charShort(lt.char)+'」联调（'+est+'人天）';
+  save();broadcast();closeAdd();
+  rerender();
+  revealEntity('req', (lt.attached||lt.id));
+  toast('联调已更新：'+name+'（'+est+'人天）');
+}
+let ltCtx=null;   // {mode:'add',hostId} | {mode:'edit',ltId}
 
 /* ============ 人力分配数据（来源：当前人力分配脑图 / 企微表「当前人力分配」子表） ============ */
 /* 结论：目前基地总人数 14 人，未来常规管线共缺 11 人（金角4人 / 橙角1号5人 / 橙角2号5人 / 红角11人） */
@@ -2960,6 +3065,17 @@ function openStatusMenu(bar,x,y){
       items+=`<span class="mod-chip ${on?'cur':''}" style="color:${MM.c};background:${MM.c}14;border-color:${MM.c}55" onclick="pickMod('${mk.replace(/'/g,"\\'")}')"><i>${MM.ic}</i>${MM.s}</span>`;
     });
     items+=`</div>`;
+    // 联调（lt）管理入口：联调按「角色」挂在本体特效之后，单击任一任务条都能 ＋添加 / 改 / 删 联调
+    const _ltReq = reqs.find(z=>z.kind==='lt' && z.char===r.char);
+    const _ltHost = ltHostOf(r.char) || r;
+    items+=`<div class="msep"></div>`;
+    items+=`<div class="mtitle">联调（特效后接续 · 按角色管理）</div>`;
+    if(_ltReq){
+      items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="openEditLt('${_ltReq.id}')"><i style="background:#7c3aed"></i>改联调 · 工作量 / 名称 / 时间（${_ltReq.estimate}人天）</div>`;
+      items+=`<div class="mi danger" onclick="hideMenu();deleteLt('${_ltHost.id}')"><i style="background:#b04632"></i>删除本角色联调</div>`;
+    }else{
+      items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="addLt('${_ltHost.id}')"><i style="background:#7c3aed"></i>＋ 添加联调（自动挂到本角色）</div>`;
+    }
     items+=`<div class="msep"></div>`;
     items+=`<div class="mi danger" onclick="deleteSeg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>删除任务（${memName(sg.m)}）</div>`;
   }
