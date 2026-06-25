@@ -1827,12 +1827,16 @@ function aggStatus(r){
   if(ss.includes('doing')||ss.includes('review'))return 'doing';
   return 'todo';
 }
+/* 统一「需求是否已完成」判定：人工整条置完成(reqState=done)，或所有任务段都已完成的派生态(aggStatus=done)。
+   两视图(按人看/按需求看)的「✓已完成」封存呈现一律以此为准，保证完全联动、所有人段同步。 */
+function reqIsDone(r){ return reqState(r)==='done' || aggStatus(r)==='done'; }
 
 function reqRisk(r){
-  // 终态需求（已完成/废弃）：不参与任何风险/产能/缺口计算，统一返回「无风险」占位
-  if(reqClosed(r)){
+  // 终态需求（已完成/废弃）：不参与任何风险/产能/缺口计算，统一返回「无风险」占位。
+  // 「已完成」含人工整条置位与「所有段都完成」的派生态(reqIsDone)，保证两视图封存联动后不再显红。
+  if(reqClosed(r)||aggStatus(r)==='done'){
     const shown=[...new Set(r.segs.filter(s=>idx(s.e)>idx(s.s)).map(s=>s.m))];
-    return {remain:0,left:0,ppl:shown.length,pplNames:shown.map(memName),cap:0,gap:0,lvl:'—',cls:'rk-low',txt:'b-gray',overloaded:[],gapPpl:0,started:false,cause:reqState(r)==='done'?'已完成':'已废弃'};
+    return {remain:0,left:0,ppl:shown.length,pplNames:shown.map(memName),cap:0,gap:0,lvl:'—',cls:'rk-low',txt:'b-gray',overloaded:[],gapPpl:0,started:false,cause:reqState(r)==='dropped'?'已废弃':'已完成'};
   }
   const remain = r.estimate - r.done;
   const left = Math.max(workdays(TODAY,r.end),0);
@@ -1937,10 +1941,10 @@ function segInvBadge(s){
 }
 /* 任务段是否处于「已完成」终态：需求级被人工置为已完成，或该段自身状态=已完成。
    用于「按人看」条内追加「✓已完成」标，与「按需求看」的封存态语义保持统一。 */
-function segIsDone(r,s){ return reqState(r)==='done' || (s && s.status==='done'); }
-/* 「按人看」条内「✓已完成」徽标：仅在该任务段已收尾时显示，白底深绿印章 */
+function segIsDone(r,s){ return reqIsDone(r); }   // 口径统一到需求级：整条完成时，该需求下所有人段同步标完成
+/* 「按人看」条内「✓已完成」徽标：以需求为单位，整条完成时该需求所有人段一律显示，白底深绿印章 */
 function segDoneBadge(r,s){
-  return segIsDone(r,s) ? `<span class="rt-done" title="该任务已完成、信息锁定">✓ 已完成</span>` : '';
+  return reqIsDone(r) ? `<span class="rt-done" title="该需求已完成、信息锁定">✓ 已完成</span>` : '';
 }
 /* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
 function personDayFullCount(id, t){
@@ -2351,8 +2355,8 @@ function reqRowHTML(r, prevR, nextR, inArc){
       return Math.max(0,Math.min(100,p));
     })();
     const ag=STATUS[aggStatus(r)];
-    // 状态文案：优先认人工设定的需求级终态（已完成/废弃/暂停），否则按段聚合状态
-    const stLabel = reqState(r)==='done'?'已完成':reqState(r)==='dropped'?'已废弃':reqState(r)==='paused'?'已暂停':ag.label;
+    // 状态文案：优先认人工设定的需求级终态（废弃/暂停），已完成含派生态(reqIsDone)，否则按段聚合状态
+    const stLabel = reqState(r)==='dropped'?'已废弃':reqState(r)==='paused'?'已暂停':reqIsDone(r)?'已完成':ag.label;
     const g=HR_GRADE[r.grade]||HR_GRADE[''];
     // 参与本需求的人（去重），带编制信息
     const memObjs=risk.pplNames.map(n=>members.find(m=>m.name===n)).filter(Boolean).filter(m=>!leftLong(m));
@@ -2422,7 +2426,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
       +`<i class="lv lv-grade${contCls(sameGradeUp,sameGradeDown)}" style="background:${gCol}" title="品级：${g.label}"></i>`
       +`</span>`;
     const rs=reqState(r);
-    const rsCls = rs==='dropped'?' req-dropped':rs==='paused'?' req-paused':rs==='done'?' req-done':'';
+    const rsCls = rs==='dropped'?' req-dropped':rs==='paused'?' req-paused':reqIsDone(r)?' req-done':'';
     // 产能消化泳道（一人一行甘特）：废弃/时间待定不画
     const laneObj = reqOpen ? null : capacityLanesHTML(r);
     const laneH = laneObj ? laneObj.h : 0;
