@@ -515,6 +515,8 @@
   .rt-inv.follow{color:#b36b00;background:#fff1da;border:1px solid #ffd591;}
   .rt-inv b{font-weight:900;}
   .bar-task .rt-line .rt-inv{box-shadow:0 1px 2px rgba(0,0,0,.12);}
+  /* 「按人看」条内「✓已完成」徽标：白底深绿字醒目印章，与「按需求看」的封存语义统一（任务段已收尾、信息锁定） */
+  .rt-done{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;border-radius:4px;padding:1px 7px;line-height:1.5;flex-shrink:0;letter-spacing:.3px;white-space:nowrap;color:#138a67;background:#fff;border:1px solid #b6ead6;box-shadow:0 1px 2px rgba(0,0,0,.20);}
   /* 联调附属小条：虚线胶囊，挂在本体条之后 */
   .bar-addon{position:absolute;height:20px;top:31px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));cursor:grab;z-index:2;user-select:none;touch-action:none;}
   .bar-addon .ax-ic{font-size:9px;}
@@ -1880,6 +1882,13 @@ function segInvBadge(s){
   }
   return `<span class="rt-inv full" title="全人力制作：投入比 1.0，并行多条时当天自动平摊为 1/N">全人力</span>`;
 }
+/* 任务段是否处于「已完成」终态：需求级被人工置为已完成，或该段自身状态=已完成。
+   用于「按人看」条内追加「✓已完成」标，与「按需求看」的封存态语义保持统一。 */
+function segIsDone(r,s){ return reqState(r)==='done' || (s && s.status==='done'); }
+/* 「按人看」条内「✓已完成」徽标：仅在该任务段已收尾时显示，白底深绿印章 */
+function segDoneBadge(r,s){
+  return segIsDone(r,s) ? `<span class="rt-done" title="该任务已完成、信息锁定">✓ 已完成</span>` : '';
+}
 /* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
 function personDayFullCount(id, t){
   let n=0;
@@ -2208,7 +2217,7 @@ function personRowHTML(m,inArc){
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}${segInvBadge(sg)}</span>
+        <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}${segInvBadge(sg)}${segDoneBadge(r,sg)}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(sg.prog*100)}"></div>
