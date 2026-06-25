@@ -520,6 +520,13 @@
   .rt-done{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;border-radius:4px;padding:1px 7px;line-height:1.5;flex-shrink:0;letter-spacing:.3px;white-space:nowrap;color:#138a67;background:#fff;border:1px solid #b6ead6;box-shadow:0 1px 2px rgba(0,0,0,.20);}
   /* 仅本人这段完成（整条未收尾）：浅色描边、低调，区别于整条封存的深绿印章 */
   .rt-done.seg{color:#3a9b78;background:rgba(255,255,255,.78);border-color:#cdeadd;font-weight:700;box-shadow:none;}
+  /* 「按人看」任务段=已完成：与「按需求看」呈现统一——条内信息整体淡化锁定，正中央显示「✓已完成」放大印章 */
+  .bar-task.seg-done .rt-line,.bar-task.seg-done-self .rt-line{opacity:.4;filter:saturate(.85);}
+  .bar-task.seg-done .prog::after{display:none;}                       /* 已完成不再显示未做斜纹 */
+  .bar-task.seg-done::after,.bar-task.seg-done-self::after{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:800;letter-spacing:1px;padding:2px 11px;border-radius:6px;z-index:8;pointer-events:none;white-space:nowrap;}
+  .bar-task.seg-done::after{content:'✓ 已完成';background:rgba(78,203,160,.97);color:#fff;font-size:11.5px;box-shadow:0 2px 8px rgba(0,0,0,.26);}
+  .bar-task.seg-done-self::after{content:'✓ 本人完成';background:rgba(255,255,255,.96);color:#2f9e44;font-size:10px;border:1px solid #b6ead6;font-weight:800;box-shadow:0 1px 5px rgba(0,0,0,.18);}
+  .bar-task.slim.seg-done::after,.bar-task.slim.seg-done-self::after{font-size:9px;padding:1px 6px;letter-spacing:.3px;}
   /* 联调附属小条：虚线胶囊，挂在本体条之后 */
   .bar-addon{position:absolute;height:20px;top:31px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));cursor:grab;z-index:2;user-select:none;touch-action:none;}
   .bar-addon .ax-ic{font-size:9px;}
@@ -2396,11 +2403,14 @@ function personRowHTML(m,inArc){
       const slimCls = frac<0.34 ? ' slim' : '';
       const risk=reqRisk(r);
       const st=STATUS[sg.status||'doing'];
+      // 已完成呈现（与「按需求看」统一）：整条需求完成 → seg-done（深绿「✓已完成」居中印章）；
+      // 仅本人这段完成 → seg-done-self（浅色「✓本人完成」居中）；其余照常。条内信息随之淡化锁定。
+      const doneCls = reqIsDone(r) ? ' seg-done' : (sg.status==='done' ? ' seg-done-self' : '');
       const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(sg.prog*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
-      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${doneCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}${segInvBadge(sg)}${segDoneBadge(r,sg)}</span>
+        <i class="sdot"></i><span class="rt-line">${reqTitleHTML(r)}${segInvBadge(sg)}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(sg.prog*100)}"></div>
