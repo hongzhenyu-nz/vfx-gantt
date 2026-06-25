@@ -490,13 +490,13 @@
   .row.req-done .timeline{background-image:repeating-linear-gradient(45deg,rgba(78,203,160,.05) 0 8px,transparent 8px 16px);}
   .req .char-nm{font-weight:700;}
   /* 模块类型标签：图标+短名+主题色，强化区分同角色不同模块 */
-  .mod-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;border:1px solid;vertical-align:middle;line-height:1.5;}
+  .mod-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;background:#f0f2f6;border:1px solid #dfe3ea;vertical-align:middle;line-height:1.5;}
   .mod-tag i{font-style:normal;font-size:11px;line-height:1;}
   /* 统一需求标题家族（两视图共用）：角色短名(主体) + 合并的「图标+模块短名」类型标签 */
   .rt-ic{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:5px;font-size:10px;line-height:1;flex-shrink:0;box-shadow:0 1px 2px rgba(0,0,0,.2);}
   .rt-nm{font-weight:800;font-size:16px;letter-spacing:.2px;}
   /* 模块类型标牌：淡底+主题色字+细描边，淡白质感不突兀，紧贴需求名后 */
-  .rt-mod{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;letter-spacing:.2px;border-radius:4px;padding:1px 7px;line-height:1.55;flex-shrink:0;margin-left:1px;}
+  .rt-mod{display:inline-flex;align-items:center;gap:3px;font-size:11px;font-weight:700;letter-spacing:.2px;border-radius:4px;padding:1px 7px;line-height:1.55;flex-shrink:0;margin-left:1px;background:#f0f2f6;border:1px solid #dfe3ea;}
   .rt-mod .rt-mi{font-style:normal;font-size:11px;line-height:1;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25));}
   /* 总需求人天徽标：与模块标签同行，弱底深字，统一展示在左侧信息栏与条内任务标签 */
   .rt-md{display:inline-flex;align-items:baseline;gap:1px;font-size:11.5px;font-weight:800;color:#475067;background:#eef1f7;border:1px solid #d7dce6;border-radius:4px;padding:1px 6px;line-height:1.5;flex-shrink:0;letter-spacing:.2px;}
@@ -1632,6 +1632,15 @@ const MOD_META = {
   '全量测试':         {ic:'🐞', c:'#2b2f36', s:'全量测试'},
 };
 const modMeta = mod => MOD_META[mod] || {ic:'✦', c:'#646a73', s:mod||'其他'};
+/* 模块「色族」：把 10+ 种零散主题色归并到 4 个业务大类色族，标签只用色族色着字，统一底色，去杂乱。
+   出场系(暖橙) · 互动展示系(紫) · 本体系(绿) · 中性/支援系(灰蓝)。 */
+const MOD_FAM = {
+  '出场':'#e8590c','出场/MVP/入局':'#e8590c','MVP':'#e8590c','入局':'#e8590c',
+  'TPP':'#7048e8','大厅':'#7048e8','检视':'#7048e8','组队':'#7048e8','检视/组队':'#7048e8','TPP/大厅/检视组队':'#7048e8',
+  '本体/3C':'#2f9e44',
+  '武器特效':'#5c7080','通用':'#5c7080','联调':'#5c7080','全量测试':'#5c7080',
+};
+const modFamC = mod => MOD_FAM[mod] || '#5c7080';
 /* 单击菜单里可快捷切换的模块类型（剔除「联调/全量测试」——它们由附属关系语义管理，不在普通任务条上改）。 */
 const MOD_PICK = ['出场','出场/MVP/入局','MVP','入局','TPP','大厅','检视','组队','检视/组队','本体/3C','武器特效','通用'];
 
@@ -1659,7 +1668,8 @@ function reqTitleHTML(r, opt){
   const MM=modMeta(r.mod);
   const short=charShort(r.char)||r.name;
   const nm=`<span class="rt-nm">${short}</span>`;
-  const mt=`<span class="rt-mod" style="color:${MM.c};background:${MM.c}14;border:1px solid ${MM.c}33;box-shadow:none"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`;
+  const fc=modFamC(r.mod);   // 色族色：只用 4 个大类色着字/描边，底色统一
+  const mt=`<span class="rt-mod" style="color:${fc};box-shadow:none"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`;
   const md=(r.estimate>0)?`<span class="rt-md" title="总需求工作量">${r.estimate}<small>人天</small></span>`:'';   // 总需求人天徽标（左侧信息栏与条内标签统一展示）
   return `${nm}${mt}${md}`;
 }
@@ -2417,7 +2427,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const teamCount = `<span class="team-cnt"><b style="color:#0052d9">正编${regs.length}</b> · <b style="color:#56607a">基地${bases.length}</b></span>`;
     const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="标配${REQ_STD[r.id]}人，当前在岗基地${activeBase(r)}人，缺${risk.gapPpl}人（已计入风险，加人后即时更新）">缺${risk.gapPpl}人</span>`:'';
     const MM = modMeta(r.mod);
-    const modTag = `<span class="mod-tag" style="background:${MM.c}1f;color:${MM.c};border-color:${MM.c}66"><i>${MM.ic}</i>${MM.s}</span>`;
+    const modTag = `<span class="mod-tag" style="color:${modFamC(r.mod)}"><i>${MM.ic}</i>${MM.s}</span>`;
     // ===== 左侧单条品级色带：金/橙/红 按角色品级标注颜色 =====
     // 同品级的相邻行，竖带去掉圆角并向上下溢出 1px，视觉上连成一整条 → 体现「这几行同属一个品级」。
     const gKey=r.grade||'', gCol=g.col;
