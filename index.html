@@ -1531,7 +1531,7 @@ const HR_GRADE = {
   '金': {label:'金', col:'#f6cf3f'},
   '橙': {label:'橙', col:'#f59e0b'},
   '红': {label:'红', col:'#ef3b39'},
-  '':  {label:'常规', col:'#9097a0'},
+  '':  {label:'通用', col:'#9097a0'},
 };
 const HR_STATUS = {
   '启动中':  {col:'#16a34a', bg:'#e3f7e8', tx:'#1a8a3c'},
@@ -1627,12 +1627,13 @@ const MOD_META = {
   '本体/3C':         {ic:'🧍', c:'#2f9e44', s:'本体·3C'},
   'TPP/大厅/检视组队':{ic:'🏛️', c:'#c2255c', s:'TPP·大厅·检视组队'},
   '武器特效':         {ic:'🗡️', c:'#868e96', s:'武器特效'},
+  '通用':            {ic:'🧩', c:'#5c7080', s:'通用'},
   '联调':            {ic:'🔗', c:'#7c3aed', s:'联调'},
   '全量测试':         {ic:'🐞', c:'#2b2f36', s:'全量测试'},
 };
 const modMeta = mod => MOD_META[mod] || {ic:'✦', c:'#646a73', s:mod||'其他'};
 /* 单击菜单里可快捷切换的模块类型（剔除「联调/全量测试」——它们由附属关系语义管理，不在普通任务条上改）。 */
-const MOD_PICK = ['出场','出场/MVP/入局','MVP','入局','TPP','大厅','检视','组队','检视/组队','本体/3C','武器特效'];
+const MOD_PICK = ['出场','出场/MVP/入局','MVP','入局','TPP','大厅','检视','组队','检视/组队','本体/3C','武器特效','通用'];
 
 /* 角色配色：每个角色一个固定色，用于左侧竖带的「角色层」。与品级色、模块色错开色相，避免混淆。 */
 const CHAR_COLOR = {
@@ -3540,13 +3541,13 @@ function regLeaderOpts(sel){
     + regs.map(m=>`<option value="${escAttr(m.name)}" ${sel===m.name?'selected':''}>${escAttr(m.name)}</option>`).join('');
 }
 const GRADE_OPTS_LIST=['','金','橙','红'];
-const MOD_OPTS_LIST=['出场','检视','组队','饰品','入局Cuts','TPP','MVP','大厅','本体/3C','武器特效','联调'];
+const MOD_OPTS_LIST=['出场','检视','组队','饰品','入局Cuts','TPP','MVP','大厅','本体/3C','武器特效','通用','联调'];
 const LINE_OPTS_LIST=[['-','通用'],['L1','露西亚·管线1'],['L2','比安卡·管线2'],['J','七十·金角线'],['R','女指挥官·红角线']];
 
 function openNewMember(){
   if(!requireWrite())return;
   addCtx={mode:'newMember'};
-  const gradeOpt=GRADE_OPTS_LIST.map(g=>`<option value="${g}">${g===''?'常规（无品级）':g+'级'}</option>`).join('');
+  const gradeOpt=GRADE_OPTS_LIST.map(g=>`<option value="${g}">${g===''?'通用（无品级）':g+'级'}</option>`).join('');
   const modOpt=MOD_OPTS_LIST.map(m=>`<option value="${m}" ${m==='出场'?'selected':''}>${m}</option>`).join('');
   const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
   const body=`
@@ -3681,12 +3682,17 @@ const LEAD_PRESETS=['红角 + 金角','橙角露西亚·管线1','橙角 检视 
 function openNewReq(){
   if(!requireWrite())return;
   addCtx={mode:'newReq'};
-  const gradeOpt=['金','橙','红',''].map(g=>`<option value="${g}" ${g==='橙'?'selected':''}>${g===''?'常规':g+'级'}</option>`).join('');
+  const gradeOpt=['金','橙','红',''].map(g=>`<option value="${g}" ${g==='橙'?'selected':''}>${g===''?'通用':g+'级'}</option>`).join('');
   const modOpt=MOD_OPTS_LIST.filter(m=>m!=='联调').map(m=>`<option value="${m}" ${m==='出场'?'selected':''}>${m}</option>`).join('');
   const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
   const today=dInput(TODAY), end60=dInput(i2d(Math.min(idx(TODAY)+40,DAYS)));
+  const selMem0 = selectedMem && members.find(m=>m.id===selectedMem);
+  const memHint = selMem0
+    ? `<div class="ctx" style="background:#eef6ff;border-color:#bcd9f7;color:#185fa5">📌 将默认把制作人指派给当前选中的 <b>${effEsc(memName(selMem0.id))}</b>（新需求会直接挂到他/她那一行；如不需要可在创建后改派）。</div>`
+    : '';
   const body=`
     <div class="ctx">添加一条<b>新需求</b>。提交后出现在「按需求看」列表中，可再用行内「＋加人」分配制作人。纳入本地 / 团队链接 / 云端同步。</div>
+    ${memHint}
     <div class="row2">
       <div class="fld"><label>需求名称</label><input type="text" id="nrName" placeholder="如：红蔻 出场特效"></div>
       <div class="fld"><label>角色名</label><input type="text" id="nrChar" placeholder="如：红蔻·赤焰"></div>
@@ -3726,8 +3732,10 @@ function confirmNewReq(){
     kind:'fx', estimate:est, done:0, end:i2d(ne),
     segs:[]   // 新需求暂无制作人，用一段占位窗口保证可见（指向第一位成员但 0 进度，可随后改派/删除）
   };
-  // 占位 seg：用一名在岗成员承载时间窗口，避免 segs 为空导致 min/max 报错；用户随后用「＋加人」替换
-  const holder=members.find(m=>m.status==='on')||members[0];
+  // 占位 seg：用一名在岗成员承载时间窗口，避免 segs 为空导致 min/max 报错；用户随后用「＋加人」替换。
+  // 优先用当前选中的人员行（selectedMem）作为制作人，实现「新需求挂到选中的那一行」。
+  const selMem = selectedMem && members.find(m=>m.id===selectedMem);
+  const holder = selMem || members.find(m=>m.status==='on') || members[0];
   r.segs.push({m:holder.id, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'});
   reqs.push(r);
   _logDesc='新增需求：'+r.name;
@@ -3735,7 +3743,7 @@ function confirmNewReq(){
   if(view!=='req'){ const vt=document.querySelector('#viewTabs button:nth-child(2)'); if(vt)setView('req',vt); }
   else rerender();
   revealEntity('req', r.id);
-  toast(`已添加新需求：${name}（请用「＋加人」分配制作人）`);
+  toast(selMem ? `已添加新需求：${name}（已挂到 ${memName(holder.id)}，可在行内调整）` : `已添加新需求：${name}（请用「＋加人」分配制作人）`);
 }
 
 
@@ -4311,7 +4319,7 @@ function exportSync(){
     let owner='';
     if(firstSeg){const mem=members.find(m=>m.id===firstSeg.m);
       if(mem){owner=(mem.corp==='base'&&mem.lead&&!mem.lead.includes('角')&&mem.lead!=='—')?mem.lead:mem.name;}}
-    return {reqId:r.id, 需求名称:`${r.char} · ${r.name}`, 角色:r.char, 品级:r.grade||'常规',
+    return {reqId:r.id, 需求名称:`${r.char} · ${r.name}`, 角色:r.char, 品级:r.grade||'通用',
       负责人:owner, 状态:status, 开始日期:start, 截止日期:fmtDate(r.end),
       工作量人天:r.estimate, 完成进度:prog, 制作人列表:makers};
   });
