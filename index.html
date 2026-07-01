@@ -89,6 +89,8 @@
   .cloud-ind.syncing{border-color:#f59f00;background:#fff9db;color:#b8860b;}
   .cloud-ind.err{border-color:#f5413f;background:#fff0f0;color:#d63a39;}
   .cloud-ind.err .ci-dot{background:#f5413f;}
+  .cloud-ind.offline{border-color:#b8730b;background:#fff4e0;color:#b8730b;}
+  .cloud-ind.offline .ci-dot{background:#e08c00;animation:cipulse2 1.6s infinite;}
   .cloud-ind.locked{opacity:.92;}
   .cloud-ind.locked .ci-dot{background:#7a8290;}
   .cloud-ind.busy{border-color:#e08c00;background:#fff4e0;color:#b8730b;}
@@ -4345,6 +4347,15 @@ const PIN_KEY='gantt_write_pin';
 let sb=null, sbChan=null, cloudReady=false, cloudPushT=null, lastSyncJSON='', applyingRemote=false, hasHashSnap=false;
 let cloudCid=localStorage.getItem('gantt_cloud_cid');
 if(!cloudCid){cloudCid='c'+Math.random().toString(36).slice(2,10);localStorage.setItem('gantt_cloud_cid',cloudCid);}
+/* 云端离线兜底：503/网络抖动时不让看板停摆，改写 localStorage，云端恢复自动补同步。
+   触发点：cloudInit 失败、tryReconnect 连续失败。退出点：tryReconnect 成功一次。 */
+let cloudOffline=false;            // 当前是否在离线兜底模式
+let cloudReconnTries=0;             // 连续失败次数（用于指数退避）
+let cloudReconnT=null;              // 下次重试的 setTimeout 句柄
+let cloudPendingPush=null;          // 离线期间最新 snapshot，重连后补推
+const RECONN_DELAYS=[5000,15000,45000,180000,300000];  // 5s/15s/45s/3min/5min
+const PENDING_KEY='gantt_pending_snap';
+try{const s=localStorage.getItem(PENDING_KEY); if(s) cloudPendingPush=JSON.parse(s);}catch(_){}
 function cloudWho(){const m=members.find(x=>x.id===meId);return m?m.name:'某成员';}
 
 /* ===== 编辑锁（同一时刻仅一人可编辑，其他人只读等待） =====
@@ -4417,6 +4428,7 @@ function cloudSetStatus(state,txt){
 }
 /* 统一刷新指示器：持锁=on(绿，编辑中)，他人持锁=busy(琥珀，等待)，空闲=locked(灰，可申请) */
 function syncLockUI(){
+  if(cloudOffline){ cloudSetStatus('offline', '已离线 · 自动重连中'); return; }
   if(!cloudReady){ return; }
   if(lockMine) cloudSetStatus('on',lockBtnLabel());
   else if(lockHolderCid && lockHolderCid!==cloudCid) cloudSetStatus('busy',lockBtnLabel());
@@ -4466,7 +4478,99 @@ async function cloudInit(){
       })
       .subscribe(st=>{ if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'){cloudSetStatus('err','实时连接中断');} });
   }catch(e){
-    cloudReady=false; cloudSetStatus('err','云端连接失败'); console.warn('cloud init failed',e);
+    console.warn('cloud init failed,降级到本地',e);
+    enterOfflineMode('云端不可达');
+  }
+}
+/* 把编辑权授予本地（不依赖云端锁），让用户在离线期间不被只读卡住。重连成功后让真实锁接管。 */
+function giveLocalLock(){ lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho(); }
+/* 进入离线模式：保留编辑权 + 暂存 + 安排重试。注：cloudReady 仍置 true，使 cloudPush 继续被调用（改走本地暂存）。 */
+function enterOfflineMode(reason){
+  if(cloudOffline) return;
+  cloudOffline=true; cloudReady=true; cloudReconnTries=0;
+  giveLocalLock();
+  cloudSetStatus('offline', (reason||'已离线')+' · 改动本地暂存');
+  toast('☁ 云端不可达，改动暂存本地，恢复后自动补同步');
+  scheduleReconnect();
+}
+function scheduleReconnect(){
+  if(cloudReconnT) clearTimeout(cloudReconnT);
+  const d=RECONN_DELAYS[Math.min(cloudReconnTries, RECONN_DELAYS.length-1)];
+  cloudReconnT=setTimeout(tryReconnect, d);
+}
+async function tryReconnect(){
+  if(!cloudOffline) return;
+  cloudReconnTries++;
+  cloudSetStatus('syncing', `重连中（第${cloudReconnTries}次）…`);
+  try{
+    if(!sb) sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:5}}});
+    const {data,error}=await sb.from(SB_TABLE).select('snap,editor,editor_name,updated_at').eq('id',SB_ROW).maybeSingle();
+    if(error) throw error;
+    // 恢复成功
+    cloudOffline=false; cloudReady=true; cloudReconnTries=0;
+    const localJSON=JSON.stringify(snapshot());
+    if(data && data.snap){
+      const snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
+      const remoteJSON=JSON.stringify(snapObj);
+      if(cloudPendingPush && localJSON!==JSON.stringify(cloudPendingPush)){
+        // 本地有改动，且远端也有别人改动 → 冲突
+        if(remoteJSON!==lastSyncJSON){
+          const useLocal=confirm('云端已恢复。期间有人在改。\n点「确定」= 用你的本地版本覆盖云端\n点「取消」= 用云端版本（你的本地改动丢失）');
+          if(!useLocal){
+            applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+            lastSyncJSON=remoteJSON;
+            cloudPendingPush=null;
+            try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+          }
+        }
+      } else if(remoteJSON!==lastSyncJSON){
+        // 远端有别人改动,本地无冲突
+        applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+        lastSyncJSON=remoteJSON;
+        toast('☁ 云端已恢复，期间他人改动已同步');
+      }
+    }
+    // 补推本地暂存
+    if(cloudPendingPush){
+      const snap=cloudPendingPush;
+      const payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()};
+      const {error:upErr}=await sb.from(SB_TABLE).upsert(payload);
+      if(!upErr){
+        lastSyncJSON=JSON.stringify(snap);
+        cloudPendingPush=null;
+        try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+        toast('☁ 离线期间改动已补推云端');
+      } else {
+        // 推送失败,保留暂存,等下次重试
+        scheduleReconnect(); refreshAllUI(); syncLockUI(); return;
+      }
+    }
+    // 重订阅 realtime
+    try{ if(sbChan) await sbChan.unsubscribe(); }catch(_){}
+    sbChan=sb.channel('board-'+SB_ROW)
+      .on('postgres_changes',{event:'*',schema:'public',table:SB_TABLE,filter:'id=eq.'+SB_ROW},payload=>{
+        const row=payload.new; if(!row)return;
+        updateLockFromRow(row);
+        if(!row.snap)return;
+        if(row.editor===cloudCid)return;
+        if(lockMine && !_takeoverGrace)return;
+        const incoming=(typeof row.snap==='string')?row.snap:JSON.stringify(row.snap);
+        if(incoming===lastSyncJSON)return;
+        try{
+          const obj=(typeof row.snap==='string')?JSON.parse(row.snap):row.snap;
+          applyingRemote=true; applySnap(obj); applyingRemote=false;
+          lastSyncJSON=incoming; refreshAllUI();
+          toast('🔄 协作更新：'+(row.editor_name||'他人')+' 改动已同步');
+        }catch(_){applyingRemote=false;}
+      })
+      .subscribe(st=>{ if(st==='CHANNEL_ERROR'||st==='TIMED_OUT'){ if(!cloudOffline) enterOfflineMode('实时连接中断'); } });
+    refreshAllUI();
+    syncLockUI();
+    if(cloudReconnT){ clearTimeout(cloudReconnT); cloudReconnT=null; }
+  }catch(e){
+    console.warn('重连失败',e);
+    scheduleReconnect();
+    syncLockUI();
   }
 }
 function cloudPush(immediate){
@@ -4475,6 +4579,13 @@ function cloudPush(immediate){
   clearTimeout(cloudPushT);
   const doPush=async()=>{
     if(!lockMine)return;   // 推送前再确认仍持锁（避免锁被抢走后还写数据）
+    if(cloudOffline){
+      // 离线模式：暂存最新 snapshot 到 localStorage，等重连后补推
+      const snap=snapshot();
+      cloudPendingPush=snap;
+      try{localStorage.setItem(PENDING_KEY, JSON.stringify(snap));}catch(_){}
+      return;
+    }
     const snap=snapshot(); const json=JSON.stringify(snap);
     if(json===lastSyncJSON)return;
     cloudSetStatus('syncing','保存中…');
@@ -4484,7 +4595,11 @@ function cloudPush(immediate){
       const {error}=await sb.from(SB_TABLE).upsert(payload);
       if(error)throw error;
       lastSyncJSON=json; cloudSetStatus('on',lockBtnLabel());
-    }catch(e){ cloudSetStatus('err','保存失败'); console.warn('cloud push failed',e); }
+    }catch(e){
+      // 推送失败 → 切离线兜底,保留编辑权+暂存
+      console.warn('cloud push failed,降级本地',e);
+      enterOfflineMode('保存失败,已切本地');
+    }
   };
   if(immediate)doPush(); else cloudPushT=setTimeout(doPush,700);
 }
