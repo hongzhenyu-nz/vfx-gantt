@@ -507,20 +507,41 @@
   .rt-md small{font-size:9px;font-weight:700;opacity:.75;letter-spacing:0;}
   /* 按人看：条内统一标题（深色条上：模块标签转白系；图标随标签一体） */
   /* 条内标题：列排列，按优先级 1=任务名 2=模块 3=人天 4=投入比 依次竖排。
-     不再缩字号、不再换行裁切——排不下时按优先级隐藏后 1-2 个元素（靠 inline style display:none）。
-     父条 height 由 rowH 撑高决定，标签列与条体高度一致、垂直居中、左右贴齐起点。 */
-  .bar-task .rt-line{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;position:relative;z-index:1;max-width:100%;pointer-events:none;line-height:1.15;height:100%;}
+     4 元素永远全部显示，不裁切不隐藏；按条子像素高度选字号档（data-sz 5→1 逐档缩），
+     利用好垂直空间、出框不裁切、不拥挤。父条 height 由 rowH 撑高。 */
+  .bar-task .rt-line{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:0;position:relative;z-index:1;max-width:100%;pointer-events:none;line-height:1.0;height:100%;}
   /* 父条横向兜底裁切（防左溢压栏） */
   .bar-task:has(.rt-line){overflow:hidden;}
-  .bar-task .rt-line .rt-nm{color:#fff;font-size:14px;font-weight:800;letter-spacing:.2px;text-shadow:0 1px 1px rgba(0,0,0,.22);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;line-height:1.2;}
-  /* 条内模块/人天徽标改用与左侧信息栏完全一致的浅底深字（不再白字白底，保证可读），列排时紧凑：line-height 1.2、padding 0 4px */
-  .bar-task .rt-line .rt-mod{color:#475067!important;background:#f0f2f6!important;border:1px solid #dfe3ea!important;box-shadow:0 1px 2px rgba(0,0,0,.10);font-size:10.5px;font-weight:700;padding:0 5px;line-height:1.2;border-radius:3px;margin:0;}
-  .bar-task .rt-line .rt-mod .rt-mi{font-size:10.5px;line-height:1;margin-right:2px;}
-  .bar-task .rt-line .rt-md{color:#475067!important;background:#eef1f7!important;border:1px solid #d7dce6!important;box-shadow:0 1px 2px rgba(0,0,0,.10);font-size:10.5px;font-weight:800;padding:0 5px;line-height:1.2;border-radius:3px;margin:0;}
+  /* 列排列标签默认字号（sz=5，最高档）；窄条按 data-sz 5→1 缩档。4 元素永远全部显示，不裁切不隐藏。 */
+  .bar-task .rt-line .rt-nm{color:#fff;font-size:14px;font-weight:800;letter-spacing:.2px;text-shadow:0 1px 1px rgba(0,0,0,.22);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis;line-height:1.0;}
+  .bar-task .rt-line .rt-mod{color:#475067!important;background:#f0f2f6!important;border:1px solid #dfe3ea!important;box-shadow:0 1px 2px rgba(0,0,0,.10);font-size:11.5px;font-weight:700;padding:0 5px;line-height:1.0;border-radius:3px;margin:0;}
+  .bar-task .rt-line .rt-mod .rt-mi{font-size:11.5px;line-height:1;margin-right:2px;}
+  .bar-task .rt-line .rt-md{color:#475067!important;background:#eef1f7!important;border:1px solid #d7dce6!important;box-shadow:0 1px 2px rgba(0,0,0,.10);font-size:11px;font-weight:800;padding:0 5px;line-height:1.0;border-radius:3px;margin:0;}
   .bar-task .rt-line .rt-md small{font-size:8.5px;opacity:.75;margin-left:1px;}
-  /* 投入比状态徽标列排紧凑版 */
-  .bar-task .rt-line .rt-inv{box-shadow:0 1px 2px rgba(0,0,0,.12);font-size:10px;font-weight:800;padding:0 5px;line-height:1.2;border-radius:3px;margin:0;}
+  .bar-task .rt-line .rt-inv{box-shadow:0 1px 2px rgba(0,0,0,.12);font-size:10px;font-weight:800;padding:0 5px;line-height:1.0;border-radius:3px;margin:0;}
   .bar-task .rt-line .rt-inv b{font-weight:900;font-size:10.5px;}
+  /* 字号档：按 data-sz（5→1）逐档缩；4 元素全显示，仅字号缩。
+     总行高（line-height 1.1 + gap 0）：sz5=51px / sz4=44px / sz3=37.5px / sz2=34.6px / sz1=31.5px */
+  .bar-task[data-sz="4"] .rt-line .rt-nm{font-size:12px;}
+  .bar-task[data-sz="4"] .rt-line .rt-mod{font-size:10px;padding:0 4px;}
+  .bar-task[data-sz="4"] .rt-line .rt-mod .rt-mi{font-size:10px;}
+  .bar-task[data-sz="4"] .rt-line .rt-md{font-size:9.5px;padding:0 4px;}
+  .bar-task[data-sz="4"] .rt-line .rt-inv{font-size:8.5px;padding:0 4px;}
+  .bar-task[data-sz="3"] .rt-line .rt-nm{font-size:10.5px;}
+  .bar-task[data-sz="3"] .rt-line .rt-mod{font-size:9px;padding:0 3px;}
+  .bar-task[data-sz="3"] .rt-line .rt-mod .rt-mi{font-size:9px;}
+  .bar-task[data-sz="3"] .rt-line .rt-md{font-size:8.5px;padding:0 3px;}
+  .bar-task[data-sz="3"] .rt-line .rt-inv{font-size:8px;padding:0 3px;}
+  .bar-task[data-sz="2"] .rt-line .rt-nm{font-size:9.5px;}
+  .bar-task[data-sz="2"] .rt-line .rt-mod{font-size:8.5px;padding:0 3px;}
+  .bar-task[data-sz="2"] .rt-line .rt-mod .rt-mi{font-size:8.5px;}
+  .bar-task[data-sz="2"] .rt-line .rt-md{font-size:8px;padding:0 3px;}
+  .bar-task[data-sz="2"] .rt-line .rt-inv{font-size:7px;padding:0 3px;}
+  .bar-task[data-sz="1"] .rt-line .rt-nm{font-size:8.5px;}
+  .bar-task[data-sz="1"] .rt-line .rt-mod{font-size:7.5px;padding:0 2px;}
+  .bar-task[data-sz="1"] .rt-line .rt-mod .rt-mi{font-size:7.5px;}
+  .bar-task[data-sz="1"] .rt-line .rt-md{font-size:7px;padding:0 2px;}
+  .bar-task[data-sz="1"] .rt-line .rt-inv{font-size:7px;padding:0 2px;}
   /* 投入比状态徽标：条内显示「全人力制作 / 跟进 0.x」，全人力=蓝、跟进=琥珀 */
   .rt-inv{display:inline-flex;align-items:center;gap:2px;font-size:10.5px;font-weight:800;border-radius:4px;padding:1px 6px;line-height:1.5;flex-shrink:0;letter-spacing:.2px;white-space:nowrap;}
   .rt-inv.full{color:#185fa5;background:#e6f1fb;border:1px solid #b5d4f4;}
@@ -1804,49 +1825,42 @@ function charColor(cs){
    角色短名：去掉品级线/联动CP尾巴，保留主角色名（如「露西亚·誓焰 X 安琪儿」→「露西亚」）。
    完整角色名(含联动CP)作为副信息/悬停保留。 */
 const charShort = char => String(char||'').split(/\s*[X×]\s*/)[0].split(/[·（(]/)[0].trim();
-/* 统一规范的需求标题 HTML：列排列、4 个信息位竖排、字号固定不缩。
+/* 统一规范的需求标题 HTML：列排列、4 个信息位竖排、按 data-sz 字号档自动缩放。
    按优先级 data-rank: 1=任务名(主)  2=模块  3=人天  4=投入比
-   排不下时按 nShow 隐藏后 1-2 个元素——「任务名 > 模块 > 人天 > 投入比」优先级由高到低。
-   参数 opt = {pdays?: number, nShow?: 0..4}。nShow=4 时全显示、=3 隐藏投入比、=2 隐藏人天与投入比、=1 仅任务名。 */
+   4 个元素永远全部显示（绝不裁切、绝不隐藏）；字号由父条 .bar-task 的 data-sz 属性决定。
+   参数 opt = {pdays?: number}。 */
 function reqTitleHTML(r, opt){
   opt=opt||{};
-  const nShow=opt.nShow!=null?opt.nShow:4;
-  const hide = (rank) => rank>nShow ? ' style="display:none"' : '';
   const MM=modMeta(r.mod);
   const short=charShort(r.char)||r.name;
-  const nm=`<span class="rt-nm" data-rank="1"${hide(1)}>${short}</span>`;
+  const nm=`<span class="rt-nm" data-rank="1">${short}</span>`;
   const fc=modFamC(r.mod);   // 色族色：只用 4 个大类色着字/描边，底色统一
-  const mt=`<span class="rt-mod" data-rank="2"${hide(2)} style="color:${fc};box-shadow:none"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`;
+  const mt=`<span class="rt-mod" data-rank="2" style="color:${fc};box-shadow:none"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`;
   // 人天徽标：
   //  · 「按人看」每条任务条传 opt.pdays = 该成员在本需求的个人投入(Σ投入比×效率)，显示个人量，避免同一总量在多人行重复出现；
   //  · 「按需求看」不传 opt.pdays，显示整条需求总工作量 r.estimate。
   let md='';
   if(opt.pdays!=null){
-    md=(opt.pdays>0)?`<span class="rt-md" data-rank="3"${hide(3)} title="本人在该需求的投入工作量（投入比×效率折算）">${opt.pdays}<small>人天</small></span>`:'';
+    md=(opt.pdays>0)?`<span class="rt-md" data-rank="3" title="本人在该需求的投入工作量（投入比×效率折算）">${opt.pdays}<small>人天</small></span>`:'';
   }else{
-    md=(r.estimate>0)?`<span class="rt-md" data-rank="3"${hide(3)} title="该需求总工作量（全部参与成员之和）">${r.estimate}<small>人天</small></span>`:'';
+    md=(r.estimate>0)?`<span class="rt-md" data-rank="3" title="该需求总工作量（全部参与成员之和）">${r.estimate}<small>人天</small></span>`:'';
   }
   return `${nm}${mt}${md}`;
 }
-/* ============ 列排列标签：按条子像素高度决定显示前几个元素 ============
-   优先级 1=任务名 2=模块 3=人天 4=投入比（4=全显示）。
-   阈值依据 .bar-task .rt-line 内 4 类元素紧凑后的实际行高：
-   · 任务名 14px × line-height 1.2 ≈ 16.8px
-   · 模块/人天 10.5px × line-height 1.2 + border 2 ≈ 14.6px
-   · 投入比 10px × line-height 1.2 + border 2 ≈ 14px
-   4 行 ≈ 60px / 3 行 ≈ 46px / 2 行 ≈ 30px / 1 行 ≈ 16px。 */
-function calcNShow(barHpx){
-  if(barHpx>=60) return 4;
-  if(barHpx>=46) return 3;
-  if(barHpx>=30) return 2;
-  if(barHpx>=16) return 1;
-  return 0;
-}
-/* 各信息位单行像素高度（含上下边距）—— 行高预估循环用 */
-const RT_LINE_HEIGHTS = { 1: 17, 2: 15, 3: 15, 4: 15 };   // 任务名稍高（14px），其它 11px 紧凑档
-function lblStackNeedPx(nShow){
-  let s=0; for(let r=1;r<=nShow;r++) s += RT_LINE_HEIGHTS[r]||15;
-  return s+4;   // 上下 2px 留白
+/* ============ 列排列字号档：按条子像素高度选 1-5 档（5 最高 1 最低） ============
+   阈值依据 .bar-task .rt-line 内 4 类元素紧凑后的实际行高（line-height 1.0、gap 0、padding 4 元素加和约 32px 总高上限）：
+   · sz=5: 14/11.5/11/10 = 46.5px → 需 barH ≥ 50
+   · sz=4: 12/10/9.5/8.5 = 40.0px → 需 barH ≥ 44
+   · sz=3: 10.5/9/8.5/8 = 36.0px → 需 barH ≥ 40
+   · sz=2: 9.5/8.5/8/7 = 33.0px → 需 barH ≥ 36
+   · sz=1: 8.5/7.5/7/7 = 30.0px → barH ≥ 32（最窄档、仍能完整放下 4 元素、不裁切）
+   多泳道 BAR_MIN=32 保证最窄条也能进 sz=1、4 元素全显示。 */
+function pickSizeTier(barHpx){
+  if(barHpx>=50) return 5;
+  if(barHpx>=44) return 4;
+  if(barHpx>=40) return 3;
+  if(barHpx>=36) return 2;
+  return 1;
 }
 
 /* ============ 按需求看：条内三阶段模型 L1 / L2 / 联调 ============
@@ -2142,9 +2156,7 @@ function segAvgEffInv(s){
 }
 /* 任务段的投入比徽标：直接显示「分摊后的实际投入比数字」（不显示固定系数 / 1/N 算法）。
    颜色：跟进型=琥珀、被并行分摊=紫、独占满额=蓝。 */
-function segInvBadge(s, nShow){
-  nShow=nShow!=null?nShow:4;
-  const hide = nShow<4 ? ' style="display:none"' : '';
+function segInvBadge(s){
   const ae=segAvgEffInv(s);
   const num=r2(ae.avg);                            // 分摊后的有效投入比（保留两位小数）
   const follow=segIsFollow(s);
@@ -2153,7 +2165,7 @@ function segInvBadge(s, nShow){
   const tip = ae.shared
     ? `投入比 ${num}：与同期其它需求按权重并行分摊后的实际值${wtTxt}`
     : `投入比 ${num}：本段独占该成员精力${wtTxt}`;
-  return `<span class="rt-inv ${cls}" data-rank="4"${hide} title="${tip}"><b>${num}</b></span>`;
+  return `<span class="rt-inv ${cls}" data-rank="4" title="${tip}"><b>${num}</b></span>`;
 }
 /* 任务段是否处于「已完成」终态：需求级被人工置为已完成/全段完成派生态(reqIsDone)，或该段自身=已完成。 */
 function segIsDone(r,s){ return reqIsDone(r) || (s&&s.status==='done'); }
@@ -2437,7 +2449,7 @@ function headerHTML(){
 /* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
 /* 自适应条高：单任务时条占满行高（饱满），同行多任务并行时按泳道平分自动变窄。
    ROW_BASE=单泳道行高；PADV=行内上下留白；LANE_GAP=泳道间距；BAR_MIN=多泳道时单条最小高度（保证可读）。 */
-const ROW_BASE=46, PADV=7, LANE_GAP=4, BAR_MIN=24;   // BAR_MIN 18→24：列排列下多泳道单条至少 30px barH，能放 2 行信息（任务名+模块）
+const ROW_BASE=46, PADV=7, LANE_GAP=4, BAR_MIN=32;   // BAR_MIN 24→32：列排列下多泳道单条至少 32px barH，sz=1 档能完整放下 4 元素（不裁切）
 const LANE_TOP=PADV;  // 兼容旧引用
 function assignLanes(items){               // items: [{s,e,...}]，s/e 为天索引
   const arr=items.slice().sort((a,b)=>a.s-b.s||a.e-b.e);
@@ -2527,20 +2539,11 @@ function personRowHTML(m,inArc){
        · 某条任务所在时段确有并行 → 只有真正打架的条目各占一槽、等高等分。
        槽位用 (lo/laneCount ~ hi/laneCount) 的百分比切分，bar 内插 GAP_PX 间距留缝。 */
     const FILL=0.8;                                  // 蓝条只占所在泳道段高度的 80%，上下留白以区分行/条（不再 100% 撑满）
-    // 行最小高度：单泳道维持基础行高；多泳道时保证每条不低于可读下限（左侧更高时会再被撑高）
-    let rowH = laneCount<=1 ? ROW_BASE
-               : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
-    /* 「信息全显示」关键：列排列下，单泳道目标显示 4 行（任务名/模块/人天/投入比），多泳道降级目标显示 2 行。
-       按本条 segHp = (1/ovl)*FILL 反推 rowH，让「最吃高度的那条」的目标行数能完整放下。
-       多泳道时若强行要 4 行，rowH 会被撑到 200+ 反而难看，所以按 ovl 决定目标行数。 */
-    laid.items.forEach(it=>{
-      const ovl=clusterLanesOf(it).length||1;
-      const segHp=(1/ovl)*FILL;
-      const targetN = ovl>=2 ? 2 : 4;                            // 多泳道目标 2 行，单泳道目标 4 行
-      const needPx = lblStackNeedPx(targetN);                    // 显示 targetN 行所需像素
-      const needRowH = needPx/Math.max(segHp,0.08);
-      if(needRowH>rowH) rowH=Math.round(needRowH);
-    });
+    // 行最小高度：单泳道 80px（富余走 sz=5 字号档、视觉宽舒）；多泳道按 BAR_MIN=32 反推（保证最窄条仍能 sz=1 完整放下 4 元素）
+    let rowH = laneCount<=1 ? 80
+                            : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
+    // v4.7「字号档自适应」：4 元素永远全显示、绝不裁切、绝不隐藏；字号由 .bar-task data-sz 选档（pickSizeTier）自动缩放以适配 barHpx。
+    // rowH 不再按 nShow 反推——barHpx → pickSizeTier 闭环：条子越矮、字号档越低、4 元素自动等比缩小。
     // 判断某泳道在 [s,e) 时段是否被别的条目占用
     const occupied=(lane,s,e)=> laid.items.some(b=> b.lane===lane && b.si0<e && b.ei0>s);
     let bars='';
@@ -2570,16 +2573,15 @@ function personRowHTML(m,inArc){
       // 仅本人这段完成 → seg-done-self（浅色「✓本人完成」居中）；其余照常。条内信息随之淡化锁定。
       const doneCls = reqIsDone(r) ? ' seg-done' : (sg.status==='done' ? ' seg-done-self' : '');
       const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
-      /* 列排列：根据条子像素高度决定显示前几个元素，固定字号、不缩。
-         任务名(14px) > 模块(10.5px) > 人天(10.5px) > 投入比(10px) 优先级递减；
-         排不下时按 nShow 隐藏后 1-2 个元素——rowH 已由上方循环撑高保证单泳道 4 行/多泳道 2 行能完整放下。 */
+      /* 列排列 + 字号档：4 元素永远全显示，按条子像素高度选 data-sz 字号档（5→1 逐档缩），
+         不裁切不隐藏、充分利用垂直空间。任务名仍走 ellipsis 兜底。 */
       const barHpx = segH*FILL*rowH;                                        // 本条像素高度
-      const nShow = calcNShow(barHpx);                                       // 1~4，按 barHpx 自动选档
+      const szTier = pickSizeTier(barHpx);                                  // 1~5
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
-      const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow});
-      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${doneCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest)});
+      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${doneCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" data-sz="${szTier}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line">${lblInner}${segInvBadge(sg,nShow)}${segDoneBadge(r,sg)}</span>
+        <i class="sdot"></i><span class="rt-line">${lblInner}${segInvBadge(sg)}${segDoneBadge(r,sg)}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(effProg*100)}"></div>
