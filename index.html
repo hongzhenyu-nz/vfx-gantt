@@ -4442,6 +4442,8 @@ function refreshAllUI(){
 async function cloudInit(){
   if(!window.supabase||!window.supabase.createClient){cloudSetStatus('err','云端库未加载');return;}
   if(hasHashSnap){cloudSetStatus('locked','分享快照（未连云端）');return;} // 打开的是分享链接，按快照看，不连云
+  // 启动时先 ping 一次（保活 + 检测数据库是否已就绪）
+  startKeepAlivePing(true);
   try{
     sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:5}}});
     cloudSetStatus('syncing','连接中…');
@@ -4481,6 +4483,33 @@ async function cloudInit(){
     console.warn('cloud init failed,降级到本地',e);
     enterOfflineMode('云端不可达');
   }
+}
+/* Supabase Free 计划项目连续 7 天无访问会自动 pause 数据库(PostgREST 会报 PGRST002)。
+   每天 9 点本地时间自动 ping 一次,骗 Supabase "有人用",保活成本 = 0。
+   - 启动时(boot)立即调用:今天已过 9 点但还没 ping → 立即补一次
+   - 每 10 分钟检查一次,过 9 点就 ping,记 localStorage 防止重复
+   - 失败静默,不打扰用户 */
+function startKeepAlivePing(immediate){
+  if(window.__keepAliveStarted) return;        // 防止 boot + cloudInit 各调一次重复启动
+  window.__keepAliveStarted = true;
+  const ping = () => fetch(`${SB_URL}/rest/v1/${SB_TABLE}?select=id&limit=1&id=eq.${encodeURIComponent(SB_ROW)}`, {
+    headers: { apikey: SB_KEY, authorization: 'Bearer ' + SB_KEY },
+    cache: 'no-store',
+  }).catch(()=>{});
+  const tick = () => {
+    try{
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+      const last = +localStorage.getItem('gantt_keepalive_day') || 0;
+      if (last < today && now.getHours() >= 9) {
+        ping();
+        localStorage.setItem('gantt_keepalive_day', String(today));
+      }
+    }catch(_){}
+  };
+  if (immediate) tick();
+  setInterval(tick, 10 * 60 * 1000);           // 每 10 分钟检查一次是否过 9 点
+  setTimeout(tick, 60 * 1000);                 // 启动 1 分钟后兜底检查一次
 }
 /* 把编辑权授予本地（不依赖云端锁），让用户在离线期间不被只读卡住。重连成功后让真实锁接管。 */
 function giveLocalLock(){ lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho(); }
@@ -5532,6 +5561,8 @@ rerender();
 document.body.classList.toggle('ro-mode', !canWrite());
 // 启动云端协作（公开读 / 编辑锁互斥写 / Realtime 实时汇集）
 if(typeof cloudInit==='function'){ cloudInit(); }
+// Supabase Free 计划 7 天无活动会自动 pause 数据库,这里每天 9 点自动 ping 一次防止被休眠
+if(typeof startKeepAlivePing==='function'){ startKeepAlivePing(); }
 // 持锁后 5 分钟无操作自动提交并释放编辑权：一次性绑定全局活动监听
 if(typeof bindIdleWatch==='function'){ bindIdleWatch(); }
 // 当前日期红线即时刷新：每分钟检查系统日期，跨天自动重绘红线
