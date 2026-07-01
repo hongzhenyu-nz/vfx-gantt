@@ -514,6 +514,8 @@
   /* 父条横向兜底裁切（防左溢压栏） */
   .bar-task:has(.rt-line){overflow:hidden;}
   .bar-task .rt-line .rt-nm{color:#fff;font-size:13.5px;font-weight:800;letter-spacing:.2px;text-shadow:0 1px 1px rgba(0,0,0,.28);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;flex:0 1 auto;min-width:0;}
+  /* v4.9 任务名竖排（每字一列）：极窄条上短名放不下横排时转竖排，确保完整显示不截断 */
+  .bar-task .rt-line .rt-nm[data-nm="v"]{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0;line-height:1.02;white-space:nowrap;overflow:visible;text-overflow:clip;max-height:100%;text-shadow:0 1px 1px rgba(0,0,0,.32);}
   /* 条内模块/人天/投入比小徽标：浅底深字、单行紧凑、绝不换行、绝不被压缩变形 */
   .bar-task .rt-line .rt-mod{color:#475067!important;background:rgba(255,255,255,.92)!important;border:1px solid rgba(255,255,255,.55)!important;box-shadow:0 1px 2px rgba(0,0,0,.14);font-size:10.5px;font-weight:700;padding:1px 6px;line-height:1.35;border-radius:4px;margin:0;flex:0 0 auto;white-space:nowrap;}
   .bar-task .rt-line .rt-mod .rt-mi{font-size:10.5px;line-height:1;margin-right:2px;}
@@ -1815,12 +1817,50 @@ const charShort = char => String(char||'').split(/\s*[X×]\s*/)[0].split(/[·（
    opt = {pdays?: number, nShow?: 1..4}。nShow 控制显示几个信息位（含任务名）：
      4=任务名+模块+人天+投入比全显 / 3=去投入比 / 2=去人天+投入比 / 1=仅任务名。
    优先级「任务名 > 模块 > 人天 > 投入比」由高到低，窄条从右往左省略。 */
+/* 字符串的横排宽度（以 em 计）：中文/全角≈1.0em，ASCII≈0.56em。用于估算任务名横排占宽。 */
+function strEmWidth(s){
+  let w=0; for(const ch of String(s)){ w += /[\x00-\xff]/.test(ch) ? 0.56 : 1.0; } return w;
+}
+/* ============ v4.9 任务名保全：极窄条也要完整显示任务名 ============
+   给定任务名短名、可用条宽/条高，决定用「横排缩字号」还是「竖排（每字一列）」，永不截断短名。
+   决策顺序：
+     1) 横排：优先正常字号(13.5)，放不下就等比缩到下限 9px——只要缩后能放下就横排；
+     2) 横排缩到 9px 仍放不下 → 短名(≤5字)转竖排，字号受「条宽(单字)」与「条高(总字数)」双向约束，下限 7px；
+     3) 长名(>5字)无法竖排 → 横排锁 9px + ellipsis 兜底（clip=true）。
+   返回 {mode:'h'|'v', fs:px, clip?:bool}。 */
+function fitTaskName(short, barWpx, barHpx){
+  const emW = strEmWidth(short);
+  const nc  = [...String(short)].length || 1;
+  const availW = Math.max(8, (barWpx||0) - 16);   // 扣掉左侧状态点 + 左右内边距
+  const availH = Math.max(8, (barHpx||0) - 4);
+  const HMAX=13.5, HMIN=9, VMIN=7;
+  // 1) 横排
+  const hfs = availW / Math.max(emW, 0.5);
+  if(hfs >= HMAX) return {mode:'h', fs:HMAX};
+  if(hfs >= HMIN) return {mode:'h', fs:Math.floor(hfs*10)/10};
+  // 2) 竖排（仅短名）
+  if(nc <= 5){
+    let vfs = Math.min(HMAX, availW/1.0, availH/(nc*1.08));
+    vfs = Math.max(VMIN, Math.floor(vfs*10)/10);
+    return {mode:'v', fs:vfs};
+  }
+  // 3) 长名兜底
+  return {mode:'h', fs:HMIN, clip:true};
+}
 function reqTitleHTML(r, opt){
   opt=opt||{};
   const nShow=opt.nShow!=null?opt.nShow:4;
   const MM=modMeta(r.mod);
   const short=charShort(r.char)||r.name;
-  const nm=`<span class="rt-nm" data-rank="1">${short}</span>`;
+  let nm;
+  if(nShow===1 && opt.barWpx!=null){
+    // 窄条只显任务名：启用保全逻辑（缩字号 / 竖排），确保完整可见
+    const fit=fitTaskName(short, opt.barWpx, opt.barHpx||24);
+    const st=`font-size:${fit.fs}px`+(fit.clip?'':';text-overflow:clip');
+    nm=`<span class="rt-nm" data-rank="1" data-nm="${fit.mode}" style="${st}">${short}</span>`;
+  }else{
+    nm=`<span class="rt-nm" data-rank="1">${short}</span>`;
+  }
   const fc=modFamC(r.mod);   // 色族色：只用 4 个大类色着字/描边，底色统一
   const mt=(nShow>=2)?`<span class="rt-mod" data-rank="2" style="color:${fc}"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`:'';
   // 人天徽标：
@@ -2572,7 +2612,7 @@ function personRowHTML(m,inArc){
       const nShow = calcNShow(barWpx);                                      // 1~4，按条宽自动选
       const szTier = pickSizeTier(barHpx);                                  // 1=正常 2=紧凑
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
-      const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow});
+      const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
       bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${doneCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${segDoneBadge(r,sg)}</span>
