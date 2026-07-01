@@ -550,6 +550,19 @@
   .bar-task .rt-line.sz5 .rt-mod,.bar-task .rt-line.sz5 .rt-md,.bar-task .rt-line.sz5 .rt-inv,.bar-task .rt-line.sz5 .rt-done{font-size:7px;padding:0 2px;}
   .bar-task .rt-line.sz5 .rt-md small{font-size:6px;}
   .bar-task .rt-line.sz5 .rt-mod .rt-mi{font-size:8px;}
+  /* sz6 档（极窄条专用）：字号压到下限，配合 fit1 transform:scale() 进一步缩，但仍能看清
+     字间距/gap 全部 0，去掉所有 padding 装饰，腾出 1-2px 给文字 */
+  .bar-task .rt-line.sz6{gap:0 2px;}
+  .bar-task .rt-line.sz6 .rt-nm{font-size:7.5px;letter-spacing:-.2px;}
+  .bar-task .rt-line.sz6 .rt-mod,.bar-task .rt-line.sz6 .rt-md,.bar-task .rt-line.sz6 .rt-inv,.bar-task .rt-line.sz6 .rt-done{font-size:6.5px;padding:0 1.5px;}
+  .bar-task .rt-line.sz6 .rt-md small{font-size:5.5px;}
+  .bar-task .rt-line.sz6 .rt-mod .rt-mi{font-size:7.5px;margin-right:1px;}
+  /* 极简标签（极窄条走 minimalist 分支）：仅图标+数字，剥掉任务名与「人天」二字 */
+  .bar-task .rt-line.mini{gap:0 2px;}
+  .bar-task .rt-line.mini .mini-mi{font-size:9px;opacity:.95;}
+  .bar-task .rt-line.mini .mini-n{font-size:9px;font-weight:700;letter-spacing:-.3px;}
+  .bar-task .rt-line.mini .mini-pct{font-size:8px;opacity:.78;font-weight:600;padding:0 2px;border:1px solid rgba(255,255,255,.5);border-radius:3px;margin-left:1px;}
+  .bar-task .rt-line.mini.fit1{transform-origin:left center;}
   /* 连续缩放兜底：连最小字号档仍排不下时，对整条标签施加 transform:scale() 精确缩到刚好放进净宽，
      左对齐变换原点，保证「一行排下、绝不裁切出框」。nowrap 强制不换行，宽度按缩放前自然宽度计算。 */
   .bar-task .rt-line.fit1{flex-wrap:nowrap;max-width:none;transform-origin:left center;will-change:transform;}
@@ -1838,6 +1851,23 @@ function reqTitleHTML(r, opt){
   }
   return `${nm}${mt}${md}`;
 }
+/* 极简标签：用于极窄条（usableLblW<60px）。剥掉任务名 + 「人天」二字，只保留：模块图标 + 角色首字 + 数字。
+   目标视觉宽度约 28-50px，能在 36-50px 的窄条里放下并可读。
+   参数 opt = {pdays?: number, prog?: number 0-1}，与 reqTitleHTML 一致。 */
+function reqTitleMiniHTML(r, opt){
+  opt=opt||{};
+  const MM=modMeta(r.mod);
+  const short=(charShort(r.char)||r.name||'').trim();
+  // 角色首字（中文取首字、英文取首字母）
+  const head = /[一-龥]/.test(short) ? short.charAt(0) : (short.replace(/\s/g,'').charAt(0)||'').toUpperCase();
+  const fc=modFamC(r.mod);
+  const mi=`<span class="mini-mi" style="color:${fc}">${MM.ic}</span>`;
+  const nm=head?`<span class="mini-n">${head}</span>`:'';
+  // 数字徽标：人天投入（去掉"人天"二字，只显数字本身）
+  const num = (opt.pdays!=null && opt.pdays>0) ? r1(opt.pdays) : '';
+  const md=num?`<span class="mini-pct" title="本人在该需求的投入工作量">${num}</span>`:'';
+  return `${mi}${nm}${md}`;
+}
 /* 估算「按人看」一条任务条内全部标签（角色名+模块+人天+投入比[+完成标]）横排所需的像素宽度。
    仅用于预判换行行数，进而把整行 rowH 撑高，让标签全部显示且不裁切（不要求像素级精确）。 */
 function estBarLabelPx(r, sg){
@@ -1858,12 +1888,12 @@ function estBarLabelPx(r, sg){
    fit 为附加的连续缩放系数(<1 时需要写 inline transform:scale(fit))。 */
 function pickLabelScale(estPx, usableW){
   if(estPx<=usableW) return {cls:'', scale:1, fit:1};        // 原始字号一行排得下
-  const TIERS=[{cls:'sz2',scale:0.84},{cls:'sz3',scale:0.72},{cls:'sz4',scale:0.62},{cls:'sz5',scale:0.52}];
+  const TIERS=[{cls:'sz2',scale:0.84},{cls:'sz3',scale:0.72},{cls:'sz4',scale:0.62},{cls:'sz5',scale:0.52},{cls:'sz6',scale:0.44}];
   for(const t of TIERS){ if(estPx*t.scale<=usableW) return {cls:t.cls, scale:t.scale, fit:1}; }  // 缩字号即可一行排下
-  // 最小字号档仍排不下：在 sz5 基础上叠加连续 scale，缩到刚好放进（下限 0.5，过小则不再缩、靠条体 overflow 兜底）
-  const base=TIERS[TIERS.length-1];                            // sz5
-  const need=usableW/(estPx*base.scale);                       // sz5 之后还需的额外缩放比
-  const fit=Math.max(0.5, Math.min(1, need));
+  // 最小字号档(sz6)仍排不下：在 sz6 基础上叠加连续 scale，缩到刚好放下（下限 0.6=视觉字号底线 ~4.5px，过小则改走极简标签分支)
+  const base=TIERS[TIERS.length-1];                            // sz6
+  const need=usableW/(estPx*base.scale);                       // sz6 之后还需的额外缩放比
+  const fit=Math.max(0.6, Math.min(1, need));
   return {cls:base.cls+' fit1', scale:base.scale*fit, fit:r2(fit)};
 }
 
@@ -2554,6 +2584,8 @@ function personRowHTML(m,inArc){
       const isOpenP=!!it.sg.open;
       const barW=isOpenP?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
       const usableW=Math.max(barW-18,36);            // 条内可排标签的净宽
+      // 极窄条走极简标签分支：极简版天然单行，不需要换行加高
+      if(usableW<60) return;
       const estPx=estBarLabelPx(it.r,it.sg);
       const sc=pickLabelScale(estPx,usableW);        // 先缩字号：缩放后的有效宽度
       if(sc.fit<1) return;                            // 已用连续 scale 强制一行排下(不换行) → 不需加高
@@ -2597,23 +2629,39 @@ function personRowHTML(m,inArc){
       const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
       const natLblPx=estBarLabelPx(r,sg);                                      // 标签原始字号横排所需宽度
       const usableLblW=Math.max(w-18,36);                                       // 条内可排标签净宽
-      const lblScale=pickLabelScale(natLblPx,usableLblW);                       // 本条按净宽挑选标签缩放档（先缩字号再换行）
+      /* 极窄条走极简标签分支：usableLblW<60 时，剥掉任务名 + 「人天」二字，只留模块图标+首字+数字。
+         极简标签天然宽度 ~30-50px，能在 36-50px 的窄条里放下并可读。
+         极简标签不用走 upScale 放大（本身已经精简）、且只在缩到 sz6 仍放不下时才使用 fit1 transform:scale() 兜底。 */
+      const useMini=usableLblW<60;
+      const lblScale=useMini?{cls:'',scale:1,fit:1}:pickLabelScale(natLblPx,usableLblW);   // 极简模式不缩字号
       /* 竖向充盈：当条体较高、且标签以原始字号一行就排得下（未触发任何缩小）时，按条高等比放大标签，
          让文字与条体比例协调——避免「高条里 14px 小字 + 上下大片留白」的不相称观感。
          放大同时受净宽约束（绝不横向溢出）、并设上限，矮条/窄条一律不放大，维持原状。 */
       let upScale=1;
-      if(lblScale.fit>=1 && !lblScale.cls){
+      if(!useMini && lblScale.fit>=1 && !lblScale.cls){
         const barHpx=segH*FILL*rowH;                       // 本条像素高度
         const byH=barHpx*0.46/17;                          // 受高度约束（标签行高≈17px，目标约占条高 46%）
         const byW=usableLblW/Math.max(natLblPx,1);         // 受净宽约束（不溢出）
         upScale=Math.max(1,Math.min(1.55,byH,byW));        // 上限 1.55×，仅在确有富余时放大
       }
-      const lblTransform = lblScale.fit<1 ? lblScale.fit : (upScale>1.02?upScale:1);   // <1 缩小 / >1 放大 / =1 原样
-      const lblExtraCls = (lblScale.fit<1||lblTransform>1) ? ' fit1' : '';             // 缩放档统一 nowrap + 左中基准
+      // 极简标签的 fit1 缩放：极简版天然 30-50px，若可用 36px 仍不够，叠加 fit（0.7-1）
+      let lblTransform=1;
+      if(useMini){
+        // 极简标签：测一下实际宽度，必要时小幅缩
+        const miniPx=14+9+String((r1(segDigestOne(r,sg,m.id).digest)||'')).length*7+2;   // 估算极简宽（图标+首字+数字）
+        lblTransform=Math.max(0.7,Math.min(1,usableLblW/Math.max(miniPx,1)));
+      }else{
+        lblTransform = lblScale.fit<1 ? lblScale.fit : (upScale>1.02?upScale:1);
+      }
+      const lblExtraCls = (useMini && lblTransform<1) ? ' fit1' : ((!useMini && (lblScale.fit<1||lblTransform>1)) ? ' fit1' : '');   // 缩放档统一 nowrap + 左中基准
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
+      const lblInner = useMini
+        ? reqTitleMiniHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest)})
+        : reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest)});
+      const lblCls=`rt-line ${useMini?'mini':lblScale.cls}${lblExtraCls}`.trim();
       bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${doneCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line ${lblScale.cls}${lblExtraCls}"${lblTransform!==1?` style="transform:scale(${r2(lblTransform)})"`:''}>${reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest)})}${segInvBadge(sg)}${segDoneBadge(r,sg)}</span>
+        <i class="sdot"></i><span class="${lblCls}"${lblTransform!==1?` style="transform:scale(${r2(lblTransform)})"`:''}>${lblInner}${segInvBadge(sg)}${segDoneBadge(r,sg)}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(effProg*100)}"></div>
