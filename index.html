@@ -4415,6 +4415,11 @@ function cloudSetStatus(state,txt){
   el.classList.remove('on','syncing','err','locked','busy');
   if(state)el.classList.add(state);
   const t=el.querySelector('.ci-tx');if(t&&txt!=null)t.textContent=txt;
+  // 【铁律】离线模式下 ro-mode 必须保持 false（让用户能编辑），不依赖 canWrite 推算
+  if(cloudOffline){
+    document.body.classList.remove('ro-mode');
+    return;
+  }
   // 同步只读视觉态：只读时给 body 加 ro-mode，CSS 据此把写按钮置灰禁用
   const wasRo=document.body.classList.contains('ro-mode');
   const nowRo=!canWrite();
@@ -4518,8 +4523,10 @@ function enterOfflineMode(reason){
   if(cloudOffline) return;
   cloudOffline=true; cloudReady=true; cloudReconnTries=0;
   giveLocalLock();
-  cloudSetStatus('offline', (reason||'已离线')+' · 改动本地暂存');
-  toast('☁ 云端不可达，改动暂存本地，恢复后自动补同步');
+  // 【铁律】离线模式下 body 一定不带 ro-mode，让用户立刻能编辑
+  document.body.classList.remove('ro-mode');
+  cloudSetStatus('offline', (reason||'已离线')+' · 现在可编辑');
+  toast('☁ 云端不可达，但你仍可编辑（改动暂存本地，恢复后自动补同步）');
   scheduleReconnect();
 }
 function scheduleReconnect(){
@@ -4530,7 +4537,9 @@ function scheduleReconnect(){
 async function tryReconnect(){
   if(!cloudOffline) return;
   cloudReconnTries++;
-  cloudSetStatus('syncing', `重连中（第${cloudReconnTries}次）…`);
+  // 【铁律】离线模式下重连中也保持 body 不带 ro-mode（用户能继续编辑）
+  document.body.classList.remove('ro-mode');
+  cloudSetStatus('syncing', `重连中（第${cloudReconnTries}次）… · 可编辑`);
   try{
     if(!sb) sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:5}}});
     const {data,error}=await sb.from(SB_TABLE).select('snap,editor,editor_name,updated_at').eq('id',SB_ROW).maybeSingle();
@@ -4598,8 +4607,11 @@ async function tryReconnect(){
     if(cloudReconnT){ clearTimeout(cloudReconnT); cloudReconnT=null; }
   }catch(e){
     console.warn('重连失败',e);
+    // 【铁律】重连失败时也要保证 body 不带 ro-mode（用户可以继续编辑）
+    document.body.classList.remove('ro-mode');
     scheduleReconnect();
-    syncLockUI();
+    // 直接设状态为「可编辑」+ 重连中,不让 syncLockUI 走"未持锁"分支把 ro-mode 加上
+    cloudSetStatus('offline', '已离线 · 可编辑 · 重连中（第'+cloudReconnTries+'次）…');
   }
 }
 function cloudPush(immediate){
@@ -4636,6 +4648,8 @@ function cloudPush(immediate){
 /* 根据云端行更新本地"谁在编辑"的认知；过期的锁视为无人持有。
    零SQL锁：holder=row.editor, 心跳时间=row.updated_at, 名字=row.editor_name */
 function updateLockFromRow(row){
+  // 【铁律】离线模式下 lockMine 是本地给的，不要被云端 row 数据踢回去
+  if(cloudOffline){ syncLockUI(); return; }
   const holder=row.editor||'';
   const at=row.updated_at?Date.parse(row.updated_at):0;
   const fresh=holder && at && (Date.now()-at < LOCK_TTL);
