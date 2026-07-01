@@ -1817,62 +1817,32 @@ const charShort = char => String(char||'').split(/\s*[X×]\s*/)[0].split(/[·（
    opt = {pdays?: number, nShow?: 1..4}。nShow 控制显示几个信息位（含任务名）：
      4=任务名+模块+人天+投入比全显 / 3=去投入比 / 2=去人天+投入比 / 1=仅任务名。
    优先级「任务名 > 模块 > 人天 > 投入比」由高到低，窄条从右往左省略。 */
-/* 字符串的横排宽度（以 em 计）：中文/全角≈1.0em，ASCII≈0.56em。用于估算任务名横排占宽。 */
+/* 字符串的横排宽度（以 em 计）：中文/全角≈1.0em，ASCII≈0.56em。仅用于竖排可行性粗判。 */
 function strEmWidth(s){
   let w=0; for(const ch of String(s)){ w += /[\x00-\xff]/.test(ch) ? 0.56 : 1.0; } return w;
 }
-/* ============ v4.9 任务名保全：极窄条也要完整显示任务名 ============
-   给定任务名短名、可用条宽/条高，决定用「横排缩字号」还是「竖排（每字一列）」，永不截断短名。
-   决策顺序：
-     1) 横排：优先正常字号(13.5)，放不下就等比缩到下限 9px——只要缩后能放下就横排；
-     2) 横排缩到 9px 仍放不下 → 短名(≤5字)转竖排，字号受「条宽(单字)」与「条高(总字数)」双向约束，下限 7px；
-     3) 长名(>5字)无法竖排 → 横排锁 9px + ellipsis 兜底（clip=true）。
-   返回 {mode:'h'|'v', fs:px, clip?:bool}。 */
-function fitTaskName(short, barWpx, barHpx){
-  const emW = strEmWidth(short);
-  const nc  = [...String(short)].length || 1;
-  const availW = Math.max(8, (barWpx||0) - 16);   // 扣掉左侧状态点 + 左右内边距
-  const availH = Math.max(8, (barHpx||0) - 4);
-  const HMAX=13.5, HMIN=9, VMIN=7;
-  // 1) 横排
-  const hfs = availW / Math.max(emW, 0.5);
-  if(hfs >= HMAX) return {mode:'h', fs:HMAX};
-  if(hfs >= HMIN) return {mode:'h', fs:Math.floor(hfs*10)/10};
-  // 2) 竖排（仅短名）
-  if(nc <= 5){
-    let vfs = Math.min(HMAX, availW/1.0, availH/(nc*1.08));
-    vfs = Math.max(VMIN, Math.floor(vfs*10)/10);
-    return {mode:'v', fs:vfs};
-  }
-  // 3) 长名兜底
-  return {mode:'h', fs:HMIN, clip:true};
-}
+/* ============ v5.0 实测降级：不再用 em 预测，改为渲染后真实像素实测 ============
+   预测式(v4.9)的 em 估算与浏览器真实渲染宽度对不上，导致竖排阈值几乎不触发、徽标乱裁切。
+   v5.0 改为：DOM 画完后，对每根 .bar-task 的 .rt-line 逐个 measure，溢出则按优先级
+   从低到高（rank 大先隐）隐藏徽标；隐藏到只剩任务名仍溢出 → 等比缩字号；缩到下限仍溢出
+   且是短名(≤5字) → 竖排；否则 ellipsis 兜底。见 fitBarLabels()。 */
 function reqTitleHTML(r, opt){
   opt=opt||{};
   const nShow=opt.nShow!=null?opt.nShow:4;
   const MM=modMeta(r.mod);
   const short=charShort(r.char)||r.name;
-  let nm;
-  if(nShow===1 && opt.barWpx!=null){
-    // 窄条只显任务名：启用保全逻辑（缩字号 / 竖排），确保完整可见
-    const fit=fitTaskName(short, opt.barWpx, opt.barHpx||24);
-    const st=`font-size:${fit.fs}px`+(fit.clip?'':';text-overflow:clip');
-    nm=`<span class="rt-nm" data-rank="1" data-nm="${fit.mode}" style="${st}">${short}</span>`;
-  }else{
-    nm=`<span class="rt-nm" data-rank="1">${short}</span>`;
-  }
+  const nm=`<span class="rt-nm" data-rank="1">${short}</span>`;
   const fc=modFamC(r.mod);   // 色族色：只用 4 个大类色着字/描边，底色统一
-  const mt=(nShow>=2)?`<span class="rt-mod" data-rank="2" style="color:${fc}"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`:'';
+  // v5.0：始终输出全部信息位（模块 rank2 / 人天 rank3），实际显示几个交给渲染后的实测降级 fitBarLabels()。
+  const mt=`<span class="rt-mod" data-rank="2" style="color:${fc}"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`;
   // 人天徽标：
   //  · 「按人看」每条任务条传 opt.pdays = 该成员在本需求的个人投入(Σ投入比×效率)，显示个人量；
   //  · 「按需求看」不传 opt.pdays，显示整条需求总工作量 r.estimate。
   let md='';
-  if(nShow>=3){
-    if(opt.pdays!=null){
-      md=(opt.pdays>0)?`<span class="rt-md" data-rank="3" title="本人在该需求的投入工作量（投入比×效率折算）">${opt.pdays}<small>人天</small></span>`:'';
-    }else{
-      md=(r.estimate>0)?`<span class="rt-md" data-rank="3" title="该需求总工作量（全部参与成员之和）">${r.estimate}<small>人天</small></span>`:'';
-    }
+  if(opt.pdays!=null){
+    md=(opt.pdays>0)?`<span class="rt-md" data-rank="4" title="本人在该需求的投入工作量（投入比×效率折算）">${opt.pdays}<small>人天</small></span>`:'';
+  }else{
+    md=(r.estimate>0)?`<span class="rt-md" data-rank="4" title="该需求总工作量（全部参与成员之和）">${r.estimate}<small>人天</small></span>`:'';
   }
   return `${nm}${mt}${md}`;
 }
@@ -2188,8 +2158,7 @@ function segAvgEffInv(s){
 /* 任务段的投入比徽标：直接显示「分摊后的实际投入比数字」（不显示固定系数 / 1/N 算法）。
    颜色：跟进型=琥珀、被并行分摊=紫、独占满额=蓝。 */
 function segInvBadge(s, nShow){
-  nShow=nShow!=null?nShow:4;
-  if(nShow<4) return '';                            // 窄条：投入比是最低优先级，先省略
+  // v5.0：始终输出投入比徽标（rank4，最低优先级）。实际显示与否交给渲染后 fitBarLabels() 实测降级。
   const ae=segAvgEffInv(s);
   const num=r2(ae.avg);                            // 分摊后的有效投入比（保留两位小数）
   const follow=segIsFollow(s);
@@ -2198,7 +2167,7 @@ function segInvBadge(s, nShow){
   const tip = ae.shared
     ? `投入比 ${num}：与同期其它需求按权重并行分摊后的实际值${wtTxt}`
     : `投入比 ${num}：本段独占该成员精力${wtTxt}`;
-  return `<span class="rt-inv ${cls}" data-rank="4" title="${tip}"><b>${num}</b></span>`;
+  return `<span class="rt-inv ${cls}" data-rank="5" title="${tip}"><b>${num}</b></span>`;
 }
 /* 任务段是否处于「已完成」终态：需求级被人工置为已完成/全段完成派生态(reqIsDone)，或该段自身=已完成。 */
 function segIsDone(r,s){ return reqIsDone(r) || (s&&s.status==='done'); }
@@ -2206,8 +2175,8 @@ function segIsDone(r,s){ return reqIsDone(r) || (s&&s.status==='done'); }
    - 整条完成(reqIsDone)：所有人段一律显示深绿封存印章「✓ 已完成」；
    - 仅本人这段完成(s.status==='done' 但整条未完成)：显示浅色「✓ 本人完成」，提示这段收尾、整条仍在进行。 */
 function segDoneBadge(r,s){
-  if(reqIsDone(r)) return `<span class="rt-done" title="该需求已完成、信息锁定">✓ 已完成</span>`;
-  if(s && s.status==='done') return `<span class="rt-done seg" title="${memName(s.m)}这段已完成，整条需求仍在进行">✓ 本人完成</span>`;
+  if(reqIsDone(r)) return `<span class="rt-done" data-rank="3" title="该需求已完成、信息锁定">✓ 已完成</span>`;
+  if(s && s.status==='done') return `<span class="rt-done seg" data-rank="3" title="${memName(s.m)}这段已完成，整条需求仍在进行">✓ 本人完成</span>`;
   return '';
 }
 /* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
@@ -2836,6 +2805,71 @@ function paint(rows){
     + rows;
   updateKPIs();
   if(typeof reapplySelection==='function') reapplySelection();
+  // v5.0：渲染后按真实像素实测降级标签（横排隐藏低优先徽标 → 缩字号 → 竖排 → 省略号）
+  requestAnimationFrame(fitBarLabels);
+}
+/* ============ v5.0 标签实测降级（唯一可靠的自适应）============
+   对每根任务条的 .rt-line 逐个测量：内容宽 > 可用宽 时，按 data-rank 从大到小(优先级从低到高)
+   隐藏徽标——投入比(5) → 人天(4) → 完成印章(3) → 模块(2)，任务名(1)永不隐藏。
+   隐藏到只剩任务名仍溢出：
+     · 等比缩任务名字号(13.5→8.5px)；
+     · 缩到下限仍溢出且是短名(≤5字) → 竖排(每字一列)，字号按条宽/条高双向再定；
+     · 长名 → 锁 8.5px + 省略号兜底。
+   全部用 clientWidth/scrollWidth 真实像素，杜绝 em 预测误差。 */
+function fitBarLabels(){
+  const HMAX=13.5, HMIN=8.5, VMIN=7, GAP=5;
+  const lines=document.querySelectorAll('#grid .bar-task .rt-line');
+  lines.forEach(line=>{
+    const nm=line.querySelector('.rt-nm');
+    if(!nm) return;
+    // 复位：清掉上一轮的 inline 降级痕迹，从「全显示、原始字号、横排」开始重新测
+    line.querySelectorAll('[data-rank]').forEach(el=>{ el.style.display=''; });
+    nm.style.fontSize=''; nm.style.writingMode=''; nm.style.textOrientation='';
+    nm.removeAttribute('data-nm'); nm.style.textOverflow='';
+    const avail=line.clientWidth;                       // rt-line 真实可用内宽
+    if(avail<=0) return;
+    /* 关键修正（v5.0.1）：.rt-line 是 flex+overflow:hidden 容器，flex 会把子元素压缩到适应容器，
+       导致 line.scrollWidth 恒 ≈ clientWidth——用它判溢出永远是 false。
+       正确做法：累加各子元素的「自然宽度」——任务名用 scrollWidth（内容真实宽，不受压缩影响），
+       徽标 flex:0 0 auto 用 offsetWidth（本就是自然宽）——求和 vs 可用宽才是真溢出判定。 */
+    const needW=()=>{
+      let w=nm.scrollWidth, n=1;                         // 任务名自然内容宽
+      line.querySelectorAll('[data-rank]').forEach(el=>{
+        if(el===nm || el.style.display==='none') return;
+        w+=el.offsetWidth; n++;
+      });
+      return w+GAP*Math.max(n-1,0);
+    };
+    const fits=()=> needW()<=avail;
+    if(fits()) return;                                  // 全显示放得下：完事
+    // 1) 按优先级从低到高隐藏徽标（rank 5→4→3→2），任务名 rank1 不动
+    const badges=[...line.querySelectorAll('[data-rank]')]
+      .filter(el=>el!==nm && +el.getAttribute('data-rank')>=2)
+      .sort((a,b)=>(+b.getAttribute('data-rank'))-(+a.getAttribute('data-rank')));
+    for(const b of badges){
+      b.style.display='none';
+      if(fits()) return;
+    }
+    // 2) 只剩任务名仍溢出：等比缩字号（用内容宽反推目标字号，scrollWidth 与 fs 近似线性）
+    const short=nm.textContent||'';
+    const nc=[...short].length||1;
+    const cur=nm.scrollWidth||1;
+    let fs=Math.max(HMIN, Math.floor((HMAX*avail/cur)*10)/10);
+    nm.style.fontSize=fs+'px';
+    if(nm.scrollWidth<=avail+0.5) return;               // 缩后单行放得下
+    // 3) 缩到下限仍溢出：短名转竖排，长名省略号兜底
+    if(nc<=5){
+      nm.setAttribute('data-nm','v');
+      const barH=line.clientHeight||24;
+      let vfs=Math.max(VMIN, Math.min(HMAX, Math.floor((barH/(nc*1.05))*10)/10, avail-1));
+      nm.style.fontSize=vfs+'px';
+      if(nm.scrollHeight<=line.clientHeight+1) return;  // 竖排放得下（不超条高）
+      // 竖排仍超高：退回横排最小字号 + 省略号
+      nm.removeAttribute('data-nm'); nm.style.fontSize=HMIN+'px'; nm.style.textOverflow='ellipsis';
+    }else{
+      nm.style.fontSize=HMIN+'px'; nm.style.textOverflow='ellipsis';
+    }
+  });
 }
 
 /* ============ 视图3：人力分配（按模块） ============ */
