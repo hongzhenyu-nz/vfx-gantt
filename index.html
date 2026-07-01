@@ -4795,8 +4795,14 @@ async function acquireLock(force){
     toast(force?'✅ 已强制接管编辑权（正在接收对方最后改动并同步）':'✅ 已获取编辑权（已同步至最新）。改动实时保存，编辑完请点「提交」释放');
     return true;
   }catch(e){
-    cloudSetStatus('err','申请失败'); console.warn('acquire lock failed',e);
-    toast('申请编辑失败，请重试');
+    // 抢锁请求本身就是一次 Supabase 探针：失败=云端不可达，直接切离线兜底
+    // 这样用户不会卡在「申请失败」红色状态无法编辑
+    const msg=(e && e.message)?e.message:'';
+    const isConn=/network|fetch|503|504|PGRST|timeout/i.test(msg);
+    if(isConn) enterOfflineMode('申请失败·已切离线');
+    else cloudSetStatus('err','申请失败');
+    console.warn('acquire lock failed',e);
+    toast(isConn?'☁ 云端不可达，已切离线（可继续编辑，暂存本地）':'申请编辑失败，请稍后重试');
     return false;
   }
 }
@@ -4827,6 +4833,12 @@ async function refreshLockStatus(){
 function cloudUnlock(){
   if(!cloudReady){ toast('云端尚未连接，稍后再试'); return; }
   if(lockMine){ releaseLock(); return; }
+  // 离线/失败状态：点状态条=先重试连接，成功就进入正常申请路径
+  if(cloudOffline){
+    cloudSetStatus('syncing','重连中…');
+    tryReconnect();
+    return;
+  }
   if(lockHolderCid && lockHolderCid!==cloudCid){
     // 有人正在编辑：必须输入强制解锁密码才能接管（接管后对方的最后改动会被强制上传保住）
     const pin=prompt('当前「'+lockHolderName+'」正在编辑，已锁定。\n\n如需强制接管编辑权，请输入强制解锁密码：\n（接管后对方未提交的改动会自动上传保存，不会丢失）');
