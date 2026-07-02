@@ -267,12 +267,20 @@
   /* v5.5 进度层：格线改为「按天」——竖向格线间隔 = 每天像素宽 var(--day-w)，从条左缘(整天边界)起画，
      故每一格精确对应一个自然日，缩放条宽时格宽随之变化，不再是固定 12px 均分。
      多背景分两层（上→下）：①按天竖线(全条淡线，逐日推进感) ②未完成段白蒙版(硬边到 --p%，浅色空槽)。 */
-  .bar-task .prog{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
+  /* v5.7 对齐修正：.bar-task 有 border-left:3px，若 .prog 用 inset:0 会从「边框内侧」起算 → 按天格线整体右移 3px、与日期轴错位。
+     改为 left:-3px 让 .prog 左缘顶到条的边框外缘（= 整天边界 si0*DAY_W），格线/休息日块自动对齐日期列。宽度用 right:-1px 覆盖到条右外缘。 */
+  .bar-task .prog{position:absolute;top:0;bottom:0;left:-3px;right:-1px;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
     background-image:
       repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),
       linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(255,255,255,.50) calc(var(--p,0)*1%) 100%);}
+  /* v5.7 休息日暗块：周末/节假日在条内叠一层斜纹暗块，表达「这天停工·不算人天产出」。left 从条起始整天边界起算(k*DAY_W)自动对齐。 */
+  .bar-task .prog .rest{position:absolute;top:0;bottom:0;z-index:1;pointer-events:none;
+    background-color:rgba(15,23,42,.13);
+    background-image:repeating-linear-gradient(45deg,rgba(15,23,42,.10) 0 2.5px,rgba(15,23,42,0) 2.5px 6px);}
+  .bar-task .prog .rest.hol{background-color:rgba(120,20,20,.17);
+    background-image:repeating-linear-gradient(45deg,rgba(80,10,10,.13) 0 2.5px,rgba(80,10,10,0) 2.5px 6px);}  /* 节假日：偏红的斜纹，比双休更醒目 */
   /* 进度分界竖线：标记当前「已完成/未完成」交界位置 */
-  .bar-task .prog::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--p,0)*1%);width:2px;
+  .bar-task .prog::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--p,0)*1%);width:2px;z-index:2;
     background:rgba(255,255,255,.92);box-shadow:1px 0 0 rgba(0,0,0,.06);}
   .bar-task .prog[style*="--p:100"]::after{display:none;}                 /* 100% 已完成：纯满色，无分界线 */
   .bar-task .prog[style*="--p:0"]::after{display:none;}                   /* 0% 起步：整条浅色空槽、不画起点竖线 */
@@ -1948,6 +1956,14 @@ const WORKMAKEUP = new Set([]);   // 调休上班的周末，例：'2026-9-19'
 const dkey = i => {const d=new Date(START.getTime()+i*dayMs);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
 /* 返回该天灰列类型：'hol'=节假日 | 'we'=双休 | null=工作日(不标灰) */
 const shadeType = i => {const k=dkey(i); if(WORKMAKEUP.has(k)) return null; if(HOLIDAYS.has(k)) return 'hol'; return isWE(i)?'we':null;};
+/* v5.7 条内休息日暗块：给定任务条起止整天索引 [si0,ei0)，为其中每个休息日(周末/节假日)生成一块斜纹暗块，
+   叠在进度层里表达「这天停工·不算人天产出」。left 相对 .prog 左缘(=si0*DAY_W 整天边界)按 (i-si0)*DAY_W 定位，天然对齐日期列。
+   .prog 有 overflow:hidden，超出条体的部分自动裁掉。 */
+function restBlocksHTML(si0, ei0){
+  let s='';
+  for(let i=si0;i<ei0;i++){ const t=shadeType(i); if(t){ s+=`<i class="rest ${t}" style="left:${(i-si0)*DAY_W}px;width:${DAY_W}px"></i>`; } }
+  return s;
+}
 const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
 function workdays(a,b){let n=0;for(let t=a.getTime();t<b.getTime();t+=dayMs){const w=new Date(t).getDay();if(w!==0&&w!==6)n++;}return n;}
 const memName=id=>{const m=members.find(m=>m.id===id);return m?m.name:id;};
@@ -2633,7 +2649,7 @@ function personRowHTML(m,inArc){
         <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${segDoneBadge(r,sg)}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
-        <div class="prog" style="--p:${Math.round(effProg*100)}"></div>
+        <div class="prog" style="--p:${Math.round(effProg*100)}">${isOpen?'':restBlocksHTML(it.si0,it.ei0)}</div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
     const focusCls = focusMode==='hl' ? (fr==='self'?' me-self':fr==='team'?' me-team':' dim') : (fr==='self'?' me-self':fr==='team'?' me-team':'');
@@ -2829,7 +2845,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
           <div class="ph ph-l1" style="left:${l1L}%;width:${l1W}%"><span class="ph-lab">L1</span></div>
           <div class="ph ph-l2" style="left:${l2L}%;width:${l2W}%"><span class="ph-lab">L2</span></div>
           ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span><i class="lt-del" title="删除联调（该任务无联调时间）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();deleteLt('${r.id}')">✕</i></div>`:''}
-          <div class="prog" style="--p:${prog}"></div>
+          <div class="prog" style="--p:${prog}">${restBlocksHTML(ph.barS,ph.barE)}</div>
           <i class="sdot"></i>
           <div class="bl-top"><span class="rt-line">${reqTitleHTML(r)}</span><span class="bl-pct">${prog}%</span></div>
           ${laneH?laneObj.html:`<div class="bl-sub"><div class="bl-rows">${blChips}</div></div>`}
