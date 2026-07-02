@@ -249,6 +249,10 @@
   .day-head.today{color:var(--blue);font-weight:600;}
 
   .vline{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);}
+  /* 节假日/双休灰列：贯穿全高、置于最底层，任务条与竖线覆盖其上；pointer-events:none 不挡交互 */
+  .daycol{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0;}
+  .daycol.we{background:rgba(120,130,145,.10);}                 /* 双休：浅灰 */
+  .daycol.hol{background:rgba(224,90,90,.10);}                  /* 法定节假日：淡红灰，与双休区分 */
   .vline.mono{background:#dfe2e6;width:1px;}
   .vline.we{background:#fafbfc;width:var(--day-w);}
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
@@ -1907,6 +1911,28 @@ const dayMs=864e5;
 const idx = d => Math.round((d-START)/dayMs);
 const i2d = i => new Date(START.getTime()+i*dayMs);
 const isWE = i => {const d=new Date(START.getTime()+i*dayMs);const w=d.getDay();return w===0||w===6;};
+/* ===== 节假日灰列配置（可按国务院公告自行增删；格式 'YYYY-M-D'，无前导零） =====
+   HOLIDAYS：法定放假日（含调休连休段）→ 标为节假日灰；
+   WORKMAKEUP：调休需要上班的周末（即使周六日也不标灰）。
+   注：2026下半年官方调休安排若有微调，改这两个集合即可，无需动其他代码。 */
+const HOLIDAYS = new Set([
+  // 劳动节
+  '2026-5-1','2026-5-2','2026-5-3','2026-5-4','2026-5-5',
+  // 端午（农历五月初五 = 2026-6-19 周五）
+  '2026-6-19','2026-6-20','2026-6-21',
+  // 中秋（农历八月十五 = 2026-9-25 周五）
+  '2026-9-25','2026-9-26','2026-9-27',
+  // 国庆
+  '2026-10-1','2026-10-2','2026-10-3','2026-10-4','2026-10-5','2026-10-6','2026-10-7','2026-10-8',
+  // 元旦
+  '2027-1-1','2027-1-2','2027-1-3',
+  // 春节（正月初一 = 2027-2-6；含除夕起连休至初八）
+  '2027-2-5','2027-2-6','2027-2-7','2027-2-8','2027-2-9','2027-2-10','2027-2-11','2027-2-12','2027-2-13',
+]);
+const WORKMAKEUP = new Set([]);   // 调休上班的周末，例：'2026-9-19'
+const dkey = i => {const d=new Date(START.getTime()+i*dayMs);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
+/* 返回该天灰列类型：'hol'=节假日 | 'we'=双休 | null=工作日(不标灰) */
+const shadeType = i => {const k=dkey(i); if(WORKMAKEUP.has(k)) return null; if(HOLIDAYS.has(k)) return 'hol'; return isWE(i)?'we':null;};
 const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
 function workdays(a,b){let n=0;for(let t=a.getTime();t<b.getTime();t+=dayMs){const w=new Date(t).getDay();if(w!==0&&w!==6)n++;}return n;}
 const memName=id=>{const m=members.find(m=>m.id===id);return m?m.name:id;};
@@ -2411,7 +2437,12 @@ function barCls(r,seg){
 
 /* ============ 表头（按月+按周粒度，适配全跨度） ============ */
 function headerHTML(){
-  let months='',weeks='',vlines='';
+  let months='',weeks='',vlines='',shades='';
+  // 节假日/双休灰列（画在竖线层最底，贯穿全高；工作日不标）
+  for(let i=0;i<DAYS;i++){
+    const t=shadeType(i);
+    if(t) shades+=`<div class="daycol ${t}" style="left:${i*DAY_W}px;width:${DAY_W}px"></div>`;
+  }
   // 月份分隔（上行）
   let mi=0, monIdx=0;
   while(mi<DAYS){
@@ -2445,7 +2476,7 @@ function headerHTML(){
   return `<div class="row head">
     <div class="cell-left">${headLabel}</div>
     <div class="timeline" style="width:${DAYS*DAY_W}px">${months}${weeks}</div></div>`
-   + `__VLINES__${vlines}<div class="todayline" style="left:${tx}px"></div>`;
+   + `__VLINES__${shades}${vlines}<div class="todayline" style="left:${tx}px"></div>`;
 }
 
 /* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
