@@ -566,6 +566,9 @@
   .rt-done{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;border-radius:4px;padding:1px 7px;line-height:1.5;flex-shrink:0;letter-spacing:.3px;white-space:nowrap;color:#138a67;background:#fff;border:1px solid #b6ead6;box-shadow:0 1px 2px rgba(0,0,0,.20);}
   /* 仅本人这段完成（整条未收尾）：浅色描边、低调，区别于整条封存的深绿印章 */
   .rt-done.seg{color:#3a9b78;background:rgba(255,255,255,.78);border-color:#cdeadd;font-weight:700;box-shadow:none;}
+  /* v5.9 逾期未完印章：橙底白字，与「✓已完成」视觉对称，醒目提醒收尾 */
+  .rt-late{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;border-radius:4px;padding:1px 7px;line-height:1.5;flex-shrink:0;letter-spacing:.3px;white-space:nowrap;color:#fff;background:#f59e0b;border:1px solid #d98008;box-shadow:0 1px 2px rgba(0,0,0,.22);text-shadow:none;}
+  .bar-task .rt-line[data-sz="2"] .rt-late{font-size:9px;padding:0 5px;}
   /* 「按人看」任务段=已完成：信息「全部保留显示」（不淡化锁定到看不清、不隐藏徽标、不盖居中印章）。
      完成语义改由行内「✓ 已完成 / ✓ 本人完成」徽标表达（见 .rt-done），并把条内信息轻微降饱和提示"已封存"，
      但角色名/模块/人天/投入比仍清晰可读，满足「信息全显示」诉求。 */
@@ -1167,6 +1170,7 @@ const STATUS = {
   review: {label:'待评审', cls:'b-amber', col:'#e08c00'},
   done:   {label:'已完成', cls:'b-done', col:'#4ecba0'},
   blocked:{label:'卡住',   cls:'b-red',   col:'#f5413f'},
+  overdue:{label:'逾期未完', cls:'b-amber', col:'#f59e0b'},  // v5.9 排期到期但未人工确认完成：橙色提醒
 };
 const STATUS_ORDER=['todo','doing','review','done','blocked'];
 /* 需求生命周期状态（独立于任务段聚合状态）：
@@ -1981,10 +1985,14 @@ function autoSegState(sg){
   if(sg.open) return {status:(sg.status||'doing'), prog:(sg.status==='todo'?0:(sg.prog||0))};
   const s=idx(sg.s), e=idx(sg.e), t=idx(TODAY);
   if(t<s)  return {status:'todo',  prog:0};                              // 今天还没到开始日 → 灰(未开始)
-  const total=Math.max(workdaysIdx(s,e),1);                              // 该段总工作日
-  const passed=Math.min(workdaysIdx(s,Math.min(t,e)),total);            // 已过工作日(截到今天/结束)
-  if(t>=e) return {status:'doing', prog:1};                              // 排期已到期但未人工确认完成 → 蓝满格(不自动判完成)
-  return {status:'doing', prog:Math.max(0,Math.min(1,passed/total))};    // 进行中 → 蓝，进度随日期
+  // v5.9 逾期提醒：排期结束日已过、但没人工点「已完成」→ 橙色「逾期未完」，取代原先误导性的「蓝满格」。
+  if(t>=e) return {status:'overdue', prog:1};
+  // v5.9 进度对齐：改按「日历天」比例 (t-s)/(e-s)，而非工作日比例。
+  //   因条左缘 x=s*DAY_W、今天红线 tx=t*DAY_W，故分界线绝对位置 = s*DAY_W + prog*(e-s)*DAY_W = t*DAY_W = 红线，
+  //   所有进行中条的蓝白分界线精确落在同一条今天红线上（消除 −6~+11px 锯齿）。
+  //   休息日「不产出」由条内斜纹暗块单独表达，不再折进进度百分比。
+  const prog=Math.max(0,Math.min(1,(t-s)/Math.max(e-s,1)));
+  return {status:'doing', prog};                                         // 进行中 → 蓝，分界线=今天
 }
 const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
 function workdays(a,b){let n=0;for(let t=a.getTime();t<b.getTime();t+=dayMs){const w=new Date(t).getDay();if(w!==0&&w!==6)n++;}return n;}
@@ -2246,8 +2254,8 @@ function segInvBadge(s, nShow){
   const tip = ae.shared
     ? `投入比 ${num}：与同期其它需求按权重并行分摊后的实际值${wtTxt}`
     : `投入比 ${num}：本段独占该成员精力${wtTxt}`;
-  // v5.8：加「投」前缀，让 0.82 这类裸数字一眼知道是「投入比」（当天精力占比），不再费解。
-  return `<span class="rt-inv ${cls}" data-rank="5" title="${tip}"><i class="inv-k">投</i><b>${num}</b></span>`;
+  // v5.9：前缀「投」→「占」，更直白地表达「这条占该成员当天多少精力」（占用比），0.64=占了六成精力。
+  return `<span class="rt-inv ${cls}" data-rank="5" title="${tip}"><i class="inv-k">占</i><b>${num}</b></span>`;
 }
 /* 任务段是否处于「已完成」终态：需求级被人工置为已完成/全段完成派生态(reqIsDone)，或该段自身=已完成。 */
 function segIsDone(r,s){ return reqIsDone(r) || (s&&s.status==='done'); }
@@ -2259,6 +2267,9 @@ function segDoneBadge(r,s){
   if(s && s.status==='done') return `<span class="rt-done seg" data-rank="3" title="${memName(s.m)}这段已完成，整条需求仍在进行">✓ 本人完成</span>`;
   return '';
 }
+/* v5.9 逾期徽标：排期结束日已过、但没人工点「已完成」→ 条上橙色「⚠ 逾期未完」提醒收尾。
+   仅在 autoSegState 判为 overdue 时插入（rank3，与完成印章同级，尽量保命）。 */
+function segOverdueBadge(){ return `<span class="rt-late" data-rank="3" title="排期结束日已过，但尚未人工确认完成 → 请尽快收尾或调整排期">⚠ 逾期未完</span>`; }
 /* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
 function personDayFullCount(id, t){
   let n=0;
@@ -2480,6 +2491,7 @@ function barCls(r,seg){
   if(seg){
     if(seg.status==='done')    return 'b-done'+k;   // 这段活已完成 → 绿
     if(seg.status==='dropped') return 'b-gray'+k;   // 这段已废弃 → 灰
+    if(seg.status==='overdue') return 'b-amber'+k;  // v5.9 排期到期未完成 → 橙(不受 colorMode 影响，始终提醒)
   } else if(aggStatus(r)==='done'){
     return 'b-done'+k;                                // 整条需求所有段都完成 → 绿（即便生命周期未手动置 done）
   }
@@ -2673,7 +2685,7 @@ function personRowHTML(m,inArc){
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
       bars+=`<div class="bar-task ${barCls(r,autoSeg)}${slimCls}${doneCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${segDoneBadge(r,sg)}</span>
+        <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(effProg*100)}">${isOpen?'':restBlocksHTML(it.si0,it.ei0)}</div>
