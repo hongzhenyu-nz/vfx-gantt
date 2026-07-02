@@ -520,6 +520,9 @@
   .bar-task .rt-line .rt-nm{color:#fff;font-size:13.5px;font-weight:800;letter-spacing:.2px;text-shadow:0 1px 1px rgba(0,0,0,.28);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;flex:0 1 auto;min-width:0;}
   /* v4.9 任务名竖排（每字一列）：极窄条上短名放不下横排时转竖排，确保完整显示不截断 */
   .bar-task .rt-line .rt-nm[data-nm="v"]{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0;line-height:1.02;white-space:nowrap;overflow:visible;text-overflow:clip;max-height:100%;text-shadow:0 1px 1px rgba(0,0,0,.32);}
+  /* v5.2 模块竖排补列：竖排任务名后横向仍有富余时，把模块名也竖排补一列（去底色/边框，纯白文字，秀气不抢戏） */
+  .bar-task .rt-line .rt-mod[data-nm="v"]{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0;line-height:1.05;white-space:nowrap;overflow:visible;background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;margin:0!important;color:rgba(255,255,255,.9)!important;text-shadow:0 1px 1px rgba(0,0,0,.34);font-weight:700;}
+  .bar-task .rt-line .rt-mod[data-nm="v"] .rt-mi{display:none;}
   /* 条内模块/人天/投入比小徽标：浅底深字、单行紧凑、绝不换行、绝不被压缩变形 */
   .bar-task .rt-line .rt-mod{color:#475067!important;background:rgba(255,255,255,.92)!important;border:1px solid rgba(255,255,255,.55)!important;box-shadow:0 1px 2px rgba(0,0,0,.14);font-size:10.5px;font-weight:700;padding:1px 6px;line-height:1.35;border-radius:4px;margin:0;flex:0 0 auto;white-space:nowrap;}
   .bar-task .rt-line .rt-mod .rt-mi{font-size:10.5px;line-height:1;margin-right:2px;}
@@ -2858,7 +2861,7 @@ function fitBarLabels(){
     const isReq=!!(bar&&bar.classList.contains('req-bar'));
     const sdot=(bar&&!isReq)?bar.querySelector(':scope > .sdot'):null;
     // 复位：清掉上一轮的 inline 降级痕迹，从「全显示、原始字号、横排、有圆点、原内边距」开始重新测
-    line.querySelectorAll('[data-rank]').forEach(el=>{ el.style.display=''; });
+    line.querySelectorAll('[data-rank]').forEach(el=>{ el.style.display=''; el.style.fontSize=''; el.removeAttribute('data-nm'); });
     if(sdot) sdot.style.display='';
     if(bar&&!isReq){ bar.style.paddingLeft=''; bar.style.paddingRight=''; }
     nm.style.fontSize=''; nm.style.writingMode=''; nm.style.textOrientation='';
@@ -2903,11 +2906,43 @@ function fitBarLabels(){
     if(nc<=5){
       nm.setAttribute('data-nm','v');
       const barH=line.clientHeight||24;
-      let vfs=Math.max(VMIN, Math.min(HMAX, Math.floor((barH/(nc*1.05))*10)/10, avail-1));
+      /* v5.2 舒适竖排：不再让字号顶到 HMAX 满格（红框那种又挤又顶格），改为按条高留呼吸余白——
+         每字理想占高约字号×1.32（含行距+上下气口），据此反推字号并封顶到 VMAX(12px)，
+         同时不超过横向可用宽 avail-1，保证竖排单列不横向溢出。 */
+      const VMAX=12;
+      let vfs=Math.max(VMIN, Math.min(VMAX, Math.floor((barH/(nc*1.32))*10)/10, avail-1));
       nm.style.fontSize=vfs+'px';
-      if(nm.scrollHeight<=line.clientHeight+1) return;  // 竖排放得下（不超条高）
-      // 竖排仍超高：退回横排最小字号 + 省略号
-      nm.removeAttribute('data-nm'); nm.style.fontSize=HMIN+'px'; nm.style.textOverflow='ellipsis';
+      // 竖排仍超高（条太矮塞不下）：逐步压到 VMIN；仍超则退回横排最小字号+省略号
+      if(nm.scrollHeight>line.clientHeight+1){
+        vfs=Math.max(VMIN, Math.floor((line.clientHeight/(nc*1.05))*10)/10);
+        nm.style.fontSize=vfs+'px';
+        if(nm.scrollHeight>line.clientHeight+1){
+          nm.removeAttribute('data-nm'); nm.style.fontSize=HMIN+'px'; nm.style.textOverflow='ellipsis';
+          return;
+        }
+      }
+      /* v5.2 富余补信息：竖排任务名只占一列，若条子横向仍有明显富余（黑框那种），
+         把模块名也竖排补成第二列——去底色纯白文字，秀气不抢戏。
+         条件：① 有模块徽标；② 补列后总宽仍 ≤ 可用宽（留 4px 安全余量）；③ 模块竖排不超条高。 */
+      const modEl=line.querySelector('.rt-mod');
+      if(modEl){
+        const nmW=nm.offsetWidth;                        // 竖排任务名单列宽
+        const modTxt=(modEl.textContent||'').trim();
+        const mnc=[...modTxt].length||1;
+        const spare=avail-nmW-GAP;                       // 补列可用横向余量
+        // 模块竖排字号：比任务名略小一号更谦逊，同样受条高与余量双重约束
+        const mfs=Math.max(VMIN, Math.min(vfs-0.5, Math.floor((barH/(mnc*1.32))*10)/10));
+        if(spare>=mfs+4){                                // 横向塞得下这一列才补
+          modEl.style.display='';
+          modEl.setAttribute('data-nm','v');
+          modEl.style.fontSize=mfs+'px';
+          // 补列后若横向溢出或该列超条高，撤销补列（保持只有任务名的干净竖排）
+          if(needW()>avail+0.5 || modEl.scrollHeight>line.clientHeight+1){
+            modEl.style.display='none'; modEl.removeAttribute('data-nm'); modEl.style.fontSize='';
+          }
+        }
+      }
+      return;
     }else{
       nm.style.fontSize=HMIN+'px'; nm.style.textOverflow='ellipsis';
     }
