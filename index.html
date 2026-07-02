@@ -2853,12 +2853,17 @@ function fitBarLabels(){
   lines.forEach(line=>{
     const nm=line.querySelector('.rt-nm');
     if(!nm) return;
-    // 复位：清掉上一轮的 inline 降级痕迹，从「全显示、原始字号、横排」开始重新测
+    // 圆点(.sdot)是「非必要」装饰元素，与 rt-line 同级、flex-shrink:0 不收缩；任务名(rt-nm)才是必须保命的。
+    const bar=line.closest('.bar-task');
+    const isReq=!!(bar&&bar.classList.contains('req-bar'));
+    const sdot=(bar&&!isReq)?bar.querySelector(':scope > .sdot'):null;
+    // 复位：清掉上一轮的 inline 降级痕迹，从「全显示、原始字号、横排、有圆点、原内边距」开始重新测
     line.querySelectorAll('[data-rank]').forEach(el=>{ el.style.display=''; });
+    if(sdot) sdot.style.display='';
+    if(bar&&!isReq){ bar.style.paddingLeft=''; bar.style.paddingRight=''; }
     nm.style.fontSize=''; nm.style.writingMode=''; nm.style.textOrientation='';
     nm.removeAttribute('data-nm'); nm.style.textOverflow='';
-    const avail=line.clientWidth;                       // rt-line 真实可用内宽
-    if(avail<=0) return;
+    let avail=line.clientWidth;                         // rt-line 真实可用内宽
     /* 关键修正（v5.0.1）：.rt-line 是 flex+overflow:hidden 容器，flex 会把子元素压缩到适应容器，
        导致 line.scrollWidth 恒 ≈ clientWidth——用它判溢出永远是 false。
        正确做法：累加各子元素的「自然宽度」——任务名用 scrollWidth（内容真实宽，不受压缩影响），
@@ -2872,7 +2877,13 @@ function fitBarLabels(){
       return w+GAP*Math.max(n-1,0);
     };
     const fits=()=> needW()<=avail;
-    if(fits()) return;                                  // 全显示放得下：完事
+    /* 0) 极窄条空间回收：圆点(.sdot)+条内边距会吃掉一大截宽度，窄条上直接把 rt-line 挤成 0 宽，
+       导致任务名整个消失、只剩顽固不收缩的圆点（就是用户截图里的问题）。
+       圆点是非必要装饰、任务名必须保命——所以放不下时优先牺牲圆点、再收窄内边距，把空间还给任务名。 */
+    if(fits() && avail>0) return;                        // 全显示放得下：完事
+    if(sdot){ sdot.style.display='none'; avail=line.clientWidth; if(fits()&&avail>0) return; }
+    if(bar&&!isReq){ bar.style.paddingLeft='2px'; bar.style.paddingRight='2px'; avail=line.clientWidth; if(fits()&&avail>0) return; }
+    if(avail<=0) return;                                 // 回收后仍无可用宽（条本身近乎 0px）：无解，跳过
     // 1) 按优先级从低到高隐藏徽标（rank 5→4→3→2），任务名 rank1 不动
     const badges=[...line.querySelectorAll('[data-rank]')]
       .filter(el=>el!==nm && +el.getAttribute('data-rank')>=2)
