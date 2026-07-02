@@ -1856,10 +1856,12 @@ function reqTitleHTML(r, opt){
   //  · 「按人看」每条任务条传 opt.pdays = 该成员在本需求的个人投入(Σ投入比×效率)，显示个人量；
   //  · 「按需求看」不传 opt.pdays，显示整条需求总工作量 r.estimate。
   let md='';
+  // v5.6：人天 hover 提示换算成更直白的「≈X周全职工作量」（1周=5个工作日），算法口径不变。
+  const wkStr=n=>{const w=n/5;const s=(Math.round(w*10)/10).toFixed(1).replace(/\.0$/,'');return s+'周';};
   if(opt.pdays!=null){
-    md=(opt.pdays>0)?`<span class="rt-md" data-rank="4" title="本人在该需求的投入工作量（投入比×效率折算）">${opt.pdays}<small>人天</small></span>`:'';
+    md=(opt.pdays>0)?`<span class="rt-md" data-rank="4" title="本人在这段活里的投入工作量 ≈ ${wkStr(opt.pdays)}全职（1周=5个工作日）&#10;= 每天投入比 × 个人效率，逐日累加折算成的标准人天">${opt.pdays}<small>人天</small></span>`:'';
   }else{
-    md=(r.estimate>0)?`<span class="rt-md" data-rank="4" title="该需求总工作量（全部参与成员之和）">${r.estimate}<small>人天</small></span>`:'';
+    md=(r.estimate>0)?`<span class="rt-md" data-rank="4" title="该需求总工作量 ≈ ${wkStr(r.estimate)}全职（1周=5个工作日）&#10;= 全部参与成员的投入之和">${r.estimate}<small>人天</small></span>`:'';
   }
   return `${nm}${mt}${md}`;
 }
