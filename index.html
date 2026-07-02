@@ -523,6 +523,11 @@
   /* v5.2 模块竖排补列：竖排任务名后横向仍有富余时，把模块名也竖排补一列（去底色/边框，纯白文字，秀气不抢戏） */
   .bar-task .rt-line .rt-mod[data-nm="v"]{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0;line-height:1.05;white-space:nowrap;overflow:visible;background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;margin:0!important;color:rgba(255,255,255,.9)!important;text-shadow:0 1px 1px rgba(0,0,0,.34);font-weight:700;}
   .bar-task .rt-line .rt-mod[data-nm="v"] .rt-mi{display:none;}
+  /* v5.4 竖排水平居中：竖排任务名(可含补列模块)在窄条内水平居中，不再靠左顶格 */
+  .bar-task .rt-line:has(.rt-nm[data-nm="v"]){justify-content:center;}
+  /* v5.4 两行堆叠：窄但够高的条(单行放不下任务名+徽标)，改为纵向两行——任务名居中一行、模块居中补第二行，充分利用纵向空间 */
+  .bar-task .rt-line[data-stack="1"]{flex-direction:column;flex-wrap:nowrap;justify-content:center;align-items:center;gap:2px;}
+  .bar-task .rt-line[data-stack="1"] .rt-nm{overflow:visible;text-overflow:clip;max-width:100%;text-align:center;}
   /* 条内模块/人天/投入比小徽标：浅底深字、单行紧凑、绝不换行、绝不被压缩变形 */
   .bar-task .rt-line .rt-mod{color:#475067!important;background:rgba(255,255,255,.92)!important;border:1px solid rgba(255,255,255,.55)!important;box-shadow:0 1px 2px rgba(0,0,0,.14);font-size:10.5px;font-weight:700;padding:1px 6px;line-height:1.35;border-radius:4px;margin:0;flex:0 0 auto;white-space:nowrap;}
   .bar-task .rt-line .rt-mod .rt-mi{font-size:10.5px;line-height:1;margin-right:2px;}
@@ -2852,6 +2857,33 @@ function paint(rows){
    全部用 clientWidth/scrollWidth 真实像素，杜绝 em 预测误差。 */
 function fitBarLabels(){
   const HMAX=13.5, HMIN=8.5, VMIN=7, GAP=5;
+  /* v5.4 两行堆叠：够高的窄条单行放不下时，改纵向两行——任务名横排居中一行 + 模块横排居中补第二行，
+     充分利用纵向富余空间（比竖排更易读）。返回 true=成功堆叠；false=宽度连任务名单行都放不下(交给竖排兜底)。 */
+  function tryStack(line, nm, avail, barH){
+    nm.style.writingMode=''; nm.style.textOrientation=''; nm.removeAttribute('data-nm'); nm.style.textOverflow='';
+    // 任务名横排，缩字号以适应条宽（scrollWidth 与字号近似线性）
+    nm.style.fontSize=HMAX+'px';
+    let nfs=HMAX;
+    if(nm.scrollWidth>avail){
+      nfs=Math.max(HMIN, Math.floor((HMAX*avail/(nm.scrollWidth||1))*10)/10);
+      nm.style.fontSize=nfs+'px';
+    }
+    if(nm.scrollWidth>avail+0.5){ nm.style.fontSize=''; return false; }   // 宽都放不下任务名→交竖排
+    // 宽度 OK → 开启两行堆叠（列方向、双向居中由 CSS 承担）
+    line.querySelectorAll('[data-rank]').forEach(el=>{ if(el!==nm) el.style.display='none'; });
+    line.setAttribute('data-stack','1');
+    // 第二行补模块（最重要的次级信息），缩字号以适应条宽；补不下则撤销，保持干净的单行居中任务名
+    const modEl=line.querySelector('.rt-mod');
+    if(modEl){
+      modEl.style.display='';
+      let mfs=Math.min(nfs,11); modEl.style.fontSize=mfs+'px';
+      let g=0; while(modEl.offsetWidth>avail && mfs>7.5 && g++<12){ mfs=Math.round((mfs-0.5)*10)/10; modEl.style.fontSize=mfs+'px'; }
+      if(modEl.offsetWidth>avail+0.5 || (nm.offsetHeight+2+modEl.offsetHeight)>barH+1){
+        modEl.style.display='none'; modEl.style.fontSize='';
+      }
+    }
+    return true;
+  }
   const lines=document.querySelectorAll('#grid .bar-task .rt-line');
   lines.forEach(line=>{
     const nm=line.querySelector('.rt-nm');
@@ -2866,6 +2898,7 @@ function fitBarLabels(){
     if(bar&&!isReq){ bar.style.paddingLeft=''; bar.style.paddingRight=''; }
     nm.style.fontSize=''; nm.style.writingMode=''; nm.style.textOrientation='';
     nm.removeAttribute('data-nm'); nm.style.textOverflow='';
+    line.removeAttribute('data-stack');                // v5.4：清掉上一轮的两行堆叠
     let avail=line.clientWidth;                         // rt-line 真实可用内宽
     /* 关键修正（v5.0.1）：.rt-line 是 flex+overflow:hidden 容器，flex 会把子元素压缩到适应容器，
        导致 line.scrollWidth 恒 ≈ clientWidth——用它判溢出永远是 false。
@@ -2887,6 +2920,18 @@ function fitBarLabels(){
     if(sdot){ sdot.style.display='none'; avail=line.clientWidth; if(fits()&&avail>0) return; }
     if(bar&&!isReq){ bar.style.paddingLeft='2px'; bar.style.paddingRight='2px'; avail=line.clientWidth; if(fits()&&avail>0) return; }
     if(avail<=0) return;                                 // 回收后仍无可用宽（条本身近乎 0px）：无解，跳过
+    // —— 到这里说明横向放不下全部信息，必须降级 ——
+    const short=nm.textContent||'';
+    const nc=[...short].length||1;
+    const barH=line.clientHeight||24;
+    /* v5.4 两行堆叠优先：够高(≥40px)的窄条单行放不下全信息时，与其横向砍徽标只剩任务名、
+       下方留一大片纵向空白（用户截图的核心痛点），不如堆成两行——任务名横排居中一行 +
+       模块横排居中补第二行，充分利用纵向空间（比竖排更易读）。
+       tryStack 成功即完成；返回 false=宽度连任务名单行都放不下 → 落到横向缩字号/竖排兜底。 */
+    if(barH>=40 && nc<=6 && tryStack(line, nm, avail, barH)) return;
+    // 堆叠不适用(矮条/长名/宽度不够)：回到干净态，走横向降级
+    nm.style.fontSize=''; line.removeAttribute('data-stack');
+    line.querySelectorAll('[data-rank]').forEach(el=>{ if(el!==nm) el.style.display=''; });
     // 1) 按优先级从低到高隐藏徽标（rank 5→4→3→2），任务名 rank1 不动
     const badges=[...line.querySelectorAll('[data-rank]')]
       .filter(el=>el!==nm && +el.getAttribute('data-rank')>=2)
@@ -2896,8 +2941,6 @@ function fitBarLabels(){
       if(fits()) return;
     }
     // 2) 只剩任务名仍溢出：等比缩字号（用内容宽反推目标字号，scrollWidth 与 fs 近似线性）
-    const short=nm.textContent||'';
-    const nc=[...short].length||1;
     const cur=nm.scrollWidth||1;
     let fs=Math.max(HMIN, Math.floor((HMAX*avail/cur)*10)/10);
     nm.style.fontSize=fs+'px';
@@ -2905,7 +2948,6 @@ function fitBarLabels(){
     // 3) 缩到下限仍溢出：短名转竖排，长名省略号兜底
     if(nc<=5){
       nm.setAttribute('data-nm','v');
-      const barH=line.clientHeight||24;
       /* v5.2 舒适竖排：不再让字号顶到 HMAX 满格（红框那种又挤又顶格），改为按条高留呼吸余白——
          每字理想占高约字号×1.32（含行距+上下气口），据此反推字号并封顶到 VMAX(12px)，
          同时不超过横向可用宽 avail-1，保证竖排单列不横向溢出。 */
