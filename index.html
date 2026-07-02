@@ -4570,10 +4570,41 @@ async function cloudInit(){
     if(error)throw error;
     if(data&&data.snap){
       const snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
-      applyingRemote=true; applySnap(snapObj); applyingRemote=false;
-      lastSyncJSON=JSON.stringify(snapshot());
-      refreshAllUI();
-      toast('☁ 已载入云端最新排期');
+      const remoteJSON=JSON.stringify(snapObj);
+      // 启动补救：上次会话离线时留下的未补推暂存(gantt_pending_snap)还在 → 不能无条件用云端覆盖，
+      // 否则重开页面就会吞掉上次离线改动。走「保留本地/采用云端」的选择。
+      if(cloudPendingPush){
+        const pendJSON=JSON.stringify(cloudPendingPush);
+        if(pendJSON!==remoteJSON){
+          const useLocal=confirm('检测到你上次离线期间有未同步的改动，且云端数据与之不同。\n\n点「确定」=保留你离线期间的改动（推送到云端）\n点「取消」=采用云端版本（丢弃离线改动）');
+          if(useLocal){
+            // 保留本地离线改动：把暂存应用到界面并补推云端
+            applyingRemote=true; applySnap(cloudPendingPush); applyingRemote=false;
+            try{
+              await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:cloudPendingPush,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()});
+              lastSyncJSON=JSON.stringify(snapshot()); save();
+              cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+              toast('☁ 已恢复并补推你上次的离线改动');
+            }catch(pe){ console.warn('启动补推失败,保留暂存',pe); lastSyncJSON=''; }
+          }else{
+            applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+            lastSyncJSON=remoteJSON; save();
+            cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+            toast('☁ 已采用云端最新排期');
+          }
+        }else{
+          // 暂存与云端一致（上次其实已推成功）→ 清掉暂存，正常载入
+          applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+          lastSyncJSON=remoteJSON;
+          cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+        }
+        refreshAllUI();
+      }else{
+        applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+        lastSyncJSON=JSON.stringify(snapshot());
+        refreshAllUI();
+        toast('☁ 已载入云端最新排期');
+      }
     }else{
       lastSyncJSON=JSON.stringify(snapshot());
     }
@@ -4659,42 +4690,57 @@ async function tryReconnect(){
     if(error) throw error;
     // 恢复成功
     cloudOffline=false; cloudReady=true; cloudReconnTries=0;
-    const localJSON=JSON.stringify(snapshot());
+    // ── 重连合并（四象限，绝不无条件覆盖本地离线改动）──
+    // 关键修复：本地是否「脏」以「当前快照 vs 上次同步基线 lastSyncJSON」为准，
+    // 不再依赖可能过期(700ms防抖漏最新改动)或为空的 cloudPendingPush，否则会把离线改动判成"无改动"直接被云端覆盖。
+    const curSnap=snapshot();
+    const localJSON=JSON.stringify(curSnap);
+    const localDirty=(localJSON!==lastSyncJSON) || !!cloudPendingPush;   // 离线期间改过=脏
+    let snapObj=null, remoteJSON=null;
     if(data && data.snap){
-      const snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
-      const remoteJSON=JSON.stringify(snapObj);
-      if(cloudPendingPush && localJSON!==JSON.stringify(cloudPendingPush)){
-        // 本地有改动，且远端也有别人改动 → 冲突
-        if(remoteJSON!==lastSyncJSON){
-          const useLocal=confirm('云端已恢复。期间有人在改。\n点「确定」= 用你的本地版本覆盖云端\n点「取消」= 用云端版本（你的本地改动丢失）');
-          if(!useLocal){
-            applyingRemote=true; applySnap(snapObj); applyingRemote=false;
-            lastSyncJSON=remoteJSON;
-            cloudPendingPush=null;
-            try{localStorage.removeItem(PENDING_KEY);}catch(_){}
-          }
-        }
-      } else if(remoteJSON!==lastSyncJSON){
-        // 远端有别人改动,本地无冲突
-        applyingRemote=true; applySnap(snapObj); applyingRemote=false;
-        lastSyncJSON=remoteJSON;
-        toast('☁ 云端已恢复，期间他人改动已同步');
-      }
+      snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
+      remoteJSON=JSON.stringify(snapObj);
     }
-    // 补推本地暂存
-    if(cloudPendingPush){
-      const snap=cloudPendingPush;
+    const remoteChanged=(remoteJSON!=null) && (remoteJSON!==lastSyncJSON);  // 别人在你离线期间改过云端
+    // 补推本地：一律用「当前快照」而非 cloudPendingPush（后者可能漏掉最后一次改动）
+    const pushLocal=async(snap)=>{
       const payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()};
       const {error:upErr}=await sb.from(SB_TABLE).upsert(payload);
-      if(!upErr){
-        lastSyncJSON=JSON.stringify(snap);
-        cloudPendingPush=null;
-        try{localStorage.removeItem(PENDING_KEY);}catch(_){}
-        toast('☁ 离线期间改动已补推云端');
-      } else {
-        // 推送失败,保留暂存,等下次重试
-        scheduleReconnect(); refreshAllUI(); syncLockUI(); return;
+      if(upErr) throw upErr;
+      lastSyncJSON=JSON.stringify(snap);
+      cloudPendingPush=null;
+      try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+    };
+    const takeRemote=()=>{
+      applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+      lastSyncJSON=remoteJSON; save();   // 同步 localStorage，避免旧本地存档回灌
+      cloudPendingPush=null;
+      try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+    };
+    try{
+      if(localDirty && remoteChanged){
+        // 双改冲突：让用户选，默认保留本地（刚辛苦编辑的内容优先）
+        const useLocal=confirm('云端已恢复，但你离线期间云端数据也有变化（可能是其他人编辑）。\n\n点「确定」=保留你离线期间的改动（覆盖云端）\n点「取消」=采用云端版本（你的离线改动将被丢弃）');
+        if(useLocal){ await pushLocal(curSnap); toast('☁ 已保留你的离线改动并推送云端'); }
+        else { takeRemote(); toast('已采用云端版本'); }
+      }else if(localDirty){
+        // 只有本地改了 → 直接补推，绝不覆盖本地
+        await pushLocal(curSnap); toast('☁ 离线期间改动已补推云端');
+      }else if(remoteChanged){
+        // 只有远端改了 → 安全应用
+        takeRemote(); toast('☁ 云端已恢复，期间他人改动已同步');
+      }else{
+        // 双方都没变
+        cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
       }
+    }catch(upErr){
+      // 补推失败：保留本地暂存，切回离线重试（不丢数据）
+      console.warn('重连补推失败,保留本地暂存',upErr);
+      cloudPendingPush=curSnap;
+      try{localStorage.setItem(PENDING_KEY, JSON.stringify(curSnap));}catch(_){}
+      cloudOffline=true; document.body.classList.remove('ro-mode');
+      cloudSetStatus('offline','已离线 · 可编辑 · 补推失败重试中…');
+      scheduleReconnect(); refreshAllUI(); syncLockUI(); return;
     }
     // 重订阅 realtime
     try{ if(sbChan) await sbChan.unsubscribe(); }catch(_){}
