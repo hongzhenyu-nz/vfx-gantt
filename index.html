@@ -285,6 +285,9 @@
     background:rgba(255,255,255,.92);box-shadow:1px 0 0 rgba(0,0,0,.06);}
   .bar-task .prog[style*="--p:100"]::after{display:none;}                 /* 100% 已完成：纯满色，无分界线 */
   .bar-task .prog[style*="--p:0"]::after{display:none;}                   /* 0% 起步：整条浅色空槽、不画起点竖线 */
+  .bar-task.open .prog::after{display:none;}                              /* 无限延长（时间待定/长期持续）：无明确起止，不画进度分界竖线 */
+  /* 无限延长条：去掉基于 --p 的「已完成/未完成」深浅分区覆盖层，整条统一底色，只保留天格线 */
+  .bar-task.open .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px));}
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
   /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上） */
