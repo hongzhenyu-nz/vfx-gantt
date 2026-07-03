@@ -257,7 +257,8 @@
   .vline.we{background:#fafbfc;width:var(--day-w);}
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
 
-  .bar-task{position:absolute;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
+  .bar-task{position:absolute;z-index:1;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
+  /* z-index:1 封住任务条自身的层叠上下文，使条内「✓已完成」大浮标(::after z-index:4)等永远压在 sticky 左侧成员栏 .cell-left(z-index:4) 之下，横向滚动时不再穿透覆盖左栏。拖拽态(.dragging z-index:30)另行抬高。 */
   /* 泛白后底色变浅，文字加深色描边保持可读（白蒙版越浓描边越明显） */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
@@ -1103,7 +1104,7 @@
     <div class="rules">
       <div class="rule">
         <div class="t"><i style="background:var(--blue)"></i>工作强度 / 负载率</div>
-        <p>负载率 = <code>未来30天已排人天 ÷ 可用人天</code>。人均每日标准产能记为 1 人天。<br>
+        <p>负载率 = <code>未来30天 Σ每工作日各需求分摊后投入比 ÷ 可用人天</code>。人均每日标准产能记为 1 人天，<b>跟进型也占精力、计入负载</b>；同一天并行多条需求时各自的分摊后投入比相加，故可能 &gt;100%。<br>
         分档：<b style="color:#1a8a3c">≤85% 正常</b> · <b style="color:#b36b00">85–110% 饱和</b> · <b style="color:#d32320">&gt;110% 超载</b>。</p>
       </div>
       <div class="rule">
@@ -1143,9 +1144,9 @@
         </div>
         <table class="inv-table" id="invTable"></table>
         <div class="inv-foot">
-          <b>计算公式：</b><code>已消化人天 = Σ(每个工作日·分摊后投入比) × 效率系数</code>　·　投入比刻画「精力分配」，效率系数刻画「个人产能强弱」，两者<b>相互独立、相乘</b>。<br>
-          <b>并行分摊：</b>同一人某天若同时在跑多条需求（含跟进），当天 <b>1.0</b> 的精力按各需求<b>权重</b>（全人力 1.0 / 完整跟进 0.4 / 部分跟进 0.2）<b>按比例瓜分</b>；任务标签直接显示<b>分摊后的实际投入比</b>，不再显示固定系数或 1/N。<br>
-          <b>举例：</b>某天同时 1 条全人力(权重1.0) + 1 条完整跟进(权重0.4)，总权重 1.4 &gt; 1 → 全人力当天实得 1.0/1.4≈<b>0.71</b>、跟进实得 0.4/1.4≈<b>0.29</b>。
+          <b>计算公式：</b><code>已消化人天 = Σ(每个工作日·分摊后投入比·消化系数) × 效率系数</code>　·　投入比刻画「精力分配」，效率系数刻画「个人产能强弱」，两者<b>相互独立、相乘</b>；跟进型消化系数为 0（占精力、不直接产出人天）。<br>
+          <b>区间与并行分摊：</b>每档投入比是一个<b>区间</b>——独占（当天只跑这一条）取<b>上限</b>；同一人同天并行多条需求时，各条按并行条数摊薄，<b>但不低于该档下限</b>。全人力 <b>0–1.0</b>（可自由 1/N 平摊）、完整跟进 <b>0.4–0.6</b>、部分跟进 <b>0.1–0.3</b>。任务标签直接显示<b>分摊后的实际投入比</b>，随排期实时变化。<br>
+          <b>举例：</b>某人某天同时跑 1 条全人力 + 1 条完整跟进 → 全人力 1.0/2=<b>0.5</b>、完整跟进 0.6/2=0.3 但触下限保底为 <b>0.4</b>；当天负载 = 0.5+0.4 = <b>0.9</b>。若并行 3 条全人力则各 1.0/3≈<b>0.33</b>。
         </div>
       </div>
     </div>
@@ -2026,7 +2027,7 @@ const memEff =id=>{const m=members.find(m=>m.id===id);return m?m.eff:1;};
 let EFF_TIERS = buildDefaultTiers();
 let effLocked = true;  // 系数标定默认锁定，防误操作（在 snapshot/ORIG 之前声明，避免 TDZ）
 let estRecalc = false; // 是否已用真实排期(投入比×效率)重算过占位工作量；一次性，随快照持久化
-const EST_RECALC_VER = 3; // 重算口径版本：v1=初始；v2=投入比系数调整+跟进并行分摊；v3=所有跟进型消化系数归零（不消化人天）
+const EST_RECALC_VER = 4; // 重算口径版本：v1=初始；v2=投入比系数调整+跟进并行分摊；v3=所有跟进型消化系数归零（不消化人天）；v4=投入比区间模型(clamp(hi/并行数,lo,hi))
 let estRecalcVer = 0;     // 已重算到的版本，随快照持久化
 function buildDefaultTiers(){
   // 依据成员当前 eff 自动归档（保持初始数据语义），系数从高到低
@@ -2108,12 +2109,15 @@ let STD_CFG = [
 ];
 let stdLocked = true;  // 标准工期表默认锁定，防误操作
 
-/* 投入比 / 精力分配 档位（数据驱动、可编辑、带锁定）。val<1=跟进型(固定投入比、不分摊)；val=1=全人力制作(并行自动平摊)。
-   col=色块颜色, vbg/vfg=投入比徽标底色/字色, desc=行为规则, scene=典型场景。支援(外借)为固定行，不在此数组内。*/
+/* 投入比 / 精力分配 档位（数据驱动、可编辑、带锁定）。v5.11 起改「区间」模型：
+   每档有 [lo, hi] 区间——hi=独占（当天只跑这一条）时的投入比上限，lo=并行分摊的保底下限。
+   当天有效投入比 = clamp(hi ÷ 当天并行条数, lo, hi)：独占取 hi，并行越多越往下降，触底 lo 后不再受并行影响。
+   全人力 [0,1.0]（无保底，可自由 1/N 平摊）；完整跟进 [0.4,0.6]；部分跟进 [0.1,0.3]。
+   val 保留=hi（独占上限，兼容旧字段/菜单选择时写入 seg.inv）。col=色块色, vbg/vfg=徽标底/字色, desc=规则, scene=场景。支援(外借)为固定行，不在此数组内。*/
 let INV_TIERS = [
-  {key:'full',  name:'全人力制作', val:1.0, col:'#0a7d3c', vbg:'#e9f8ee', vfg:'#0a7d3c', desc:'全力投入单条产出（权重 1.0）。当该成员同期还有其它需求时，每天的精力按<b>各需求权重自动分摊</b>，标签直接显示<b>分摊后的实际投入比</b>（无需手动设置，随排期实时变化）。', scene:'主力特效师独立\n承制一条需求'},
-  {key:'follow',name:'完整跟进', val:0.4, col:'#b36b00', vbg:'#fff1da', vfg:'#b36b00', desc:'持续跟进效果但非全力制作（权重 0.4）。<b>同样参与并行分摊</b>：与同期其它需求按权重瓜分当天精力，标签显示分摊后的实际投入比。', scene:'资深盯方向 /\n全程把控品质'},
-  {key:'part',  name:'部分跟进', val:0.2, col:'#d6a000', vbg:'#fdf6e3', vfg:'#a07800', desc:'花一部分精力跟进反馈效果（权重 0.2）。<b>同样参与并行分摊</b>：与同期其它需求按权重瓜分当天精力，标签显示分摊后的实际投入比。', scene:'兼顾多条 /\n定期 review'},
+  {key:'full',  name:'全人力制作', val:1.0, lo:0,   hi:1.0, col:'#0a7d3c', vbg:'#e9f8ee', vfg:'#0a7d3c', desc:'全力投入单条产出（独占时 <b>1.0</b>）。当该成员同期还有其它需求时，当天精力在多条间<b>自动平摊</b>（并行 N 条则每条约 1/N），标签直接显示<b>分摊后的实际投入比</b>，无需手动设置、随排期实时变化。', scene:'主力特效师独立\n承制一条需求'},
+  {key:'follow',name:'完整跟进', val:0.6, lo:0.4, hi:0.6, col:'#b36b00', vbg:'#fff1da', vfg:'#b36b00', desc:'持续跟进效果但非全力制作。投入比在 <b>0.4–0.6</b> 区间：独占时取上限 0.6，与其它需求并行时按条数摊薄，<b>但不低于下限 0.4</b>（跟进的最低精力）。不直接消化人天，但计入负载。', scene:'资深盯方向 /\n全程把控品质'},
+  {key:'part',  name:'部分跟进', val:0.3, lo:0.1, hi:0.3, col:'#d6a000', vbg:'#fdf6e3', vfg:'#a07800', desc:'花一部分精力跟进反馈效果。投入比在 <b>0.1–0.3</b> 区间：独占时取上限 0.3，与其它需求并行时按条数摊薄，<b>但不低于下限 0.1</b>。不直接消化人天，但计入负载。', scene:'兼顾多条 /\n定期 review'},
 ];
 let invLocked = true;  // 投入比表默认锁定，防误操作
 
@@ -2205,10 +2209,19 @@ const r2=v=>Math.round(v*100)/100;   // 两位小数（分摊后投入比展示�
    ② 全人力制作：seg.inv 未设或 =1 —— 该人当天若同时在跑 N 条「全人力制作」段，
       当天对每条的投入比自动平摊为 1/N（并行越多、单条消化越慢）。
    support（支援）只表编制隶属，不打折。 */
-function segIsFollow(s){ return s.inv!=null && s.inv<1; }        // 跟进型(权重<1)
-/* 任务段的「精力权重」：全人力=1.0、完整跟进=0.4、部分跟进=0.2（即 seg.inv，未设视为 1）。
-   所有段（含跟进）都用这个权重参与每日并行分摊。 */
-function segInvBase(s){ return (s.inv!=null && s.inv<1) ? s.inv : 1; }
+function segIsFollow(s){ return s.inv!=null && s.inv<1; }        // 跟进型(独占上限<1)
+/* 任务段的「区间」[lo,hi]：hi=独占时投入比上限，lo=并行分摊保底下限。
+   seg.inv 记录的是该段档位的 hi 值（完整跟进 0.6 / 部分跟进 0.3 / 未设=全人力 1.0）。
+   反查 INV_TIERS 拿该档的 lo；查不到（自定义历史值）则按「跟进型 lo=hi 的一半、全人力 lo=0」兜底。 */
+function segInvRange(s){
+  const hi = (s.inv!=null && s.inv<1) ? s.inv : 1;
+  if(hi>=1) return {lo:0, hi:1};                                  // 全人力：可自由 1/N 平摊，无保底
+  const tier = (typeof INV_TIERS!=='undefined') ? INV_TIERS.find(t=>Math.abs((t.hi!=null?t.hi:t.val)-hi)<1e-6) : null;
+  const lo = tier ? (tier.lo!=null?tier.lo:hi) : Math.round(hi*0.5*100)/100;
+  return {lo, hi};
+}
+/* 任务段的「独占投入比上限」hi（兼容旧 segInvBase 调用点）。 */
+function segInvBase(s){ return segInvRange(s).hi; }
 /* 任务段的「消化系数」：决定该段投入比折算成多少「消化人天」。
    · 全人力制作 → 1.0（全额消化）；
    · 所有跟进型(完整跟进 0.4 / 部分跟进 0.2 / 自定义跟进) → 0（只跟反馈、不直接产出，不消化人天）。
@@ -2218,36 +2231,37 @@ function segDigestFactor(s){
   if(!segIsFollow(s)) return 1;                       // 全人力：全额消化
   return 0;                                          // 所有跟进型：不消化人天
 }
-/* 某人在某工作日所有在排段（含跟进）的权重之和。用作当天精力分摊的分母（capped 在 1.0：
-   总权重≤1 时各段按自身权重投入，>1 时按权重比例瓜分当天 1.0 精力）。open 段不计。 */
+/* 某人在某工作日的「并行段数」：当天所有在排段（含跟进，不含 open/废弃）的条数。
+   用作每档独立分摊的分母：并行越多，各档投入比越往区间下限收敛。 */
 function personDayWeightSum(id, t){
-  let sum=0;
+  let n=0;
   reqs.forEach(rr=>{
     if(reqState(rr)==='dropped') return;
     rr.segs.forEach(s=>{
       if(s.m!==id || s.open) return;
-      if(t>=s.s.getTime() && t<s.e.getTime()) sum+=segInvBase(s);
+      if(t>=s.s.getTime() && t<s.e.getTime()) n++;
     });
   });
-  return sum;
+  return n;
 }
-/* 某段在某工作日「分摊后的有效投入比」：权重 / max(1, 当天总权重)。
-   独占或当天总权重≤1 → 等于自身权重；过载 → 按权重比例瓜分。 */
+/* 某段在某工作日「分摊后的有效投入比」：clamp(hi / 当天并行条数, lo, hi)。
+   独占(并行=1) → hi（区间上限）；并行越多 → 越低，但触底 lo 后不再受并行影响。 */
 function segEffInvOnDay(s, t){
-  const wt=segInvBase(s);
-  const denom=Math.max(1, personDayWeightSum(s.m, t));
-  return wt/denom;
+  const {lo,hi}=segInvRange(s);
+  const n=Math.max(1, personDayWeightSum(s.m, t));
+  const v=hi/n;
+  return Math.min(hi, Math.max(lo, v));
 }
 /* 某段在其全部工作日上的「平均有效投入比」与是否被分摊（用于标签数字）。 */
 function segAvgEffInv(s){
   let sum=0, days=0, shared=false;
-  const wt=segInvBase(s);
+  const {hi}=segInvRange(s);
   for(let t=s.s.getTime(); t<s.e.getTime(); t+=dayMs){
     const w=new Date(t).getDay(); if(w===0||w===6) continue;
     const e=segEffInvOnDay(s,t); sum+=e; days++;
-    if(e < wt-1e-6) shared=true;                  // 被其它需求分摊（低于自身权重）
+    if(e < hi-1e-6) shared=true;                  // 低于独占上限 → 被并行摊薄过
   }
-  return { avg: days? sum/days : wt, days, shared, wt };
+  return { avg: days? sum/days : hi, days, shared, wt:hi };
 }
 /* 任务段的投入比徽标：直接显示「分摊后的实际投入比数字」（不显示固定系数 / 1/N 算法）。
    颜色：跟进型=琥珀、被并行分摊=紫、独占满额=蓝。 */
@@ -2257,10 +2271,11 @@ function segInvBadge(s, nShow){
   const num=r2(ae.avg);                            // 分摊后的有效投入比（保留两位小数）
   const follow=segIsFollow(s);
   const cls = follow ? 'follow' : (ae.shared ? 'par' : 'full');
-  const wtTxt = follow ? `（跟进权重 ${ae.wt}）` : '';
+  const {lo,hi}=segInvRange(s);
+  const rgTxt = follow ? `（区间 ${lo}–${hi}）` : '';
   const tip = ae.shared
-    ? `投入比 ${num}：与同期其它需求按权重并行分摊后的实际值${wtTxt}`
-    : `投入比 ${num}：本段独占该成员精力${wtTxt}`;
+    ? `占 ${num}：与同期其它需求并行、按条数在区间内摊薄后的实际值${rgTxt}`
+    : `占 ${num}：本段独占该成员精力，取${follow?'区间上限':'满额'} ${hi}${rgTxt}`;
   // v5.9：前缀「投」→「占」，更直白地表达「这条占该成员当天多少精力」（占用比），0.64=占了六成精力。
   return `<span class="rt-inv ${cls}" data-rank="5" title="${tip}"><i class="inv-k">占</i><b>${num}</b></span>`;
 }
@@ -2469,17 +2484,23 @@ function capacityLanesHTML(r){
 function memLoad(id){
   const horizonEnd = new Date(TODAY.getTime()+30*dayMs);   // 未来30天负载窗口（长周期排期）
   const avail = workdays(TODAY,horizonEnd);
+  // v5.11：负载 = 未来30天每个工作日 Σ(该人各在排段·分摊后投入比)，逐日累加。
+  //   并行需求的分摊后投入比在同一天相加 → 直接反映当天精力占用；跟进型（部分/完整跟进）也计入。
+  //   分摊后投入比已由 segEffInvOnDay 用「clamp(hi/并行条数, lo, hi)」算好，故同一人同天多条相加可能 >1（超载）。
   let assigned=0;
-  reqs.forEach(r=>{
-    if(r.kind==='qa') return;   // 全量测试=bug修复阶段，不计入排期负载
-    r.segs.forEach(s=>{
-      if(s.m!==id) return;
-      if(s.status==='done') return;
-      if(s.open) return;   // 无明确时间段：时间未定，不纳入负载窗口计算（避免占位窗口误算）
-      const a=new Date(Math.max(s.s,TODAY)), b=new Date(Math.min(s.e,horizonEnd));
-      if(b>a) assigned+=workdays(a,b);
+  const T0=TODAY.getTime(), T1=horizonEnd.getTime();
+  for(let t=T0; t<T1; t+=dayMs){
+    const w=new Date(t).getDay(); if(w===0||w===6) continue;   // 仅工作日
+    reqs.forEach(r=>{
+      if(r.kind==='qa') return;   // 全量测试=bug修复阶段，不计入排期负载
+      r.segs.forEach(s=>{
+        if(s.m!==id) return;
+        if(s.status==='done') return;
+        if(s.open) return;   // 无明确时间段：不纳入负载窗口
+        if(t>=s.s.getTime() && t<s.e.getTime()) assigned += segEffInvOnDay(s, t);
+      });
     });
-  });
+  }
   const pct=avail>0?assigned/avail:0;
   let cls,col;
   if(pct<=0.85){cls='正常';col='var(--green)';}
@@ -3493,9 +3514,10 @@ function openStatusMenu(bar,x,y){
     items+=`<div class="msep"></div>`;
     items+=`<div class="mtitle">投入比（精力分配）</div>`;
     INV_TIERS.forEach(t=>{
-      const on=Math.abs(t.val-curInv)<1e-6;
-      const sub=t.val>=1?'并行自动分摊':'固定不分摊';
-      items+=`<div class="mi miv ${on?'cur':''}" onclick="pickInv(${t.val})"><i style="background:${t.col}"></i><span class="miv-nm">${effEsc(t.name)} <b style="color:${t.col}">${t.val}</b></span><span class="miv-sub">${sub}</span></div>`;
+      const hi=(t.hi!=null?t.hi:t.val), lo=(t.lo!=null?t.lo:(hi>=1?0:hi));
+      const on=Math.abs(hi-curInv)<1e-6;
+      const sub=hi>=1?'独占1.0·并行1/N':`区间 ${lo}–${hi}`;
+      items+=`<div class="mi miv ${on?'cur':''}" onclick="pickInv(${hi})"><i style="background:${t.col}"></i><span class="miv-nm">${effEsc(t.name)} <b style="color:${t.col}">${hi>=1?hi:lo+'–'+hi}</b></span><span class="miv-sub">${sub}</span></div>`;
     });
     items+=`<div class="msep"></div>`;
     items+=`<div class="mtitle">时间长度</div>`;
@@ -4011,10 +4033,10 @@ function closeAdd(){addMask.classList.remove('show');addCtx=null;}
 addMask.addEventListener('pointerdown',e=>{if(e.target===addMask)closeAdd();});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&addMask.classList.contains('show'))closeAdd();},true);
 
-/* 投入比下拉（加人/加任务弹窗共用）：全人力制作=1、完整跟进=0.4、部分跟进=0.2，均参与并行分摊 */
+/* 投入比下拉（加人/加任务弹窗共用）：全人力[0-1.0]、完整跟进[0.4-0.6]、部分跟进[0.1-0.3]，均按并行条数在区间内分摊 */
 let INV_SELECT_HTML = '';
 function syncInvSelectHTML(){
-  const opts = INV_TIERS.map((t,i)=>`<option value="${t.val}"${i===0?' selected':''}>${effEsc(t.name)}（权重 ${t.val} · 并行多条时自动分摊）</option>`).join('');
+  const opts = INV_TIERS.map((t,i)=>{const hi=(t.hi!=null?t.hi:t.val),lo=(t.lo!=null?t.lo:(hi>=1?0:hi));const rg=hi>=1?`独占 1.0 · 并行 1/N`:`区间 ${lo}–${hi}`;return `<option value="${hi}"${i===0?' selected':''}>${effEsc(t.name)}（${rg}）</option>`;}).join('');
   INV_SELECT_HTML = `<div class="fld"><label>投入比（精力分配）</label>
       <select id="addInv">${opts}</select></div>`;
 }
@@ -4456,7 +4478,7 @@ function coreSnapshot(){
     effLocked:effLocked,
     stdCfg:STD_CFG.map(t=>({mod:t.mod||'',grade:t.grade,col:t.col,dur:t.dur||'',weeks:t.weeks,ppl:t.ppl})),
     stdLocked:stdLocked,
-    invTiers:INV_TIERS.map(t=>({key:t.key,name:t.name,val:t.val,col:t.col,vbg:t.vbg,vfg:t.vfg,desc:t.desc,scene:t.scene})),
+    invTiers:INV_TIERS.map(t=>({key:t.key,name:t.name,val:t.val,lo:t.lo,hi:t.hi,col:t.col,vbg:t.vbg,vfg:t.vfg,desc:t.desc,scene:t.scene})),
     invLocked:invLocked,
     archive:{on:ARCHIVE.on,val:ARCHIVE.val,unit:ARCHIVE.unit},
     estRecalc:estRecalc,
@@ -4500,10 +4522,17 @@ function applySnap(snap){
   }
   if(typeof snap.stdLocked==='boolean') stdLocked=snap.stdLocked;
   if(Array.isArray(snap.invTiers) && snap.invTiers.length){
-    INV_TIERS=snap.invTiers.map(t=>({key:t.key||('inv'+Math.random().toString(36).slice(2,7)),name:t.name||'',val:Number(t.val),col:t.col||'#0a7d3c',vbg:t.vbg||'#e9f8ee',vfg:t.vfg||'#0a7d3c',desc:t.desc||'',scene:t.scene||''}));
+    // v5.11 区间迁移：旧快照只有 val（=独占上限 hi），补 lo/hi。
+    //   hi>=1(全人力)→lo=0；完整跟进档(hi≈0.4~0.6)→lo=0.4；部分跟进档(hi≈0.1~0.3)→lo=0.1；其它跟进→lo=hi*0.5。
+    const _migLo=(hi)=>{ if(hi>=1)return 0; if(hi>=0.4)return 0.4; if(hi>=0.1)return Math.min(0.1,hi); return Math.round(hi*0.5*100)/100; };
+    INV_TIERS=snap.invTiers.map(t=>{
+      const hi=(t.hi!=null?Number(t.hi):Number(t.val));
+      const lo=(t.lo!=null?Number(t.lo):_migLo(hi));
+      return {key:t.key||('inv'+Math.random().toString(36).slice(2,7)),name:t.name||'',val:hi,lo:lo,hi:hi,col:t.col||'#0a7d3c',vbg:t.vbg||'#e9f8ee',vfg:t.vfg||'#0a7d3c',desc:t.desc||'',scene:t.scene||''};
+    });
     // 迁移：「并行人力制作」已改为自动状态（全人力并行时自动 1/N 平摊），不再作为可手动设置的固定档位 → 剔除残留旧档
     INV_TIERS=INV_TIERS.filter(t=>!/并行人力/.test(t.name||''));
-    if(!INV_TIERS.length) INV_TIERS=[{key:'full',name:'全人力制作',val:1.0,col:'#0a7d3c',vbg:'#e9f8ee',vfg:'#0a7d3c',desc:'全力投入单条产出（投入比 1.0）。并行多条全人力时自动平摊为 1/N。',scene:''}];
+    if(!INV_TIERS.length) INV_TIERS=[{key:'full',name:'全人力制作',val:1.0,lo:0,hi:1.0,col:'#0a7d3c',vbg:'#e9f8ee',vfg:'#0a7d3c',desc:'全力投入单条产出（独占 1.0）。并行多条时自动平摊为 1/N。',scene:''}];
     if(typeof syncInvSelectHTML==='function') syncInvSelectHTML();
   }
   if(typeof snap.invLocked==='boolean') invLocked=snap.invLocked;
@@ -4552,6 +4581,27 @@ function applySnap(snap){
   }
   // 按现存需求重建联调挂载关系（使「他人删除联调 / 撤销恢复」在本端正确反映）
   if(typeof relinkLt==='function') relinkLt();
+  // v5.11 投入比区间模型迁移：任何来源(本地/云端/分享)的快照应用后都执行一次，把旧档上限/旧 seg.inv 升到新区间。
+  if(typeof migrateInvModel==='function') migrateInvModel();
+}
+/* 投入比区间模型迁移：把历史值升级到 v5.11 区间口径，幂等可重复调用。
+   · INV_TIERS：完整跟进 hi 0.4/0.5→0.6、lo→0.4；部分跟进 hi 0.2→0.3、lo→0.1；缺 lo/hi 的补齐。
+   · seg.inv（记录档上限）：0.4/0.5→0.6、0.2→0.3。仅命中旧默认值，自定义区间值不动。 */
+function migrateInvModel(){
+  if(estRecalcVer>=EST_RECALC_VER) return;           // 已迁移到最新口径，跳过
+  INV_TIERS.forEach(t=>{
+    const hi0=(t.hi!=null?t.hi:t.val);
+    if(Math.abs(hi0-0.5)<1e-6||Math.abs(hi0-0.4)<1e-6){ t.val=0.6; t.hi=0.6; t.lo=0.4; }        // 完整跟进
+    else if(Math.abs(hi0-0.2)<1e-6){ t.val=0.3; t.hi=0.3; t.lo=0.1; }                           // 部分跟进
+    else { t.hi=hi0; if(t.lo==null) t.lo=(hi0>=1?0:(hi0>=0.4?0.4:(hi0>=0.1?0.1:Math.round(hi0*0.5*100)/100))); }
+  });
+  reqs.forEach(r=>r.segs.forEach(s=>{ if(s.inv!=null){
+    if(Math.abs(s.inv-0.5)<1e-6||Math.abs(s.inv-0.4)<1e-6) s.inv=0.6;
+    else if(Math.abs(s.inv-0.2)<1e-6) s.inv=0.3;
+  }}));
+  if(typeof recalcEstimatesFromSchedule==='function') recalcEstimatesFromSchedule();
+  estRecalc=true; estRecalcVer=EST_RECALC_VER;
+  if(typeof syncInvSelectHTML==='function') syncInvSelectHTML();
 }
 /* 把 ARCHIVE / GROUP_MODE 当前值反映到工具条控件 */
 function syncOrgUI(){
@@ -5583,20 +5633,26 @@ function renderInvTable(){
   const box=document.getElementById('invTable'); if(!box)return;
   const IL=invLockedView();
   const ro=IL?' readonly':'', rod=IL?' disabled':'';
-  let html='<thead><tr><th style="width:150px">类型</th><th style="width:80px;text-align:center">投入比</th><th>行为 / 计算规则</th><th style="width:150px">典型场景</th><th style="width:28px"></th></tr></thead><tbody>';
+  let html='<thead><tr><th style="width:150px">类型</th><th style="width:96px;text-align:center">投入比区间</th><th>行为 / 计算规则</th><th style="width:150px">典型场景</th><th style="width:28px"></th></tr></thead><tbody>';
   INV_TIERS.forEach((t,i)=>{
+    const hi=(t.hi!=null?t.hi:t.val), lo=(t.lo!=null?t.lo:(hi>=1?0:hi));
+    const rangeTxt = hi>=1 ? `0–${hi}` : `${lo}–${hi}`;
+    // 锁定态：显示区间徽标；编辑态：下限/上限两个输入框
+    const valCell = IL
+      ? `<b style="background:${effEsc(t.vbg)};color:${effEsc(t.vfg)};display:inline-block;min-width:52px;padding:2px 8px;border-radius:6px;font-variant-numeric:tabular-nums">${rangeTxt}</b>`
+      : `<span style="display:inline-flex;align-items:center;gap:3px;justify-content:center"><input class="iv-lo" type="number" step="0.05" min="0" max="1" value="${lo}" data-act="lo" data-i="${i}" title="并行分摊下限" style="width:44px;background:${effEsc(t.vbg)};color:${effEsc(t.vfg)}"><span style="color:var(--tx3)">–</span><input class="iv-val" type="number" step="0.05" min="0" max="1" value="${hi}" data-act="val" data-i="${i}" title="独占上限 (=1 视为全人力可 1/N 平摊)" style="width:44px;background:${effEsc(t.vbg)};color:${effEsc(t.vfg)}"></span>`;
     html+=`<tr data-i="${i}">
       <td class="it-type"><button class="it-dot" type="button" data-act="col" data-i="${i}" style="background:${effEsc(t.col)};display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle" title="${IL?'类型色':'点击改类型色'}"${rod}></button><input class="iv-name" type="text" value="${effEsc(t.name)}" data-act="name" data-i="${i}" placeholder="类型名"${ro}></td>
-      <td class="it-val"><input class="iv-val" type="number" step="0.05" min="0" max="1" value="${t.val}" data-act="val" data-i="${i}" title="投入比 (0~1，<1=跟进型不分摊，=1=全人力可分摊)"${ro} style="background:${effEsc(t.vbg)};color:${effEsc(t.vfg)}"></td>
+      <td class="it-val">${valCell}</td>
       <td class="it-desc"><textarea class="iv-desc" rows="2" data-act="desc" data-i="${i}" placeholder="行为/计算规则（可含<b>等标签）"${ro}>${effEsc(t.desc)}</textarea></td>
       <td class="it-scene"><textarea class="iv-scene" rows="2" data-act="scene" data-i="${i}" placeholder="典型场景"${ro}>${effEsc(t.scene)}</textarea></td>
       <td><button class="iv-del" data-act="del" data-i="${i}" title="删除该类">×</button></td>
     </tr>`;
   });
-  // 自动行：并行分摊 —— 非手动档位，由同期多条需求（含跟进）按权重瓜分当天精力派生
+  // 自动行：并行分摊 —— 非手动档位，说明每档如何按并行条数在区间内摊薄
   html+=`<tr class="it-fixed"><td class="it-type"><i style="background:#5f3dc4;display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle"></i>并行分摊<span class="it-fixrow">自动</span></td>
-    <td class="it-val"><b style="background:#efeafd;color:#5f3dc4;display:inline-block;min-width:34px;padding:2px 8px;border-radius:6px">按权重</b></td>
-    <td class="it-desc">某人某天同时跑多条需求（<b>含跟进</b>）时，当天 1.0 的精力按各段<b>权重</b>（上方各档投入比）<b>按比例瓜分</b>；总权重≤1 时各段按自身权重投入，&gt;1 时过载分摊。任务标签直接显示<b>分摊后的实际投入比数字</b>，<u>无需手动设置</u>，随排期实时变化。</td>
+    <td class="it-val"><b style="background:#efeafd;color:#5f3dc4;display:inline-block;min-width:34px;padding:2px 8px;border-radius:6px">区间内</b></td>
+    <td class="it-desc">某人某天同时跑多条需求（<b>含跟进</b>）时，每条投入比 = <code>上限 ÷ 当天并行条数</code>，在各自<b>区间内向下收敛</b>——<b>独占取上限，并行越多越低，触底下限即不再降</b>。任务标签直接显示<b>分摊后的实际投入比数字</b>，<u>无需手动设置</u>，随排期实时变化。</td>
     <td class="it-scene">一人同期<br>并行多条需求</td><td></td></tr>`;
   // 固定行：支援(外借) —— 不可编辑/删除，仅说明编制隶属
   html+=`<tr class="it-fixed"><td class="it-type"><i style="background:var(--amber);display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle"></i>支援(外借)<span class="it-fixrow">固定项</span></td>
@@ -5619,7 +5675,7 @@ function bindInvTable(){
   if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
     if(invLockedView())return;
     pushHistory();
-    INV_TIERS.push({key:'inv'+Date.now().toString(36),name:'自定义跟进',val:0.3,col:'#d6a000',vbg:'#fdf6e3',vfg:'#a07800',desc:'自定义投入比说明。<b>固定投入比</b>，不参与并行分摊。',scene:''});
+    INV_TIERS.push({key:'inv'+Date.now().toString(36),name:'自定义跟进',val:0.3,lo:0.1,hi:0.3,col:'#d6a000',vbg:'#fdf6e3',vfg:'#a07800',desc:'自定义投入比区间。独占取上限，并行按条数在区间内摊薄、不低于下限。',scene:''});
     save();broadcast();renderInvTable(); syncInvSelectHTML();
   });}
   if(!box||box._bound)return; box._bound=1;
@@ -5629,8 +5685,12 @@ function bindInvTable(){
     const i=+el.getAttribute('data-i'); const t=INV_TIERS[i]; if(!t)return;
     if(act==='val'){
       let v=parseFloat(el.value); if(!isFinite(v)||v<0)v=0.3; if(v>1)v=1; v=Math.round(v*100)/100;
-      pushHistory(); t.val=v; el.value=v; invApplyChange(false);
-      toast('投入比已更新，消化工作量已重算'); syncInvSelectHTML();
+      pushHistory(); t.val=v; t.hi=v; if(t.lo==null) t.lo=(v>=1?0:v); if(t.lo>v)t.lo=v; el.value=v; invApplyChange(false);
+      toast('投入比上限已更新，消化工作量已重算'); syncInvSelectHTML(); renderInvTable();
+    }else if(act==='lo'){
+      let v=parseFloat(el.value); if(!isFinite(v)||v<0)v=0; const hi=(t.hi!=null?t.hi:t.val); if(v>hi)v=hi; v=Math.round(v*100)/100;
+      pushHistory(); t.lo=v; el.value=v; invApplyChange(false);
+      toast('并行分摊下限已更新，负载/投入比已重算');
     }else if(act==='name'){ pushHistory(); t.name=el.value; save();broadcast(); syncInvSelectHTML(); }
     else if(act==='desc'){ pushHistory(); t.desc=el.value; save();broadcast(); }
     else if(act==='scene'){ pushHistory(); t.scene=el.value; save();broadcast(); }
@@ -5841,12 +5901,11 @@ try{const cs=localStorage.getItem('gantt_collapsed'); if(cs)collapsed=JSON.parse
 if(loadFromHash()){ hasHashSnap=true; toast('已载入分享链接中的排期'); }
 else { loadSaved(); }
 syncEffFromTiers();
-// 首次/口径升级：用真实排期(Σ分摊后投入比×效率)重算占位工作量。版本号升级时再刷一次。
+// 首次/口径升级：用真实排期(Σ分摊后投入比×效率)重算占位工作量。applySnap 已对有快照的路径迁移过；
+// 这里兜底处理「无快照的全新环境」（localStorage/云端都为空，INV_TIERS 走硬编码初始区间值）。
 if(estRecalcVer < EST_RECALC_VER){
-  // 迁移已存快照里的旧跟进系数：完整跟进 0.5→0.4、部分跟进 0.3→0.2（仅命中旧默认值，自定义值不动）
-  INV_TIERS.forEach(t=>{ if(Math.abs(t.val-0.5)<1e-6)t.val=0.4; else if(Math.abs(t.val-0.3)<1e-6)t.val=0.2; });
-  reqs.forEach(r=>r.segs.forEach(s=>{ if(s.inv!=null){ if(Math.abs(s.inv-0.5)<1e-6)s.inv=0.4; else if(Math.abs(s.inv-0.3)<1e-6)s.inv=0.2; } }));
-  recalcEstimatesFromSchedule(); estRecalc=true; estRecalcVer=EST_RECALC_VER; syncInvSelectHTML(); save();
+  migrateInvModel();   // 幂等：补齐区间 + 重算 estimate + 置 estRecalcVer
+  save();
 }
 bindEffTable();
 applyEffLockUI();
