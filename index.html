@@ -473,6 +473,11 @@
   .row.is-loan .who .nm{color:#5b21b6;}
   .loan-note{font-size:10.5px;font-weight:600;color:#7c3aed;background:transparent;border:1px dashed #c9b6f3;border-radius:6px;padding:2px 7px;white-space:nowrap;line-height:1.4;}
   .gap-pill{font-size:10px;font-weight:700;color:#d32320;background:var(--red-l);border:1px solid #ffc4c2;border-radius:5px;padding:2px 7px;margin-left:6px;flex-shrink:0;}
+  /* 暂缺标签：无隶属/无带队归属的成员，紫色醒目胶囊 */
+  .ltag.vacant{color:#7c3aed;background:#f3ecfd;border-color:#c9b6f3;font-weight:700;}
+  .ltag.vacant .vacant-ic{margin-right:2px;}
+  /* 成员行缺口徽标（按人看：该人涉及的角色线共缺N人） */
+  .mem-gap-badge{font-size:10px;font-weight:700;color:#fff;background:#ef4444;border-radius:6px;padding:1px 7px;margin-left:6px;flex-shrink:0;line-height:1.6;box-shadow:0 1px 3px rgba(239,68,68,.35);}
   .badge{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;margin-left:8px;flex-shrink:0;}
   .rk-low{background:var(--green-l);color:#1a8a3c;}
   .rk-mid{background:var(--amber-l);color:#b36b00;}
@@ -1906,6 +1911,18 @@ function activeBase(r){
   });
   return seen.size;
 }
+/* 某成员在 hrData 所有角色线中的缺口总和（用于按人看行内显示「缺N」徽标） */
+function memGapCount(memId){
+  const m=memById(memId); if(!m) return 0;
+  const mn=m.name;
+  let total=0;
+  hrData.forEach(mod=>mod.roles.forEach(r=>{
+    if(r.makers.includes(mn)||r.tmp.some(t=>t.replace(/\(.*\)/,'')===mn)){
+      total+=Math.max(0,r.gap||0);
+    }
+  }));
+  return total;
+}
 /* 动态人力缺口 = 标配 − 实际在岗（≥0）。无标配的需求恒为 0 */
 function reqGapPpl(r){
   const std=REQ_STD[r&&r.id]; if(std==null) return 0;
@@ -2852,8 +2869,9 @@ function personRowHTML(m,inArc){
         <div class="who">
           <div class="nm">${G?`<span class="gdot-grade" style="background:${G.col}" title="${G.label}级"></span>`:''}${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
           <div class="tags">
-            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：带队负责的模块（可下拉选预设，也可自行输入）">👑 带 ${escAttr(m.lead)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">隶属 ${(m.lead&&m.lead!=='—'&&m.lead!=='-')?escAttr(m.lead):'（未指定）'}<i class="edp">✎</i></span>`)}
+            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：带队负责的模块（可下拉选预设，也可自行输入）">👑 带 ${escAttr(m.lead)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
             <span class="ltag eff" title="效率系数（1.0 为基准产能，>1 更快、<1 更慢）">⚡ 效率 ${m.eff}</span>
+            ${(()=>{ const mg=memGapCount(m.id); return mg>0?`<span class="mem-gap-badge" title="该成员涉及的角色线共缺 ${mg} 人（来自人力分配视图）">缺${mg}</span>`:''; })()}
           </div>
         </div>
         <div class="load"><div class="pct" style="color:${L.col}">${L.pct}% ${L.cls}</div>
@@ -3302,8 +3320,10 @@ function updateKPIs(){
   le.className='val '+(peak<=85?'s':peak<=110?'w':'d');
   const high=reqs.filter(r=>reqRisk(r).lvl==='高').length;
   document.getElementById('kp-high').textContent=high;
-  // 常规管线缺口：来自人力分配结论
-  document.getElementById('kp-done').textContent=HR_CONCLUSION.totalGap+'人';
+  // 常规管线缺口：动态计算 = 无隶属成员(暂缺) + hrData 各角色线缺口总和
+  const vacantCount = members.filter(m=>!m.lead||m.lead==='—'||m.lead==='-').length;
+  const hrTotalGap = hrData.reduce((s,m)=>s+m.roles.reduce((a,r)=>a+(r.gap||0),0),0);
+  document.getElementById('kp-done').textContent=(vacantCount+hrTotalGap)+'人';
 }
 
 /* ============ tooltip ============ */
