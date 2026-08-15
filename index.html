@@ -1870,6 +1870,30 @@ const HR_STATUS = {
   '':       {col:'#9097a0', bg:'#eef1f6', tx:'#646a73'},
 };
 // 模块 → [{role,grade,status,cfg,gap,makers:[],tmp:[],note}]
+
+/* 动态品级：根据成员当前负责的角色线（hrData）取品级，而非成员固定属性。
+   品级跟随任务/角色线绑定（金/橙/红），不是人的固有标签。
+   优先级：金 > 橙 > 红；多角色线时取最高；未找到返回空字符串。 */
+const GRADE_PRIORITY = ['金','橙','红'];
+function memWorkGrade(memId){
+  const m = members.find(x=>x.id===memId); if(!m) return '';
+  const nm = m.name;
+  let found = '';
+  hrData.forEach(mod=>mod.roles.forEach(r=>{
+    if((r.makers||[]).some(n=>n===nm || String(n).replace(/[·\(].*$/,'')===nm)){
+      // 取优先级最高的品级
+      if(!found || GRADE_PRIORITY.indexOf(r.grade) < GRADE_PRIORITY.indexOf(found)) found = r.grade;
+    }
+    // 也检查 tmp（新人/临时）
+    (r.tmp||[]).forEach(n=>{
+      if(String(n).replace(/[·\(].*$/,'')===nm){
+        if(!found || GRADE_PRIORITY.indexOf(r.grade) < GRADE_PRIORITY.indexOf(found)) found = r.grade;
+      }
+    });
+  }));
+  return found||'';
+}
+
 const hrData = [
   {mod:'出场', roles:[
     {role:'金（七十）',   grade:'金', status:'启动中',   cfg:4, gap:0, makers:['于航','彭诗淇','刘振山','宗丞'], tmp:[], note:'余洪震带 · 4人'},
@@ -2786,7 +2810,8 @@ function personRowHTML(m,inArc){
     const fr=focusRole(m);
     const L=memLoad(m.id);
     const MS=MSTATUS[m.status||'on'];
-    const G=m.grade?HR_GRADE[m.grade]:null;
+    const WG=memWorkGrade(m.id);   // 动态品级：从 hrData 角色线取，跟随任务而非人
+    const G=WG?HR_GRADE[WG]:null;
     const CP=CORP[m.corp]||CORP.base;
     const isLeft=effLeft(m);   // 仅离职日已到才灰化/打徽标；未来离职日仍按在岗呈现
     // 收集此人所有任务段
@@ -2886,7 +2911,7 @@ function personRowHTML(m,inArc){
           ${L.pct>110?'<i class="olflag" title="超载">!</i>':''}
         </div>
         <div class="who">
-          <div class="nm"><span class="gdot-grade" style="background:${(G||HR_GRADE['']).col}" title="${G?G.label+'级':'未设品级'}"></span>${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-edit" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openEditMember('${m.id}')" title="编辑成员信息（姓名/编制/隶属/模块/品级/效率/状态）">✎</button><button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
+          <div class="nm"><span class="gdot-grade" style="background:${(G||HR_GRADE['']).col}" title="${G?G.label+'级':'未设品级'}"></span>${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-edit" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openEditMember('${m.id}')" title="编辑成员信息（姓名/编制/隶属/模块/效率/状态）">✎</button><button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
           <div class="tags">
             ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：带队负责的模块（可下拉选预设，也可自行输入）">👑 带 ${escAttr(m.lead)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
             <span class="ltag eff" title="效率系数（1.0 为基准产能，>1 更快、<1 更慢）">⚡ 效率 ${m.eff}</span>
@@ -4425,11 +4450,9 @@ const LINE_OPTS_LIST=[['-','通用'],['L1','露西亚·管线1'],['L2','比安�
 function openNewMember(){
   if(!requireWrite())return;
   addCtx={mode:'newMember'};
-  const gradeOpt=GRADE_OPTS_LIST.map(g=>`<option value="${g}">${g===''?'通用（无品级）':g+'级'}</option>`).join('');
   const modOpt=MOD_OPTS_LIST.map(m=>`<option value="${m}" ${m==='出场'?'selected':''}>${m}</option>`).join('');
-  const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
   const body=`
-    <div class="ctx">添加一名<b>新成员</b>到团队名单。提交后会立即出现在「按人看」列表中，并纳入本地缓存 / 团队链接 / 云端协作同步。</div>
+    <div class="ctx">添加一名<b>新成员</b>到团队名单。提交后会立即出现在「按人看」列表中，并纳入本地缓存 / 团队链接 / 云端协作同步。<br><span style="color:#8a9099;font-size:11px">💡 品级/管线跟随成员当前负责的角色线自动确定，无需在此设置</span></div>
     <div class="row2">
       <div class="fld"><label>姓名</label><input type="text" id="nmName" placeholder="如：张三"></div>
       <div class="fld"><label>编制</label><select id="nmCorp" onchange="nmCorpChange()"><option value="base" selected>基地</option><option value="reg">正编（带队）</option></select></div>
@@ -4437,10 +4460,6 @@ function openNewMember(){
     <div class="row2">
       <div class="fld" id="nmLeadFld"><label>隶属带队（正编）</label><select id="nmLead">${regLeaderOpts('—')}</select></div>
       <div class="fld"><label>模块</label><select id="nmMod">${modOpt}</select></div>
-    </div>
-    <div class="row2">
-      <div class="fld"><label>品级</label><select id="nmGrade">${gradeOpt}</select></div>
-      <div class="fld"><label>管线</label><select id="nmLine">${lineOpt}</select></div>
     </div>
     <div class="row2">
       <div class="fld"><label>效率系数</label><input type="number" id="nmEff" value="1.0" step="0.05" min="0"></div>
@@ -4476,8 +4495,8 @@ function confirmNewMember(){
     role:(corp==='reg'?'正编·带队':'基地')+(support?'·外借支援':''),
     corp, lead,
     mod:document.getElementById('nmMod').value,
-    grade:document.getElementById('nmGrade').value,
-    line:document.getElementById('nmLine').value,
+    grade:'',      // 品级不再与成员绑定，由 memWorkGrade() 从角色线动态取
+    line:'-',      // 管线同理，不再固定绑定
     eff:Math.round(eff*100)/100,
     status:document.getElementById('nmStatus').value,
   };
@@ -4497,9 +4516,7 @@ function openEditMember(memId){
   if(!requireWrite())return;
   const m=members.find(x=>x.id===memId); if(!m)return;
   addCtx={mode:'editMember', memId};
-  const gradeOpt=GRADE_OPTS_LIST.map(g=>`<option value="${g}" ${m.grade===g?'selected':''}>${g===''?'通用（无品级）':g+'级'}</option>`).join('');
   const modOpt=MOD_OPTS_LIST.map(o=>`<option value="${o}" ${m.mod===o?'selected':''}>${o}</option>`).join('');
-  const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}" ${m.line===l[0]?'selected':''}>${l[1]}</option>`).join('');
   const body=`
     <div class="ctx">编辑 <b>${escAttr(m.name)}</b> 的成员信息。提交后实时刷新左侧名单、等级圆标、效率档位表与负载统计。</div>
     <div class="row2">
@@ -4509,10 +4526,6 @@ function openEditMember(memId){
     <div class="row2">
       <div class="fld" id="nmLeadFld"><label>隶属带队（正编）</label><select id="nmLead">${regLeaderOpts(m.corp==='reg'?m.name:(m.lead||'—'))}</select></div>
       <div class="fld"><label>模块</label><select id="nmMod">${modOpt}</select></div>
-    </div>
-    <div class="row2">
-      <div class="fld"><label>品级</label><select id="nmGrade">${gradeOpt}</select></div>
-      <div class="fld"><label>管线</label><select id="nmLine">${lineOpt}</select></div>
     </div>
     <div class="row2">
       <div class="fld"><label>效率系数</label><input type="number" id="nmEff" value="${m.eff}" step="0.05" min="0"></div>
@@ -4543,8 +4556,6 @@ function confirmEditMember(){
   m.corp=corp;
   m.lead=lead;
   m.mod=document.getElementById('nmMod').value;
-  m.grade=document.getElementById('nmGrade').value;
-  m.line=document.getElementById('nmLine').value;
   m.eff=Math.round(eff*100)/100;
   m.status=document.getElementById('nmStatus').value;
   if(support) m.support=true; else delete m.support;
