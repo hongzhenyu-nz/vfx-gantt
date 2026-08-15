@@ -1673,7 +1673,41 @@ function confirmAddLt(){
   revealEntity('req', host.id);
   toast('已添加联调：'+name+'（'+est+'人天 · 已挂到本角色）');
 }
-/* 改联调：弹面板修改联调工作量（人天）、名称、起止时间。与本体状态菜单风格一致。 */
+/* 快捷联调：一键为角色打上联调标签（不弹表单，自动计算默认值）。
+   已有联调 → 提示已存在；没有 → 自动创建（窗口=本体最晚结束次日起 ~ 约12工作日，成员=本体全部制作人）。 */
+function quickLt(hostId){
+  if(!requireWrite()){hideMenu();return;}
+  const host=reqs.find(r=>r.id===hostId); if(!host){hideMenu();return;}
+  hideMenu();
+  const existing=reqs.find(z=>z.kind==='lt' && z.char===host.char);
+  if(existing){
+    revealEntity('req', existing.id);
+    toast('本角色已有联调：'+existing.name+'（'+existing.estimate+'人天）');
+    return;
+  }
+  pushHistory();
+  // 自动默认值：起点=该角色所有特效段最晚结束的次日；窗口≈12工作日；成员=本体全部制作人去重
+  const sibs=reqs.filter(r=>r.char===host.char && r.kind==='fx');
+  let maxE=idx(host.end); sibs.forEach(s=>{ s.segs.forEach(sg=>{ if(idx(sg.e)>maxE)maxE=idx(sg.e); }); });
+  const ns=Math.min(maxE+1,DAYS-1), ne=Math.min(ns+18,DAYS);
+  const mems=[]; sibs.forEach(r=>r.segs.forEach(sg=>{ if(!mems.includes(sg.m))mems.push(sg.m); }));
+  if(!mems.length && host.segs[0]) mems.push(host.segs[0].m);
+  const est=12;
+  const lt={
+    id:genId('lt_'), name:charShort(host.char)+' 联调', char:host.char, mod:'联调',
+    grade:host.grade||'', line:host.line||'-', kind:'lt', estimate:est, done:0, end:i2d(ne),
+    segs:mems.map(m=>({m, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'}))
+  };
+  reqs.push(lt);
+  relinkLt();
+  _logDesc='为「'+charShort(host.char)+'」快捷添加联调（'+est+'人天）';
+  save();broadcast();
+  rerender();
+  revealEntity('req', lt.id);
+  toast('✓ 已添加联调：'+lt.name+'（自动接续本体之后）');
+}
+/* 改联调（完整编辑模式）：弹面板修改联调工作量（人天）、名称、起止时间。
+   一般场景用 quickLt() 即可；仅在需要微调名称/日期时才走此路径。 */
 function openEditLt(ltId){
   if(!requireWrite()){hideMenu();return;}
   const lt=reqs.find(r=>r.id===ltId && r.kind==='lt'); if(!lt){hideMenu();return;}
@@ -3639,10 +3673,10 @@ function openStatusMenu(bar,x,y){
     items+=`<div class="msep"></div>`;
     items+=`<div class="mtitle">联调（特效后接续 · 按角色管理）</div>`;
     if(_ltReq){
-      items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="openEditLt('${_ltReq.id}')"><i style="background:#7c3aed"></i>改联调 · 工作量 / 名称 / 时间（${_ltReq.estimate}人天）</div>`;
+      items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="quickLt('${_ltHost.id}')"><i style="background:#7c3aed"></i>✓ 本角色已有联调（${_ltReq.estimate}人天）</div>`;
       items+=`<div class="mi danger" onclick="hideMenu();deleteLt('${_ltHost.id}')"><i style="background:#b04632"></i>删除本角色联调</div>`;
     }else{
-      items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="addLt('${_ltHost.id}')"><i style="background:#7c3aed"></i>＋ 添加联调（自动挂到本角色）</div>`;
+      items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="quickLt('${_ltHost.id}')"><i style="background:#7c3aed"></i>＋ 添加联调（一键打标，自动接续本体）</div>`;
     }
     items+=`<div class="msep"></div>`;
     items+=`<div class="mi danger" onclick="deleteSeg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>删除任务（${memName(sg.m)}）</div>`;
@@ -3654,7 +3688,7 @@ function openStatusMenu(bar,x,y){
       items+=`<div class="msep"></div>`;
       items+=`<div class="mtitle">需求操作</div>`;
       if(_r.kind==='lt'){
-        items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="hideMenu();openEditLt('${_r.id}')"><i style="background:#7c3aed"></i>修改联调信息</div>`;
+        items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="hideMenu();quickLt('${ltHostOf(_r.char)?ltHostOf(_r.char).id:_r.id}')"><i style="background:#7c3aed"></i>联调已存在（${_r.estimate}人天）</div>`;
         items+=`<div class="mi danger" onclick="hideMenu();deleteReq('${_r.id}')"><i style="background:#b04632"></i>删除联调需求</div>`;
       }else{
         items+=`<div class="mi" style="color:#185fa5;font-weight:600" onclick="hideMenu();openEditReq('${_r.id}')"><i style="background:#2563eb"></i>修改需求信息</div>`;
