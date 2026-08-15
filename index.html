@@ -843,11 +843,19 @@
   .eff-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:2px 6px 2px 9px;color:var(--tx);cursor:grab;user-select:none;touch-action:none;transition:opacity .1s;}
   .eff-chip:active{cursor:grabbing;}
   .eff-chip.drag-src{opacity:.32;}
+  /* 离职成员：灰化 + 删除线，不可拖拽 */
+  .eff-chip.is-left{opacity:.45;background:#f5f5f5;border-color:#ddd;color:#999;text-decoration:line-through;cursor:not-allowed;}
+  .eff-chip.is-left .x{display:none;}  /* 离职的不显示移出按钮（已自动脱离） */
+  /* eff 与档位系数不匹配：橙色小角标提示 */
+  .eff-chip .eff-mismatch{font-size:9px;font-weight:700;color:#fff;background:#f59e0b;border-radius:8px;padding:0 4px;margin-left:2px;line-height:1.5;white-space:nowrap;}
+  .eff-chip .eff-val{font-size:10px;color:#888;font-weight:400;}
   .eff-row.drop-on,.eff-unassigned.drop-on{background:#eafaf0;border-color:#0a7d3c;box-shadow:0 0 0 2px rgba(10,125,60,.18);}
   .eff-chip .x{cursor:pointer;color:#b6bfcc;font-weight:700;font-size:13px;line-height:1;padding:0 1px;}
   .eff-chip .x:hover{color:#f5413f;}
   .eff-del-tier{cursor:pointer;color:#c4ccd8;font-size:16px;line-height:1;background:none;border:none;padding:4px 2px;align-self:center;}
   .eff-del-tier:hover{color:#f5413f;}
+  .eff-sync-btn{font-size:11px;font-weight:600;color:#0a7d3c;background:#eafaf0;border:1px solid #c2ecd0;border-radius:6px;padding:3px 10px;cursor:pointer;transition:all .15s;}
+  .eff-sync-btn:hover{background:#0a7d3c;color:#fff;border-color:#0a7d3c;}
   .eff-unassigned{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:#b36b00;margin-top:6px;padding:7px 10px;background:#fffaf0;border:1px dashed #f0d28a;border-radius:8px;min-height:30px;}
   .eff-unassigned .ua-lab{font-size:11px;font-weight:700;color:#b36b00;margin-right:2px;}
   .eff-unassigned .eff-chip{background:#fff;border-color:#f0d28a;}
@@ -1140,6 +1148,7 @@
         <div class="t"><i style="background:#0a7d3c"></i>效率系数标定（实时驱动产能/风险计算）
           <button class="eff-lock locked" id="effLock" title="点击激活/锁定编辑">🔒 已锁定</button>
           <button class="eff-add-tier hide" id="effAddTier" title="新增一档">＋ 加一档</button>
+          <button class="eff-sync-btn" id="effSyncBtn" title="根据甘特图中成员的实际效率系数，自动将成员归入最匹配的档位（离职者自动移出）">🔄 同步</button>
         </div>
         <div id="effTiers" class="eff-tiers locked"></div>
         <p style="margin-top:8px;color:var(--tx3);">系数以 <b>1.0 = 一名标准基地人力</b> 为基准；&gt;1 比基准强、&lt;1 偏弱。修改系数、人群说明或把成员在档位间调整后，<b>每位成员的效率、负载率与需求风险会立即按新值重算</b>。</p>
@@ -2188,10 +2197,10 @@ function syncEffFromTiers(){
   EFF_TIERS.forEach(t=>{const c=Number(t.coef);if(!isFinite(c))return;(t.mems||[]).forEach(id=>{byMem[id]=c;});});
   members.forEach(m=>{ if(byMem[m.id]!=null) m.eff=byMem[m.id]; });
 }
-// 尚未分入任何档位的成员
+// 尚未分入任何档位的成员（含离职者，由 renderEffTable 负责灰化）
 function unassignedMems(){
   const has={};EFF_TIERS.forEach(t=>(t.mems||[]).forEach(id=>has[id]=1));
-  return members.filter(m=>!has[m.id] && !leftLong(m));   // 离职满1月不再列入未分档名单
+  return members.filter(m=>!has[m.id]);
 }
 // 成员当前所在档 index，未分档返回 -1
 function memTierIndex(id){
@@ -3909,6 +3918,7 @@ function pickMemStatus(k){
   if(k!=='left') delete m.leftAt;     // 改回非离职态：清除离职日，恢复正常显示/统计
   _logDesc=m.name+' 状态改为'+MSTATUS[k].label;
   save();broadcast();rerender();
+  renderEffTable();  // 刷新效率档位表（离职/状态变更影响显示）
   toast(m.name+'：'+MSTATUS[k].label);
 }
 /* 离职日期选择浮层：默认填今天，可改具体日期；确定后写 m.leftAt + status='left' */
@@ -3938,6 +3948,7 @@ function askLeaveDate(m){
     m.status='left'; m.leftAt=d;
     _logDesc=m.name+' 设为已离职（'+fmt(d)+'）';
     save();broadcast();rerender();
+    renderEffTable();  // 刷新效率档位表（离职自动灰化）
     toast(m.name+'：已离职 · '+fmt(d));
     close();
   };
@@ -5652,7 +5663,18 @@ function renderEffTable(){
   const EL=effLockedView();
   let html='';
   EFF_TIERS.forEach((t,ti)=>{
-    const chips=(t.mems||[]).filter(id=>!leftLong(members.find(x=>x.id===id))).map(id=>`<span class="eff-chip" data-ti="${ti}" data-id="${id}" title="拖到其它档可移动；拖到底部黄色区=移出">${effEsc(memNm(id))}<span class="x" data-act="rmMem" data-ti="${ti}" data-id="${id}" title="移出该档">×</span></span>`).join('');
+    const tCoef=Number(t.coef)||1;
+    // 每个成员 chip：离职灰化 + 显示当前 eff 值 + 不匹配角标
+    const chips=(t.mems||[]).map(id=>{
+      const m=members.find(x=>x.id===id);
+      if(!m) return '';
+      const isLeft=effLeft(m);
+      const curEff=m.eff!=null?m.eff:1;
+      const mismatch=Math.abs(curEff-tCoef)>0.001;
+      const leftCls=isLeft?' is-left':'';
+      const effBadge=mismatch?`<span class="eff-mismatch" title="该成员实际效率 ${curEff} 与本档系数 ${tCoef} 不一致，点击下方「同步」修正">⚠${curEff}</span>`:`<span class="eff-val">${curEff}</span>`;
+      return `<span class="eff-chip${leftCls}" data-ti="${ti}" data-id="${id}" title="${isLeft?'已离职，已自动脱离档位':'拖到其它档可移动；拖到底部黄色区=移出'} · 当前效率=${curEff}">${effEsc(m.name)}${effBadge}<span class="x" data-act="rmMem" data-ti="${ti}" data-id="${id}" title="移出该档">×</span></span>`;
+    }).join('');
     html+=`<div class="eff-row" data-droptier="${ti}">
       <input class="ef-coef" type="number" step="0.05" min="0" value="${t.coef}" data-act="coef" data-ti="${ti}" title="效率系数"${EL?' readonly':''}>
       <input class="ef-label" type="text" value="${effEsc(t.label)}" data-act="label" data-ti="${ti}" placeholder="对应人群说明"${EL?' readonly':''}>
@@ -5660,8 +5682,13 @@ function renderEffTable(){
       <button class="eff-del-tier" data-act="delTier" data-ti="${ti}" title="删除该档">×</button>
     </div>`;
   });
-  // 未分档区：可拖放（data-droptier=-1），成员渲成可拖拽 chip
-  const uaChips=ua.map(m=>`<span class="eff-chip" data-ti="-1" data-id="${m.id}" title="拖到上面任意一档完成归档">${effEsc(m.name)}</span>`).join('');
+  // 未分档区：显示所有未归档成员（含离职灰化）
+  const uaChips=ua.map(m=>{
+    const isLeft=effLeft(m);
+    const curEff=m.eff!=null?m.eff:1;
+    const leftCls=isLeft?' is-left':'';
+    return `<span class="eff-chip${leftCls}" data-ti="-1" data-id="${m.id}" title="${isLeft?'已离职':'拖到上面任意一档完成归档'} · 当前效率=${curEff}">${effEsc(m.name)}<span class="eff-val">${curEff}</span></span>`;
+  }).join('');
   html+=`<div class="eff-unassigned" data-droptier="-1"><span class="ua-lab">⚠ 未分档（按 1.0 计）</span>${uaChips||'<span style="font-size:11px;color:#b36b00">（无）</span>'}</div>`;
   box.innerHTML=html;
 }
@@ -5768,6 +5795,7 @@ function bindEffTable(){
   }
   box.addEventListener('pointerup',endDrag);
   box.addEventListener('pointercancel',e=>{if(ed){ghost.classList.remove('show');ed.chip.classList.remove('drag-src');ed=null;clearDrop();}});
+  bindEffSyncBtn();
 }
 // 锁定态 UI：切按钮样式、显隐加档钮、给档位容器加 .locked、重渲（让输入框只读态生效）
 /* 只读模式(未持有编辑锁)时，三张配置表一律强制按「已锁定」呈现，
@@ -5788,6 +5816,40 @@ function applyEffLockUI(){
   if(addBtn) addBtn.classList.toggle('hide', L);
   if(box) box.classList.toggle('locked', L);
   renderEffTable();
+}
+/* 同步：根据成员实际 m.eff 自动归档到最匹配档位（离职者移出） */
+function syncEffFromMembers(){
+  if(!requireWrite())return;
+  pushHistory();
+  let moved=0, removed=0;
+  members.forEach(m=>{
+    if(effLeft(m)){
+      // 离职：从所有档位移出
+      EFF_TIERS.forEach(t=>{t.mems=(t.mems||[]).filter(x=>x!==m.id);});
+      removed++;
+      return;
+    }
+    const curEff=m.eff!=null?m.eff:1;
+    // 找系数最接近的档
+    let bi=0, bd=1e9;
+    EFF_TIERS.forEach((t,i)=>{const d=Math.abs(curEff-(t.coef||1));if(d<bd){bd=d;bi=i;}});
+    const alreadyIn=(EFF_TIERS[bi].mems||[]).indexOf(m.id)>=0;
+    if(!alreadyIn){
+      EFF_TIERS.forEach(t=>{t.mems=(t.mems||[]).filter(x=>x!==m.id);});
+      EFF_TIERS[bi].mems.push(m.id);
+      moved++;
+    }
+  });
+  syncEffFromTiers();  // 回写 eff（双向一致）
+  save();broadcast();rerender();
+  renderEffTable();
+  toast(`已同步：${moved}人调整档位${removed>0?'，'+removed+'人离职移出':''}`);
+}
+/* 绑定同步按钮 */
+function bindEffSyncBtn(){
+  const btn=document.getElementById('effSyncBtn');
+  if(!btn||btn._bound)return; btn._bound=1;
+  btn.addEventListener('click',syncEffFromMembers);
 }
 
 /* ============ 投入比 / 精力分配表：渲染 + 编辑交互（数据驱动 + 锁定） ============ */
