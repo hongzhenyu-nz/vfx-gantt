@@ -1971,6 +1971,46 @@ function reqGapPpl(r){
   const std=REQ_STD[r&&r.id]; if(std==null) return 0;
   return Math.max(0, std-activeBase(r));
 }
+/* ============ 实时 HR 汇总：全部从 members + reqs 计算，不再依赖写死的 hrData ============
+   - 基础编制：在岗（非离职）成员总数
+   - 在岗制作人：在 reqs 里实际排了任务、且非离职的成员去重数（不含纯里程碑 qa）
+   - 已配置岗位：各需求实际在岗基地人数之和（activeBase）
+   - 缺口：Σ reqGapPpl(每条有标配的需求) + 暂缺占位成员数（名字含"暂缺"）
+   - 等级缺口：按需求 grade 分组汇总 reqGapPpl
+*/
+function isVacantMem(m){ return m && /暂缺/.test(m.name||''); }
+function computeHR(){
+  // 在岗成员（排除已到离职日的人）
+  const activeMems = members.filter(m=>!effLeft(m));
+  const base = activeMems.length;
+  // 暂缺占位成员（预排未到位，计入缺口）
+  const vacantCount = members.filter(m=>isVacantMem(m) && !effLeft(m)).length;
+  // 在岗制作人：在 reqs（非 qa 里程碑）里排了段的、非离职、非暂缺 成员去重
+  const makerSet = new Set();
+  let totalCfg = 0, totalGap = 0;
+  const gradeGap = {金:0, 橙:0, 红:0};
+  reqs.forEach(r=>{
+    if(r.kind==='qa') return;                     // 全量测试里程碑不计人力
+    (r.segs||[]).forEach(s=>{
+      const m=memById(s.m);
+      if(!m||effLeft(m)||isVacantMem(m)) return;
+      makerSet.add(m.id);
+    });
+    totalCfg += activeBase(r);                     // 实际在岗基地人数
+    const g = reqGapPpl(r);                         // 该需求实时缺口
+    totalGap += g;
+    if(g>0 && gradeGap[r.grade]!==undefined) gradeGap[r.grade]+=g;
+  });
+  return {
+    base,
+    makers: makerSet.size,
+    totalCfg,
+    totalGap,                                       // 标配口径缺口（不含暂缺）
+    vacantCount,
+    lack: totalGap + vacantCount,                   // 缺少数 = 标配缺口 + 暂缺占位
+    gradeGap,
+  };
+}
 /* 兼容旧调用（按管线粗粒度），现已不参与风险计算 */
 const LINE_GAP = { 'L1':3, 'L2':2, 'J':0, 'R':8, '-':0 };
 const lineGap = line => LINE_GAP[line]||0;
@@ -3268,35 +3308,34 @@ function renderHR(){
   // 汇总（在岗去重排除离职）
   let totalMakers=new Set(), totalCfg=0, totalGap=0, gradeCnt={金:0,橙:0,红:0}, gradeGap={金:0,橙:0,红:0};
   const isLeftName=(n)=>{const b=String(n).replace(/[·\(].*$/,'');const m=members.find(x=>x.name===b);return m&&m.status==='left';};
-  // 动态统计正编(带队)在岗人数
-  const regActive = members.filter(m => m.corp === 'reg' && m.status !== 'left').length;
   hrData.forEach(m=>m.roles.forEach(r=>{
     r.makers.forEach(n=>{if(!isLeftName(n))totalMakers.add(n);});
     r.tmp.forEach(n=>{if(!isLeftName(n))totalMakers.add(String(n).replace(/[·\(].*$/,''));});
-    totalCfg+=r.cfg; totalGap+=r.gap;
     if(r.grade && gradeCnt[r.grade]!==undefined) gradeCnt[r.grade]+=(r.cfg+r.gap);
-    if(r.grade && gradeGap[r.grade]!==undefined) gradeGap[r.grade]+=r.gap;
   }));
-  // 构建动态等级缺口描述
-  const gradeParts = [];
-  if(gradeGap.金>0) gradeParts.push(`金角${gradeGap.金}人`);
-  if(gradeGap.橙>0) gradeParts.push(`橙角${gradeGap.橙}人`);
-  if(gradeGap.红>0) gradeParts.push(`红角${gradeGap.红}人`);
-  const detailStr = gradeParts.length ? gradeParts.join(' / ') : '各线已配齐';
+  // ★ 顶部汇总卡：全部改用实时数据（computeHR 从 members+reqs 算），不再读 hrData/HR_CONCLUSION
+  const HR = computeHR();
+  const detailParts=[];
+  if(HR.gradeGap.金>0) detailParts.push(`金角${HR.gradeGap.金}人`);
+  if(HR.gradeGap.橙>0) detailParts.push(`橙角${HR.gradeGap.橙}人`);
+  if(HR.gradeGap.红>0) detailParts.push(`红角${HR.gradeGap.红}人`);
+  if(HR.vacantCount>0) detailParts.push(`暂缺占位${HR.vacantCount}人`);
+  const detailStr = detailParts.length ? detailParts.join(' / ') : '各线已配齐';
   let html=`<div class="hr-wrap">`;
-  // 顶部汇总卡（全部动态计算）
+  // 顶部汇总卡（全部动态计算，随甘特表实时联动）
   html+=`<div class="hr-summary">
-    <div class="hr-sc total"><div class="lab">基础编制人数</div><div class="val">${regActive}</div></div>
-    <div class="hr-sc"><div class="lab">在岗制作人(去重)</div><div class="val">${totalMakers.size}</div></div>
-    <div class="hr-sc"><div class="lab">已配置岗位</div><div class="val">${totalCfg}</div></div>
-    <div class="hr-sc gap"><div class="lab">未来需增补线缺</div><div class="val">${totalGap}</div></div>
-    <div class="hr-sc"><div class="lab">缺少数</div><div class="val d">${totalGap + members.filter(m=>!m.lead||m.lead==='—'||m.lead==='-').length}</div></div>
+    <div class="hr-sc total"><div class="lab">在岗编制人数</div><div class="val">${HR.base}</div></div>
+    <div class="hr-sc"><div class="lab">在岗制作人(去重)</div><div class="val">${HR.makers}</div></div>
+    <div class="hr-sc"><div class="lab">已配置岗位</div><div class="val">${HR.totalCfg}</div></div>
+    <div class="hr-sc gap"><div class="lab">标配缺口</div><div class="val">${HR.totalGap}</div></div>
+    <div class="hr-sc"><div class="lab">缺少数(含暂缺)</div><div class="val d">${HR.lack}</div></div>
   </div>`;
   // 缺口结论条（动态生成）
   let gradeBarHtml = '';
-  if(gradeGap.金>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#16a34a"></span>金角 <b>缺${gradeGap.金}人</b></div>`;
-  if(gradeGap.橙>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#f59e0b"></span>橙角 <b style="color:#d97706">缺${gradeGap.橙}人</b></div>`;
-  if(gradeGap.红>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#ef3b39"></span>红角 <b style="color:#d32320">缺${gradeGap.红}人</b></div>`;
+  if(HR.gradeGap.金>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#16a34a"></span>金角 <b>缺${HR.gradeGap.金}人</b></div>`;
+  if(HR.gradeGap.橙>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#f59e0b"></span>橙角 <b style="color:#d97706">缺${HR.gradeGap.橙}人</b></div>`;
+  if(HR.gradeGap.红>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#ef3b39"></span>红角 <b style="color:#d32320">缺${HR.gradeGap.红}人</b></div>`;
+  if(HR.vacantCount>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#d32320"></span>暂缺占位 <b style="color:#d32320">${HR.vacantCount}人</b></div>`;
   if(!gradeBarHtml) gradeBarHtml = `<div class="gi" style="color:#16a34a">✅ 各角色线暂无缺口</div>`;
   html+=`<div class="hr-grade-bar">
     ${gradeBarHtml}
@@ -3378,10 +3417,8 @@ function updateKPIs(){
   // 高风险需求
   const high=reqs.filter(r=>reqRisk(r).lvl==='高').length;
   document.getElementById('kp-high').textContent=high;
-  // 常规管线缺口：动态计算 = 无隶属成员(暂缺) + hrData 各角色线缺口总和
-  const vacantCount = activeMems.filter(m=>!m.lead||m.lead==='—'||m.lead==='-').length;
-  const hrTotalGap = hrData.reduce((s,m)=>s+m.roles.reduce((a,r)=>a+(r.gap||0),0),0);
-  document.getElementById('kp-done').textContent=(vacantCount+hrTotalGap)+'人';
+  // 常规管线缺口：与下方 HR 汇总口径统一 = 标配缺口 + 暂缺占位（实时从 members+reqs 算）
+  document.getElementById('kp-done').textContent=computeHR().lack+'人';
 }
 
 /* ============ tooltip ============ */
