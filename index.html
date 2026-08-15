@@ -3477,9 +3477,20 @@ window.addEventListener('pointerup',()=>{
   }else{ rerender(); }
 });
 
-// 右键单击任务条 → 选中 + 弹出状态/操作菜单
+// 右键单击任务条 / 左栏需求行 / 成员行 → 选中 + 弹出状态/操作菜单
 document.addEventListener('contextmenu',e=>{
-  const bar=e.target.closest('.bar-task'); if(!bar)return;
+  let bar=e.target.closest('.bar-task');
+  // 右键点在「按需求看」的需求行上（.req-row）→ 找到该行的 req-bar 作为菜单锚点
+  if(!bar){
+    const row=e.target.closest('.req-row[data-req-row]');
+    if(row) bar=row.querySelector('.bar-task.req-bar')||row.querySelector('.bar-task');
+  }
+  // 右键点在「按人看」的成员行左栏上（.row[data-mem]）→ 找到该成员的第一个任务条作为锚点
+  if(!bar){
+    const memRow=e.target.closest('.row[data-mem]');
+    if(memRow) bar=memRow.querySelector('.bar-task');
+  }
+  if(!bar)return;
   e.preventDefault();                          // 屏蔽浏览器默认右键菜单
   setSelected(bar);                            // 先选中
   openStatusMenu(bar, e.clientX, e.clientY);   // 再弹菜单
