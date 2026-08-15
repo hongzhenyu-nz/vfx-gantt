@@ -3459,7 +3459,7 @@ window.addEventListener('pointerup',()=>{
     }else{ rerender(); }
     return;
   }
-  if(movedPx<5 && mode==='m'){ openStatusMenu(bar,d.lastX,d.lastY); return; }
+  if(movedPx<5 && mode==='m'){ /* 左键单击=仅选中(已在pointerdown中setSelected)，不弹菜单；右键菜单由contextmenu事件处理 */ return; }
   if(delta!==0 || targetMember){
     pushHistory();
     applyEdit(bar,delta,mode);
@@ -3476,6 +3476,14 @@ window.addEventListener('pointerup',()=>{
     save();broadcast();rerender();
   }else{ rerender(); }
 });
+
+// 右键单击任务条 → 选中 + 弹出状态/操作菜单
+document.addEventListener('contextmenu',e=>{
+  const bar=e.target.closest('.bar-task'); if(!bar)return;
+  e.preventDefault();                          // 屏蔽浏览器默认右键菜单
+  setSelected(bar);                            // 先选中
+  openStatusMenu(bar, e.clientX, e.clientY);   // 再弹菜单
+}, {passive:false});
 
 function rowMemberAt(x,y){
   const el=document.elementFromPoint(x,y);
