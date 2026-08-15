@@ -236,6 +236,13 @@
   /* 按人看：加任务钮挂在姓名行末尾，与姓名留间距，弱于姓名 */
   .who .nm .inl-add{margin-left:8px;}
   .row.is-left .inl-add{opacity:.5;}
+  /* 按人看：编辑成员钮，与加任务并列 */
+  .inl-edit{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;vertical-align:middle;
+    font-size:10px;font-weight:700;line-height:1;white-space:nowrap;cursor:pointer;
+    color:#6b7280;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:7px;padding:2px 7px;transition:.12s;}
+  .inl-edit:hover{background:#374151;color:#fff;border-color:#374151;box-shadow:0 2px 7px rgba(55,65,81,.28);}
+  .who .nm .inl-edit{margin-left:4px;}
+  .row.is-left .inl-edit{opacity:.5;}
   /* 按需求看：加人钮独立成行，左缩进对齐成员组 */
   .who-grp.add-row{min-height:auto;margin-top:1px;}
   .who-grp.add-row .grp-lab{line-height:1;}
@@ -2876,7 +2883,7 @@ function personRowHTML(m,inArc){
           ${L.pct>110?'<i class="olflag" title="超载">!</i>':''}
         </div>
         <div class="who">
-          <div class="nm">${G?`<span class="gdot-grade" style="background:${G.col}" title="${G.label}级"></span>`:''}${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
+          <div class="nm">${G?`<span class="gdot-grade" style="background:${G.col}" title="${G.label}级"></span>`:''}${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-edit" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openEditMember('${m.id}')" title="编辑成员信息（姓名/编制/隶属/模块/品级/效率/状态）">✎</button><button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
           <div class="tags">
             ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：带队负责的模块（可下拉选预设，也可自行输入）">👑 带 ${escAttr(m.lead)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
             <span class="ltag eff" title="效率系数（1.0 为基准产能，>1 更快、<1 更慢）">⚡ 效率 ${m.eff}</span>
@@ -4459,6 +4466,73 @@ function confirmNewMember(){
   revealEntity('mem', m.id);
   toast(`已添加新成员：${name}`);
 }
+
+/* ============ 编辑现有成员：复用新增表单字段，确认时改原记录而非新建 ============ */
+function openEditMember(memId){
+  if(!requireWrite())return;
+  const m=members.find(x=>x.id===memId); if(!m)return;
+  addCtx={mode:'editMember', memId};
+  const gradeOpt=GRADE_OPTS_LIST.map(g=>`<option value="${g}" ${m.grade===g?'selected':''}>${g===''?'通用（无品级）':g+'级'}</option>`).join('');
+  const modOpt=MOD_OPTS_LIST.map(o=>`<option value="${o}" ${m.mod===o?'selected':''}>${o}</option>`).join('');
+  const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}" ${m.line===l[0]?'selected':''}>${l[1]}</option>`).join('');
+  const body=`
+    <div class="ctx">编辑 <b>${escAttr(m.name)}</b> 的成员信息。提交后实时刷新左侧名单、等级圆标、效率档位表与负载统计。</div>
+    <div class="row2">
+      <div class="fld"><label>姓名</label><input type="text" id="nmName" value="${escAttr(m.name)}" placeholder="如：张三"></div>
+      <div class="fld"><label>编制</label><select id="nmCorp" onchange="nmCorpChange()"><option value="base" ${m.corp==='base'?'selected':''}>基地</option><option value="reg" ${m.corp==='reg'?'selected':''}>正编（带队）</option></select></div>
+    </div>
+    <div class="row2">
+      <div class="fld" id="nmLeadFld"><label>隶属带队（正编）</label><select id="nmLead">${regLeaderOpts(m.corp==='reg'?m.name:(m.lead||'—'))}</select></div>
+      <div class="fld"><label>模块</label><select id="nmMod">${modOpt}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>品级</label><select id="nmGrade">${gradeOpt}</select></div>
+      <div class="fld"><label>管线</label><select id="nmLine">${lineOpt}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>效率系数</label><input type="number" id="nmEff" value="${m.eff}" step="0.05" min="0"></div>
+      <div class="fld"><label>状态</label><select id="nmStatus"><option value="on" ${m.status==='on'?'selected':''}>在岗</option><option value="new" ${m.status==='new'?'selected':''}>新人</option><option value="busy" ${m.status==='busy'?'selected':''}>忙碌</option><option value="leave" ${m.status==='leave'?'selected':''}>请假</option><option value="left" ${m.status==='left'?'selected':''}>离职</option></select></div>
+    </div>
+    <label class="org-chk" style="font-size:12px;margin-bottom:6px"><input type="checkbox" id="nmSupport" ${m.support?'checked':''}>外借支援（编制在本团队，不隶属角色线，如武器特效）</label>
+    <div class="warn" id="nmWarn"></div>`;
+  renderAddModal('👤', '编辑成员 · '+m.name, body, true);
+  const ok=document.getElementById('addOk');
+  if(ok){ ok.textContent='保存修改'; ok.setAttribute('onclick','confirmEditMember()'); }
+  nmCorpChange();
+}
+function confirmEditMember(){
+  if(!requireWrite())return;
+  const {memId}=addCtx||{}; const m=members.find(x=>x.id===memId); if(!m)return;
+  const name=(document.getElementById('nmName').value||'').trim();
+  const warn=document.getElementById('nmWarn');
+  if(!name){ warn.textContent='请填写姓名'; warn.classList.add('show'); return; }
+  if(members.some(x=>x.id!==memId && x.name===name)){ warn.textContent='已存在同名成员，请用其它名称'; warn.classList.add('show'); return; }
+  const corp=document.getElementById('nmCorp').value;
+  const support=document.getElementById('nmSupport').checked;
+  let lead=corp==='reg'?name:(document.getElementById('nmLead').value||'—');
+  if(support) lead='—';   // 外借支援：无角色线归属
+  const eff=parseFloat(document.getElementById('nmEff').value)||1.0;
+  pushHistory();
+  const oldName=m.name;
+  m.name=name;
+  m.corp=corp;
+  m.lead=lead;
+  m.mod=document.getElementById('nmMod').value;
+  m.grade=document.getElementById('nmGrade').value;
+  m.line=document.getElementById('nmLine').value;
+  m.eff=Math.round(eff*100)/100;
+  m.status=document.getElementById('nmStatus').value;
+  if(support) m.support=true; else delete m.support;
+  // 改名后同步其名下任务的成员显示引用（任务条按 member id 关联，无需改需求；仅同步 leftAt/状态外的可见名）
+  _logDesc=(oldName!==name?('成员改名：'+oldName+'→'+name):('修改成员信息：'+m.name));
+  save();broadcast();
+  // 同步刷新效率档位表（v5.22 互通）：grade/eff 变化会影响归档
+  if(typeof renderEffTable==='function') renderEffTable();
+  closeAdd();
+  rerender();
+  toast(`已保存：${m.name}`);
+}
+
 
 /* ============ 标签内联编辑：隶属（基地换正编）/ 带队模块（正编可改可选） ============
    就地把人名行里的归属胶囊替换为编辑控件，回车 / 选中 / 失焦即提交，Esc 取消。
