@@ -1089,7 +1089,7 @@
   </div>
 
   <div class="bar" style="margin-top:-6px">
-    <span class="hint" id="hintBar">💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求</span>
+    <span class="hint" id="hintBar">💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除/需求操作（改信息·删需求）· 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求</span>
     <div class="spacer"></div>
     <div class="legend" id="legend"></div>
   </div>
@@ -1716,6 +1716,86 @@ function confirmEditLt(){
   toast('联调已更新：'+name+'（'+est+'人天）');
 }
 let ltCtx=null;   // {mode:'add',hostId} | {mode:'edit',ltId}
+
+/* ============ 修改需求信息 / 删除需求（需求级生命周期操作） ============ */
+let erCtx=null;   // {reqId} —— 正在编辑信息的需求
+/* 修改需求基本信息：名称 / 角色名 / 模块 / 品级 / 管线 / 工作量人天 / 已完成人天。
+   两视图共用同一份数据，改后标题、标签、分组配色同步更新。联调(lt)走 openEditLt。 */
+function openEditReq(reqId){
+  if(!requireWrite()){hideMenu();return;}
+  const r=reqs.find(z=>z.id===reqId && z.kind!=='lt'); if(!r){hideMenu();return;}
+  hideMenu();
+  erCtx={reqId:r.id};
+  const gradeOpt=GRADE_OPTS_LIST.map(g=>`<option value="${g}" ${r.grade===g?'selected':''}>${g===''?'通用':g+'级'}</option>`).join('');
+  const modOpt=MOD_OPTS_LIST.filter(m=>m!=='联调').map(m=>`<option value="${m}" ${r.mod===m?'selected':''}>${m}</option>`).join('');
+  const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}" ${r.line===l[0]?'selected':''}>${l[1]}</option>`).join('');
+  const g=HR_GRADE[r.grade]||HR_GRADE[''];
+  const body=`
+    <div class="ctx" style="background:#eef6ff;border-color:#bcd9f7;color:#185fa5">修改需求 <b>${escAttr(r.name)}</b> 的基本信息。改动后「按需求看 / 按人看」的标题、标签、分组配色会同步更新（共用同一份数据）。</div>
+    <div class="row2">
+      <div class="fld"><label>需求名称</label><input type="text" id="erName" value="${escAttr(r.name)}"></div>
+      <div class="fld"><label>角色名</label><input type="text" id="erChar" value="${escAttr(r.char)}" placeholder="如：红蔻·赤焰"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>模块</label><select id="erMod">${modOpt}</select></div>
+      <div class="fld"><label>品级</label><select id="erGrade">${gradeOpt}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>管线</label><select id="erLine">${lineOpt}</select></div>
+      <div class="fld"><label>工作量（人天）</label><input type="number" id="erEst" value="${r.estimate}" min="1" step="1"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>已完成人天</label><input type="number" id="erDone" value="${r.done||0}" min="0" step="1"></div>
+      <div class="fld" style="display:flex;align-items:flex-end;color:var(--tx3);font-size:12px">当前：${g.label}级${r.line&&r.line!=='-'?' · '+lineName(r.line):''} · ${modMeta(r.mod).s||r.mod}</div>
+    </div>
+    <div class="warn" id="erWarn"></div>`;
+  renderAddModal('✎', '修改需求信息', body, true);
+  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmEditReq()');
+}
+function confirmEditReq(){
+  if(!erCtx)return;
+  if(!requireWrite())return;
+  const r=reqs.find(z=>z.id===erCtx.reqId); if(!r){closeAdd();return;}
+  const warn=document.getElementById('erWarn');
+  const name=(document.getElementById('erName').value||'').trim();
+  if(!name){ warn.textContent='请填写需求名称'; warn.classList.add('show'); return; }
+  const charV=(document.getElementById('erChar').value||'').trim();
+  const est=Math.max(1,parseInt(document.getElementById('erEst').value,10)||r.estimate);
+  const done=Math.max(0,parseInt(document.getElementById('erDone').value,10)||0);
+  pushHistory();
+  const oldChar=r.char;
+  r.name=name;
+  r.char = charV || name;
+  r.mod = document.getElementById('erMod').value;
+  r.grade = document.getElementById('erGrade').value;
+  r.line = document.getElementById('erLine').value;
+  r.estimate = est;
+  r.done = done;
+  if(oldChar!==r.char) relinkLt();   // 角色名变了 → 联调挂载关系需重算
+  _logDesc='修改需求信息：'+name;
+  save();broadcast();closeAdd();
+  rerender();
+  revealEntity('req', r.id);
+  toast('需求信息已更新：'+name);
+}
+/* 删除整条需求（含其挂载的联调）。带确认、可撤销、可云同步；清除可能失效的选中/剪贴板引用。 */
+function deleteReq(reqId){
+  if(!requireWrite())return;
+  const r=reqs.find(z=>z.id===reqId); if(!r)return;
+  const isLt = r.kind==='lt';
+  const nm = isLt ? (charShort(r.char)+' 联调') : r.name;
+  const extra = (!isLt && r.children && r.children.length) ? `\n\n该需求还挂着 ${r.children.length} 条联调，删除后联调也会一并移除。` : '';
+  if(!confirm(`确定删除需求「${nm}」吗？\n删除后该需求及其所有任务条将永久移除，可用 Ctrl+Z 撤销。${extra}`)) return;
+  pushHistory();
+  const delIds=new Set([reqId, ...(r.children||[])]);
+  for(let i=reqs.length-1;i>=0;i--){ if(delIds.has(reqs[i].id)) reqs.splice(i,1); }
+  relinkLt();   // 重算其余联调挂载关系
+  if(selectedBar && delIds.has(selectedBar.reqId)) setSelected(null);
+  if(clip && delIds.has(clip.reqId)) clearClip();
+  _logDesc='删除需求：'+nm;
+  save();broadcast();rerender();
+  toast('已删除需求：'+nm+'，可 Ctrl+Z 撤销');
+}
 
 /* ============ 人力分配数据（来源：当前人力分配脑图 / 企微表「当前人力分配」子表） ============ */
 /* 结论：目前基地总人数 14 人，未来常规管线共缺 11 人（金角4人 / 橙角1号5人 / 橙角2号5人 / 红角11人） */
@@ -3547,6 +3627,21 @@ function openStatusMenu(bar,x,y){
     }
     items+=`<div class="msep"></div>`;
     items+=`<div class="mi danger" onclick="deleteSeg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>删除任务（${memName(sg.m)}）</div>`;
+  }
+  // 需求级操作：修改信息 / 删除（联调走各自流程）
+  {
+    const _r = reqs.find(z=>z.id===menuCtx.reqId);
+    if(_r){
+      items+=`<div class="msep"></div>`;
+      items+=`<div class="mtitle">需求操作</div>`;
+      if(_r.kind==='lt'){
+        items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="hideMenu();openEditLt('${_r.id}')"><i style="background:#7c3aed"></i>修改联调信息</div>`;
+        items+=`<div class="mi danger" onclick="hideMenu();deleteReq('${_r.id}')"><i style="background:#b04632"></i>删除联调需求</div>`;
+      }else{
+        items+=`<div class="mi" style="color:#185fa5;font-weight:600" onclick="hideMenu();openEditReq('${_r.id}')"><i style="background:#2563eb"></i>修改需求信息</div>`;
+        items+=`<div class="mi danger" onclick="hideMenu();deleteReq('${_r.id}')"><i style="background:#b04632"></i>删除需求（连同其联调）</div>`;
+      }
+    }
   }
   menu.innerHTML=items;
   menu.classList.add('show');
