@@ -3698,10 +3698,17 @@ function openStatusMenu(bar,x,y){
   }
   menu.innerHTML=items;
   menu.classList.add('show');
-  let mx=x, my=y; if(mx>innerWidth-330)mx=innerWidth-330; if(my>innerHeight-(isSeg?600:220))my=Math.max(8,innerHeight-(isSeg?600:220));
+  let mx=x, my=y; if(mx>innerWidth-330)mx=innerWidth-330;
   menu.style.left=mx+'px';menu.style.top=my+'px';
+  // 测量实际渲染高度，自适应上移避免底部被视口截断
+  const mh=menu.offsetHeight;
+  if(my+mh>innerHeight-12) my=Math.max(8, innerHeight-mh-12);
+  // 菜单比视口还高时：限制 maxHeight + 允许纵向滚动（极端长菜单兜底）
+  if(mh>innerHeight-16){ menu.style.maxHeight=(innerHeight-16)+'px'; menu.style.overflowY='auto'; }
+  else { menu.style.maxHeight=''; menu.style.overflowY=''; }
+  menu.style.top=my+'px';
 }
-function hideMenu(){menu.classList.remove('show');menuCtx=null;memMenuCtx=null;reqStateCtx=null;}
+function hideMenu(){menu.classList.remove('show');menu.style.maxHeight='';menu.style.overflowY='';menuCtx=null;memMenuCtx=null;reqStateCtx=null;}
 /* 删除某条任务段（人的排期）。reqId+seg 定位；删空后若该需求无人则保留空需求行。 */
 function removeSeg(reqId, seg){
   if(!requireWrite())return false;
