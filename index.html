@@ -3468,6 +3468,13 @@ window.addEventListener('pointermove',e=>{
   }
   showDragLabel(e);
 });
+window.addEventListener('pointercancel',()=>{
+  // 指针意外中断（离开窗口/触控中断等）：清理所有拖拽状态，防止 drop-guide 残留
+  if(drag){drag=null;}
+  if(phdrag){phdrag=null;}
+  hideDragLabel();
+  document.querySelectorAll('.dragging,.dup-src,.row-target').forEach(el=>el.classList.remove('dragging','dup-src','row-target'));
+});
 window.addEventListener('pointerup',()=>{
   // 分割线拖拽收尾：写回 r.split（L1 完成时间）或 r.split2（联调开始时间）
   if(phdrag){
@@ -6097,6 +6104,9 @@ function applyStdLockUI(){
 }
 
 function rerender(){
+  // 安全清理：每次重渲染时强制隐藏所有拖拽残留（drop-guide、dragging 状态等）
+  ['dropG0','dropG1','dropBand'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('show');});
+  document.querySelectorAll('.dragging,.dup-src,.row-target').forEach(el=>el.classList.remove('dragging','dup-src','row-target'));
   _resetPeakParCache();                 // 排期可能变更→清空并行峰值缓存，确保人级并行判定实时
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
