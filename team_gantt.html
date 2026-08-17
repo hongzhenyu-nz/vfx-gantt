@@ -202,6 +202,14 @@
   .row{display:flex;border-bottom:1px solid var(--line2);min-height:var(--row-h);position:relative;transition:background .12s;}
   .row:last-child{border-bottom:none;}
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);}
+  /* 负载热力图（拥堵线路图风格）——紧跟表头下方 */
+  .load-heatmap{display:flex;align-items:center;border-bottom:1px solid var(--line2);background:#fafbfc;position:relative;z-index:4;height:24px;flex-shrink:0;}
+  .load-heatmap .load-label{width:var(--left-w);flex-shrink:0;display:flex;align-items:center;padding-left:12px;font-size:10px;font-weight:700;color:#9097a0;letter-spacing:.5px;user-select:none;}
+  .load-heatmap .load-track{position:relative;flex:1;height:100%;overflow:hidden;}
+  .load-heatmap .load-seg{position:absolute;top:0;bottom:0;transition:background .15s;}
+  .load-heatmap .load-seg.idle-day{background-image:repeating-linear-gradient(-45deg,transparent,transparent 2px,rgba(255,255,255,.3) 2px,rgba(255,255,255,.3) 4px) !important;box-shadow:inset 0 0 0 1.5px rgba(245,158,11,.6);}
+  .load-heatmap .load-legend-idle{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:#b45309;background:#fef3c7;border:1px solid #fbbf24;border-radius:10px;padding:1px 8px;white-space:nowrap;z-index:6;animation:idlePulse 2s ease-in-out infinite;pointer-events:none;}
+  @keyframes idlePulse{0%,100%{opacity:1;}50%{opacity:.5;}}
   .row.row-target{background:#eaf1ff;}
   .row.row-target .cell-left{background:#eaf1ff;box-shadow:inset 4px 0 0 var(--blue);}
   .row.row-target .timeline{outline:2px dashed #9dbcff;outline-offset:-3px;border-radius:6px;}
@@ -213,10 +221,10 @@
   @keyframes newrowglow{0%{background:#efe6ff;box-shadow:inset 0 0 0 2px #a87bf5,0 0 0 0 rgba(124,58,237,.5);}18%{background:#efe6ff;}100%{background:transparent;box-shadow:inset 0 0 0 0 rgba(124,58,237,0),0 0 0 0 rgba(124,58,237,0);}}
   @keyframes newbadge{0%{opacity:0;transform:translateY(-4px) scale(.9);}10%{opacity:1;transform:none;}80%{opacity:1;}100%{opacity:0;}}
   /* 拖拽落点：全高竖向参考线（标记将要落到的起止日期列） */
-  .drop-guide{position:absolute;top:54px;bottom:0;width:0;border-left:2px dashed var(--blue);z-index:8;pointer-events:none;display:none;}
+  .drop-guide{position:absolute;top:78px;bottom:0;width:0;border-left:2px dashed var(--blue);z-index:8;pointer-events:none;display:none;}
   .drop-guide.show{display:block;}
   .drop-guide.gend{border-left-color:#9dbcff;border-left-style:dotted;}
-  .drop-band{position:absolute;top:54px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}
+  .drop-band{position:absolute;top:78px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}
   .drop-band.show{display:block;}
   /* 视角高亮：选中的"我"本人 + 隶属于我的人员行 */
   .row.me-self .cell-left{background:#fff5e6;box-shadow:inset 4px 0 0 #ff9f0a;}
@@ -2811,6 +2819,119 @@ function barCls(r,seg){
   return reqRisk(r).txt+k;
 }
 
+/* ============ 负载热力图（拥堵线路图风格） ============
+   在时间轴头部下方显示一条色带，每列一天，颜色表示当天整体负载率：
+   - 绿色：负载低（<60%）→ 有空余
+   - 黄色：负载适中（60-80%）
+   - 橙色：负载高（80-100%）
+   - 红色：超载（100-130%，有人并行多任务）
+   - 深红：严重超载（>130%）
+   - 灰色带闪烁标记：当天有活跃成员完全空闲（0任务）
+   计算口径：仅统计在岗非离职、非暂缺成员；按需求段覆盖天数求和。 */
+function loadHeatmapHTML(){
+  // 1. 筛选有效在岗成员
+  const activeMembers = members.filter(m =>
+    !isVacantMem(m) && !effLeft(m) && !leftLong(m)
+  );
+  if(activeMembers.length === 0) return '';
+  const totalActive = activeMembers.length;
+
+  // 2. 预计算每天的任务覆盖次数（一个成员在同一天被多个段覆盖=并行，计为多次）
+  const dayLoad = new Int32Array(DAYS); // 每天被分配的总人次
+  const dayCovers = new Uint8Array(DAYS); // 每天至少有一个任务的成员数（去重）
+  
+  // 成员→哪些天有任务（用于检测"完全空闲"）
+  const memberHasTaskOnDay = new Map(); // memberId → Set of day indices
+  
+  activeMembers.forEach(m => {
+    const taskDays = new Set();
+    reqs.forEach(r => {
+      if(reqClosed(r)) return; // 已完成/废弃的需求不参与负载计算
+      (r.segs||[]).forEach(s => {
+        if(s.m !== m.id) return;
+        let si = idx(s.s), ei = idx(s.e);
+        if(s.open){ si=0; ei=DAYS; }
+        else if(ei <= si) return;
+        si = Math.max(0, si); ei = Math.min(ei, DAYS);
+        for(let d=si; d<ei; d++){
+          dayLoad[d]++;
+          taskDays.add(d);
+        }
+      });
+    });
+    // 记录此成员有任务的天
+    taskDays.forEach(d => { dayCovers[d]++; });
+    memberHasTaskOnDay.set(m.id, taskDays);
+  });
+
+  // 3. 检测完全空闲的成员（在整个时间范围内没有任何任务）
+  const idleMembers = activeMembers.filter(m => {
+    const tasks = memberHasTaskOnDay.get(m.id);
+    return !tasks || tasks.size === 0;
+  });
+
+  // 4. 颜色映射函数（负载率 → 颜色）
+  // 负载率 = 有任务成员数 / 总在岗成员数（>1 表示有人并行）
+  const loadColor = (covered, total) => {
+    if(total === 0) return 'transparent';
+    const ratio = covered / total;
+    if(ratio < 0.5)  return '#4ade80';  // 绿：宽松
+    if(ratio < 0.7)  return '#a3e635';  // 浅绿：轻度
+    if(ratio < 0.85) return '#facc15';  // 黄：适中
+    if(ratio < 1.0)  return '#fb923c';  // 橙：繁忙
+    if(ratio < 1.2)  return '#ef4444';  // 红：饱和/微超
+    return '#dc2626';                   // 深红：严重超载
+  };
+
+  // 5. 生成色带 HTML（每列 = DAY_W 宽度的一天）
+  let bars = '';
+  let idleMarkerDay = -1; // 在哪天显示空闲标记（选今天或第一个有数据的日子)
+  
+  for(let i=0; i<DAYS; i++){
+    const covered = dayCovers[i];
+    const totalLoad = dayLoad[i];
+    const color = loadColor(covered, totalActive);
+    
+    // 检测当天是否有空闲者（有人在当天及前后窗口内无任务）
+    const hasIdleToday = idleMembers.some(m => {
+      const tasks = memberHasTaskOnDay.get(m.id);
+      if(!tasks || tasks.size === 0) return true; // 完全无任务的人任何天都算空闲
+      // 当天无任务
+      return !tasks.has(i);
+    });
+
+    // 特殊标记：空闲日（用条纹+边框标识）
+    const idleCls = (hasIdleToday && covered < totalActive) ? ' idle-day' : '';
+    const idleAttr = hasIdleToday ? ' data-idle="1"' : '';
+    
+    // tooltip 信息
+    const ratioPct = totalActive > 0 ? Math.round(covered/totalActive*100) : 0;
+    const parallelExtra = Math.max(0, totalLoad - covered);
+    const tipParts = [];
+    tipParts.push(`负载 ${ratioPct}%（${covered}/${totalActive}人有任务）`);
+    if(parallelExtra > 0) tipParts.push(`并行 +${parallelExtra}人次`);
+    if(hasIdleToday && idleMembers.length > 0){
+      const idleNames = idleMembers.map(m=>m.name).join('、');
+      tipParts.push(`⚠ ${idleNames} 空闲`);
+    }
+    const tip = tipParts.join('　');
+
+    bars += `<div class="load-seg${idleCls}" style="left:${i*DAY_W}px;width:${DAY_W}px;background:${color}"${idleAttr}
+      onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()"></div>`;
+  }
+
+  // 6. 图例
+  const legend = idleMembers.length > 0 
+    ? `<span class="load-legend-idle">⚠ ${idleMembers.map(m=>m.name).join('、')} 空闲</span>` 
+    : '';
+
+  return `<div class="load-heatmap" id="loadHeatmap">
+    <div class="load-label">负载</div>
+    <div class="load-track" style="width:${DAYS*DAY_W}px">${bars}</div>
+    ${legend}
+  </div>`;
+}
+
 /* ============ 表头（按月+按周粒度，适配全跨度） ============ */
 function headerHTML(){
   let months='',weeks='',vlines='',shades='';
@@ -3104,7 +3225,7 @@ function personRowHTML(m,inArc){
         <div class="who">
           <div class="nm"><span class="gdot-grade" style="background:${(G||HR_GRADE['']).col}" title="${G?G.label+'级':'未设品级'}"></span>${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-edit" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openEditMember('${m.id}')" title="编辑成员信息（姓名/编制/隶属/模块/效率/状态）">✎</button><button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
           <div class="tags">
-            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：带队负责的模块（可下拉选预设，也可自行输入）">👑 带 ${escAttr(m.lead)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
+            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：负责的角色与模块（可下拉选择）">${formatLeadDisplay(m)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
             <span class="ltag eff" title="效率系数（1.0 为基准产能，>1 更快、<1 更慢）">⚡ 效率 ${m.eff}</span>
           </div>
         </div>
@@ -3302,8 +3423,10 @@ function reqRowHTML(r, prevR, nextR, inArc){
 function paint(rows){
   const h=headerHTML();
   const [head,vlines]=h.split('__VLINES__');
+  const loadBar = loadHeatmapHTML();
   document.getElementById('grid').innerHTML =
-    head + `<div style="position:absolute;left:var(--left-w);top:54px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
+    head + `<div style="position:absolute;left:var(--left-w);top:78px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
+    + loadBar
     + `<div class="drop-band" id="dropBand"></div><div class="drop-guide" id="dropG0"></div><div class="drop-guide gend" id="dropG1"></div>`
     + rows;
   updateKPIs();
@@ -4759,7 +4882,26 @@ function regLeaderOpts(sel){
 }
 const GRADE_OPTS_LIST=['','金','橙','红'];
 const MOD_OPTS_LIST=['出场','检视','组队','饰品','入局Cuts','TPP','MVP','大厅','本体/3C','武器特效','通用','联调'];
+const CHAR_OPTS_LIST=['红蔻','七十','露西亚','女指挥官'];   /* 正编「负责」可选角色（与需求 char 字段对应） */
 const LINE_OPTS_LIST=[['-','通用'],['L1','露西亚·管线1'],['L2','比安卡·管线2'],['J','七十·金角线'],['R','女指挥官·红角线']];
+
+/* 格式化正编「负责」显示：从 lead 文本解析为「负责 角色 [+ 模块]」结构化标签。
+   兼容旧自由文本格式，同时支持新的 leadChars/leadMods 结构化字段。 */
+function formatLeadDisplay(m){
+  if(!m || m.corp!=='reg') return '';
+  // 新格式：优先用结构化字段
+  const chars = (m.leadChars||'').split(',').filter(Boolean);
+  const mods  = (m.leadMods||'').split(',').filter(Boolean);
+  if(chars.length || mods.length){
+    const parts = [];
+    if(chars.length) parts.push(chars.map(c=>`<span class="ld-ch">${escAttr(c)}</span>`).join(''));
+    if(mods.length)  parts.push('<span class="ld-sep">·</span>'+mods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('/'));
+    return '负责 '+parts.join('');
+  }
+  // 旧格式回退：原样展示 lead 文本
+  const t = (m.lead||'').trim();
+  return t ? '负责 '+escAttr(t) : '';
+}
 
 function openNewMember(){
   if(!requireWrite())return;
@@ -4928,22 +5070,67 @@ function startEditLead(ev, mid, kind){
     tag.replaceWith(wrap);
     sel.focus();
   }else{
-    // 可编辑输入 + 预设 datalist（既可选预设、也可自行输入）
-    const dlId='leadPreset_'+mid;
-    const inp=document.createElement('input');
-    inp.type='text'; inp.value=m.lead||''; inp.setAttribute('list',dlId);
-    inp.placeholder='如：红角 + 金角';
-    const dl=document.createElement('datalist'); dl.id=dlId;
-    LEAD_PRESETS.forEach(p=>{ const o=document.createElement('option'); o.value=p; dl.appendChild(o); });
+    // 正编「负责」结构化编辑：角色多选 + 模块多选
+    const wrap=document.createElement('span');
+    wrap.className='lead-edit lead-edit-struct';
+
+    // 解析当前值
+    const curChars = (m.leadChars||'').split(',').filter(Boolean);
+    const curMods  = (m.leadMods||'').split(',').filter(Boolean);
+    // 旧格式回退：尝试从 lead 文本解析
+    const fallbackLead = (m.lead||'').trim();
+
+    // 角色选择（多选下拉）
+    const charLbl=document.createElement('span'); charLbl.className='le-lbl'; charLbl.textContent='角色';
+    const charSel=document.createElement('select'); charSel.multiple=true; charSel.size=3; charSel.className='le-sel le-sel-char';
+    CHAR_OPTS_LIST.forEach(c => {
+      const o=document.createElement('option'); o.value=c; o.textContent=c;
+      if(curChars.includes(c) || (!curChars.length && fallbackLead.includes(c))) o.selected=true;
+      charSel.appendChild(o);
+    });
+    // 模块选择（多选下拉）
+    const modLbl=document.createElement('span'); modLbl.className='le-lbl'; modLbl.textContent='模块';
+    const modSel=document.createElement('select'); modSel.multiple=true; modSel.size=3; modSel.className='le-sel le-sel-mod';
+    MOD_OPTS_LIST.forEach(md => {
+      const o=document.createElement('option'); o.value=md; o.textContent=md;
+      if(curMods.includes(md) || (!curMods.length && fallbackLead.includes(md))) o.selected=true;
+      modSel.appendChild(o);
+    });
+
     const ok=document.createElement('button'); ok.className='lk ok'; ok.textContent='✓';
     const cc=document.createElement('button'); cc.className='lk cancel'; cc.textContent='✕';
-    [inp,ok,cc,dl].forEach(el=>{ el.onpointerdown=e=>e.stopPropagation(); el.onclick=e=>e.stopPropagation(); });
-    ok.onclick=e=>{e.stopPropagation();finish(true, inp.value);};
+
+    [charSel,modSel,ok,cc].forEach(el=>{ el.onpointerdown=e=>e.stopPropagation(); el.onclick=e=>e.stopPropagation(); });
+    ok.onclick=e=>{e.stopPropagation();finish(true);};
     cc.onclick=e=>{e.stopPropagation();finish(false);};
-    inp.onkeydown=e=>{ if(e.key==='Enter'){e.preventDefault();finish(true, inp.value);} else if(e.key==='Escape'){e.preventDefault();finish(false);} };
-    wrap.appendChild(inp); wrap.appendChild(ok); wrap.appendChild(cc); wrap.appendChild(dl);
+    const finish=(commit)=>{
+      if(commit){
+        const selChars = [...charSel.selectedOptions].map(o=>o.value);
+        const selMods  = [...modSel.selectedOptions].map(o=>o.value);
+        const newLeadChars = selChars.join(',');
+        const newLeadMods  = selMods.join(',');
+        // 组合为 lead 文本（向后兼容）
+        let newLeadText = '';
+        if(selChars.length) newLeadText += selChars.join('+');
+        if(selMods.length)  newLeadText += (newLeadText?' · ':'') + selMods.join('/');
+        if(newLeadText !== (m.lead||'')){
+          pushHistory();
+          m.lead = newLeadText || '—';
+          m.leadChars = newLeadChars;
+          m.leadMods = newLeadMods;
+          m.role='正编·带队'+(selChars.length?''+selChars.join('+'):'')+(selMods.length?'·'+selMods.join('/'):'');
+          _logDesc='把「'+m.name+'」负责改为'+newLeadText||'(空)';
+          save();broadcast();
+        }
+      }
+      _editingLead=null;
+      rerender();
+    };
+    wrap.appendChild(charLbl); wrap.appendChild(charSel);
+    wrap.appendChild(modLbl);  wrap.appendChild(modSel);
+    wrap.appendChild(ok);     wrap.appendChild(cc);
     tag.replaceWith(wrap);
-    inp.focus(); inp.select();
+    charSel.focus();
   }
 }
 /* 正编「带队负责」常用预设：取自现有正编 lead + 标准模块组合，供 datalist 提示 */
