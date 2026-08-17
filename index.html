@@ -1528,7 +1528,7 @@ const members = [
   // ===== 基地：管线1 露西亚线（薛旭阳带）=====
   {id:'ygh', name:'杨光豪', role:'基地·橙(露西亚 管线1)', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:1.05, status:'on'},
   {id:'ll',  name:'李龙',   role:'基地·支援橙角(隶属余洪震)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on', support:true},
-  {id:'zyq', name:'张雍祺', role:'基地·橙(露西亚 管线1)',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.95, status:'on'},
+  {id:'zyq', name:'张雍祺', role:'基地·橙(露西亚 管线1)',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.95, status:'left', leftAt:DT(2026,8,10)},
   {id:'zjj', name:'曾俊杰', role:'基地·支援橙角(隶属余洪震)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on', support:true},
   {id:'zcz', name:'张长喆', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true, leftAt:DT(2026,5,1)},
   {id:'ljy', name:'梁骏源', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true, leftAt:DT(2026,5,1)},
@@ -3496,13 +3496,21 @@ function buildRoleLines(){
       // 尝试从 line 字段取管线标识
       const lineTag = rl[0] && rl[0].line && rl[0].line !== '-' ? ('·'+rl[0].line) : '';
       const roleLabel = `${grade}（${shortC}${lineTag}）`;
-      // 聚合状态: 任何 doing/review→启动中, 任何 todo→将要启动, 全 done→已完成
+      // 聚合状态: 基于日期自动推算（autoSegState），而非读取可能过时的 seg.status 原始值
+      // 任何 doing/review/blocked→启动中, 任何 todo 且未到开始日→将要启动, 全 done→已完成
       let hasDoing=false, hasTodo=false, hasDone=false;
       rl.forEach(r => {
-        const s = aggStatus(r);
-        if(s==='doing'||s==='review'||s==='blocked') hasDoing=true;
-        else if(s==='todo') hasTodo=true;
-        else if(s==='done') hasDone=true;
+        (r.segs||[]).forEach(sg => {
+          const auto = autoSegState(sg);
+          const st = auto.status;
+          if(st==='doing'||st==='review'||st==='blocked') hasDoing=true;
+          else if(st==='todo') hasTodo=true;
+          else if(st==='done') hasDone=true;
+        });
+        // 同时检查需求级人工状态
+        const rs = reqState(r);
+        if(rs==='done') { hasDone=true; hasDoing=false; hasTodo=false; }
+        if(rs==='doing') hasDoing=true;
       });
       let status = '';
       if(hasDoing) status = '启动中';
