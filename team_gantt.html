@@ -1527,9 +1527,9 @@ const members = [
 
   // ===== 基地：管线1 露西亚线（薛旭阳带）=====
   {id:'ygh', name:'杨光豪', role:'基地·橙(露西亚 管线1)', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:1.05, status:'on'},
-  {id:'ll',  name:'李龙',   role:'基地·支援橙角(隶属余洪震)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on', support:true},
+  {id:'ll',  name:'李龙',   role:'基地·橙(露西亚 管线1)', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on'},
   {id:'zyq', name:'张雍祺', role:'基地·橙(露西亚 管线1)',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.95, status:'left', leftAt:DT(2026,8,10)},
-  {id:'zjj', name:'曾俊杰', role:'基地·支援橙角(隶属余洪震)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on', support:true},
+  {id:'zjj', name:'曾俊杰', role:'基地·橙(露西亚 管线1)', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on'},
   {id:'zcz', name:'张长喆', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true, leftAt:DT(2026,5,1)},
   {id:'ljy', name:'梁骏源', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true, leftAt:DT(2026,5,1)},
   {id:'zjh', name:'邹佳豪', role:'基地·橙(露西亚)·新人',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.85, status:'new',  tmp:true},
@@ -1558,15 +1558,15 @@ const members = [
 /* kind: fx=特效(紫,主体) | lt=联调(特效后→全量测试前) | qa=全量测试里程碑(黑,bug修复阶段,不计排期负载)。
    support:true 标在 seg 上=该人为支援性质(非本管线编制)。 */
 const reqs = [
-  /* ===== 橙·露西亚·誓焰 X 安琪儿（管线1，薛旭阳带；李龙/曾俊杰支援橙角，隶属余洪震） ===== */
+  /* ===== 橙·露西亚·誓焰 X 安琪儿（管线1，薛旭阳带；李龙/曾俊杰为薛旭阳L1基地橙角） ===== */
   {id:'LU_cc', name:'露西亚 出场特效', char:'露西亚·誓焰 X 安琪儿', mod:'出场', grade:'橙', line:'L1', kind:'fx', estimate:24, done:16, end:DT(2026,6,23),
-    segs:[{m:'xxy',s:DT(2026,4,20),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'ygh',s:DT(2026,4,20),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'ll',s:DT(2026,4,25),e:DT(2026,6,23),prog:0.75,status:'doing',support:true},{m:'zyq',s:DT(2026,5,4),e:DT(2026,6,23),prog:0.6,status:'doing'},{m:'zjh',s:DT(2026,5,11),e:DT(2026,6,23),prog:0.5,status:'doing'}]},
+    segs:[{m:'xxy',s:DT(2026,4,20),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'ygh',s:DT(2026,4,20),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'ll',s:DT(2026,4,25),e:DT(2026,6,23),prog:0.75,status:'doing'},{m:'zyq',s:DT(2026,5,4),e:DT(2026,6,23),prog:0.6,status:'doing'},{m:'zjh',s:DT(2026,5,11),e:DT(2026,6,23),prog:0.5,status:'doing'}]},
   {id:'LU_cs', name:'露西亚 检视特效', char:'露西亚·誓焰 X 安琪儿', mod:'检视', grade:'橙', line:'L1', kind:'fx', estimate:16, done:7, end:DT(2026,6,23),
     segs:[{m:'cyh',s:DT(2026,5,1),e:DT(2026,6,23),prog:0.5,status:'doing'},{m:'cc',s:DT(2026,5,1),e:DT(2026,6,23),prog:0.45,status:'doing'}]},
   {id:'LU_zd', name:'露西亚 组队特效', char:'露西亚·誓焰 X 安琪儿', mod:'组队', grade:'橙', line:'L1', kind:'fx', estimate:16, done:6, end:DT(2026,6,23),
-    segs:[{m:'cc',s:DT(2026,5,8),e:DT(2026,6,23),prog:0.4,status:'doing'},{m:'zjj',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.45,status:'doing',support:true}]},
+    segs:[{m:'cc',s:DT(2026,5,8),e:DT(2026,6,23),prog:0.4,status:'doing'},{m:'zjj',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.45,status:'doing'}]},
   {id:'LU_lt', name:'露西亚 联调', char:'露西亚·誓焰 X 安琪儿', mod:'联调', grade:'橙', line:'L1', kind:'lt', estimate:22, done:0, end:DT(2026,7,17),
-    segs:[{m:'xxy',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'ygh',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'ll',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo',support:true},{m:'zyq',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zjh',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zjj',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo',support:true}]},
+    segs:[{m:'xxy',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'ygh',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'ll',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zyq',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zjh',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zjj',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'}]},
   {id:'LU_qa', name:'露西亚 全量测试', char:'露西亚·誓焰 X 安琪儿', mod:'全量测试', grade:'橙', line:'L1', kind:'qa', estimate:0, done:0, end:DT(2026,7,29),
     segs:[{m:'xxy',s:DT(2026,7,20),e:DT(2026,7,29),prog:0,status:'todo'}]},
 
@@ -1620,9 +1620,9 @@ const reqs = [
   {id:'BL_qa', name:'白老板 全量测试', char:'白老板', mod:'全量测试', grade:'橙', line:'L2', kind:'qa', estimate:0, done:0, end:DT(2026,10,16),
     segs:[{m:'hsy',s:DT(2026,9,28),e:DT(2026,10,16),prog:0,status:'todo'}]},
 
-  /* ===== 橙·荷光者（S5.1，管线1 露西亚线后续，薛旭阳带；李龙支援） ===== */
+  /* ===== 橙·荷光者（S5.1，管线1 露西亚线后续，薛旭阳带；李龙为薛旭阳L1基地橙角） ===== */
   {id:'HG_cc', name:'荷光者 出场特效', char:'荷光者', mod:'出场', grade:'橙', line:'L1', kind:'fx', estimate:32, done:0, end:DT(2026,10,16),
-    segs:[{m:'xxy',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'ygh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'ll',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo',support:true},{m:'zjh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'}]},
+    segs:[{m:'xxy',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'ygh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'ll',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'zjh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'}]},
   {id:'HG_cs', name:'荷光者 检视组队特效', char:'荷光者', mod:'检视/组队', grade:'橙', line:'L1', kind:'fx', estimate:18, done:0, end:DT(2026,10,16),
     segs:[{m:'cyh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'cc',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'}]},
   {id:'HG_lt', name:'荷光者 整体效果联调', char:'荷光者', mod:'联调', grade:'橙', line:'L1', kind:'lt', estimate:18, done:0, end:DT(2026,11,20),
@@ -1959,7 +1959,7 @@ function memWorkGrade(memId){
 const hrData = [
   {mod:'出场', roles:[
     {role:'金（七十）',   grade:'金', status:'启动中',   cfg:4, gap:0, makers:['于航','彭诗淇','刘振山','宗丞'], tmp:[], note:'余洪震带 · 4人'},
-    {role:'橙（露西亚·管线1）', grade:'橙', status:'启动中',   cfg:5, gap:3, makers:['杨光豪','张雍祺'], tmp:['邹佳豪','张长喆','梁骏源'], sup:['李龙','曾俊杰'], note:'薛旭阳带 · 在编2人+新人1；李龙/曾俊杰为支援橙角(隶属余洪震)；张长喆/梁骏源已离职，仍缺3人'},
+    {role:'橙（露西亚·管线1）', grade:'橙', status:'启动中',   cfg:5, gap:3, makers:['杨光豪','张雍祺','李龙','曾俊杰'], tmp:['邹佳豪','张长喆','梁骏源'], note:'薛旭阳带 · 在编4人(杨光豪/李龙/曾俊杰/张雍祺)+新人1(邹佳豪)；张长喆/梁骏源已离职，仍缺3人'},
     {role:'橙（比安卡·管线2）', grade:'橙', status:'将要启动', cfg:1, gap:2, makers:['胡斯雨'], tmp:[], note:'余洪震统筹 · 目前仅胡斯雨1名基地，缺2人'},
     {role:'红（女指挥官）', grade:'红', status:'将要启动', cfg:1, gap:1, makers:['余洪震'], tmp:[], note:'余洪震带 · 本体/3C/出场/MVP/入局/TPP/大厅特效全包，缺1人补强'},
   ]},
