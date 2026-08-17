@@ -1046,7 +1046,7 @@
   .hr-makers .mk.left{background:#eceef1;color:#9097a0;text-decoration:line-through;}
   .hr-makers .mk.new{background:#dbeafe;color:#1d4ed8;}
   .hr-makers .mk.sup{background:#e0f7fa;color:#0e7490;border:1px solid #9adfe9;}
-  .hr-makers .mk.reg-mk{background:#e7f0ff;color:#0052d9;font-weight:600;}  /* 正编带队：蓝底蓝字 */
+  .hr-makers .mk.reg-mk{background:#dbeafe;color:#1d4ed8;font-weight:600;border:1px solid #93c5fd;}  /* 正编带队：蓝底蓝字+边框 */
   .hr-makers .empty{font-size:11px;color:var(--tx3);font-style:italic;}
   .hr-note{font-size:11px;color:var(--tx3);margin-left:auto;flex-shrink:0;max-width:200px;text-align:right;}
 </style>
@@ -3621,7 +3621,8 @@ function renderHR(){
         if (stt === 'left') return '';           // 已离职：不显示
         if (stt === 'new')  return `<span class="mk new" title="新人">${n}</span>`;
         const cls = corp === 'reg' ? 'mk reg-mk' : 'mk';
-        return `<span class="${cls}" title="${corp === 'reg' ? '正编·带队' : '基地'}${stt === 'new' ? '·新人' : ''}">${n}</span>`;
+        const prefix = corp === 'reg' ? '👑 ' : '';
+        return `<span class="${cls}" title="${corp === 'reg' ? '正编·带队' : '基地'}${stt === 'new' ? '·新人' : ''}">${prefix}${n}</span>`;
       };
       // 正编组（蓝标）
       r.regs.forEach(n => makersHTML += mkTag(n, 'reg'));
