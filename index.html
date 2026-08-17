@@ -486,7 +486,7 @@
   /* 甘特图时间线区域：缺人成员(无隶属)的空行显示斜纹占位提示 */
   .vacant-bar{width:100%;height:100%;min-height:28px;background:repeating-linear-gradient(-45deg,#fef2f2 0px,#fef2f2 6px,#fff 6px,#fff 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;gap:4px;padding:0 6px;overflow:hidden;}
   /* 缺人角标：在任务条信息右侧显示醒目的红色"🔴缺人"标记 */
-  .vacant-bar .vacant-badge{flex-shrink:0;font-size:10px;font-weight:700;color:#d32320;background:#fff;border:1.5px dashed #f87171;border-radius:8px;padding:1px 6px;white-space:nowrap;line-height:1.6;}
+  .vacant-bar .vacant-badge{flex-shrink:0;font-size:10px;font-weight:700;color:#fff;background:#dc2626;border-radius:8px;padding:1px 6px;white-space:nowrap;line-height:1.6;}
   .ltag.vacant .vacant-ic{margin-right:2px;}
   /* v5.34 暂缺占位行：区别于真人行的「缺人状态卡」 */
   .row.vacant-row{background:linear-gradient(90deg,#fef9f0 0%,#fff5eb 40%,#fff 100%);border-left:3px dashed #f87171;}
@@ -533,9 +533,9 @@
     background:#fee2e2;border:1.5px solid #f87171;
   }
   .row.vacant-row .vacant-card-base .vc-label{color:#d32320;}
-  /* 甘特条内角标：缺正编/缺基地 统一红色 */
-  .vacant-badge-reg{color:#d32320;background:#fef2f2;border:1.5px dashed #f87171!important;border-radius:8px;}
-  .vacant-badge-base{color:#d32320;background:#fff;border:1.5px dashed #f87171!important;border-radius:8px;}
+  /* 甘特条内角标：缺正编/缺基地 统一红底白字(醒目) */
+  .vacant-badge-reg{color:#fff;background:#dc2626;border:none!important;border-radius:8px;padding:1px 6px;}
+  .vacant-badge-base{color:#fff;background:#dc2626;border:none!important;border-radius:8px;padding:1px 6px;}
   /* 成员行缺口徽标（按人看：该人涉及的角色线共缺N人） */
   .mem-gap-badge{font-size:10px;font-weight:700;color:#fff;background:#ef4444;border-radius:6px;padding:1px 7px;margin-left:6px;flex-shrink:0;line-height:1.6;box-shadow:0 1px 3px rgba(239,68,68,.35);}
   .badge{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;margin-left:8px;flex-shrink:0;}
