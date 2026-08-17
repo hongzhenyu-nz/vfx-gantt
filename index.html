@@ -484,8 +484,9 @@
   /* 暂缺标签：无隶属/无带队归属的成员，红色醒目胶囊表示缺人 */
   .ltag.vacant{color:#d32320;background:#fef2f2;border:1.5px solid #fca5a5;font-weight:700;letter-spacing:.5px;}
   /* 甘特图时间线区域：缺人成员(无隶属)的空行显示斜纹占位提示 */
-  .vacant-bar{width:100%;height:100%;min-height:28px;background:repeating-linear-gradient(-45deg,#fef2f2 0px,#fef2f2 6px,#fff 6px,#fff 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;}
-  .vacant-bar::after{content:'缺人';font-size:11px;font-weight:700;color:#f87171;letter-spacing:2px;opacity:.7;white-space:nowrap;text-shadow:0 1px 0 rgba(255,255,255,.8);}
+  .vacant-bar{width:100%;height:100%;min-height:28px;background:repeating-linear-gradient(-45deg,#fef2f2 0px,#fef2f2 6px,#fff 6px,#fff 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;gap:4px;padding:0 6px;overflow:hidden;}
+  /* 缺人角标：在任务条信息右侧显示醒目的红色"🔴缺人"标记 */
+  .vacant-bar .vacant-badge{flex-shrink:0;font-size:10px;font-weight:700;color:#d32320;background:#fff;border:1.5px dashed #f87171;border-radius:8px;padding:1px 6px;white-space:nowrap;line-height:1.6;}
   .ltag.vacant .vacant-ic{margin-right:2px;}
   /* v5.34 暂缺占位行：区别于真人行的「缺人状态卡」 */
   .row.vacant-row{background:linear-gradient(90deg,#fef9f0 0%,#fff5eb 40%,#fff 100%);border-left:3px dashed #f87171;}
@@ -516,6 +517,24 @@
     font-size:11px;cursor:pointer;color:#666;transition:all .15s;
   }
   .row.vacant-row .vc-act button:hover{border-color:#f87171;color:#d32320;background:#fef2f2;}
+  /* v5.35 缺正编(蓝) vs 缺基地(红) 区分样式 */
+  .row.vacant-row .vacant-card.vacant-card-reg{
+    background:#eff6ff;border:1.5px dashed #93c5fd;border-radius:8px;
+  }
+  .row.vacant-row .vacant-card-reg .vc-icon{
+    background:#dbeafe;border:1.5px solid #3b82f6;
+  }
+  .row.vacant-row .vacant-card-reg .vc-label{color:#1d4ed8;}
+  .row.vacant-row .vacant-card.vacant-card-base{
+    background:#fef2f2;border:1.5px dashed #fca5a5;border-radius:8px;
+  }
+  .row.vacant-row .vacant-card-base .vc-icon{
+    background:#fee2e2;border:1.5px solid #f87171;
+  }
+  .row.vacant-row .vacant-card-base .vc-label{color:#d32320;}
+  /* 甘特条内角标：缺正编蓝 / 缺基地红 */
+  .vacant-badge-reg{color:#1d4ed8;background:#dbeafe;border:1.5px dashed #93c5fd!important;border-radius:8px;}
+  .vacant-badge-base{color:#d32320;background:#fff;border:1.5px dashed #f87171!important;border-radius:8px;}
   /* 成员行缺口徽标（按人看：该人涉及的角色线共缺N人） */
   .mem-gap-badge{font-size:10px;font-weight:700;color:#fff;background:#ef4444;border-radius:6px;padding:1px 7px;margin-left:6px;flex-shrink:0;line-height:1.6;box-shadow:0 1px 3px rgba(239,68,68,.35);}
   .badge{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;margin-left:8px;flex-shrink:0;}
@@ -1027,6 +1046,7 @@
   .hr-makers .mk.left{background:#eceef1;color:#9097a0;text-decoration:line-through;}
   .hr-makers .mk.new{background:#dbeafe;color:#1d4ed8;}
   .hr-makers .mk.sup{background:#e0f7fa;color:#0e7490;border:1px solid #9adfe9;}
+  .hr-makers .mk.reg-mk{background:#e7f0ff;color:#0052d9;font-weight:600;}  /* 正编带队：蓝底蓝字 */
   .hr-makers .empty{font-size:11px;color:var(--tx3);font-style:italic;}
   .hr-note{font-size:11px;color:var(--tx3);margin-left:auto;flex-shrink:0;max-width:200px;text-align:right;}
 </style>
@@ -2916,22 +2936,48 @@ function vacantRowHTML(m,inArc){
       const risk=reqRisk(r);
       const auto=autoSegState(sg);
       const st=STATUS[auto.status||'doing'];
+      const barWpx = isOpen ? DAYS*DAY_W : (it.ei0-it.si0)*DAY_W;
+      const nShow = Math.max(1, Math.floor(barWpx / 55));
+      // 安全获取人天（open段无日期时跳过segDigestOne）
+      const pdays = isOpen ? '' : r1(segDigestOne(r,sg,m.id).digest);
+      const lblInner = reqTitleHTML(r,{pdays, nShow, barWpx, barHpx:26});
       const tip=`<b>${r.name}</b><br><span class='g'>占位</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g' style='color:#f87171'>此为缺人占位，分配真人后自动转为正常任务条</span>`;
+      // 根据 corp 区分缺正编/缺基地
+      const isRegVac = m.corp === 'reg';
+      const vacTypeLabel = isRegVac ? '缺正编' : '缺基地';
+      const vacTypeIcon = isRegVac ? '🔵' : '🔴';
+      const vacBadgeCls = isRegVac ? 'vacant-badge-reg' : 'vacant-badge-base';
       bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:0%;height:100%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
+        <i class="sdot"></i><span class="rt-line">${lblInner}</span><span class="vacant-badge ${vacBadgeCls}" title="${vacTypeLabel}占位">${vacTypeIcon}${vacTypeLabel}</span>
         <div class="prog" style="--p:0"></div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
-    // 占位卡左侧信息
+    // 占位卡左侧信息 — 根据 corp 区分缺正编/缺基地
+    const isRegVac = m.corp === 'reg';
+    const vacTypeLabel = isRegVac ? '缺正编占位' : '缺基地占位';
+    const vacTypeIcon = isRegVac ? '🔵' : '🔴';
+    const vacBorderCls = isRegVac ? 'vacant-card-reg' : 'vacant-card-base';
+    const vacRowBorder = isRegVac ? '#3b82f6' : '#f87171';
     const modLabel = m.mod ? MOD_META[m.mod]?.label || m.mod : '';
-    const leadLabel = (m.lead && m.lead!=='—' && m.lead!=='-') ? m.lead : '';
+    // 隶属信息：暂缺成员的 lead 可能是"暂缺"/空/—，需转为占位语义
+    let leadLabel = '';
+    if (m.lead && m.lead !== '—' && m.lead !== '-' && !/暂缺/.test(m.lead)) {
+      leadLabel = m.lead;  // 有真实隶属，正常显示
+    } else if (isRegVac) {
+      leadLabel = '缺正编带队';  // 正编暂缺：缺的是带队人
+    } else if (m.lead && /暂缺/.test(m.lead)) {
+      leadLabel = '缺基地隶属';  // 基地暂缺：缺的是归属的正编
+    } else {
+      leadLabel = '';  // 无隶属信息则不显示
+    }
     const effShow = m.eff && m.eff!==1 ? `<span class="vc-eff">⚡ 效率 ${m.eff}</span>` : '';
-    return `<div class="row vacant-row${inArc?' in-archived':''}" data-mem="${m.id}" style="min-height:${rowH}px">
+    return `<div class="row vacant-row${inArc?' in-archived':''} vacant-row-${isRegVac?'reg':'base'}" data-mem="${m.id}" style="min-height:${rowH}px;border-left-color:${vacRowBorder}">
       <div class="cell-left">
-        <div class="vacant-card">
-          <div class="vc-icon">🔴</div>
+        <div class="vacant-card ${vacBorderCls}">
+          <div class="vc-icon">${vacTypeIcon}</div>
           <div class="vc-body">
-            <span class="vc-label">缺人占位</span>
+            <span class="vc-label">${vacTypeLabel}</span>
             <div class="vc-meta">
               ${modLabel?`<span>${escAttr(modLabel)}</span>`:''}
               ${leadLabel?`<span>👑 ${escAttr(leadLabel)}</span>`:''}
@@ -3413,12 +3459,13 @@ function fitBarLabels(){
    按 mod(出场/检视/组队) 分组 → 每组内按 char(角色)×grade(品级) 聚合为一条角色线。
    每条线的数据全部从 reqs.segs 实时计算：
    - status: 聚合该角色该模块下所有需求的任务段状态
-   - cfg:   实际在岗基地人数(activeBase 之和，去重)
+   - cfg:   实际在岗基地人数(baseSet.size，正编带队不占编制)
    - std:   标配人数(REQ_STD 之和)
    - gap:   标配缺口(std − cfg, ≥0)
-   - makers: 正编/基地人员名单(from segs, 排除 support/left)
+   - regs:  正编人员名单(from segs, corp=reg, 排除 support/left)
+   - bases: 基地人员名单(from segs, corp=base, 排除 support/left)
    - sup:    支援人员
-   - tmp:    临时/储备人员(名字含括号备注的)
+   - note:  带队/支援说明
 */
 function buildRoleLines(){
   // 只取特效类需求(kind=fx)，排除 qa/lt/联调 等
@@ -3461,35 +3508,35 @@ function buildRoleLines(){
       if(hasDoing) status = '启动中';
       else if(hasTodo) status = '将要启动';
       else if(hasDone && !hasTodo && !hasDoing) status = '已完成';
-      // 收集人员: 从 segs 提取
-      const makerSet = new Set();     // 正常在岗
+      // 收集人员: 从 segs 提取（正编/基地分开，离职者不显示）
+      const regSet = new Set();       // 正编在岗
+      const baseSet = new Set();      // 基地在岗
       const supSet = new Set();       // 支援
-      const tmpSet = new Set();       // 临时/新人/离职显示用
       rl.forEach(r => {
         (r.segs||[]).forEach(s => {
           const m = memById(s.m); if(!m) return;
           if(leftLong(m)) return;             // 离职满1月: 隐藏
           if(s.support){ supSet.add(m.name); return; }
-          if(effLeft(m)){ tmpSet.add(m.name); return; }  // 将离职
-          makerSet.add(m.name);
+          if(effLeft(m)) return;              // 已离职: 不显示（不再放入tmp）
+          if(m.corp === 'reg') regSet.add(m.name);
+          else baseSet.add(m.name);
         });
       });
-      // 配置人数 = 实际在岗(不含支援/离职)
-      const cfg = makerSet.size;
+      // 配置人数 = 实际在岗基地人数（正编带队不占基地编制）
+      const cfg = baseSet.size;
       // 标准配置 = REQ_STD 之和
       let std = 0;
       rl.forEach(r => { std += (REQ_STD[r.id]||0); });
       // 缺口
       const gap = Math.max(0, std - cfg);
       // note: 简要说明
-      const leadInfo = [...makerSet].find(n => {
+      const leadInfo = [...regSet].find(n => {
         const mm = members.find(x=>x.name===n);
         return mm && mm.corp === 'reg';
       });
       const noteParts = [];
       if(leadInfo) noteParts.push(`${leadInfo}带`);
       if(supSet.size) noteParts.push(`${[...supSet].join('/')}为支援`);
-      if(tmpSet.size) noteParts.push(`临时${tmpSet.size}人`);
       roles.push({
         role: roleLabel,
         grade: grade,
@@ -3497,9 +3544,9 @@ function buildRoleLines(){
         cfg: cfg,
         std: std,
         gap: gap,
-        makers: [...makerSet],
+        regs: [...regSet],
+        bases: [...baseSet],
         sup: [...supSet],
-        tmp: [...tmpSet],
         note: noteParts.join(' · ') || undefined
       });
     }
@@ -3566,29 +3613,25 @@ function renderHR(){
       const g = HR_GRADE[r.grade] || HR_GRADE[''];
       const st = HR_STATUS[r.status] || HR_STATUS[''];
       let makersHTML = '';
-      const mkTag = (n) => {
+      const mkTag = (n, corp) => {
         const mem = members.find(x => x.name === n);
         if (leftLong(mem)) return '';            // 离职满1月：从角色名单隐藏
         if (isVacantMem(mem)) return `<span class="mk tmp" title="缺人占位（尚未分配真人）" style="background:#fef2f2;color:#d32320;border:1.5px dashed #f87171;font-weight:700;">🔴 ${n}</span>`;
         const stt = effLeft(mem) ? 'left' : (mem ? mem.status : 'on');   // 未到离职日仍按在岗呈现
-        if (stt === 'left') return `<span class="mk left" title="已离职">${n}·离职</span>`;
-        if (stt === 'new')  return `<span class="mk new" title="新人">${n}·新人</span>`;
-        return `<span class="mk">${n}</span>`;
+        if (stt === 'left') return '';           // 已离职：不显示
+        if (stt === 'new')  return `<span class="mk new" title="新人">${n}</span>`;
+        const cls = corp === 'reg' ? 'mk reg-mk' : 'mk';
+        return `<span class="${cls}" title="${corp === 'reg' ? '正编·带队' : '基地'}${stt === 'new' ? '·新人' : ''}">${n}</span>`;
       };
-      r.makers.forEach(n => makersHTML += mkTag(n));
+      // 正编组（蓝标）
+      r.regs.forEach(n => makersHTML += mkTag(n, 'reg'));
+      // 基地组（灰标）
+      r.bases.forEach(n => makersHTML += mkTag(n, 'base'));
+      // 支援组
       (r.sup || []).forEach(n => {
         makersHTML += `<span class="mk sup" title="支援(非本管线编制)">${n}·支援</span>`;
       });
-      r.tmp.forEach(n => {
-        const base = n.replace(/\(.*\)/, '');
-        const mem = members.find(x => x.name === base);
-        if (leftLong(mem)) return;               // 离职满1月：从临时/储备名单隐藏
-        const stt = effLeft(mem) ? 'left' : (mem ? mem.status : '');   // 未到离职日仍按在岗呈现
-        const cls = stt === 'left' ? 'mk left' : stt === 'new' ? 'mk new' : 'mk tmp';
-        const suf = stt === 'left' ? '·离职' : stt === 'new' ? '·新人' : '(临)';
-        makersHTML += `<span class="${cls}" title="${stt === 'left' ? '已离职' : stt === 'new' ? '新人' : '临时'}">${base}${suf}</span>`;
-      });
-      if (!r.makers.length && !r.tmp.length) makersHTML = `<span class="empty">暂无人员</span>`;
+      if (!r.regs.length && !r.bases.length && !(r.sup||[]).length) makersHTML = `<span class="empty">暂无人员</span>`;
       // 配置/缺口：全部从 reqs 聚合的实时数据
       const cntHTML = r.gap > 0
         ? `<span class="cfg">配置${r.cfg}人</span><span class="gapb">缺${r.gap}</span>`
