@@ -3524,8 +3524,8 @@ function buildRoleLines(){
         (r.segs||[]).forEach(s => {
           const m = memById(s.m); if(!m) return;
           if(leftLong(m)) return;             // 离职满1月: 隐藏
+          if(effLeft(m)) return;              // 已离职: 不显示（优先于支援判断）
           if(s.support){ supSet.add(m.name); return; }
-          if(effLeft(m)) return;              // 已离职: 不显示（不再放入tmp）
           if(m.corp === 'reg') regSet.add(m.name);
           else baseSet.add(m.name);
         });
