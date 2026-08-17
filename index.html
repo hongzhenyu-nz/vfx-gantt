@@ -3477,8 +3477,8 @@ function buildRoleLines(){
       // 标准配置 = REQ_STD 之和
       let std = 0;
       rl.forEach(r => { std += (REQ_STD[r.id]||0); });
-      // 缺口
-      const gap = Math.max(0, std - cfg);
+      // 缺口（已完成的需求不再显示缺口）
+      const gap = (status === '已完成') ? 0 : Math.max(0, std - cfg);
       // note: 简要说明
       const leadInfo = [...regSet].find(n => {
         const mm = members.find(x=>x.name===n);
