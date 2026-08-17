@@ -1108,6 +1108,9 @@
       <span class="org-unit">后自动收纳</span>
       <label class="org-chk"><input type="checkbox" id="archiveOn" checked onchange="changeArchiveOn(this.checked)">启用</label>
     </span>
+    <span class="org-group" title="隐藏已完成/已废弃的需求，只显示进行中与未来的需求（按需求看 / 按人看 均生效）">
+      <label class="org-chk"><input type="checkbox" id="hideDoneOn" checked onchange="changeHideDone(this.checked)">🙈 隐藏已完成</label>
+    </span>
     <span class="spacer"></span>
     <span class="org-hint" id="orgHint"></span>
   </div>
@@ -1327,6 +1330,9 @@ function effLeft(m){
    collapsed：记录被折叠的分组 key（含归档区），值为 true 表示已折叠。
    以上均纳入 snapshot/applySnap 持久化（本地 / 分享链接 / 云端三链路一致）。 */
 let ARCHIVE = { on:true, val:2, unit:'week' };   // 阈值=val×unit；unit: day|week|month
+/* 「隐藏已完成」开关：开启时，已完成(done) / 已废弃(dropped) / 派生已完成的需求，从「按需求看」与「按人看」视图中整体隐藏，
+   只显示正在进行中(active/paused/doing)与未来(todo)的需求。与「超期归档」(按结束日阈值折叠)正交——本开关只看"是否完成"，不看结束日。 */
+let HIDE_DONE = { on:true };
 /* 阈值换算成天数：周=7天，月=30天。供 memArchived/reqArchived 比较用。 */
 function archiveDays(){
   const u=ARCHIVE.unit, n=(+ARCHIVE.val||0);
@@ -1413,6 +1419,12 @@ function changeArchiveUnit(u){
 function changeArchiveOn(on){
   ARCHIVE.on=!!on; save();broadcast();rerender();
   toast(on?'已启用超期自动归档':'已关闭自动归档（显示全部）');
+}
+function changeHideDone(on){
+  HIDE_DONE.on=!!on;
+  const el=document.getElementById('hideDoneOn'); if(el)el.checked=!!on;
+  save();broadcast();rerender();
+  toast(on?'已隐藏已完成需求（仅显示进行中 / 未来）':'已显示全部需求（含已完成）');
 }
 function toggleGroup(key){
   collapsed[key]=!collapsed[key];
@@ -2349,6 +2361,9 @@ function aggStatus(r){
 /* 统一「需求是否已完成」判定：人工整条置完成(reqState=done)，或所有任务段都已完成的派生态(aggStatus=done)。
    两视图(按人看/按需求看)的「✓已完成」封存呈现一律以此为准，保证完全联动、所有人段同步。 */
 function reqIsDone(r){ return reqState(r)==='done' || aggStatus(r)==='done'; }
+/* 需求是否「已完成（须隐藏）」：人工态 done / 废弃 dropped / 派生态(段聚合 done) 任一即算。
+   供「隐藏已完成」开关统一判定——与 reqClosed 等价(终态)，但独立命名便于语义。 */
+function reqIsCompleted(r){ return reqState(r)==='done' || reqState(r)==='dropped' || aggStatus(r)==='done'; }
 
 function reqRisk(r){
   // 终态需求（已完成/废弃）：不参与任何风险/产能/缺口计算，统一返回「无风险」占位。
@@ -2859,6 +2874,7 @@ function personRowHTML(m,inArc){
     const items=[];
     reqs.forEach(r=>r.segs.forEach((s,si)=>{
       if(s.m!==m.id)return;
+      if(HIDE_DONE.on && reqIsCompleted(r)) return;   // 隐藏已完成需求：其人任务段不渲染
       let si0=idx(s.s),ei0=idx(s.e);
       if(s.open){ si0=0; ei0=DAYS; }              // 无明确时间(open)段铺满整行，按整行占位
       else if(ei0-si0<=0) return;                  // 普通段需有正时长
@@ -2969,8 +2985,9 @@ function personRowHTML(m,inArc){
 function renderReq(){
   // 可见需求（联调附属不单独成行）；按分组方式归类，已完结超期的收纳进归档区。
   const vis=reqs.filter(r=>!r.attached);
-  const live=vis.filter(r=>!reqArchived(r));
-  const archived=vis.filter(r=>reqArchived(r));
+  const hideDone=HIDE_DONE.on;
+  const live=vis.filter(r=>!reqArchived(r) && !(hideDone && reqIsCompleted(r)));
+  const archived=vis.filter(r=>reqArchived(r) && !(hideDone && reqIsCompleted(r)));
   const mode=GROUP_MODE.req;
   let rows='';
   // band 连续性基于"实际相邻渲染的需求"，故按分组排好序后整体连续传 prev/next。
@@ -3317,7 +3334,7 @@ function fitBarLabels(){
 */
 function buildRoleLines(){
   // 只取特效类需求(kind=fx)，排除 qa/lt/联调 等
-  const fxReqs = reqs.filter(r => r.kind === 'fx');
+  const fxReqs = reqs.filter(r => r.kind === 'fx' && !(HIDE_DONE.on && reqIsCompleted(r)));
   // 按模组分
   const modGroups = {};
   fxReqs.forEach(r => {
@@ -4900,6 +4917,7 @@ function coreSnapshot(){
     invTiers:INV_TIERS.map(t=>({key:t.key,name:t.name,val:t.val,lo:t.lo,hi:t.hi,col:t.col,vbg:t.vbg,vfg:t.vfg,desc:t.desc,scene:t.scene})),
     invLocked:invLocked,
     archive:{on:ARCHIVE.on,val:ARCHIVE.val,unit:ARCHIVE.unit},
+    hideDone:HIDE_DONE.on,
     estRecalc:estRecalc,
     estRecalcVer:estRecalcVer,
     groupMode:{person:GROUP_MODE.person,req:GROUP_MODE.req},
@@ -4960,6 +4978,10 @@ function applySnap(snap){
     if(typeof a.on==='boolean')ARCHIVE.on=a.on;
     if(a.unit){ ARCHIVE.unit=a.unit; ARCHIVE.val=(a.val!=null?a.val:2); }
     else if(a.days!=null){ ARCHIVE.unit='day'; ARCHIVE.val=a.days; }   // 兼容旧快照
+  }
+  if(typeof snap.hideDone==='boolean'){
+    HIDE_DONE.on=snap.hideDone;
+    const h=document.getElementById('hideDoneOn'); if(h)h.checked=snap.hideDone;
   }
   if(snap.groupMode){ if(snap.groupMode.person)GROUP_MODE.person=snap.groupMode.person; if(snap.groupMode.req)GROUP_MODE.req=snap.groupMode.req; }
   if(typeof snap.estRecalc==='boolean') estRecalc=snap.estRecalc;
