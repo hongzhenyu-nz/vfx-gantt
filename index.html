@@ -1045,7 +1045,8 @@
   .hr-makers .mk{font-size:11px;background:#eef1f6;color:var(--tx);border-radius:12px;padding:2px 9px;white-space:nowrap;}
   .hr-makers .mk.tmp{background:#fff1da;color:#b36b00;}
   .hr-makers .mk.left{background:#eceef1;color:#9097a0;text-decoration:line-through;}
-  .hr-makers .mk.new{background:#dbeafe;color:#1d4ed8;}
+  .hr-makers .mk-left{position:relative;}                          /* 已离职历史参与者容器 */
+  .hr-makers .mk-left .left-tag{font-size:9px;color:#f87171;background:#fef2f2;border:1px solid #fca5a5;border-radius:3px;padding:0 3px;margin-left:3px;font-weight:normal;vertical-align:middle;line-height:1.4;}
   .hr-makers .mk.sup{background:#e0f7fa;color:#0e7490;border:1px solid #9adfe9;}
   .hr-makers .mk.reg-mk{background:#dbeafe;color:#1d4ed8;font-weight:600;border:1px solid #93c5fd;}  /* 正编带队：蓝底蓝字+边框 */
   .hr-makers .empty{font-size:11px;color:var(--tx3);font-style:italic;}
@@ -3458,22 +3459,30 @@ function buildRoleLines(){
       if(hasDoing) status = '启动中';
       else if(hasTodo) status = '将要启动';
       else if(hasDone && !hasTodo && !hasDoing) status = '已完成';
-      // 收集人员: 从 segs 提取（正编/基地分开，离职者不显示）
-      const regSet = new Set();       // 正编在岗
-      const baseSet = new Set();      // 基地在岗
+      // 收集人员: 从 segs 提取（正编/基地分开）
+      // ★ 已完成的需求保留所有历史参与者（含离职），目的是记录"当时用了多少人完成"
+      const isDone = status === '已完成';
+      const regSet = new Set();       // 正编
+      const baseSet = new Set();      // 基地
       const supSet = new Set();       // 支援
+      const leftNames = new Set();    // 已离职参与者名单（用于渲染"离职"标注）
       rl.forEach(r => {
         (r.segs||[]).forEach(s => {
           const m = memById(s.m); if(!m) return;
-          if(leftLong(m)) return;             // 离职满1月: 隐藏
-          if(effLeft(m)) return;              // 已离职: 不显示（优先于支援判断）
-          // 与按人看/按需求看同源：动态判定支援（成员隶属导师 ≠ 本需求带队归属 即支援；段级 s.support 仅对无导师归属的游离人力兜底）
+          // 已完成：不跳过离职者，照常收集但记录到 leftNames
+          if(isDone && (leftLong(m) || effLeft(m))) { leftNames.add(m.name); }
+          else {
+            // 未完成：跳过离职者
+            if(leftLong(m)) return;             // 离职满1月: 隐藏
+            if(effLeft(m)) return;              // 已离职: 不显示（优先于支援判断）
+          }
+          // 与按人看/按需求看同源：动态判定支援
           if(isSupportInReq(m, r)){ supSet.add(m.name); return; }
           if(m.corp === 'reg') regSet.add(m.name);
           else baseSet.add(m.name);
         });
       });
-      // 配置人数 = 实际在岗基地人数（正编带队不占基地编制）
+      // 配置人数：已完成=全部参与者（含离职，记录历史编制）；未完成=仅在岗基地
       const cfg = baseSet.size;
       // 标准配置 = REQ_STD 之和
       let std = 0;
@@ -3488,6 +3497,7 @@ function buildRoleLines(){
       const noteParts = [];
       if(leadInfo) noteParts.push(`${leadInfo}带`);
       if(supSet.size) noteParts.push(`${[...supSet].join('/')}为支援`);
+      if(isDone && leftNames.size) noteParts.push(`${[...leftNames].join('/')}已离职`);
       roles.push({
         role: roleLabel,
         grade: grade,
@@ -3498,6 +3508,7 @@ function buildRoleLines(){
         regs: [...regSet],
         bases: [...baseSet],
         sup: [...supSet],
+        left: [...leftNames],       // 已离职参与者名单（渲染用）
         note: noteParts.join(' · ') || undefined
       });
     }
@@ -3563,14 +3574,22 @@ function renderHR(){
     m.roles.forEach(r => {
       const g = HR_GRADE[r.grade] || HR_GRADE[''];
       const st = HR_STATUS[r.status] || HR_STATUS[''];
+      const isDone = r.status === '已完成';
+      const leftSet = new Set(r.left || []);
       let makersHTML = '';
       const mkTag = (n, corp) => {
         const mem = members.find(x => x.name === n);
-        if (leftLong(mem)) return '';            // 离职满1月：从角色名单隐藏
+        if (leftLong(mem) && !isDone) return '';            // 非已完成：离职满1月隐藏
         if (isVacantMem(mem)) return `<span class="mk tmp" title="缺人占位（尚未分配真人）" style="background:#fef2f2;color:#d32320;border:1.5px dashed #f87171;font-weight:700;">🔴 ${n}</span>`;
-        const stt = effLeft(mem) ? 'left' : (mem ? mem.status : 'on');   // 未到离职日仍按在岗呈现
-        if (stt === 'left') return '';           // 已离职：不显示
-        if (stt === 'new')  return `<span class="mk new" title="新人">${n}</span>`;
+        const stt = effLeft(mem) ? 'left' : (mem ? mem.status : 'on');
+        if (stt === 'left' && !isDone) return '';           // 非已完成：已离职不显示
+        // 已离职参与者：显示名字 + 离职标注
+        if (stt === 'left' || leftSet.has(n)) {
+          const cls = corp === 'reg' ? 'mk reg-mk' : 'mk';
+          const prefix = corp === 'reg' ? '👑 ' : '';
+          return `<span class="${cls} mk-left" title="已离职（历史参与者）" style="opacity:.65;text-decoration:line-through;text-decoration-color:#f87171;">${prefix}${n}<small class="left-tag">已离</small></span>`;
+        }
+        if (stt === 'new')  return `<span class="mk" title="新人">${n}</span>`;
         const cls = corp === 'reg' ? 'mk reg-mk' : 'mk';
         const prefix = corp === 'reg' ? '👑 ' : '';
         return `<span class="${cls}" title="${corp === 'reg' ? '正编·带队' : '基地'}${stt === 'new' ? '·新人' : ''}">${prefix}${n}</span>`;
