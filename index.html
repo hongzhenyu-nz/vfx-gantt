@@ -494,37 +494,38 @@
   .row.vacant-row .vacant-card{
     display:flex;align-items:center;gap:8px;flex:1;
     background:#fef2f2;border:1.5px dashed #fca5a5;border-radius:8px;
-    padding:6px 12px;position:relative;
+    padding:6px 12px;position:relative;flex-wrap:nowrap;min-width:0;
   }
   .row.vacant-row .vc-icon{
     width:28px;height:28px;border-radius:50%;background:#fee2e2;
     display:flex;align-items:center;justify-content:center;font-size:14px;
     flex-shrink:0;border:1.5px solid #f87171;
   }
-  .row.vacant-row .vc-body{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .row.vacant-row .vc-body{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden;}
   .row.vacant-row .vc-label{
     font-size:13px;font-weight:700;color:#d32320;letter-spacing:.5px;
-    white-space:nowrap;
+    white-space:nowrap;flex-shrink:0;
   }
   .row.vacant-row .vc-meta{
-    font-size:11px;color:#9a8b7a;display:flex;align-items:center;gap:6px;
+    font-size:11px;color:#9a8b7a;display:flex;align-items:center;gap:4px;
+    flex-wrap:nowrap;overflow:hidden;
   }
-  .row.vacant-row .vc-meta span{background:#fff;border:1px solid #e5e1d8;border-radius:4px;padding:1px 6px;}
-  .row.vacant-row .vc-eff{font-size:11px;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:1px 6px;}
-  .row.vacant-row .vc-act{display:flex;gap:4px;flex-shrink:0;}
+  .row.vacant-row .vc-meta span{background:#fff;border:1px solid #e5e1d8;border-radius:4px;padding:1px 6px;white-space:nowrap;flex-shrink:0;}
+  .row.vacant-row .vc-eff{font-size:11px;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:1px 6px;white-space:nowrap;flex-shrink:0;}
+  .row.vacant-row .vc-act{display:flex;gap:4px;flex-shrink:0;margin-left:auto;}
   .row.vacant-row .vc-act button{
     background:#fff;border:1px solid #ddd;border-radius:4px;padding:2px 8px;
     font-size:11px;cursor:pointer;color:#666;transition:all .15s;
   }
   .row.vacant-row .vc-act button:hover{border-color:#f87171;color:#d32320;background:#fef2f2;}
-  /* v5.35 缺正编(蓝) vs 缺基地(红) 区分样式 */
+  /* v5.35 缺正编(红) vs 缺基地(红) 区分样式 — 统一红色主题 */
   .row.vacant-row .vacant-card.vacant-card-reg{
-    background:#eff6ff;border:1.5px dashed #93c5fd;border-radius:8px;
+    background:#fef2f2;border:1.5px dashed #fca5a5;border-radius:8px;
   }
   .row.vacant-row .vacant-card-reg .vc-icon{
-    background:#dbeafe;border:1.5px solid #3b82f6;
+    background:#fee2e2;border:1.5px solid #f87171;
   }
-  .row.vacant-row .vacant-card-reg .vc-label{color:#1d4ed8;}
+  .row.vacant-row .vacant-card-reg .vc-label{color:#d32320;}
   .row.vacant-row .vacant-card.vacant-card-base{
     background:#fef2f2;border:1.5px dashed #fca5a5;border-radius:8px;
   }
@@ -532,8 +533,8 @@
     background:#fee2e2;border:1.5px solid #f87171;
   }
   .row.vacant-row .vacant-card-base .vc-label{color:#d32320;}
-  /* 甘特条内角标：缺正编蓝 / 缺基地红 */
-  .vacant-badge-reg{color:#1d4ed8;background:#dbeafe;border:1.5px dashed #93c5fd!important;border-radius:8px;}
+  /* 甘特条内角标：缺正编/缺基地 统一红色 */
+  .vacant-badge-reg{color:#d32320;background:#fef2f2;border:1.5px dashed #f87171!important;border-radius:8px;}
   .vacant-badge-base{color:#d32320;background:#fff;border:1.5px dashed #f87171!important;border-radius:8px;}
   /* 成员行缺口徽标（按人看：该人涉及的角色线共缺N人） */
   .mem-gap-badge{font-size:10px;font-weight:700;color:#fff;background:#ef4444;border-radius:6px;padding:1px 7px;margin-left:6px;flex-shrink:0;line-height:1.6;box-shadow:0 1px 3px rgba(239,68,68,.35);}
@@ -2886,7 +2887,7 @@ function vacantRowHTML(m,inArc){
       // 根据 corp 区分缺正编/缺基地
       const isRegVac = m.corp === 'reg';
       const vacTypeLabel = isRegVac ? '缺正编' : '缺基地';
-      const vacTypeIcon = isRegVac ? '🔵' : '🔴';
+      const vacTypeIcon = isRegVac ? '🔴' : '🔴';
       const vacBadgeCls = isRegVac ? 'vacant-badge-reg' : 'vacant-badge-base';
       bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:0%;height:100%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
@@ -2897,9 +2898,9 @@ function vacantRowHTML(m,inArc){
     // 占位卡左侧信息 — 根据 corp 区分缺正编/缺基地
     const isRegVac = m.corp === 'reg';
     const vacTypeLabel = isRegVac ? '缺正编占位' : '缺基地占位';
-    const vacTypeIcon = isRegVac ? '🔵' : '🔴';
+    const vacTypeIcon = isRegVac ? '🔴' : '🔴';
     const vacBorderCls = isRegVac ? 'vacant-card-reg' : 'vacant-card-base';
-    const vacRowBorder = isRegVac ? '#3b82f6' : '#f87171';
+    const vacRowBorder = '#f87171';  // 统一红色边框
     const modLabel = m.mod ? MOD_META[m.mod]?.label || m.mod : '';
     // 隶属信息：暂缺成员的 lead 可能是"暂缺"/空/—，需转为占位语义
     let leadLabel = '';
