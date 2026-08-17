@@ -173,6 +173,7 @@
   .board{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;}
   /* 左侧信息栏与时间轴分界：可拖拽手柄（双击=自动适配内容宽度） */
   .lw-grip{position:absolute;top:0;bottom:0;left:var(--left-w);width:11px;transform:translateX(-50%);z-index:9;cursor:col-resize;display:flex;align-items:center;justify-content:center;}
+  body.hr-view .lw-grip{display:none!important;}
   .lw-grip .lw-bar{width:2px;height:100%;background:transparent;transition:background .12s,width .12s;}
   .lw-grip:hover .lw-bar,.lw-grip.drag .lw-bar{background:var(--blue);width:3px;box-shadow:0 0 0 1px rgba(51,112,255,.25);}
   .lw-grip::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:5px;height:34px;border-radius:3px;background:#c2c8d0;opacity:0;transition:opacity .12s;}
@@ -236,6 +237,13 @@
   /* 按人看：加任务钮挂在姓名行末尾，与姓名留间距，弱于姓名 */
   .who .nm .inl-add{margin-left:8px;}
   .row.is-left .inl-add{opacity:.5;}
+  /* 按人看：编辑成员钮，与加任务并列 */
+  .inl-edit{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;vertical-align:middle;
+    font-size:10px;font-weight:700;line-height:1;white-space:nowrap;cursor:pointer;
+    color:#6b7280;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:7px;padding:2px 7px;transition:.12s;}
+  .inl-edit:hover{background:#374151;color:#fff;border-color:#374151;box-shadow:0 2px 7px rgba(55,65,81,.28);}
+  .who .nm .inl-edit{margin-left:4px;}
+  .row.is-left .inl-edit{opacity:.5;}
   /* 按需求看：加人钮独立成行，左缩进对齐成员组 */
   .who-grp.add-row{min-height:auto;margin-top:1px;}
   .who-grp.add-row .grp-lab{line-height:1;}
@@ -249,24 +257,45 @@
   .day-head.today{color:var(--blue);font-weight:600;}
 
   .vline{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);}
+  /* 节假日/双休灰列：贯穿全高、置于最底层，任务条与竖线覆盖其上；pointer-events:none 不挡交互 */
+  .daycol{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0;}
+  .daycol.we{background:rgba(120,130,145,.10);}                 /* 双休：浅灰 */
+  .daycol.hol{background:rgba(224,90,90,.10);}                  /* 法定节假日：淡红灰，与双休区分 */
   .vline.mono{background:#dfe2e6;width:1px;}
   .vline.we{background:#fafbfc;width:var(--day-w);}
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
 
-  .bar-task{position:absolute;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
+  .bar-task{position:absolute;z-index:1;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
+  /* z-index:1 封住任务条自身的层叠上下文，使条内「✓已完成」大浮标(::after z-index:4)等永远压在 sticky 左侧成员栏 .cell-left(z-index:4) 之下，横向滚动时不再穿透覆盖左栏。拖拽态(.dragging z-index:30)另行抬高。 */
   /* 泛白后底色变浅，文字加深色描边保持可读（白蒙版越浓描边越明显） */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
   /* 进度表现（填充式·无废弃感）：左侧「已完成」段=本体饱和满色；右侧「未完成」段=盖一层半透明白，
      呈现「浅色空槽待填满」的观感（而非斜纹/废弃）。交界处一根高亮竖线标记当前进度位置，并叠加一层
      固定颗粒度的竖向格线，让未完成段带「逐格推进」的进度感。整体铺满条体、文字下层(z-index:0)、不响应鼠标。 */
-  .bar-task .prog{position:absolute;inset:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;}
-  .bar-task .prog::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--p,0)*1%);right:0;
-    background-color:rgba(255,255,255,.52);
-    background-image:repeating-linear-gradient(90deg,rgba(255,255,255,0) 0 11px,rgba(255,255,255,.22) 11px 12px);
-    border-left:2px solid rgba(255,255,255,.92);box-shadow:inset 1px 0 0 rgba(0,0,0,.06);}
-  .bar-task .prog[style*="--p:100"]::after{display:none;}                 /* 100% 已完成：纯满色，无空槽 */
-  .bar-task .prog[style*="--p:0"]::after{border-left:none;background-color:rgba(255,255,255,.46);} /* 0% 起步：整条浅色空槽、不画起点竖线 */
+  /* v5.5 进度层：格线改为「按天」——竖向格线间隔 = 每天像素宽 var(--day-w)，从条左缘(整天边界)起画，
+     故每一格精确对应一个自然日，缩放条宽时格宽随之变化，不再是固定 12px 均分。
+     多背景分两层（上→下）：①按天竖线(全条淡线，逐日推进感) ②未完成段白蒙版(硬边到 --p%，浅色空槽)。 */
+  /* v5.7 对齐修正：.bar-task 有 border-left:3px，若 .prog 用 inset:0 会从「边框内侧」起算 → 按天格线整体右移 3px、与日期轴错位。
+     改为 left:-3px 让 .prog 左缘顶到条的边框外缘（= 整天边界 si0*DAY_W），格线/休息日块自动对齐日期列。宽度用 right:-1px 覆盖到条右外缘。 */
+  .bar-task .prog{position:absolute;top:0;bottom:0;left:-3px;right:-1px;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
+    background-image:
+      repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),
+      linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(255,255,255,.50) calc(var(--p,0)*1%) 100%);}
+  /* v5.7 休息日暗块：周末/节假日在条内叠一层斜纹暗块，表达「这天停工·不算人天产出」。left 从条起始整天边界起算(k*DAY_W)自动对齐。 */
+  .bar-task .prog .rest{position:absolute;top:0;bottom:0;z-index:1;pointer-events:none;
+    background-color:rgba(15,23,42,.13);
+    background-image:repeating-linear-gradient(45deg,rgba(15,23,42,.10) 0 2.5px,rgba(15,23,42,0) 2.5px 6px);}
+  .bar-task .prog .rest.hol{background-color:rgba(120,20,20,.17);
+    background-image:repeating-linear-gradient(45deg,rgba(80,10,10,.13) 0 2.5px,rgba(80,10,10,0) 2.5px 6px);}  /* 节假日：偏红的斜纹，比双休更醒目 */
+  /* 进度分界竖线：标记当前「已完成/未完成」交界位置 */
+  .bar-task .prog::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--p,0)*1%);width:2px;z-index:2;
+    background:rgba(255,255,255,.92);box-shadow:1px 0 0 rgba(0,0,0,.06);}
+  .bar-task .prog[style*="--p:100"]::after{display:none;}                 /* 100% 已完成：纯满色，无分界线 */
+  .bar-task .prog[style*="--p:0"]::after{display:none;}                   /* 0% 起步：整条浅色空槽、不画起点竖线 */
+  .bar-task.open .prog::after{display:none;}                              /* 无限延长（时间待定/长期持续）：无明确起止，不画进度分界竖线 */
+  /* 无限延长条：去掉基于 --p 的「已完成/未完成」深浅分区覆盖层，整条统一底色，只保留天格线 */
+  .bar-task.open .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px));}
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
   /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上） */
@@ -452,6 +481,14 @@
   .row.is-loan .who .nm{color:#5b21b6;}
   .loan-note{font-size:10.5px;font-weight:600;color:#7c3aed;background:transparent;border:1px dashed #c9b6f3;border-radius:6px;padding:2px 7px;white-space:nowrap;line-height:1.4;}
   .gap-pill{font-size:10px;font-weight:700;color:#d32320;background:var(--red-l);border:1px solid #ffc4c2;border-radius:5px;padding:2px 7px;margin-left:6px;flex-shrink:0;}
+  /* 暂缺标签：无隶属/无带队归属的成员，红色醒目胶囊表示缺人 */
+  .ltag.vacant{color:#d32320;background:#fef2f2;border:1.5px solid #fca5a5;font-weight:700;letter-spacing:.5px;}
+  /* 甘特图时间线区域：缺人成员(无隶属)的空行显示斜纹占位提示 */
+  .vacant-bar{width:100%;height:100%;min-height:28px;background:repeating-linear-gradient(-45deg,#fef2f2 0px,#fef2f2 6px,#fff 6px,#fff 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;}
+  .vacant-bar::after{content:'缺人';font-size:11px;font-weight:700;color:#f87171;letter-spacing:2px;opacity:.7;white-space:nowrap;text-shadow:0 1px 0 rgba(255,255,255,.8);}
+  .ltag.vacant .vacant-ic{margin-right:2px;}
+  /* 成员行缺口徽标（按人看：该人涉及的角色线共缺N人） */
+  .mem-gap-badge{font-size:10px;font-weight:700;color:#fff;background:#ef4444;border-radius:6px;padding:1px 7px;margin-left:6px;flex-shrink:0;line-height:1.6;box-shadow:0 1px 3px rgba(239,68,68,.35);}
   .badge{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;margin-left:8px;flex-shrink:0;}
   .rk-low{background:var(--green-l);color:#1a8a3c;}
   .rk-mid{background:var(--amber-l);color:#b36b00;}
@@ -516,6 +553,14 @@
   .bar-task .rt-line .rt-nm{color:#fff;font-size:13.5px;font-weight:800;letter-spacing:.2px;text-shadow:0 1px 1px rgba(0,0,0,.28);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;flex:0 1 auto;min-width:0;}
   /* v4.9 任务名竖排（每字一列）：极窄条上短名放不下横排时转竖排，确保完整显示不截断 */
   .bar-task .rt-line .rt-nm[data-nm="v"]{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0;line-height:1.02;white-space:nowrap;overflow:visible;text-overflow:clip;max-height:100%;text-shadow:0 1px 1px rgba(0,0,0,.32);}
+  /* v5.2 模块竖排补列：竖排任务名后横向仍有富余时，把模块名也竖排补一列（去底色/边框，纯白文字，秀气不抢戏） */
+  .bar-task .rt-line .rt-mod[data-nm="v"]{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0;line-height:1.05;white-space:nowrap;overflow:visible;background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important;margin:0!important;color:rgba(255,255,255,.9)!important;text-shadow:0 1px 1px rgba(0,0,0,.34);font-weight:700;}
+  .bar-task .rt-line .rt-mod[data-nm="v"] .rt-mi{display:none;}
+  /* v5.4 竖排水平居中：竖排任务名(可含补列模块)在窄条内水平居中，不再靠左顶格 */
+  .bar-task .rt-line:has(.rt-nm[data-nm="v"]){justify-content:center;}
+  /* v5.4 两行堆叠：窄但够高的条(单行放不下任务名+徽标)，改为纵向两行——任务名居中一行、模块居中补第二行，充分利用纵向空间 */
+  .bar-task .rt-line[data-stack="1"]{flex-direction:column;flex-wrap:nowrap;justify-content:center;align-items:center;gap:2px;}
+  .bar-task .rt-line[data-stack="1"] .rt-nm{overflow:visible;text-overflow:clip;max-width:100%;text-align:center;}
   /* 条内模块/人天/投入比小徽标：浅底深字、单行紧凑、绝不换行、绝不被压缩变形 */
   .bar-task .rt-line .rt-mod{color:#475067!important;background:rgba(255,255,255,.92)!important;border:1px solid rgba(255,255,255,.55)!important;box-shadow:0 1px 2px rgba(0,0,0,.14);font-size:10.5px;font-weight:700;padding:1px 6px;line-height:1.35;border-radius:4px;margin:0;flex:0 0 auto;white-space:nowrap;}
   .bar-task .rt-line .rt-mod .rt-mi{font-size:10.5px;line-height:1;margin-right:2px;}
@@ -535,11 +580,15 @@
   .rt-inv.par{color:#5f3dc4;background:#efeafd;border:1px solid #c7b6f5;}
   .rt-inv.follow{color:#b36b00;background:#fff1da;border:1px solid #ffd591;}
   .rt-inv b{font-weight:900;}
+  .rt-inv .inv-k{font-size:8.5px;font-weight:800;opacity:.72;font-style:normal;margin-right:1px;letter-spacing:0;}
   .bar-task .rt-line .rt-inv{box-shadow:0 1px 2px rgba(0,0,0,.12);}
   /* 「按人看」条内「✓已完成」徽标：白底深绿字醒目印章，与「按需求看」的封存语义统一（任务段已收尾、信息锁定） */
   .rt-done{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;border-radius:4px;padding:1px 7px;line-height:1.5;flex-shrink:0;letter-spacing:.3px;white-space:nowrap;color:#138a67;background:#fff;border:1px solid #b6ead6;box-shadow:0 1px 2px rgba(0,0,0,.20);}
   /* 仅本人这段完成（整条未收尾）：浅色描边、低调，区别于整条封存的深绿印章 */
   .rt-done.seg{color:#3a9b78;background:rgba(255,255,255,.78);border-color:#cdeadd;font-weight:700;box-shadow:none;}
+  /* v5.9 逾期未完印章：橙底白字，与「✓已完成」视觉对称，醒目提醒收尾 */
+  .rt-late{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;border-radius:4px;padding:1px 7px;line-height:1.5;flex-shrink:0;letter-spacing:.3px;white-space:nowrap;color:#fff;background:#f59e0b;border:1px solid #d98008;box-shadow:0 1px 2px rgba(0,0,0,.22);text-shadow:none;}
+  .bar-task .rt-line[data-sz="2"] .rt-late{font-size:9px;padding:0 5px;}
   /* 「按人看」任务段=已完成：信息「全部保留显示」（不淡化锁定到看不清、不隐藏徽标、不盖居中印章）。
      完成语义改由行内「✓ 已完成 / ✓ 本人完成」徽标表达（见 .rt-done），并把条内信息轻微降饱和提示"已封存"，
      但角色名/模块/人天/投入比仍清晰可读，满足「信息全显示」诉求。 */
@@ -548,8 +597,15 @@
   /* —— 旧字号档（sz2-sz6）已废弃：列排列下所有元素统一用基础字号，不再缩字号 —— */
   /* —— 旧极简标签（mini/fit1）已废弃：列排列下条子按需显示前 N 个，不再走极简分支 —— */
   .bar-task.seg-done .rt-line,.bar-task.seg-done-self .rt-line{opacity:.92;filter:saturate(.9);}
-  .bar-task.seg-done .prog::after{display:none;}                       /* 已完成不再显示未做斜纹 */
-  /* 完成态居中放大印章已停用（改为行内 ✓ 徽标 + 信息全显示），故不再绘制 ::after 覆盖层，避免遮挡条内标签。 */
+  .bar-task.seg-done .prog::after,.bar-task.seg-done-self .prog::after{display:none;}   /* 已完成不再显示未做斜纹 */
+  /* 「按人看」整条完成 + 条够宽够高：复用「按需求看」的居中「✓ 已完成」大浮标（青绿实心印章），
+     条内角色名/人天等信息淡化为衬底、让完成态一眼可见；太窄太矮的条不加此类（回退行内小徽标）。 */
+  .bar-task.done-float .rt-line{opacity:.32;filter:saturate(.55);}
+  .bar-task.done-float::after{content:'✓ 已完成';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:rgba(255,255,255,.96);color:#138a67;font-size:12.5px;font-weight:900;letter-spacing:1px;
+    padding:2px 12px;border-radius:7px;z-index:4;pointer-events:none;white-space:nowrap;
+    border:1px solid #b6ead6;box-shadow:0 2px 8px rgba(0,0,0,.22);}
+  .bar-task.done-float.sm::after{font-size:10.5px;padding:1px 9px;letter-spacing:.5px;}
   /* 联调附属小条：虚线胶囊，挂在本体条之后 */
   .bar-addon{position:absolute;height:20px;top:31px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));cursor:grab;z-index:2;user-select:none;touch-action:none;}
   .bar-addon .ax-ic{font-size:9px;}
@@ -798,11 +854,19 @@
   .eff-chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:2px 6px 2px 9px;color:var(--tx);cursor:grab;user-select:none;touch-action:none;transition:opacity .1s;}
   .eff-chip:active{cursor:grabbing;}
   .eff-chip.drag-src{opacity:.32;}
+  /* 离职成员：灰化 + 删除线，不可拖拽 */
+  .eff-chip.is-left{opacity:.45;background:#f5f5f5;border-color:#ddd;color:#999;text-decoration:line-through;cursor:not-allowed;}
+  .eff-chip.is-left .x{display:none;}  /* 离职的不显示移出按钮（已自动脱离） */
+  /* eff 与档位系数不匹配：橙色小角标提示 */
+  .eff-chip .eff-mismatch{font-size:9px;font-weight:700;color:#fff;background:#f59e0b;border-radius:8px;padding:0 4px;margin-left:2px;line-height:1.5;white-space:nowrap;}
+  .eff-chip .eff-val{font-size:10px;color:#888;font-weight:400;}
   .eff-row.drop-on,.eff-unassigned.drop-on{background:#eafaf0;border-color:#0a7d3c;box-shadow:0 0 0 2px rgba(10,125,60,.18);}
   .eff-chip .x{cursor:pointer;color:#b6bfcc;font-weight:700;font-size:13px;line-height:1;padding:0 1px;}
   .eff-chip .x:hover{color:#f5413f;}
   .eff-del-tier{cursor:pointer;color:#c4ccd8;font-size:16px;line-height:1;background:none;border:none;padding:4px 2px;align-self:center;}
   .eff-del-tier:hover{color:#f5413f;}
+  .eff-sync-btn{font-size:11px;font-weight:600;color:#0a7d3c;background:#eafaf0;border:1px solid #c2ecd0;border-radius:6px;padding:3px 10px;cursor:pointer;transition:all .15s;}
+  .eff-sync-btn:hover{background:#0a7d3c;color:#fff;border-color:#0a7d3c;}
   .eff-unassigned{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:#b36b00;margin-top:6px;padding:7px 10px;background:#fffaf0;border:1px dashed #f0d28a;border-radius:8px;min-height:30px;}
   .eff-unassigned .ua-lab{font-size:11px;font-weight:700;color:#b36b00;margin-right:2px;}
   .eff-unassigned .eff-chip{background:#fff;border-color:#f0d28a;}
@@ -1049,7 +1113,7 @@
   </div>
 
   <div class="bar" style="margin-top:-6px">
-    <span class="hint" id="hintBar">💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求</span>
+    <span class="hint" id="hintBar">💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除/需求操作（改信息·删需求）· 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求</span>
     <div class="spacer"></div>
     <div class="legend" id="legend"></div>
   </div>
@@ -1067,7 +1131,7 @@
     <div class="rules">
       <div class="rule">
         <div class="t"><i style="background:var(--blue)"></i>工作强度 / 负载率</div>
-        <p>负载率 = <code>未来30天已排人天 ÷ 可用人天</code>。人均每日标准产能记为 1 人天。<br>
+        <p>负载率 = <code>未来30天 Σ每工作日各需求分摊后投入比 ÷ 可用人天</code>。人均每日标准产能记为 1 人天，<b>跟进型也占精力、计入负载</b>；同一天并行多条需求时各自的分摊后投入比相加，故可能 &gt;100%。<br>
         分档：<b style="color:#1a8a3c">≤85% 正常</b> · <b style="color:#b36b00">85–110% 饱和</b> · <b style="color:#d32320">&gt;110% 超载</b>。</p>
       </div>
       <div class="rule">
@@ -1095,6 +1159,7 @@
         <div class="t"><i style="background:#0a7d3c"></i>效率系数标定（实时驱动产能/风险计算）
           <button class="eff-lock locked" id="effLock" title="点击激活/锁定编辑">🔒 已锁定</button>
           <button class="eff-add-tier hide" id="effAddTier" title="新增一档">＋ 加一档</button>
+          <button class="eff-sync-btn" id="effSyncBtn" title="根据甘特图中成员的实际效率系数，自动将成员归入最匹配的档位（离职者自动移出）">🔄 同步</button>
         </div>
         <div id="effTiers" class="eff-tiers locked"></div>
         <p style="margin-top:8px;color:var(--tx3);">系数以 <b>1.0 = 一名标准基地人力</b> 为基准；&gt;1 比基准强、&lt;1 偏弱。修改系数、人群说明或把成员在档位间调整后，<b>每位成员的效率、负载率与需求风险会立即按新值重算</b>。</p>
@@ -1107,9 +1172,9 @@
         </div>
         <table class="inv-table" id="invTable"></table>
         <div class="inv-foot">
-          <b>计算公式：</b><code>已消化人天 = Σ(每个工作日·分摊后投入比) × 效率系数</code>　·　投入比刻画「精力分配」，效率系数刻画「个人产能强弱」，两者<b>相互独立、相乘</b>。<br>
-          <b>并行分摊：</b>同一人某天若同时在跑多条需求（含跟进），当天 <b>1.0</b> 的精力按各需求<b>权重</b>（全人力 1.0 / 完整跟进 0.4 / 部分跟进 0.2）<b>按比例瓜分</b>；任务标签直接显示<b>分摊后的实际投入比</b>，不再显示固定系数或 1/N。<br>
-          <b>举例：</b>某天同时 1 条全人力(权重1.0) + 1 条完整跟进(权重0.4)，总权重 1.4 &gt; 1 → 全人力当天实得 1.0/1.4≈<b>0.71</b>、跟进实得 0.4/1.4≈<b>0.29</b>。
+          <b>计算公式：</b><code>已消化人天 = Σ(每个工作日·分摊后投入比·消化系数) × 效率系数</code>　·　投入比刻画「精力分配」，效率系数刻画「个人产能强弱」，两者<b>相互独立、相乘</b>；跟进型消化系数为 0（占精力、不直接产出人天）。<br>
+          <b>区间与并行分摊：</b>每档投入比是一个<b>区间</b>——独占（当天只跑这一条）取<b>上限</b>；同一人同天并行多条需求时，各条按并行条数摊薄，<b>但不低于该档下限</b>。全人力 <b>0–1.0</b>（可自由 1/N 平摊）、完整跟进 <b>0.4–0.6</b>、部分跟进 <b>0.1–0.3</b>。任务标签直接显示<b>分摊后的实际投入比</b>，随排期实时变化。<br>
+          <b>举例：</b>某人某天同时跑 1 条全人力 + 1 条完整跟进 → 全人力 1.0/2=<b>0.5</b>、完整跟进 0.6/2=0.3 但触下限保底为 <b>0.4</b>；当天负载 = 0.5+0.4 = <b>0.9</b>。若并行 3 条全人力则各 1.0/3≈<b>0.33</b>。
         </div>
       </div>
     </div>
@@ -1141,6 +1206,7 @@ const STATUS = {
   review: {label:'待评审', cls:'b-amber', col:'#e08c00'},
   done:   {label:'已完成', cls:'b-done', col:'#4ecba0'},
   blocked:{label:'卡住',   cls:'b-red',   col:'#f5413f'},
+  overdue:{label:'逾期未完', cls:'b-amber', col:'#f59e0b'},  // v5.9 排期到期但未人工确认完成：橙色提醒
 };
 const STATUS_ORDER=['todo','doing','review','done','blocked'];
 /* 需求生命周期状态（独立于任务段聚合状态）：
@@ -1632,7 +1698,41 @@ function confirmAddLt(){
   revealEntity('req', host.id);
   toast('已添加联调：'+name+'（'+est+'人天 · 已挂到本角色）');
 }
-/* 改联调：弹面板修改联调工作量（人天）、名称、起止时间。与本体状态菜单风格一致。 */
+/* 快捷联调：一键为角色打上联调标签（不弹表单，自动计算默认值）。
+   已有联调 → 提示已存在；没有 → 自动创建（窗口=本体最晚结束次日起 ~ 约12工作日，成员=本体全部制作人）。 */
+function quickLt(hostId){
+  if(!requireWrite()){hideMenu();return;}
+  const host=reqs.find(r=>r.id===hostId); if(!host){hideMenu();return;}
+  hideMenu();
+  const existing=reqs.find(z=>z.kind==='lt' && z.char===host.char);
+  if(existing){
+    revealEntity('req', existing.id);
+    toast('本角色已有联调：'+existing.name+'（'+existing.estimate+'人天）');
+    return;
+  }
+  pushHistory();
+  // 自动默认值：起点=该角色所有特效段最晚结束的次日；窗口≈12工作日；成员=本体全部制作人去重
+  const sibs=reqs.filter(r=>r.char===host.char && r.kind==='fx');
+  let maxE=idx(host.end); sibs.forEach(s=>{ s.segs.forEach(sg=>{ if(idx(sg.e)>maxE)maxE=idx(sg.e); }); });
+  const ns=Math.min(maxE+1,DAYS-1), ne=Math.min(ns+18,DAYS);
+  const mems=[]; sibs.forEach(r=>r.segs.forEach(sg=>{ if(!mems.includes(sg.m))mems.push(sg.m); }));
+  if(!mems.length && host.segs[0]) mems.push(host.segs[0].m);
+  const est=12;
+  const lt={
+    id:genId('lt_'), name:charShort(host.char)+' 联调', char:host.char, mod:'联调',
+    grade:host.grade||'', line:host.line||'-', kind:'lt', estimate:est, done:0, end:i2d(ne),
+    segs:mems.map(m=>({m, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'}))
+  };
+  reqs.push(lt);
+  relinkLt();
+  _logDesc='为「'+charShort(host.char)+'」快捷添加联调（'+est+'人天）';
+  save();broadcast();
+  rerender();
+  revealEntity('req', lt.id);
+  toast('✓ 已添加联调：'+lt.name+'（自动接续本体之后）');
+}
+/* 改联调（完整编辑模式）：弹面板修改联调工作量（人天）、名称、起止时间。
+   一般场景用 quickLt() 即可；仅在需要微调名称/日期时才走此路径。 */
 function openEditLt(ltId){
   if(!requireWrite()){hideMenu();return;}
   const lt=reqs.find(r=>r.id===ltId && r.kind==='lt'); if(!lt){hideMenu();return;}
@@ -1676,6 +1776,86 @@ function confirmEditLt(){
 }
 let ltCtx=null;   // {mode:'add',hostId} | {mode:'edit',ltId}
 
+/* ============ 修改需求信息 / 删除需求（需求级生命周期操作） ============ */
+let erCtx=null;   // {reqId} —— 正在编辑信息的需求
+/* 修改需求基本信息：名称 / 角色名 / 模块 / 品级 / 管线 / 工作量人天 / 已完成人天。
+   两视图共用同一份数据，改后标题、标签、分组配色同步更新。联调(lt)走 openEditLt。 */
+function openEditReq(reqId){
+  if(!requireWrite()){hideMenu();return;}
+  const r=reqs.find(z=>z.id===reqId && z.kind!=='lt'); if(!r){hideMenu();return;}
+  hideMenu();
+  erCtx={reqId:r.id};
+  const gradeOpt=GRADE_OPTS_LIST.map(g=>`<option value="${g}" ${r.grade===g?'selected':''}>${g===''?'通用':g+'级'}</option>`).join('');
+  const modOpt=MOD_OPTS_LIST.map(m=>`<option value="${m}" ${r.mod===m?'selected':''}>${m}</option>`).join('');
+  const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}" ${r.line===l[0]?'selected':''}>${l[1]}</option>`).join('');
+  const g=HR_GRADE[r.grade]||HR_GRADE[''];
+  const body=`
+    <div class="ctx" style="background:#eef6ff;border-color:#bcd9f7;color:#185fa5">修改需求 <b>${escAttr(r.name)}</b> 的基本信息。改动后「按需求看 / 按人看」的标题、标签、分组配色会同步更新（共用同一份数据）。</div>
+    <div class="row2">
+      <div class="fld"><label>需求名称</label><input type="text" id="erName" value="${escAttr(r.name)}"></div>
+      <div class="fld"><label>角色名</label><input type="text" id="erChar" value="${escAttr(r.char)}" placeholder="如：红蔻·赤焰"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>模块</label><select id="erMod">${modOpt}</select></div>
+      <div class="fld"><label>品级</label><select id="erGrade">${gradeOpt}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>管线</label><select id="erLine">${lineOpt}</select></div>
+      <div class="fld"><label>工作量（人天）</label><input type="number" id="erEst" value="${r.estimate}" min="1" step="1"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>已完成人天</label><input type="number" id="erDone" value="${r.done||0}" min="0" step="1"></div>
+      <div class="fld" style="display:flex;align-items:flex-end;color:var(--tx3);font-size:12px">当前：${g.label}级${r.line&&r.line!=='-'?' · '+lineName(r.line):''} · ${modMeta(r.mod).s||r.mod}</div>
+    </div>
+    <div class="warn" id="erWarn"></div>`;
+  renderAddModal('✎', '修改需求信息', body, true);
+  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmEditReq()');
+}
+function confirmEditReq(){
+  if(!erCtx)return;
+  if(!requireWrite())return;
+  const r=reqs.find(z=>z.id===erCtx.reqId); if(!r){closeAdd();return;}
+  const warn=document.getElementById('erWarn');
+  const name=(document.getElementById('erName').value||'').trim();
+  if(!name){ warn.textContent='请填写需求名称'; warn.classList.add('show'); return; }
+  const charV=(document.getElementById('erChar').value||'').trim();
+  const est=Math.max(1,parseInt(document.getElementById('erEst').value,10)||r.estimate);
+  const done=Math.max(0,parseInt(document.getElementById('erDone').value,10)||0);
+  pushHistory();
+  const oldChar=r.char;
+  r.name=name;
+  r.char = charV || name;
+  r.mod = document.getElementById('erMod').value;
+  r.grade = document.getElementById('erGrade').value;
+  r.line = document.getElementById('erLine').value;
+  r.estimate = est;
+  r.done = done;
+  if(oldChar!==r.char) relinkLt();   // 角色名变了 → 联调挂载关系需重算
+  _logDesc='修改需求信息：'+name;
+  save();broadcast();closeAdd();
+  rerender();
+  revealEntity('req', r.id);
+  toast('需求信息已更新：'+name);
+}
+/* 删除整条需求（含其挂载的联调）。带确认、可撤销、可云同步；清除可能失效的选中/剪贴板引用。 */
+function deleteReq(reqId){
+  if(!requireWrite())return;
+  const r=reqs.find(z=>z.id===reqId); if(!r)return;
+  const isLt = r.kind==='lt';
+  const nm = isLt ? (charShort(r.char)+' 联调') : r.name;
+  const extra = (!isLt && r.children && r.children.length) ? `\n\n该需求还挂着 ${r.children.length} 条联调，删除后联调也会一并移除。` : '';
+  if(!confirm(`确定删除需求「${nm}」吗？\n删除后该需求及其所有任务条将永久移除，可用 Ctrl+Z 撤销。${extra}`)) return;
+  pushHistory();
+  const delIds=new Set([reqId, ...(r.children||[])]);
+  for(let i=reqs.length-1;i>=0;i--){ if(delIds.has(reqs[i].id)) reqs.splice(i,1); }
+  relinkLt();   // 重算其余联调挂载关系
+  if(selectedBar && delIds.has(selectedBar.reqId)) setSelected(null);
+  if(clip && delIds.has(clip.reqId)) clearClip();
+  _logDesc='删除需求：'+nm;
+  save();broadcast();rerender();
+  toast('已删除需求：'+nm+'，可 Ctrl+Z 撤销');
+}
+
 /* ============ 人力分配数据（来源：当前人力分配脑图 / 企微表「当前人力分配」子表） ============ */
 /* 结论：目前基地总人数 14 人，未来常规管线共缺 11 人（金角4人 / 橙角1号5人 / 橙角2号5人 / 红角11人） */
 const HR_GRADE = {
@@ -1691,6 +1871,30 @@ const HR_STATUS = {
   '':       {col:'#9097a0', bg:'#eef1f6', tx:'#646a73'},
 };
 // 模块 → [{role,grade,status,cfg,gap,makers:[],tmp:[],note}]
+
+/* 动态品级：根据成员当前负责的角色线（hrData）取品级，而非成员固定属性。
+   品级跟随任务/角色线绑定（金/橙/红），不是人的固有标签。
+   优先级：金 > 橙 > 红；多角色线时取最高；未找到返回空字符串。 */
+const GRADE_PRIORITY = ['金','橙','红'];
+function memWorkGrade(memId){
+  const m = members.find(x=>x.id===memId); if(!m) return '';
+  const nm = m.name;
+  let found = '';
+  hrData.forEach(mod=>mod.roles.forEach(r=>{
+    if((r.makers||[]).some(n=>n===nm || String(n).replace(/[·\(].*$/,'')===nm)){
+      // 取优先级最高的品级
+      if(!found || GRADE_PRIORITY.indexOf(r.grade) < GRADE_PRIORITY.indexOf(found)) found = r.grade;
+    }
+    // 也检查 tmp（新人/临时）
+    (r.tmp||[]).forEach(n=>{
+      if(String(n).replace(/[·\(].*$/,'')===nm){
+        if(!found || GRADE_PRIORITY.indexOf(r.grade) < GRADE_PRIORITY.indexOf(found)) found = r.grade;
+      }
+    });
+  }));
+  return found||'';
+}
+
 const hrData = [
   {mod:'出场', roles:[
     {role:'金（七十）',   grade:'金', status:'启动中',   cfg:4, gap:0, makers:['于航','彭诗淇','刘振山','宗丞'], tmp:[], note:'余洪震带 · 4人'},
@@ -1751,10 +1955,62 @@ function activeBase(r){
   });
   return seen.size;
 }
+/* 某成员在 hrData 所有角色线中的缺口总和（用于按人看行内显示「缺N」徽标） */
+function memGapCount(memId){
+  const m=memById(memId); if(!m) return 0;
+  const mn=m.name;
+  let total=0;
+  hrData.forEach(mod=>mod.roles.forEach(r=>{
+    if(r.makers.includes(mn)||r.tmp.some(t=>t.replace(/\(.*\)/,'')===mn)){
+      total+=Math.max(0,r.gap||0);
+    }
+  }));
+  return total;
+}
 /* 动态人力缺口 = 标配 − 实际在岗（≥0）。无标配的需求恒为 0 */
 function reqGapPpl(r){
   const std=REQ_STD[r&&r.id]; if(std==null) return 0;
   return Math.max(0, std-activeBase(r));
+}
+/* ============ 实时 HR 汇总：全部从 members + reqs 计算，不再依赖写死的 hrData ============
+   - 基础编制：在岗（非离职）成员总数
+   - 在岗制作人：在 reqs 里实际排了任务、且非离职的成员去重数（不含纯里程碑 qa）
+   - 已配置岗位：各需求实际在岗基地人数之和（activeBase）
+   - 缺口：Σ reqGapPpl(每条有标配的需求) + 暂缺占位成员数（名字含"暂缺"）
+   - 等级缺口：按需求 grade 分组汇总 reqGapPpl
+*/
+function isVacantMem(m){ return m && /暂缺/.test(m.name||''); }
+function computeHR(){
+  // 在岗成员（排除已到离职日的人）
+  const activeMems = members.filter(m=>!effLeft(m));
+  const base = activeMems.length;
+  // 暂缺占位成员（预排未到位，计入缺口）
+  const vacantCount = members.filter(m=>isVacantMem(m) && !effLeft(m)).length;
+  // 在岗制作人：在 reqs（非 qa 里程碑）里排了段的、非离职、非暂缺 成员去重
+  const makerSet = new Set();
+  let totalCfg = 0, totalGap = 0;
+  const gradeGap = {金:0, 橙:0, 红:0};
+  reqs.forEach(r=>{
+    if(r.kind==='qa') return;                     // 全量测试里程碑不计人力
+    (r.segs||[]).forEach(s=>{
+      const m=memById(s.m);
+      if(!m||effLeft(m)||isVacantMem(m)) return;
+      makerSet.add(m.id);
+    });
+    totalCfg += activeBase(r);                     // 实际在岗基地人数
+    const g = reqGapPpl(r);                         // 该需求实时缺口
+    totalGap += g;
+    if(g>0 && gradeGap[r.grade]!==undefined) gradeGap[r.grade]+=g;
+  });
+  return {
+    base,
+    makers: makerSet.size,
+    totalCfg,
+    totalGap,                                       // 标配口径缺口（不含暂缺）
+    vacantCount,
+    lack: totalGap + vacantCount,                   // 缺少数 = 标配缺口 + 暂缺占位
+    gradeGap,
+  };
 }
 /* 兼容旧调用（按管线粗粒度），现已不参与风险计算 */
 const LINE_GAP = { 'L1':3, 'L2':2, 'J':0, 'R':8, '-':0 };
@@ -1792,8 +2048,8 @@ const MOD_FAM = {
   '武器特效':'#5c7080','通用':'#5c7080','联调':'#5c7080','全量测试':'#5c7080',
 };
 const modFamC = mod => MOD_FAM[mod] || '#5c7080';
-/* 单击菜单里可快捷切换的模块类型（剔除「联调/全量测试」——它们由附属关系语义管理，不在普通任务条上改）。 */
-const MOD_PICK = ['出场','出场/MVP/入局','MVP','入局','TPP','大厅','检视','组队','检视/组队','本体/3C','武器特效','通用'];
+/* 单击菜单里可快捷切换的模块类型（联调已纳入普通模块，与出场/检视/通用等并列）。 */
+const MOD_PICK = ['出场','MVP','入局','TPP','大厅','检视','组队','本体/3C','武器特效','通用','联调'];
 
 /* 角色配色：每个角色一个固定色，用于左侧竖带的「角色层」。与品级色、模块色错开色相，避免混淆。 */
 const CHAR_COLOR = {
@@ -1839,10 +2095,12 @@ function reqTitleHTML(r, opt){
   //  · 「按人看」每条任务条传 opt.pdays = 该成员在本需求的个人投入(Σ投入比×效率)，显示个人量；
   //  · 「按需求看」不传 opt.pdays，显示整条需求总工作量 r.estimate。
   let md='';
+  // v5.8：条上直接显示「≈X周」（用户选「直接换成周」更直观，无需再心算人天）；hover 保留人天原值+公式。
+  const wkNum=n=>{const w=n/5;return (Math.round(w*10)/10).toFixed(1).replace(/\.0$/,'');};
   if(opt.pdays!=null){
-    md=(opt.pdays>0)?`<span class="rt-md" data-rank="4" title="本人在该需求的投入工作量（投入比×效率折算）">${opt.pdays}<small>人天</small></span>`:'';
+    md=(opt.pdays>0)?`<span class="rt-md" data-rank="4" title="本人投入 ≈ ${wkNum(opt.pdays)}周全职（${opt.pdays}人天，1周=5个工作日）&#10;= 每天投入比 × 个人效率，逐日累加折算成的标准人天">≈${wkNum(opt.pdays)}<small>周</small></span>`:'';
   }else{
-    md=(r.estimate>0)?`<span class="rt-md" data-rank="4" title="该需求总工作量（全部参与成员之和）">${r.estimate}<small>人天</small></span>`:'';
+    md=(r.estimate>0)?`<span class="rt-md" data-rank="4" title="该需求总工作量 ≈ ${wkNum(r.estimate)}周全职（${r.estimate}人天，1周=5个工作日）&#10;= 全部参与成员的投入之和">≈${wkNum(r.estimate)}<small>周</small></span>`:'';
   }
   return `${nm}${mt}${md}`;
 }
@@ -1907,6 +2165,61 @@ const dayMs=864e5;
 const idx = d => Math.round((d-START)/dayMs);
 const i2d = i => new Date(START.getTime()+i*dayMs);
 const isWE = i => {const d=new Date(START.getTime()+i*dayMs);const w=d.getDay();return w===0||w===6;};
+/* ===== 节假日灰列配置（可按国务院公告自行增删；格式 'YYYY-M-D'，无前导零） =====
+   HOLIDAYS：法定放假日（含调休连休段）→ 标为节假日灰；
+   WORKMAKEUP：调休需要上班的周末（即使周六日也不标灰）。
+   注：2026下半年官方调休安排若有微调，改这两个集合即可，无需动其他代码。 */
+const HOLIDAYS = new Set([
+  // 劳动节
+  '2026-5-1','2026-5-2','2026-5-3','2026-5-4','2026-5-5',
+  // 端午（农历五月初五 = 2026-6-19 周五）
+  '2026-6-19','2026-6-20','2026-6-21',
+  // 中秋（农历八月十五 = 2026-9-25 周五）
+  '2026-9-25','2026-9-26','2026-9-27',
+  // 国庆
+  '2026-10-1','2026-10-2','2026-10-3','2026-10-4','2026-10-5','2026-10-6','2026-10-7','2026-10-8',
+  // 元旦
+  '2027-1-1','2027-1-2','2027-1-3',
+  // 春节（正月初一 = 2027-2-6；含除夕起连休至初八）
+  '2027-2-5','2027-2-6','2027-2-7','2027-2-8','2027-2-9','2027-2-10','2027-2-11','2027-2-12','2027-2-13',
+]);
+const WORKMAKEUP = new Set([]);   // 调休上班的周末，例：'2026-9-19'
+const dkey = i => {const d=new Date(START.getTime()+i*dayMs);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();};
+/* 返回该天灰列类型：'hol'=节假日 | 'we'=双休 | null=工作日(不标灰) */
+const shadeType = i => {const k=dkey(i); if(WORKMAKEUP.has(k)) return null; if(HOLIDAYS.has(k)) return 'hol'; return isWE(i)?'we':null;};
+/* v5.7 条内休息日暗块：给定任务条起止整天索引 [si0,ei0)，为其中每个休息日(周末/节假日)生成一块斜纹暗块，
+   叠在进度层里表达「这天停工·不算人天产出」。left 相对 .prog 左缘(=si0*DAY_W 整天边界)按 (i-si0)*DAY_W 定位，天然对齐日期列。
+   .prog 有 overflow:hidden，超出条体的部分自动裁掉。 */
+function restBlocksHTML(si0, ei0){
+  let s='';
+  for(let i=si0;i<ei0;i++){ const t=shadeType(i); if(t){ s+=`<i class="rest ${t}" style="left:${(i-si0)*DAY_W}px;width:${DAY_W}px"></i>`; } }
+  return s;
+}
+/* 第 i 天是否工作日（非周末且非节假日；调休上班的周末算工作日）——与休息日暗块口径完全一致 */
+const isWorkday = i => shadeType(i)===null;
+/* [a,b) 日索引区间内的工作日数（休息日不计） */
+function workdaysIdx(a,b){ let n=0; for(let i=a;i<b;i++){ if(isWorkday(i)) n++; } return n; }
+/* ===== v5.8 按今天日期自动推进任务段的「状态 + 进度」（仅「按人看」） =====
+   诉求：条颜色/进度不再靠手工字段，改为按当前日历日即时推算——到开始日自动由灰(未开始)变蓝(进行中)，
+   进度随已过工作日增长（休息日不产出、进度不推进）。
+   底线：人工已确认的「已完成 / 废弃」是数据事实，不被日期覆盖，避免「排期到了但没做完却显示已完成」的误导。
+   返回 {status, prog}：status 用于着色(barCls)与状态标签，prog(0~1)用于进度填充。 */
+function autoSegState(sg){
+  if(sg.status==='done')    return {status:'done',    prog:1};
+  if(sg.status==='dropped') return {status:'dropped', prog:(sg.prog||0)};
+  // 无期限条(open)：无起止日，无法按日期推，沿用原字段
+  if(sg.open) return {status:(sg.status||'doing'), prog:(sg.status==='todo'?0:(sg.prog||0))};
+  const s=idx(sg.s), e=idx(sg.e), t=idx(TODAY);
+  if(t<s)  return {status:'todo',  prog:0};                              // 今天还没到开始日 → 灰(未开始)
+  // v5.9 逾期提醒：排期结束日已过、但没人工点「已完成」→ 橙色「逾期未完」，取代原先误导性的「蓝满格」。
+  if(t>=e) return {status:'overdue', prog:1};
+  // v5.9 进度对齐：改按「日历天」比例 (t-s)/(e-s)，而非工作日比例。
+  //   因条左缘 x=s*DAY_W、今天红线 tx=t*DAY_W，故分界线绝对位置 = s*DAY_W + prog*(e-s)*DAY_W = t*DAY_W = 红线，
+  //   所有进行中条的蓝白分界线精确落在同一条今天红线上（消除 −6~+11px 锯齿）。
+  //   休息日「不产出」由条内斜纹暗块单独表达，不再折进进度百分比。
+  const prog=Math.max(0,Math.min(1,(t-s)/Math.max(e-s,1)));
+  return {status:'doing', prog};                                         // 进行中 → 蓝，分界线=今天
+}
 const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
 function workdays(a,b){let n=0;for(let t=a.getTime();t<b.getTime();t+=dayMs){const w=new Date(t).getDay();if(w!==0&&w!==6)n++;}return n;}
 const memName=id=>{const m=members.find(m=>m.id===id);return m?m.name:id;};
@@ -1932,7 +2245,7 @@ const memEff =id=>{const m=members.find(m=>m.id===id);return m?m.eff:1;};
 let EFF_TIERS = buildDefaultTiers();
 let effLocked = true;  // 系数标定默认锁定，防误操作（在 snapshot/ORIG 之前声明，避免 TDZ）
 let estRecalc = false; // 是否已用真实排期(投入比×效率)重算过占位工作量；一次性，随快照持久化
-const EST_RECALC_VER = 3; // 重算口径版本：v1=初始；v2=投入比系数调整+跟进并行分摊；v3=所有跟进型消化系数归零（不消化人天）
+const EST_RECALC_VER = 4; // 重算口径版本：v1=初始；v2=投入比系数调整+跟进并行分摊；v3=所有跟进型消化系数归零（不消化人天）；v4=投入比区间模型(clamp(hi/并行数,lo,hi))
 let estRecalcVer = 0;     // 已重算到的版本，随快照持久化
 function buildDefaultTiers(){
   // 依据成员当前 eff 自动归档（保持初始数据语义），系数从高到低
@@ -1959,10 +2272,10 @@ function syncEffFromTiers(){
   EFF_TIERS.forEach(t=>{const c=Number(t.coef);if(!isFinite(c))return;(t.mems||[]).forEach(id=>{byMem[id]=c;});});
   members.forEach(m=>{ if(byMem[m.id]!=null) m.eff=byMem[m.id]; });
 }
-// 尚未分入任何档位的成员
+// 尚未分入任何档位的成员（含离职者，由 renderEffTable 负责灰化）
 function unassignedMems(){
   const has={};EFF_TIERS.forEach(t=>(t.mems||[]).forEach(id=>has[id]=1));
-  return members.filter(m=>!has[m.id] && !leftLong(m));   // 离职满1月不再列入未分档名单
+  return members.filter(m=>!has[m.id]);
 }
 // 成员当前所在档 index，未分档返回 -1
 function memTierIndex(id){
@@ -2014,12 +2327,15 @@ let STD_CFG = [
 ];
 let stdLocked = true;  // 标准工期表默认锁定，防误操作
 
-/* 投入比 / 精力分配 档位（数据驱动、可编辑、带锁定）。val<1=跟进型(固定投入比、不分摊)；val=1=全人力制作(并行自动平摊)。
-   col=色块颜色, vbg/vfg=投入比徽标底色/字色, desc=行为规则, scene=典型场景。支援(外借)为固定行，不在此数组内。*/
+/* 投入比 / 精力分配 档位（数据驱动、可编辑、带锁定）。v5.11 起改「区间」模型：
+   每档有 [lo, hi] 区间——hi=独占（当天只跑这一条）时的投入比上限，lo=并行分摊的保底下限。
+   当天有效投入比 = clamp(hi ÷ 当天并行条数, lo, hi)：独占取 hi，并行越多越往下降，触底 lo 后不再受并行影响。
+   全人力 [0,1.0]（无保底，可自由 1/N 平摊）；完整跟进 [0.4,0.6]；部分跟进 [0.1,0.3]。
+   val 保留=hi（独占上限，兼容旧字段/菜单选择时写入 seg.inv）。col=色块色, vbg/vfg=徽标底/字色, desc=规则, scene=场景。支援(外借)为固定行，不在此数组内。*/
 let INV_TIERS = [
-  {key:'full',  name:'全人力制作', val:1.0, col:'#0a7d3c', vbg:'#e9f8ee', vfg:'#0a7d3c', desc:'全力投入单条产出（权重 1.0）。当该成员同期还有其它需求时，每天的精力按<b>各需求权重自动分摊</b>，标签直接显示<b>分摊后的实际投入比</b>（无需手动设置，随排期实时变化）。', scene:'主力特效师独立\n承制一条需求'},
-  {key:'follow',name:'完整跟进', val:0.4, col:'#b36b00', vbg:'#fff1da', vfg:'#b36b00', desc:'持续跟进效果但非全力制作（权重 0.4）。<b>同样参与并行分摊</b>：与同期其它需求按权重瓜分当天精力，标签显示分摊后的实际投入比。', scene:'资深盯方向 /\n全程把控品质'},
-  {key:'part',  name:'部分跟进', val:0.2, col:'#d6a000', vbg:'#fdf6e3', vfg:'#a07800', desc:'花一部分精力跟进反馈效果（权重 0.2）。<b>同样参与并行分摊</b>：与同期其它需求按权重瓜分当天精力，标签显示分摊后的实际投入比。', scene:'兼顾多条 /\n定期 review'},
+  {key:'full',  name:'全人力制作', val:1.0, lo:0,   hi:1.0, col:'#0a7d3c', vbg:'#e9f8ee', vfg:'#0a7d3c', desc:'全力投入单条产出（独占时 <b>1.0</b>）。当该成员同期还有其它需求时，当天精力在多条间<b>自动平摊</b>（并行 N 条则每条约 1/N），标签直接显示<b>分摊后的实际投入比</b>，无需手动设置、随排期实时变化。', scene:'主力特效师独立\n承制一条需求'},
+  {key:'follow',name:'完整跟进', val:0.6, lo:0.4, hi:0.6, col:'#b36b00', vbg:'#fff1da', vfg:'#b36b00', desc:'持续跟进效果但非全力制作。投入比在 <b>0.4–0.6</b> 区间：独占时取上限 0.6，与其它需求并行时按条数摊薄，<b>但不低于下限 0.4</b>（跟进的最低精力）。不直接消化人天，但计入负载。', scene:'资深盯方向 /\n全程把控品质'},
+  {key:'part',  name:'部分跟进', val:0.3, lo:0.1, hi:0.3, col:'#d6a000', vbg:'#fdf6e3', vfg:'#a07800', desc:'花一部分精力跟进反馈效果。投入比在 <b>0.1–0.3</b> 区间：独占时取上限 0.3，与其它需求并行时按条数摊薄，<b>但不低于下限 0.1</b>。不直接消化人天，但计入负载。', scene:'兼顾多条 /\n定期 review'},
 ];
 let invLocked = true;  // 投入比表默认锁定，防误操作
 
@@ -2111,10 +2427,19 @@ const r2=v=>Math.round(v*100)/100;   // 两位小数（分摊后投入比展示�
    ② 全人力制作：seg.inv 未设或 =1 —— 该人当天若同时在跑 N 条「全人力制作」段，
       当天对每条的投入比自动平摊为 1/N（并行越多、单条消化越慢）。
    support（支援）只表编制隶属，不打折。 */
-function segIsFollow(s){ return s.inv!=null && s.inv<1; }        // 跟进型(权重<1)
-/* 任务段的「精力权重」：全人力=1.0、完整跟进=0.4、部分跟进=0.2（即 seg.inv，未设视为 1）。
-   所有段（含跟进）都用这个权重参与每日并行分摊。 */
-function segInvBase(s){ return (s.inv!=null && s.inv<1) ? s.inv : 1; }
+function segIsFollow(s){ return s.inv!=null && s.inv<1; }        // 跟进型(独占上限<1)
+/* 任务段的「区间」[lo,hi]：hi=独占时投入比上限，lo=并行分摊保底下限。
+   seg.inv 记录的是该段档位的 hi 值（完整跟进 0.6 / 部分跟进 0.3 / 未设=全人力 1.0）。
+   反查 INV_TIERS 拿该档的 lo；查不到（自定义历史值）则按「跟进型 lo=hi 的一半、全人力 lo=0」兜底。 */
+function segInvRange(s){
+  const hi = (s.inv!=null && s.inv<1) ? s.inv : 1;
+  if(hi>=1) return {lo:0, hi:1};                                  // 全人力：可自由 1/N 平摊，无保底
+  const tier = (typeof INV_TIERS!=='undefined') ? INV_TIERS.find(t=>Math.abs((t.hi!=null?t.hi:t.val)-hi)<1e-6) : null;
+  const lo = tier ? (tier.lo!=null?tier.lo:hi) : Math.round(hi*0.5*100)/100;
+  return {lo, hi};
+}
+/* 任务段的「独占投入比上限」hi（兼容旧 segInvBase 调用点）。 */
+function segInvBase(s){ return segInvRange(s).hi; }
 /* 任务段的「消化系数」：决定该段投入比折算成多少「消化人天」。
    · 全人力制作 → 1.0（全额消化）；
    · 所有跟进型(完整跟进 0.4 / 部分跟进 0.2 / 自定义跟进) → 0（只跟反馈、不直接产出，不消化人天）。
@@ -2124,36 +2449,37 @@ function segDigestFactor(s){
   if(!segIsFollow(s)) return 1;                       // 全人力：全额消化
   return 0;                                          // 所有跟进型：不消化人天
 }
-/* 某人在某工作日所有在排段（含跟进）的权重之和。用作当天精力分摊的分母（capped 在 1.0：
-   总权重≤1 时各段按自身权重投入，>1 时按权重比例瓜分当天 1.0 精力）。open 段不计。 */
+/* 某人在某工作日的「并行段数」：当天所有在排段（含跟进，不含 open/废弃）的条数。
+   用作每档独立分摊的分母：并行越多，各档投入比越往区间下限收敛。 */
 function personDayWeightSum(id, t){
-  let sum=0;
+  let n=0;
   reqs.forEach(rr=>{
     if(reqState(rr)==='dropped') return;
     rr.segs.forEach(s=>{
       if(s.m!==id || s.open) return;
-      if(t>=s.s.getTime() && t<s.e.getTime()) sum+=segInvBase(s);
+      if(t>=s.s.getTime() && t<s.e.getTime()) n++;
     });
   });
-  return sum;
+  return n;
 }
-/* 某段在某工作日「分摊后的有效投入比」：权重 / max(1, 当天总权重)。
-   独占或当天总权重≤1 → 等于自身权重；过载 → 按权重比例瓜分。 */
+/* 某段在某工作日「分摊后的有效投入比」：clamp(hi / 当天并行条数, lo, hi)。
+   独占(并行=1) → hi（区间上限）；并行越多 → 越低，但触底 lo 后不再受并行影响。 */
 function segEffInvOnDay(s, t){
-  const wt=segInvBase(s);
-  const denom=Math.max(1, personDayWeightSum(s.m, t));
-  return wt/denom;
+  const {lo,hi}=segInvRange(s);
+  const n=Math.max(1, personDayWeightSum(s.m, t));
+  const v=hi/n;
+  return Math.min(hi, Math.max(lo, v));
 }
 /* 某段在其全部工作日上的「平均有效投入比」与是否被分摊（用于标签数字）。 */
 function segAvgEffInv(s){
   let sum=0, days=0, shared=false;
-  const wt=segInvBase(s);
+  const {hi}=segInvRange(s);
   for(let t=s.s.getTime(); t<s.e.getTime(); t+=dayMs){
     const w=new Date(t).getDay(); if(w===0||w===6) continue;
     const e=segEffInvOnDay(s,t); sum+=e; days++;
-    if(e < wt-1e-6) shared=true;                  // 被其它需求分摊（低于自身权重）
+    if(e < hi-1e-6) shared=true;                  // 低于独占上限 → 被并行摊薄过
   }
-  return { avg: days? sum/days : wt, days, shared, wt };
+  return { avg: days? sum/days : hi, days, shared, wt:hi };
 }
 /* 任务段的投入比徽标：直接显示「分摊后的实际投入比数字」（不显示固定系数 / 1/N 算法）。
    颜色：跟进型=琥珀、被并行分摊=紫、独占满额=蓝。 */
@@ -2163,11 +2489,13 @@ function segInvBadge(s, nShow){
   const num=r2(ae.avg);                            // 分摊后的有效投入比（保留两位小数）
   const follow=segIsFollow(s);
   const cls = follow ? 'follow' : (ae.shared ? 'par' : 'full');
-  const wtTxt = follow ? `（跟进权重 ${ae.wt}）` : '';
+  const {lo,hi}=segInvRange(s);
+  const rgTxt = follow ? `（区间 ${lo}–${hi}）` : '';
   const tip = ae.shared
-    ? `投入比 ${num}：与同期其它需求按权重并行分摊后的实际值${wtTxt}`
-    : `投入比 ${num}：本段独占该成员精力${wtTxt}`;
-  return `<span class="rt-inv ${cls}" data-rank="5" title="${tip}"><b>${num}</b></span>`;
+    ? `占 ${num}：与同期其它需求并行、按条数在区间内摊薄后的实际值${rgTxt}`
+    : `占 ${num}：本段独占该成员精力，取${follow?'区间上限':'满额'} ${hi}${rgTxt}`;
+  // v5.9：前缀「投」→「占」，更直白地表达「这条占该成员当天多少精力」（占用比），0.64=占了六成精力。
+  return `<span class="rt-inv ${cls}" data-rank="5" title="${tip}"><i class="inv-k">占</i><b>${num}</b></span>`;
 }
 /* 任务段是否处于「已完成」终态：需求级被人工置为已完成/全段完成派生态(reqIsDone)，或该段自身=已完成。 */
 function segIsDone(r,s){ return reqIsDone(r) || (s&&s.status==='done'); }
@@ -2179,6 +2507,9 @@ function segDoneBadge(r,s){
   if(s && s.status==='done') return `<span class="rt-done seg" data-rank="3" title="${memName(s.m)}这段已完成，整条需求仍在进行">✓ 本人完成</span>`;
   return '';
 }
+/* v5.9 逾期徽标：排期结束日已过、但没人工点「已完成」→ 条上橙色「⚠ 逾期未完」提醒收尾。
+   仅在 autoSegState 判为 overdue 时插入（rank3，与完成印章同级，尽量保命）。 */
+function segOverdueBadge(){ return `<span class="rt-late" data-rank="3" title="排期结束日已过，但尚未人工确认完成 → 请尽快收尾或调整排期">⚠ 逾期未完</span>`; }
 /* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
 function personDayFullCount(id, t){
   let n=0;
@@ -2371,17 +2702,23 @@ function capacityLanesHTML(r){
 function memLoad(id){
   const horizonEnd = new Date(TODAY.getTime()+30*dayMs);   // 未来30天负载窗口（长周期排期）
   const avail = workdays(TODAY,horizonEnd);
+  // v5.11：负载 = 未来30天每个工作日 Σ(该人各在排段·分摊后投入比)，逐日累加。
+  //   并行需求的分摊后投入比在同一天相加 → 直接反映当天精力占用；跟进型（部分/完整跟进）也计入。
+  //   分摊后投入比已由 segEffInvOnDay 用「clamp(hi/并行条数, lo, hi)」算好，故同一人同天多条相加可能 >1（超载）。
   let assigned=0;
-  reqs.forEach(r=>{
-    if(r.kind==='qa') return;   // 全量测试=bug修复阶段，不计入排期负载
-    r.segs.forEach(s=>{
-      if(s.m!==id) return;
-      if(s.status==='done') return;
-      if(s.open) return;   // 无明确时间段：时间未定，不纳入负载窗口计算（避免占位窗口误算）
-      const a=new Date(Math.max(s.s,TODAY)), b=new Date(Math.min(s.e,horizonEnd));
-      if(b>a) assigned+=workdays(a,b);
+  const T0=TODAY.getTime(), T1=horizonEnd.getTime();
+  for(let t=T0; t<T1; t+=dayMs){
+    const w=new Date(t).getDay(); if(w===0||w===6) continue;   // 仅工作日
+    reqs.forEach(r=>{
+      if(r.kind==='qa') return;   // 全量测试=bug修复阶段，不计入排期负载
+      r.segs.forEach(s=>{
+        if(s.m!==id) return;
+        if(s.status==='done') return;
+        if(s.open) return;   // 无明确时间段：不纳入负载窗口
+        if(t>=s.s.getTime() && t<s.e.getTime()) assigned += segEffInvOnDay(s, t);
+      });
     });
-  });
+  }
   const pct=avail>0?assigned/avail:0;
   let cls,col;
   if(pct<=0.85){cls='正常';col='var(--green)';}
@@ -2400,6 +2737,7 @@ function barCls(r,seg){
   if(seg){
     if(seg.status==='done')    return 'b-done'+k;   // 这段活已完成 → 绿
     if(seg.status==='dropped') return 'b-gray'+k;   // 这段已废弃 → 灰
+    if(seg.status==='overdue') return 'b-amber'+k;  // v5.9 排期到期未完成 → 橙(不受 colorMode 影响，始终提醒)
   } else if(aggStatus(r)==='done'){
     return 'b-done'+k;                                // 整条需求所有段都完成 → 绿（即便生命周期未手动置 done）
   }
@@ -2411,7 +2749,12 @@ function barCls(r,seg){
 
 /* ============ 表头（按月+按周粒度，适配全跨度） ============ */
 function headerHTML(){
-  let months='',weeks='',vlines='';
+  let months='',weeks='',vlines='',shades='';
+  // 节假日/双休灰列（画在竖线层最底，贯穿全高；工作日不标）
+  for(let i=0;i<DAYS;i++){
+    const t=shadeType(i);
+    if(t) shades+=`<div class="daycol ${t}" style="left:${i*DAY_W}px;width:${DAY_W}px"></div>`;
+  }
   // 月份分隔（上行）
   let mi=0, monIdx=0;
   while(mi<DAYS){
@@ -2445,7 +2788,7 @@ function headerHTML(){
   return `<div class="row head">
     <div class="cell-left">${headLabel}</div>
     <div class="timeline" style="width:${DAYS*DAY_W}px">${months}${weeks}</div></div>`
-   + `__VLINES__${vlines}<div class="todayline" style="left:${tx}px"></div>`;
+   + `__VLINES__${shades}${vlines}<div class="todayline" style="left:${tx}px"></div>`;
 }
 
 /* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
@@ -2508,7 +2851,8 @@ function personRowHTML(m,inArc){
     const fr=focusRole(m);
     const L=memLoad(m.id);
     const MS=MSTATUS[m.status||'on'];
-    const G=m.grade?HR_GRADE[m.grade]:null;
+    const WG=memWorkGrade(m.id);   // 动态品级：从 hrData 角色线取，跟随任务而非人
+    const G=WG?HR_GRADE[WG]:null;
     const CP=CORP[m.corp]||CORP.base;
     const isLeft=effLeft(m);   // 仅离职日已到才灰化/打徽标；未来离职日仍按在岗呈现
     // 收集此人所有任务段
@@ -2568,11 +2912,15 @@ function personRowHTML(m,inArc){
       const frac=segH*FILL;                                    // 本条实际占整行内高的比例（估算是否纤细）
       const slimCls = frac<0.34 ? ' slim' : '';
       const risk=reqRisk(r);
-      const st=STATUS[sg.status||'doing'];
-      const effProg=(sg.status==='todo')?0:(sg.prog||0);  // 未开始(todo)段进度恒为0：复制/改派派生的新活默认未启动，不显示源残留进度
+      // v5.8：状态/进度按今天日期自动推算（到开始日灰→蓝，进度随已过工作日增长；休息日不推进）。
+      //       人工「已完成/废弃」仍为准，不被日期覆盖。构造 autoSeg 供着色/标签/进度统一使用。
+      const auto=autoSegState(sg);
+      const autoSeg={...sg, status:auto.status};        // 用于 barCls 着色（其余字段透传，供 k-lt/k-qa 等判断）
+      const st=STATUS[auto.status||'doing'];
+      const effProg=auto.prog;
       // 已完成呈现（与「按需求看」统一）：整条需求完成 → seg-done（深绿「✓已完成」居中印章）；
       // 仅本人这段完成 → seg-done-self（浅色「✓本人完成」居中）；其余照常。条内信息随之淡化锁定。
-      const doneCls = reqIsDone(r) ? ' seg-done' : (sg.status==='done' ? ' seg-done-self' : '');
+      const doneCls = reqIsDone(r) ? ' seg-done' : (auto.status==='done' ? ' seg-done-self' : '');
       const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
       /* 横向单行 v4.8：按条子像素宽度决定显示几个信息位（任务名永远显示），按高度选字号档。
          任务名 > 模块 > 人天 > 投入比 优先级递减；窄条从右往左省略，不缩字号硬撑、不换行裁切。 */
@@ -2580,14 +2928,18 @@ function personRowHTML(m,inArc){
       const barWpx = w;                                                     // 本条像素宽度
       const nShow = calcNShow(barWpx);                                      // 1~4，按条宽自动选
       const szTier = pickSizeTier(barHpx);                                  // 1=正常 2=紧凑
+      // 复用「按需求看」的居中大浮标：整条完成 + 条够宽够高（不溢出/不遮挡）→ done-float 居中「✓ 已完成」，
+      // 条内信息淡化衬底；太窄(<108px)或太矮(<24px)则回退行内小徽标保命。浮标字号按条高分两档。
+      const canFloat = reqIsDone(r) && barWpx>=108 && barHpx>=24;
+      const floatCls = canFloat ? (barHpx>=34?' done-float':' done-float sm') : '';
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
-      bars+=`<div class="bar-task ${barCls(r,sg)}${slimCls}${doneCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      bars+=`<div class="bar-task ${barCls(r,autoSeg)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${segDoneBadge(r,sg)}</span>
+        <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
-        <div class="prog" style="--p:${Math.round(effProg*100)}"></div>
+        <div class="prog" style="--p:${Math.round(effProg*100)}">${isOpen?'':restBlocksHTML(it.si0,it.ei0)}</div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
     const focusCls = focusMode==='hl' ? (fr==='self'?' me-self':fr==='team'?' me-team':' dim') : (fr==='self'?' me-self':fr==='team'?' me-team':'');
@@ -2600,9 +2952,9 @@ function personRowHTML(m,inArc){
           ${L.pct>110?'<i class="olflag" title="超载">!</i>':''}
         </div>
         <div class="who">
-          <div class="nm">${G?`<span class="gdot-grade" style="background:${G.col}" title="${G.label}级"></span>`:''}${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
+          <div class="nm"><span class="gdot-grade" style="background:${(G||HR_GRADE['']).col}" title="${G?G.label+'级':'未设品级'}"></span>${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-edit" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openEditMember('${m.id}')" title="编辑成员信息（姓名/编制/隶属/模块/效率/状态）">✎</button><button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
           <div class="tags">
-            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：带队负责的模块（可下拉选预设，也可自行输入）">👑 带 ${escAttr(m.lead)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">隶属 ${(m.lead&&m.lead!=='—'&&m.lead!=='-')?escAttr(m.lead):'（未指定）'}<i class="edp">✎</i></span>`)}
+            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：带队负责的模块（可下拉选预设，也可自行输入）">👑 带 ${escAttr(m.lead)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
             <span class="ltag eff" title="效率系数（1.0 为基准产能，>1 更快、<1 更慢）">⚡ 效率 ${m.eff}</span>
           </div>
         </div>
@@ -2783,7 +3135,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
           <div class="ph ph-l1" style="left:${l1L}%;width:${l1W}%"><span class="ph-lab">L1</span></div>
           <div class="ph ph-l2" style="left:${l2L}%;width:${l2W}%"><span class="ph-lab">L2</span></div>
           ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span><i class="lt-del" title="删除联调（该任务无联调时间）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();deleteLt('${r.id}')">✕</i></div>`:''}
-          <div class="prog" style="--p:${prog}"></div>
+          <div class="prog" style="--p:${prog}">${restBlocksHTML(ph.barS,ph.barE)}</div>
           <i class="sdot"></i>
           <div class="bl-top"><span class="rt-line">${reqTitleHTML(r)}</span><span class="bl-pct">${prog}%</span></div>
           ${laneH?laneObj.html:`<div class="bl-sub"><div class="bl-rows">${blChips}</div></div>`}
@@ -2818,16 +3170,49 @@ function paint(rows){
    全部用 clientWidth/scrollWidth 真实像素，杜绝 em 预测误差。 */
 function fitBarLabels(){
   const HMAX=13.5, HMIN=8.5, VMIN=7, GAP=5;
+  /* v5.4 两行堆叠：够高的窄条单行放不下时，改纵向两行——任务名横排居中一行 + 模块横排居中补第二行，
+     充分利用纵向富余空间（比竖排更易读）。返回 true=成功堆叠；false=宽度连任务名单行都放不下(交给竖排兜底)。 */
+  function tryStack(line, nm, avail, barH){
+    nm.style.writingMode=''; nm.style.textOrientation=''; nm.removeAttribute('data-nm'); nm.style.textOverflow='';
+    // 任务名横排，缩字号以适应条宽（scrollWidth 与字号近似线性）
+    nm.style.fontSize=HMAX+'px';
+    let nfs=HMAX;
+    if(nm.scrollWidth>avail){
+      nfs=Math.max(HMIN, Math.floor((HMAX*avail/(nm.scrollWidth||1))*10)/10);
+      nm.style.fontSize=nfs+'px';
+    }
+    if(nm.scrollWidth>avail+0.5){ nm.style.fontSize=''; return false; }   // 宽都放不下任务名→交竖排
+    // 宽度 OK → 开启两行堆叠（列方向、双向居中由 CSS 承担）
+    line.querySelectorAll('[data-rank]').forEach(el=>{ if(el!==nm) el.style.display='none'; });
+    line.setAttribute('data-stack','1');
+    // 第二行补模块（最重要的次级信息），缩字号以适应条宽；补不下则撤销，保持干净的单行居中任务名
+    const modEl=line.querySelector('.rt-mod');
+    if(modEl){
+      modEl.style.display='';
+      let mfs=Math.min(nfs,11); modEl.style.fontSize=mfs+'px';
+      let g=0; while(modEl.offsetWidth>avail && mfs>7.5 && g++<12){ mfs=Math.round((mfs-0.5)*10)/10; modEl.style.fontSize=mfs+'px'; }
+      if(modEl.offsetWidth>avail+0.5 || (nm.offsetHeight+2+modEl.offsetHeight)>barH+1){
+        modEl.style.display='none'; modEl.style.fontSize='';
+      }
+    }
+    return true;
+  }
   const lines=document.querySelectorAll('#grid .bar-task .rt-line');
   lines.forEach(line=>{
     const nm=line.querySelector('.rt-nm');
     if(!nm) return;
-    // 复位：清掉上一轮的 inline 降级痕迹，从「全显示、原始字号、横排」开始重新测
-    line.querySelectorAll('[data-rank]').forEach(el=>{ el.style.display=''; });
+    // 圆点(.sdot)是「非必要」装饰元素，与 rt-line 同级、flex-shrink:0 不收缩；任务名(rt-nm)才是必须保命的。
+    const bar=line.closest('.bar-task');
+    const isReq=!!(bar&&bar.classList.contains('req-bar'));
+    const sdot=(bar&&!isReq)?bar.querySelector(':scope > .sdot'):null;
+    // 复位：清掉上一轮的 inline 降级痕迹，从「全显示、原始字号、横排、有圆点、原内边距」开始重新测
+    line.querySelectorAll('[data-rank]').forEach(el=>{ el.style.display=''; el.style.fontSize=''; el.removeAttribute('data-nm'); });
+    if(sdot) sdot.style.display='';
+    if(bar&&!isReq){ bar.style.paddingLeft=''; bar.style.paddingRight=''; }
     nm.style.fontSize=''; nm.style.writingMode=''; nm.style.textOrientation='';
     nm.removeAttribute('data-nm'); nm.style.textOverflow='';
-    const avail=line.clientWidth;                       // rt-line 真实可用内宽
-    if(avail<=0) return;
+    line.removeAttribute('data-stack');                // v5.4：清掉上一轮的两行堆叠
+    let avail=line.clientWidth;                         // rt-line 真实可用内宽
     /* 关键修正（v5.0.1）：.rt-line 是 flex+overflow:hidden 容器，flex 会把子元素压缩到适应容器，
        导致 line.scrollWidth 恒 ≈ clientWidth——用它判溢出永远是 false。
        正确做法：累加各子元素的「自然宽度」——任务名用 scrollWidth（内容真实宽，不受压缩影响），
@@ -2841,7 +3226,25 @@ function fitBarLabels(){
       return w+GAP*Math.max(n-1,0);
     };
     const fits=()=> needW()<=avail;
-    if(fits()) return;                                  // 全显示放得下：完事
+    /* 0) 极窄条空间回收：圆点(.sdot)+条内边距会吃掉一大截宽度，窄条上直接把 rt-line 挤成 0 宽，
+       导致任务名整个消失、只剩顽固不收缩的圆点（就是用户截图里的问题）。
+       圆点是非必要装饰、任务名必须保命——所以放不下时优先牺牲圆点、再收窄内边距，把空间还给任务名。 */
+    if(fits() && avail>0) return;                        // 全显示放得下：完事
+    if(sdot){ sdot.style.display='none'; avail=line.clientWidth; if(fits()&&avail>0) return; }
+    if(bar&&!isReq){ bar.style.paddingLeft='2px'; bar.style.paddingRight='2px'; avail=line.clientWidth; if(fits()&&avail>0) return; }
+    if(avail<=0) return;                                 // 回收后仍无可用宽（条本身近乎 0px）：无解，跳过
+    // —— 到这里说明横向放不下全部信息，必须降级 ——
+    const short=nm.textContent||'';
+    const nc=[...short].length||1;
+    const barH=line.clientHeight||24;
+    /* v5.4 两行堆叠优先：够高(≥40px)的窄条单行放不下全信息时，与其横向砍徽标只剩任务名、
+       下方留一大片纵向空白（用户截图的核心痛点），不如堆成两行——任务名横排居中一行 +
+       模块横排居中补第二行，充分利用纵向空间（比竖排更易读）。
+       tryStack 成功即完成；返回 false=宽度连任务名单行都放不下 → 落到横向缩字号/竖排兜底。 */
+    if(barH>=40 && nc<=6 && tryStack(line, nm, avail, barH)) return;
+    // 堆叠不适用(矮条/长名/宽度不够)：回到干净态，走横向降级
+    nm.style.fontSize=''; line.removeAttribute('data-stack');
+    line.querySelectorAll('[data-rank]').forEach(el=>{ if(el!==nm) el.style.display=''; });
     // 1) 按优先级从低到高隐藏徽标（rank 5→4→3→2），任务名 rank1 不动
     const badges=[...line.querySelectorAll('[data-rank]')]
       .filter(el=>el!==nm && +el.getAttribute('data-rank')>=2)
@@ -2851,8 +3254,6 @@ function fitBarLabels(){
       if(fits()) return;
     }
     // 2) 只剩任务名仍溢出：等比缩字号（用内容宽反推目标字号，scrollWidth 与 fs 近似线性）
-    const short=nm.textContent||'';
-    const nc=[...short].length||1;
     const cur=nm.scrollWidth||1;
     let fs=Math.max(HMIN, Math.floor((HMAX*avail/cur)*10)/10);
     nm.style.fontSize=fs+'px';
@@ -2860,12 +3261,43 @@ function fitBarLabels(){
     // 3) 缩到下限仍溢出：短名转竖排，长名省略号兜底
     if(nc<=5){
       nm.setAttribute('data-nm','v');
-      const barH=line.clientHeight||24;
-      let vfs=Math.max(VMIN, Math.min(HMAX, Math.floor((barH/(nc*1.05))*10)/10, avail-1));
+      /* v5.2 舒适竖排：不再让字号顶到 HMAX 满格（红框那种又挤又顶格），改为按条高留呼吸余白——
+         每字理想占高约字号×1.32（含行距+上下气口），据此反推字号并封顶到 VMAX(12px)，
+         同时不超过横向可用宽 avail-1，保证竖排单列不横向溢出。 */
+      const VMAX=12;
+      let vfs=Math.max(VMIN, Math.min(VMAX, Math.floor((barH/(nc*1.32))*10)/10, avail-1));
       nm.style.fontSize=vfs+'px';
-      if(nm.scrollHeight<=line.clientHeight+1) return;  // 竖排放得下（不超条高）
-      // 竖排仍超高：退回横排最小字号 + 省略号
-      nm.removeAttribute('data-nm'); nm.style.fontSize=HMIN+'px'; nm.style.textOverflow='ellipsis';
+      // 竖排仍超高（条太矮塞不下）：逐步压到 VMIN；仍超则退回横排最小字号+省略号
+      if(nm.scrollHeight>line.clientHeight+1){
+        vfs=Math.max(VMIN, Math.floor((line.clientHeight/(nc*1.05))*10)/10);
+        nm.style.fontSize=vfs+'px';
+        if(nm.scrollHeight>line.clientHeight+1){
+          nm.removeAttribute('data-nm'); nm.style.fontSize=HMIN+'px'; nm.style.textOverflow='ellipsis';
+          return;
+        }
+      }
+      /* v5.2 富余补信息：竖排任务名只占一列，若条子横向仍有明显富余（黑框那种），
+         把模块名也竖排补成第二列——去底色纯白文字，秀气不抢戏。
+         条件：① 有模块徽标；② 补列后总宽仍 ≤ 可用宽（留 4px 安全余量）；③ 模块竖排不超条高。 */
+      const modEl=line.querySelector('.rt-mod');
+      if(modEl){
+        const nmW=nm.offsetWidth;                        // 竖排任务名单列宽
+        const modTxt=(modEl.textContent||'').trim();
+        const mnc=[...modTxt].length||1;
+        const spare=avail-nmW-GAP;                       // 补列可用横向余量
+        // 模块竖排字号：比任务名略小一号更谦逊，同样受条高与余量双重约束
+        const mfs=Math.max(VMIN, Math.min(vfs-0.5, Math.floor((barH/(mnc*1.32))*10)/10));
+        if(spare>=mfs+4){                                // 横向塞得下这一列才补
+          modEl.style.display='';
+          modEl.setAttribute('data-nm','v');
+          modEl.style.fontSize=mfs+'px';
+          // 补列后若横向溢出或该列超条高，撤销补列（保持只有任务名的干净竖排）
+          if(needW()>avail+0.5 || modEl.scrollHeight>line.clientHeight+1){
+            modEl.style.display='none'; modEl.removeAttribute('data-nm'); modEl.style.fontSize='';
+          }
+        }
+      }
+      return;
     }else{
       nm.style.fontSize=HMIN+'px'; nm.style.textOverflow='ellipsis';
     }
@@ -2875,30 +3307,40 @@ function fitBarLabels(){
 /* ============ 视图3：人力分配（按模块） ============ */
 function renderHR(){
   // 汇总（在岗去重排除离职）
-  let totalMakers=new Set(), totalCfg=0, totalGap=0, gradeCnt={金:0,橙:0,红:0};
+  let totalMakers=new Set(), totalCfg=0, totalGap=0, gradeCnt={金:0,橙:0,红:0}, gradeGap={金:0,橙:0,红:0};
   const isLeftName=(n)=>{const b=String(n).replace(/[·\(].*$/,'');const m=members.find(x=>x.name===b);return m&&m.status==='left';};
   hrData.forEach(m=>m.roles.forEach(r=>{
     r.makers.forEach(n=>{if(!isLeftName(n))totalMakers.add(n);});
     r.tmp.forEach(n=>{if(!isLeftName(n))totalMakers.add(String(n).replace(/[·\(].*$/,''));});
-    totalCfg+=r.cfg; totalGap+=r.gap;
     if(r.grade && gradeCnt[r.grade]!==undefined) gradeCnt[r.grade]+=(r.cfg+r.gap);
   }));
+  // ★ 顶部汇总卡：全部改用实时数据（computeHR 从 members+reqs 算），不再读 hrData/HR_CONCLUSION
+  const HR = computeHR();
+  const detailParts=[];
+  if(HR.gradeGap.金>0) detailParts.push(`金角${HR.gradeGap.金}人`);
+  if(HR.gradeGap.橙>0) detailParts.push(`橙角${HR.gradeGap.橙}人`);
+  if(HR.gradeGap.红>0) detailParts.push(`红角${HR.gradeGap.红}人`);
+  if(HR.vacantCount>0) detailParts.push(`暂缺占位${HR.vacantCount}人`);
+  const detailStr = detailParts.length ? detailParts.join(' / ') : '各线已配齐';
   let html=`<div class="hr-wrap">`;
-  // 顶部汇总卡
+  // 顶部汇总卡（全部动态计算，随甘特表实时联动）
   html+=`<div class="hr-summary">
-    <div class="hr-sc total"><div class="lab">基地总人数</div><div class="val">${HR_CONCLUSION.base}</div></div>
-    <div class="hr-sc"><div class="lab">在岗制作人(去重)</div><div class="val">${totalMakers.size}</div></div>
-    <div class="hr-sc"><div class="lab">已配置岗位</div><div class="val">${totalCfg}</div></div>
-    <div class="hr-sc gap"><div class="lab">未来常规管线共缺</div><div class="val">${HR_CONCLUSION.totalGap}</div></div>
-    <div class="hr-sc"><div class="lab">模块数</div><div class="val">${hrData.length}</div></div>
+    <div class="hr-sc total"><div class="lab">在岗编制人数</div><div class="val">${HR.base}</div></div>
+    <div class="hr-sc"><div class="lab">在岗制作人(去重)</div><div class="val">${HR.makers}</div></div>
+    <div class="hr-sc"><div class="lab">已配置岗位</div><div class="val">${HR.totalCfg}</div></div>
+    <div class="hr-sc gap"><div class="lab">标配缺口</div><div class="val">${HR.totalGap}</div></div>
+    <div class="hr-sc"><div class="lab">缺少数(含暂缺)</div><div class="val d">${HR.lack}</div></div>
   </div>`;
-  // 缺口结论条
+  // 缺口结论条（动态生成）
+  let gradeBarHtml = '';
+  if(HR.gradeGap.金>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#16a34a"></span>金角 <b>缺${HR.gradeGap.金}人</b></div>`;
+  if(HR.gradeGap.橙>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#f59e0b"></span>橙角 <b style="color:#d97706">缺${HR.gradeGap.橙}人</b></div>`;
+  if(HR.gradeGap.红>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#ef3b39"></span>红角 <b style="color:#d32320">缺${HR.gradeGap.红}人</b></div>`;
+  if(HR.vacantCount>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#d32320"></span>暂缺占位 <b style="color:#d32320">${HR.vacantCount}人</b></div>`;
+  if(!gradeBarHtml) gradeBarHtml = `<div class="gi" style="color:#16a34a">✅ 各角色线暂无缺口</div>`;
   html+=`<div class="hr-grade-bar">
-    <div class="gi"><span class="gdot" style="background:#16a34a"></span>金角 <b>缺4人</b></div>
-    <div class="gi"><span class="gdot" style="background:#f59e0b"></span>橙角1号 <b>缺5人</b></div>
-    <div class="gi"><span class="gdot" style="background:#f59e0b"></span>橙角2号 <b>缺5人</b></div>
-    <div class="gi"><span class="gdot" style="background:#ef3b39"></span>红角 <b style="color:#d32320">缺11人</b></div>
-    <div class="gi" style="margin-left:auto;color:#646a73">📌 ${HR_CONCLUSION.detail}</div>
+    ${gradeBarHtml}
+    <div class="gi" style="margin-left:auto;color:#646a73">📌 ${detailStr}</div>
   </div>`;
   // 编制/状态图例
   html+=`<div class="hr-legend">
@@ -2962,18 +3404,22 @@ function renderHR(){
 }
 
 function updateKPIs(){
-  document.getElementById('kp-mem').textContent=members.length;
+  // 出席制作人：排除已离职 + 外借支援，只算在岗正编+基地
+  const activeMems = members.filter(m => m.status !== 'left' && !isExtLoan(m));
+  document.getElementById('kp-mem').textContent = activeMems.length;
+  // 在排出场需求：未完成 + 未废弃 + 结束日期≥今天
   const active=reqs.filter(r=>r.end>=TODAY && r.done<r.estimate && aggStatus(r)!=='done').length;
   document.getElementById('kp-active').textContent=active;
-  // 高峰负载：取所有成员负载率的最大值（更能反映撞车）
-  const loads=members.map(m=>memLoad(m.id).pct);
-  const peak=Math.max(...loads,0);
-  const le=document.getElementById('kp-load');le.textContent=peak+'%';
+  // 高峰负载：取所有在岗成员负载率的最大值（更能反映撞车）
+  const loads=activeMems.map(m=>memLoad(m.id).pct);
+  const peak=loads.length?Math.max(...loads,0):0;
+  const le=document.getElementById('kp-load');le.textContent=Math.round(peak)+'%';
   le.className='val '+(peak<=85?'s':peak<=110?'w':'d');
+  // 高风险需求
   const high=reqs.filter(r=>reqRisk(r).lvl==='高').length;
   document.getElementById('kp-high').textContent=high;
-  // 常规管线缺口：来自人力分配结论
-  document.getElementById('kp-done').textContent=HR_CONCLUSION.totalGap+'人';
+  // 常规管线缺口：与下方 HR 汇总口径统一 = 标配缺口 + 暂缺占位（实时从 members+reqs 算）
+  document.getElementById('kp-done').textContent=computeHR().lack+'人';
 }
 
 /* ============ tooltip ============ */
@@ -3100,6 +3546,13 @@ window.addEventListener('pointermove',e=>{
   }
   showDragLabel(e);
 });
+window.addEventListener('pointercancel',()=>{
+  // 指针意外中断（离开窗口/触控中断等）：清理所有拖拽状态，防止 drop-guide 残留
+  if(drag){drag=null;}
+  if(phdrag){phdrag=null;}
+  hideDragLabel();
+  document.querySelectorAll('.dragging,.dup-src,.row-target').forEach(el=>el.classList.remove('dragging','dup-src','row-target'));
+});
 window.addEventListener('pointerup',()=>{
   // 分割线拖拽收尾：写回 r.split（L1 完成时间）或 r.split2（联调开始时间）
   if(phdrag){
@@ -3163,7 +3616,7 @@ window.addEventListener('pointerup',()=>{
     }else{ rerender(); }
     return;
   }
-  if(movedPx<5 && mode==='m'){ openStatusMenu(bar,d.lastX,d.lastY); return; }
+  if(movedPx<5 && mode==='m'){ /* 左键单击=仅选中(已在pointerdown中setSelected)，不弹菜单；右键菜单由contextmenu事件处理 */ return; }
   if(delta!==0 || targetMember){
     pushHistory();
     applyEdit(bar,delta,mode);
@@ -3180,6 +3633,25 @@ window.addEventListener('pointerup',()=>{
     save();broadcast();rerender();
   }else{ rerender(); }
 });
+
+// 右键单击任务条 / 左栏需求行 / 成员行 → 选中 + 弹出状态/操作菜单
+document.addEventListener('contextmenu',e=>{
+  let bar=e.target.closest('.bar-task');
+  // 右键点在「按需求看」的需求行上（.req-row）→ 找到该行的 req-bar 作为菜单锚点
+  if(!bar){
+    const row=e.target.closest('.req-row[data-req-row]');
+    if(row) bar=row.querySelector('.bar-task.req-bar')||row.querySelector('.bar-task');
+  }
+  // 右键点在「按人看」的成员行左栏上（.row[data-mem]）→ 找到该成员的第一个任务条作为锚点
+  if(!bar){
+    const memRow=e.target.closest('.row[data-mem]');
+    if(memRow) bar=memRow.querySelector('.bar-task');
+  }
+  if(!bar)return;
+  e.preventDefault();                          // 屏蔽浏览器默认右键菜单
+  setSelected(bar);                            // 先选中
+  openStatusMenu(bar, e.clientX, e.clientY);   // 再弹菜单
+}, {passive:false});
 
 function rowMemberAt(x,y){
   const el=document.elementFromPoint(x,y);
@@ -3301,9 +3773,10 @@ function openStatusMenu(bar,x,y){
     items+=`<div class="msep"></div>`;
     items+=`<div class="mtitle">投入比（精力分配）</div>`;
     INV_TIERS.forEach(t=>{
-      const on=Math.abs(t.val-curInv)<1e-6;
-      const sub=t.val>=1?'并行自动分摊':'固定不分摊';
-      items+=`<div class="mi miv ${on?'cur':''}" onclick="pickInv(${t.val})"><i style="background:${t.col}"></i><span class="miv-nm">${effEsc(t.name)} <b style="color:${t.col}">${t.val}</b></span><span class="miv-sub">${sub}</span></div>`;
+      const hi=(t.hi!=null?t.hi:t.val), lo=(t.lo!=null?t.lo:(hi>=1?0:hi));
+      const on=Math.abs(hi-curInv)<1e-6;
+      const sub=hi>=1?'独占1.0·并行1/N':`区间 ${lo}–${hi}`;
+      items+=`<div class="mi miv ${on?'cur':''}" onclick="pickInv(${hi})"><i style="background:${t.col}"></i><span class="miv-nm">${effEsc(t.name)} <b style="color:${t.col}">${hi>=1?hi:lo+'–'+hi}</b></span><span class="miv-sub">${sub}</span></div>`;
     });
     items+=`<div class="msep"></div>`;
     items+=`<div class="mtitle">时间长度</div>`;
@@ -3317,26 +3790,32 @@ function openStatusMenu(bar,x,y){
       items+=`<span class="mod-chip ${on?'cur':''}" style="color:${MM.c};background:${MM.c}14;border-color:${MM.c}55" onclick="pickMod('${mk.replace(/'/g,"\\'")}')"><i>${MM.ic}</i>${MM.s}</span>`;
     });
     items+=`</div>`;
-    // 联调（lt）管理入口：联调按「角色」挂在本体特效之后，单击任一任务条都能 ＋添加 / 改 / 删 联调
-    const _ltReq = reqs.find(z=>z.kind==='lt' && z.char===r.char);
-    const _ltHost = ltHostOf(r.char) || r;
-    items+=`<div class="msep"></div>`;
-    items+=`<div class="mtitle">联调（特效后接续 · 按角色管理）</div>`;
-    if(_ltReq){
-      items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="openEditLt('${_ltReq.id}')"><i style="background:#7c3aed"></i>改联调 · 工作量 / 名称 / 时间（${_ltReq.estimate}人天）</div>`;
-      items+=`<div class="mi danger" onclick="hideMenu();deleteLt('${_ltHost.id}')"><i style="background:#b04632"></i>删除本角色联调</div>`;
-    }else{
-      items+=`<div class="mi" style="color:#6b4fae;font-weight:600" onclick="addLt('${_ltHost.id}')"><i style="background:#7c3aed"></i>＋ 添加联调（自动挂到本角色）</div>`;
-    }
-    items+=`<div class="msep"></div>`;
+  items+=`<div class="msep"></div>`;
     items+=`<div class="mi danger" onclick="deleteSeg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>删除任务（${memName(sg.m)}）</div>`;
+  }
+  // 需求级操作：修改信息 / 删除（联调走各自流程）
+  {
+    const _r = reqs.find(z=>z.id===menuCtx.reqId);
+    if(_r){
+      items+=`<div class="msep"></div>`;
+      items+=`<div class="mtitle">需求操作</div>`;
+      items+=`<div class="mi" style="color:#185fa5;font-weight:600" onclick="hideMenu();openEditReq('${_r.id}')"><i style="background:#2563eb"></i>修改需求信息</div>`;
+      items+=`<div class="mi danger" onclick="hideMenu();deleteReq('${_r.id}')"><i style="background:#b04632"></i>删除需求（连同其联调）</div>`;
+    }
   }
   menu.innerHTML=items;
   menu.classList.add('show');
-  let mx=x, my=y; if(mx>innerWidth-330)mx=innerWidth-330; if(my>innerHeight-(isSeg?600:220))my=Math.max(8,innerHeight-(isSeg?600:220));
+  let mx=x, my=y; if(mx>innerWidth-330)mx=innerWidth-330;
   menu.style.left=mx+'px';menu.style.top=my+'px';
+  // 测量实际渲染高度，自适应上移避免底部被视口截断
+  const mh=menu.offsetHeight;
+  if(my+mh>innerHeight-12) my=Math.max(8, innerHeight-mh-12);
+  // 菜单比视口还高时：限制 maxHeight + 允许纵向滚动（极端长菜单兜底）
+  if(mh>innerHeight-16){ menu.style.maxHeight=(innerHeight-16)+'px'; menu.style.overflowY='auto'; }
+  else { menu.style.maxHeight=''; menu.style.overflowY=''; }
+  menu.style.top=my+'px';
 }
-function hideMenu(){menu.classList.remove('show');menuCtx=null;memMenuCtx=null;reqStateCtx=null;}
+function hideMenu(){menu.classList.remove('show');menu.style.maxHeight='';menu.style.overflowY='';menuCtx=null;memMenuCtx=null;reqStateCtx=null;}
 /* 删除某条任务段（人的排期）。reqId+seg 定位；删空后若该需求无人则保留空需求行。 */
 function removeSeg(reqId, seg){
   if(!requireWrite())return false;
@@ -3533,6 +4012,7 @@ function pickMemStatus(k){
   if(k!=='left') delete m.leftAt;     // 改回非离职态：清除离职日，恢复正常显示/统计
   _logDesc=m.name+' 状态改为'+MSTATUS[k].label;
   save();broadcast();rerender();
+  renderEffTable();  // 刷新效率档位表（离职/状态变更影响显示）
   toast(m.name+'：'+MSTATUS[k].label);
 }
 /* 离职日期选择浮层：默认填今天，可改具体日期；确定后写 m.leftAt + status='left' */
@@ -3562,6 +4042,7 @@ function askLeaveDate(m){
     m.status='left'; m.leftAt=d;
     _logDesc=m.name+' 设为已离职（'+fmt(d)+'）';
     save();broadcast();rerender();
+    renderEffTable();  // 刷新效率档位表（离职自动灰化）
     toast(m.name+'：已离职 · '+fmt(d));
     close();
   };
@@ -3819,10 +4300,10 @@ function closeAdd(){addMask.classList.remove('show');addCtx=null;}
 addMask.addEventListener('pointerdown',e=>{if(e.target===addMask)closeAdd();});
 window.addEventListener('keydown',e=>{if(e.key==='Escape'&&addMask.classList.contains('show'))closeAdd();},true);
 
-/* 投入比下拉（加人/加任务弹窗共用）：全人力制作=1、完整跟进=0.4、部分跟进=0.2，均参与并行分摊 */
+/* 投入比下拉（加人/加任务弹窗共用）：全人力[0-1.0]、完整跟进[0.4-0.6]、部分跟进[0.1-0.3]，均按并行条数在区间内分摊 */
 let INV_SELECT_HTML = '';
 function syncInvSelectHTML(){
-  const opts = INV_TIERS.map((t,i)=>`<option value="${t.val}"${i===0?' selected':''}>${effEsc(t.name)}（权重 ${t.val} · 并行多条时自动分摊）</option>`).join('');
+  const opts = INV_TIERS.map((t,i)=>{const hi=(t.hi!=null?t.hi:t.val),lo=(t.lo!=null?t.lo:(hi>=1?0:hi));const rg=hi>=1?`独占 1.0 · 并行 1/N`:`区间 ${lo}–${hi}`;return `<option value="${hi}"${i===0?' selected':''}>${effEsc(t.name)}（${rg}）</option>`;}).join('');
   INV_SELECT_HTML = `<div class="fld"><label>投入比（精力分配）</label>
       <select id="addInv">${opts}</select></div>`;
 }
@@ -4007,11 +4488,9 @@ const LINE_OPTS_LIST=[['-','通用'],['L1','露西亚·管线1'],['L2','比安�
 function openNewMember(){
   if(!requireWrite())return;
   addCtx={mode:'newMember'};
-  const gradeOpt=GRADE_OPTS_LIST.map(g=>`<option value="${g}">${g===''?'通用（无品级）':g+'级'}</option>`).join('');
   const modOpt=MOD_OPTS_LIST.map(m=>`<option value="${m}" ${m==='出场'?'selected':''}>${m}</option>`).join('');
-  const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
   const body=`
-    <div class="ctx">添加一名<b>新成员</b>到团队名单。提交后会立即出现在「按人看」列表中，并纳入本地缓存 / 团队链接 / 云端协作同步。</div>
+    <div class="ctx">添加一名<b>新成员</b>到团队名单。提交后会立即出现在「按人看」列表中，并纳入本地缓存 / 团队链接 / 云端协作同步。<br><span style="color:#8a9099;font-size:11px">💡 品级/管线跟随成员当前负责的角色线自动确定，无需在此设置</span></div>
     <div class="row2">
       <div class="fld"><label>姓名</label><input type="text" id="nmName" placeholder="如：张三"></div>
       <div class="fld"><label>编制</label><select id="nmCorp" onchange="nmCorpChange()"><option value="base" selected>基地</option><option value="reg">正编（带队）</option></select></div>
@@ -4019,10 +4498,6 @@ function openNewMember(){
     <div class="row2">
       <div class="fld" id="nmLeadFld"><label>隶属带队（正编）</label><select id="nmLead">${regLeaderOpts('—')}</select></div>
       <div class="fld"><label>模块</label><select id="nmMod">${modOpt}</select></div>
-    </div>
-    <div class="row2">
-      <div class="fld"><label>品级</label><select id="nmGrade">${gradeOpt}</select></div>
-      <div class="fld"><label>管线</label><select id="nmLine">${lineOpt}</select></div>
     </div>
     <div class="row2">
       <div class="fld"><label>效率系数</label><input type="number" id="nmEff" value="1.0" step="0.05" min="0"></div>
@@ -4058,8 +4533,8 @@ function confirmNewMember(){
     role:(corp==='reg'?'正编·带队':'基地')+(support?'·外借支援':''),
     corp, lead,
     mod:document.getElementById('nmMod').value,
-    grade:document.getElementById('nmGrade').value,
-    line:document.getElementById('nmLine').value,
+    grade:'',      // 品级不再与成员绑定，由 memWorkGrade() 从角色线动态取
+    line:'-',      // 管线同理，不再固定绑定
     eff:Math.round(eff*100)/100,
     status:document.getElementById('nmStatus').value,
   };
@@ -4073,6 +4548,65 @@ function confirmNewMember(){
   revealEntity('mem', m.id);
   toast(`已添加新成员：${name}`);
 }
+
+/* ============ 编辑现有成员：复用新增表单字段，确认时改原记录而非新建 ============ */
+function openEditMember(memId){
+  if(!requireWrite())return;
+  const m=members.find(x=>x.id===memId); if(!m)return;
+  addCtx={mode:'editMember', memId};
+  const modOpt=MOD_OPTS_LIST.map(o=>`<option value="${o}" ${m.mod===o?'selected':''}>${o}</option>`).join('');
+  const body=`
+    <div class="ctx">编辑 <b>${escAttr(m.name)}</b> 的成员信息。提交后实时刷新左侧名单、等级圆标、效率档位表与负载统计。</div>
+    <div class="row2">
+      <div class="fld"><label>姓名</label><input type="text" id="nmName" value="${escAttr(m.name)}" placeholder="如：张三"></div>
+      <div class="fld"><label>编制</label><select id="nmCorp" onchange="nmCorpChange()"><option value="base" ${m.corp==='base'?'selected':''}>基地</option><option value="reg" ${m.corp==='reg'?'selected':''}>正编（带队）</option></select></div>
+    </div>
+    <div class="row2">
+      <div class="fld" id="nmLeadFld"><label>隶属带队（正编）</label><select id="nmLead">${regLeaderOpts(m.corp==='reg'?m.name:(m.lead||'—'))}</select></div>
+      <div class="fld"><label>模块</label><select id="nmMod">${modOpt}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>效率系数</label><input type="number" id="nmEff" value="${m.eff}" step="0.05" min="0"></div>
+      <div class="fld"><label>状态</label><select id="nmStatus"><option value="on" ${m.status==='on'?'selected':''}>在岗</option><option value="new" ${m.status==='new'?'selected':''}>新人</option><option value="busy" ${m.status==='busy'?'selected':''}>忙碌</option><option value="leave" ${m.status==='leave'?'selected':''}>请假</option><option value="left" ${m.status==='left'?'selected':''}>离职</option></select></div>
+    </div>
+    <label class="org-chk" style="font-size:12px;margin-bottom:6px"><input type="checkbox" id="nmSupport" ${m.support?'checked':''}>外借支援（编制在本团队，不隶属角色线，如武器特效）</label>
+    <div class="warn" id="nmWarn"></div>`;
+  renderAddModal('👤', '编辑成员 · '+m.name, body, true);
+  const ok=document.getElementById('addOk');
+  if(ok){ ok.textContent='保存修改'; ok.setAttribute('onclick','confirmEditMember()'); }
+  nmCorpChange();
+}
+function confirmEditMember(){
+  if(!requireWrite())return;
+  const {memId}=addCtx||{}; const m=members.find(x=>x.id===memId); if(!m)return;
+  const name=(document.getElementById('nmName').value||'').trim();
+  const warn=document.getElementById('nmWarn');
+  if(!name){ warn.textContent='请填写姓名'; warn.classList.add('show'); return; }
+  if(members.some(x=>x.id!==memId && x.name===name)){ warn.textContent='已存在同名成员，请用其它名称'; warn.classList.add('show'); return; }
+  const corp=document.getElementById('nmCorp').value;
+  const support=document.getElementById('nmSupport').checked;
+  let lead=corp==='reg'?name:(document.getElementById('nmLead').value||'—');
+  if(support) lead='—';   // 外借支援：无角色线归属
+  const eff=parseFloat(document.getElementById('nmEff').value)||1.0;
+  pushHistory();
+  const oldName=m.name;
+  m.name=name;
+  m.corp=corp;
+  m.lead=lead;
+  m.mod=document.getElementById('nmMod').value;
+  m.eff=Math.round(eff*100)/100;
+  m.status=document.getElementById('nmStatus').value;
+  if(support) m.support=true; else delete m.support;
+  // 改名后同步其名下任务的成员显示引用（任务条按 member id 关联，无需改需求；仅同步 leftAt/状态外的可见名）
+  _logDesc=(oldName!==name?('成员改名：'+oldName+'→'+name):('修改成员信息：'+m.name));
+  save();broadcast();
+  // 同步刷新效率档位表（v5.22 互通）：grade/eff 变化会影响归档
+  if(typeof renderEffTable==='function') renderEffTable();
+  closeAdd();
+  rerender();
+  toast(`已保存：${m.name}`);
+}
+
 
 /* ============ 标签内联编辑：隶属（基地换正编）/ 带队模块（正编可改可选） ============
    就地把人名行里的归属胶囊替换为编辑控件，回车 / 选中 / 失焦即提交，Esc 取消。
@@ -4159,7 +4693,7 @@ function openNewReq(){
   if(!requireWrite())return;
   addCtx={mode:'newReq'};
   const gradeOpt=['金','橙','红',''].map(g=>`<option value="${g}" ${g==='橙'?'selected':''}>${g===''?'通用':g+'级'}</option>`).join('');
-  const modOpt=MOD_OPTS_LIST.filter(m=>m!=='联调').map(m=>`<option value="${m}" ${m==='出场'?'selected':''}>${m}</option>`).join('');
+  const modOpt=MOD_OPTS_LIST.map(m=>`<option value="${m}" ${m==='出场'?'selected':''}>${m}</option>`).join('');
   const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
   const today=dInput(TODAY), end60=dInput(i2d(Math.min(idx(TODAY)+40,DAYS)));
   const selMem0 = selectedMem && members.find(m=>m.id===selectedMem);
@@ -4264,7 +4798,7 @@ function coreSnapshot(){
     effLocked:effLocked,
     stdCfg:STD_CFG.map(t=>({mod:t.mod||'',grade:t.grade,col:t.col,dur:t.dur||'',weeks:t.weeks,ppl:t.ppl})),
     stdLocked:stdLocked,
-    invTiers:INV_TIERS.map(t=>({key:t.key,name:t.name,val:t.val,col:t.col,vbg:t.vbg,vfg:t.vfg,desc:t.desc,scene:t.scene})),
+    invTiers:INV_TIERS.map(t=>({key:t.key,name:t.name,val:t.val,lo:t.lo,hi:t.hi,col:t.col,vbg:t.vbg,vfg:t.vfg,desc:t.desc,scene:t.scene})),
     invLocked:invLocked,
     archive:{on:ARCHIVE.on,val:ARCHIVE.val,unit:ARCHIVE.unit},
     estRecalc:estRecalc,
@@ -4308,10 +4842,17 @@ function applySnap(snap){
   }
   if(typeof snap.stdLocked==='boolean') stdLocked=snap.stdLocked;
   if(Array.isArray(snap.invTiers) && snap.invTiers.length){
-    INV_TIERS=snap.invTiers.map(t=>({key:t.key||('inv'+Math.random().toString(36).slice(2,7)),name:t.name||'',val:Number(t.val),col:t.col||'#0a7d3c',vbg:t.vbg||'#e9f8ee',vfg:t.vfg||'#0a7d3c',desc:t.desc||'',scene:t.scene||''}));
+    // v5.11 区间迁移：旧快照只有 val（=独占上限 hi），补 lo/hi。
+    //   hi>=1(全人力)→lo=0；完整跟进档(hi≈0.4~0.6)→lo=0.4；部分跟进档(hi≈0.1~0.3)→lo=0.1；其它跟进→lo=hi*0.5。
+    const _migLo=(hi)=>{ if(hi>=1)return 0; if(hi>=0.4)return 0.4; if(hi>=0.1)return Math.min(0.1,hi); return Math.round(hi*0.5*100)/100; };
+    INV_TIERS=snap.invTiers.map(t=>{
+      const hi=(t.hi!=null?Number(t.hi):Number(t.val));
+      const lo=(t.lo!=null?Number(t.lo):_migLo(hi));
+      return {key:t.key||('inv'+Math.random().toString(36).slice(2,7)),name:t.name||'',val:hi,lo:lo,hi:hi,col:t.col||'#0a7d3c',vbg:t.vbg||'#e9f8ee',vfg:t.vfg||'#0a7d3c',desc:t.desc||'',scene:t.scene||''};
+    });
     // 迁移：「并行人力制作」已改为自动状态（全人力并行时自动 1/N 平摊），不再作为可手动设置的固定档位 → 剔除残留旧档
     INV_TIERS=INV_TIERS.filter(t=>!/并行人力/.test(t.name||''));
-    if(!INV_TIERS.length) INV_TIERS=[{key:'full',name:'全人力制作',val:1.0,col:'#0a7d3c',vbg:'#e9f8ee',vfg:'#0a7d3c',desc:'全力投入单条产出（投入比 1.0）。并行多条全人力时自动平摊为 1/N。',scene:''}];
+    if(!INV_TIERS.length) INV_TIERS=[{key:'full',name:'全人力制作',val:1.0,lo:0,hi:1.0,col:'#0a7d3c',vbg:'#e9f8ee',vfg:'#0a7d3c',desc:'全力投入单条产出（独占 1.0）。并行多条时自动平摊为 1/N。',scene:''}];
     if(typeof syncInvSelectHTML==='function') syncInvSelectHTML();
   }
   if(typeof snap.invLocked==='boolean') invLocked=snap.invLocked;
@@ -4360,6 +4901,27 @@ function applySnap(snap){
   }
   // 按现存需求重建联调挂载关系（使「他人删除联调 / 撤销恢复」在本端正确反映）
   if(typeof relinkLt==='function') relinkLt();
+  // v5.11 投入比区间模型迁移：任何来源(本地/云端/分享)的快照应用后都执行一次，把旧档上限/旧 seg.inv 升到新区间。
+  if(typeof migrateInvModel==='function') migrateInvModel();
+}
+/* 投入比区间模型迁移：把历史值升级到 v5.11 区间口径，幂等可重复调用。
+   · INV_TIERS：完整跟进 hi 0.4/0.5→0.6、lo→0.4；部分跟进 hi 0.2→0.3、lo→0.1；缺 lo/hi 的补齐。
+   · seg.inv（记录档上限）：0.4/0.5→0.6、0.2→0.3。仅命中旧默认值，自定义区间值不动。 */
+function migrateInvModel(){
+  if(estRecalcVer>=EST_RECALC_VER) return;           // 已迁移到最新口径，跳过
+  INV_TIERS.forEach(t=>{
+    const hi0=(t.hi!=null?t.hi:t.val);
+    if(Math.abs(hi0-0.5)<1e-6||Math.abs(hi0-0.4)<1e-6){ t.val=0.6; t.hi=0.6; t.lo=0.4; }        // 完整跟进
+    else if(Math.abs(hi0-0.2)<1e-6){ t.val=0.3; t.hi=0.3; t.lo=0.1; }                           // 部分跟进
+    else { t.hi=hi0; if(t.lo==null) t.lo=(hi0>=1?0:(hi0>=0.4?0.4:(hi0>=0.1?0.1:Math.round(hi0*0.5*100)/100))); }
+  });
+  reqs.forEach(r=>r.segs.forEach(s=>{ if(s.inv!=null){
+    if(Math.abs(s.inv-0.5)<1e-6||Math.abs(s.inv-0.4)<1e-6) s.inv=0.6;
+    else if(Math.abs(s.inv-0.2)<1e-6) s.inv=0.3;
+  }}));
+  if(typeof recalcEstimatesFromSchedule==='function') recalcEstimatesFromSchedule();
+  estRecalc=true; estRecalcVer=EST_RECALC_VER;
+  if(typeof syncInvSelectHTML==='function') syncInvSelectHTML();
 }
 /* 把 ARCHIVE / GROUP_MODE 当前值反映到工具条控件 */
 function syncOrgUI(){
@@ -4493,10 +5055,41 @@ async function cloudInit(){
     if(error)throw error;
     if(data&&data.snap){
       const snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
-      applyingRemote=true; applySnap(snapObj); applyingRemote=false;
-      lastSyncJSON=JSON.stringify(snapshot());
-      refreshAllUI();
-      toast('☁ 已载入云端最新排期');
+      const remoteJSON=JSON.stringify(snapObj);
+      // 启动补救：上次会话离线时留下的未补推暂存(gantt_pending_snap)还在 → 不能无条件用云端覆盖，
+      // 否则重开页面就会吞掉上次离线改动。走「保留本地/采用云端」的选择。
+      if(cloudPendingPush){
+        const pendJSON=JSON.stringify(cloudPendingPush);
+        if(pendJSON!==remoteJSON){
+          const useLocal=confirm('检测到你上次离线期间有未同步的改动，且云端数据与之不同。\n\n点「确定」=保留你离线期间的改动（推送到云端）\n点「取消」=采用云端版本（丢弃离线改动）');
+          if(useLocal){
+            // 保留本地离线改动：把暂存应用到界面并补推云端
+            applyingRemote=true; applySnap(cloudPendingPush); applyingRemote=false;
+            try{
+              await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:cloudPendingPush,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()});
+              lastSyncJSON=JSON.stringify(snapshot()); save();
+              cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+              toast('☁ 已恢复并补推你上次的离线改动');
+            }catch(pe){ console.warn('启动补推失败,保留暂存',pe); lastSyncJSON=''; }
+          }else{
+            applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+            lastSyncJSON=remoteJSON; save();
+            cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+            toast('☁ 已采用云端最新排期');
+          }
+        }else{
+          // 暂存与云端一致（上次其实已推成功）→ 清掉暂存，正常载入
+          applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+          lastSyncJSON=remoteJSON;
+          cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+        }
+        refreshAllUI();
+      }else{
+        applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+        lastSyncJSON=JSON.stringify(snapshot());
+        refreshAllUI();
+        toast('☁ 已载入云端最新排期');
+      }
     }else{
       lastSyncJSON=JSON.stringify(snapshot());
     }
@@ -4582,42 +5175,57 @@ async function tryReconnect(){
     if(error) throw error;
     // 恢复成功
     cloudOffline=false; cloudReady=true; cloudReconnTries=0;
-    const localJSON=JSON.stringify(snapshot());
+    // ── 重连合并（四象限，绝不无条件覆盖本地离线改动）──
+    // 关键修复：本地是否「脏」以「当前快照 vs 上次同步基线 lastSyncJSON」为准，
+    // 不再依赖可能过期(700ms防抖漏最新改动)或为空的 cloudPendingPush，否则会把离线改动判成"无改动"直接被云端覆盖。
+    const curSnap=snapshot();
+    const localJSON=JSON.stringify(curSnap);
+    const localDirty=(localJSON!==lastSyncJSON) || !!cloudPendingPush;   // 离线期间改过=脏
+    let snapObj=null, remoteJSON=null;
     if(data && data.snap){
-      const snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
-      const remoteJSON=JSON.stringify(snapObj);
-      if(cloudPendingPush && localJSON!==JSON.stringify(cloudPendingPush)){
-        // 本地有改动，且远端也有别人改动 → 冲突
-        if(remoteJSON!==lastSyncJSON){
-          const useLocal=confirm('云端已恢复。期间有人在改。\n点「确定」= 用你的本地版本覆盖云端\n点「取消」= 用云端版本（你的本地改动丢失）');
-          if(!useLocal){
-            applyingRemote=true; applySnap(snapObj); applyingRemote=false;
-            lastSyncJSON=remoteJSON;
-            cloudPendingPush=null;
-            try{localStorage.removeItem(PENDING_KEY);}catch(_){}
-          }
-        }
-      } else if(remoteJSON!==lastSyncJSON){
-        // 远端有别人改动,本地无冲突
-        applyingRemote=true; applySnap(snapObj); applyingRemote=false;
-        lastSyncJSON=remoteJSON;
-        toast('☁ 云端已恢复，期间他人改动已同步');
-      }
+      snapObj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
+      remoteJSON=JSON.stringify(snapObj);
     }
-    // 补推本地暂存
-    if(cloudPendingPush){
-      const snap=cloudPendingPush;
+    const remoteChanged=(remoteJSON!=null) && (remoteJSON!==lastSyncJSON);  // 别人在你离线期间改过云端
+    // 补推本地：一律用「当前快照」而非 cloudPendingPush（后者可能漏掉最后一次改动）
+    const pushLocal=async(snap)=>{
       const payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()};
       const {error:upErr}=await sb.from(SB_TABLE).upsert(payload);
-      if(!upErr){
-        lastSyncJSON=JSON.stringify(snap);
-        cloudPendingPush=null;
-        try{localStorage.removeItem(PENDING_KEY);}catch(_){}
-        toast('☁ 离线期间改动已补推云端');
-      } else {
-        // 推送失败,保留暂存,等下次重试
-        scheduleReconnect(); refreshAllUI(); syncLockUI(); return;
+      if(upErr) throw upErr;
+      lastSyncJSON=JSON.stringify(snap);
+      cloudPendingPush=null;
+      try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+    };
+    const takeRemote=()=>{
+      applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+      lastSyncJSON=remoteJSON; save();   // 同步 localStorage，避免旧本地存档回灌
+      cloudPendingPush=null;
+      try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+    };
+    try{
+      if(localDirty && remoteChanged){
+        // 双改冲突：让用户选，默认保留本地（刚辛苦编辑的内容优先）
+        const useLocal=confirm('云端已恢复，但你离线期间云端数据也有变化（可能是其他人编辑）。\n\n点「确定」=保留你离线期间的改动（覆盖云端）\n点「取消」=采用云端版本（你的离线改动将被丢弃）');
+        if(useLocal){ await pushLocal(curSnap); toast('☁ 已保留你的离线改动并推送云端'); }
+        else { takeRemote(); toast('已采用云端版本'); }
+      }else if(localDirty){
+        // 只有本地改了 → 直接补推，绝不覆盖本地
+        await pushLocal(curSnap); toast('☁ 离线期间改动已补推云端');
+      }else if(remoteChanged){
+        // 只有远端改了 → 安全应用
+        takeRemote(); toast('☁ 云端已恢复，期间他人改动已同步');
+      }else{
+        // 双方都没变
+        cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
       }
+    }catch(upErr){
+      // 补推失败：保留本地暂存，切回离线重试（不丢数据）
+      console.warn('重连补推失败,保留本地暂存',upErr);
+      cloudPendingPush=curSnap;
+      try{localStorage.setItem(PENDING_KEY, JSON.stringify(curSnap));}catch(_){}
+      cloudOffline=true; document.body.classList.remove('ro-mode');
+      cloudSetStatus('offline','已离线 · 可编辑 · 补推失败重试中…');
+      scheduleReconnect(); refreshAllUI(); syncLockUI(); return;
     }
     // 重订阅 realtime
     try{ if(sbChan) await sbChan.unsubscribe(); }catch(_){}
@@ -5202,7 +5810,18 @@ function renderEffTable(){
   const EL=effLockedView();
   let html='';
   EFF_TIERS.forEach((t,ti)=>{
-    const chips=(t.mems||[]).filter(id=>!leftLong(members.find(x=>x.id===id))).map(id=>`<span class="eff-chip" data-ti="${ti}" data-id="${id}" title="拖到其它档可移动；拖到底部黄色区=移出">${effEsc(memNm(id))}<span class="x" data-act="rmMem" data-ti="${ti}" data-id="${id}" title="移出该档">×</span></span>`).join('');
+    const tCoef=Number(t.coef)||1;
+    // 每个成员 chip：离职灰化 + 显示当前 eff 值 + 不匹配角标
+    const chips=(t.mems||[]).map(id=>{
+      const m=members.find(x=>x.id===id);
+      if(!m) return '';
+      const isLeft=effLeft(m);
+      const curEff=m.eff!=null?m.eff:1;
+      const mismatch=Math.abs(curEff-tCoef)>0.001;
+      const leftCls=isLeft?' is-left':'';
+      const effBadge=mismatch?`<span class="eff-mismatch" title="该成员实际效率 ${curEff} 与本档系数 ${tCoef} 不一致，点击下方「同步」修正">⚠${curEff}</span>`:`<span class="eff-val">${curEff}</span>`;
+      return `<span class="eff-chip${leftCls}" data-ti="${ti}" data-id="${id}" title="${isLeft?'已离职，已自动脱离档位':'拖到其它档可移动；拖到底部黄色区=移出'} · 当前效率=${curEff}">${effEsc(m.name)}${effBadge}<span class="x" data-act="rmMem" data-ti="${ti}" data-id="${id}" title="移出该档">×</span></span>`;
+    }).join('');
     html+=`<div class="eff-row" data-droptier="${ti}">
       <input class="ef-coef" type="number" step="0.05" min="0" value="${t.coef}" data-act="coef" data-ti="${ti}" title="效率系数"${EL?' readonly':''}>
       <input class="ef-label" type="text" value="${effEsc(t.label)}" data-act="label" data-ti="${ti}" placeholder="对应人群说明"${EL?' readonly':''}>
@@ -5210,8 +5829,13 @@ function renderEffTable(){
       <button class="eff-del-tier" data-act="delTier" data-ti="${ti}" title="删除该档">×</button>
     </div>`;
   });
-  // 未分档区：可拖放（data-droptier=-1），成员渲成可拖拽 chip
-  const uaChips=ua.map(m=>`<span class="eff-chip" data-ti="-1" data-id="${m.id}" title="拖到上面任意一档完成归档">${effEsc(m.name)}</span>`).join('');
+  // 未分档区：显示所有未归档成员（含离职灰化）
+  const uaChips=ua.map(m=>{
+    const isLeft=effLeft(m);
+    const curEff=m.eff!=null?m.eff:1;
+    const leftCls=isLeft?' is-left':'';
+    return `<span class="eff-chip${leftCls}" data-ti="-1" data-id="${m.id}" title="${isLeft?'已离职':'拖到上面任意一档完成归档'} · 当前效率=${curEff}">${effEsc(m.name)}<span class="eff-val">${curEff}</span></span>`;
+  }).join('');
   html+=`<div class="eff-unassigned" data-droptier="-1"><span class="ua-lab">⚠ 未分档（按 1.0 计）</span>${uaChips||'<span style="font-size:11px;color:#b36b00">（无）</span>'}</div>`;
   box.innerHTML=html;
 }
@@ -5318,6 +5942,7 @@ function bindEffTable(){
   }
   box.addEventListener('pointerup',endDrag);
   box.addEventListener('pointercancel',e=>{if(ed){ghost.classList.remove('show');ed.chip.classList.remove('drag-src');ed=null;clearDrop();}});
+  bindEffSyncBtn();
 }
 // 锁定态 UI：切按钮样式、显隐加档钮、给档位容器加 .locked、重渲（让输入框只读态生效）
 /* 只读模式(未持有编辑锁)时，三张配置表一律强制按「已锁定」呈现，
@@ -5339,26 +5964,66 @@ function applyEffLockUI(){
   if(box) box.classList.toggle('locked', L);
   renderEffTable();
 }
+/* 同步：根据成员实际 m.eff 自动归档到最匹配档位（离职者移出） */
+function syncEffFromMembers(){
+  if(!requireWrite())return;
+  pushHistory();
+  let moved=0, removed=0;
+  members.forEach(m=>{
+    if(effLeft(m)){
+      // 离职：从所有档位移出
+      EFF_TIERS.forEach(t=>{t.mems=(t.mems||[]).filter(x=>x!==m.id);});
+      removed++;
+      return;
+    }
+    const curEff=m.eff!=null?m.eff:1;
+    // 找系数最接近的档
+    let bi=0, bd=1e9;
+    EFF_TIERS.forEach((t,i)=>{const d=Math.abs(curEff-(t.coef||1));if(d<bd){bd=d;bi=i;}});
+    const alreadyIn=(EFF_TIERS[bi].mems||[]).indexOf(m.id)>=0;
+    if(!alreadyIn){
+      EFF_TIERS.forEach(t=>{t.mems=(t.mems||[]).filter(x=>x!==m.id);});
+      EFF_TIERS[bi].mems.push(m.id);
+      moved++;
+    }
+  });
+  syncEffFromTiers();  // 回写 eff（双向一致）
+  save();broadcast();rerender();
+  renderEffTable();
+  toast(`已同步：${moved}人调整档位${removed>0?'，'+removed+'人离职移出':''}`);
+}
+/* 绑定同步按钮 */
+function bindEffSyncBtn(){
+  const btn=document.getElementById('effSyncBtn');
+  if(!btn||btn._bound)return; btn._bound=1;
+  btn.addEventListener('click',syncEffFromMembers);
+}
 
 /* ============ 投入比 / 精力分配表：渲染 + 编辑交互（数据驱动 + 锁定） ============ */
 function renderInvTable(){
   const box=document.getElementById('invTable'); if(!box)return;
   const IL=invLockedView();
   const ro=IL?' readonly':'', rod=IL?' disabled':'';
-  let html='<thead><tr><th style="width:150px">类型</th><th style="width:80px;text-align:center">投入比</th><th>行为 / 计算规则</th><th style="width:150px">典型场景</th><th style="width:28px"></th></tr></thead><tbody>';
+  let html='<thead><tr><th style="width:150px">类型</th><th style="width:96px;text-align:center">投入比区间</th><th>行为 / 计算规则</th><th style="width:150px">典型场景</th><th style="width:28px"></th></tr></thead><tbody>';
   INV_TIERS.forEach((t,i)=>{
+    const hi=(t.hi!=null?t.hi:t.val), lo=(t.lo!=null?t.lo:(hi>=1?0:hi));
+    const rangeTxt = hi>=1 ? `0–${hi}` : `${lo}–${hi}`;
+    // 锁定态：显示区间徽标；编辑态：下限/上限两个输入框
+    const valCell = IL
+      ? `<b style="background:${effEsc(t.vbg)};color:${effEsc(t.vfg)};display:inline-block;min-width:52px;padding:2px 8px;border-radius:6px;font-variant-numeric:tabular-nums">${rangeTxt}</b>`
+      : `<span style="display:inline-flex;align-items:center;gap:3px;justify-content:center"><input class="iv-lo" type="number" step="0.05" min="0" max="1" value="${lo}" data-act="lo" data-i="${i}" title="并行分摊下限" style="width:44px;background:${effEsc(t.vbg)};color:${effEsc(t.vfg)}"><span style="color:var(--tx3)">–</span><input class="iv-val" type="number" step="0.05" min="0" max="1" value="${hi}" data-act="val" data-i="${i}" title="独占上限 (=1 视为全人力可 1/N 平摊)" style="width:44px;background:${effEsc(t.vbg)};color:${effEsc(t.vfg)}"></span>`;
     html+=`<tr data-i="${i}">
       <td class="it-type"><button class="it-dot" type="button" data-act="col" data-i="${i}" style="background:${effEsc(t.col)};display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle" title="${IL?'类型色':'点击改类型色'}"${rod}></button><input class="iv-name" type="text" value="${effEsc(t.name)}" data-act="name" data-i="${i}" placeholder="类型名"${ro}></td>
-      <td class="it-val"><input class="iv-val" type="number" step="0.05" min="0" max="1" value="${t.val}" data-act="val" data-i="${i}" title="投入比 (0~1，<1=跟进型不分摊，=1=全人力可分摊)"${ro} style="background:${effEsc(t.vbg)};color:${effEsc(t.vfg)}"></td>
+      <td class="it-val">${valCell}</td>
       <td class="it-desc"><textarea class="iv-desc" rows="2" data-act="desc" data-i="${i}" placeholder="行为/计算规则（可含<b>等标签）"${ro}>${effEsc(t.desc)}</textarea></td>
       <td class="it-scene"><textarea class="iv-scene" rows="2" data-act="scene" data-i="${i}" placeholder="典型场景"${ro}>${effEsc(t.scene)}</textarea></td>
       <td><button class="iv-del" data-act="del" data-i="${i}" title="删除该类">×</button></td>
     </tr>`;
   });
-  // 自动行：并行分摊 —— 非手动档位，由同期多条需求（含跟进）按权重瓜分当天精力派生
+  // 自动行：并行分摊 —— 非手动档位，说明每档如何按并行条数在区间内摊薄
   html+=`<tr class="it-fixed"><td class="it-type"><i style="background:#5f3dc4;display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle"></i>并行分摊<span class="it-fixrow">自动</span></td>
-    <td class="it-val"><b style="background:#efeafd;color:#5f3dc4;display:inline-block;min-width:34px;padding:2px 8px;border-radius:6px">按权重</b></td>
-    <td class="it-desc">某人某天同时跑多条需求（<b>含跟进</b>）时，当天 1.0 的精力按各段<b>权重</b>（上方各档投入比）<b>按比例瓜分</b>；总权重≤1 时各段按自身权重投入，&gt;1 时过载分摊。任务标签直接显示<b>分摊后的实际投入比数字</b>，<u>无需手动设置</u>，随排期实时变化。</td>
+    <td class="it-val"><b style="background:#efeafd;color:#5f3dc4;display:inline-block;min-width:34px;padding:2px 8px;border-radius:6px">区间内</b></td>
+    <td class="it-desc">某人某天同时跑多条需求（<b>含跟进</b>）时，每条投入比 = <code>上限 ÷ 当天并行条数</code>，在各自<b>区间内向下收敛</b>——<b>独占取上限，并行越多越低，触底下限即不再降</b>。任务标签直接显示<b>分摊后的实际投入比数字</b>，<u>无需手动设置</u>，随排期实时变化。</td>
     <td class="it-scene">一人同期<br>并行多条需求</td><td></td></tr>`;
   // 固定行：支援(外借) —— 不可编辑/删除，仅说明编制隶属
   html+=`<tr class="it-fixed"><td class="it-type"><i style="background:var(--amber);display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:6px;vertical-align:middle"></i>支援(外借)<span class="it-fixrow">固定项</span></td>
@@ -5381,7 +6046,7 @@ function bindInvTable(){
   if(addBtn&&!addBtn._bound){addBtn._bound=1;addBtn.addEventListener('click',()=>{
     if(invLockedView())return;
     pushHistory();
-    INV_TIERS.push({key:'inv'+Date.now().toString(36),name:'自定义跟进',val:0.3,col:'#d6a000',vbg:'#fdf6e3',vfg:'#a07800',desc:'自定义投入比说明。<b>固定投入比</b>，不参与并行分摊。',scene:''});
+    INV_TIERS.push({key:'inv'+Date.now().toString(36),name:'自定义跟进',val:0.3,lo:0.1,hi:0.3,col:'#d6a000',vbg:'#fdf6e3',vfg:'#a07800',desc:'自定义投入比区间。独占取上限，并行按条数在区间内摊薄、不低于下限。',scene:''});
     save();broadcast();renderInvTable(); syncInvSelectHTML();
   });}
   if(!box||box._bound)return; box._bound=1;
@@ -5391,8 +6056,12 @@ function bindInvTable(){
     const i=+el.getAttribute('data-i'); const t=INV_TIERS[i]; if(!t)return;
     if(act==='val'){
       let v=parseFloat(el.value); if(!isFinite(v)||v<0)v=0.3; if(v>1)v=1; v=Math.round(v*100)/100;
-      pushHistory(); t.val=v; el.value=v; invApplyChange(false);
-      toast('投入比已更新，消化工作量已重算'); syncInvSelectHTML();
+      pushHistory(); t.val=v; t.hi=v; if(t.lo==null) t.lo=(v>=1?0:v); if(t.lo>v)t.lo=v; el.value=v; invApplyChange(false);
+      toast('投入比上限已更新，消化工作量已重算'); syncInvSelectHTML(); renderInvTable();
+    }else if(act==='lo'){
+      let v=parseFloat(el.value); if(!isFinite(v)||v<0)v=0; const hi=(t.hi!=null?t.hi:t.val); if(v>hi)v=hi; v=Math.round(v*100)/100;
+      pushHistory(); t.lo=v; el.value=v; invApplyChange(false);
+      toast('并行分摊下限已更新，负载/投入比已重算');
     }else if(act==='name'){ pushHistory(); t.name=el.value; save();broadcast(); syncInvSelectHTML(); }
     else if(act==='desc'){ pushHistory(); t.desc=el.value; save();broadcast(); }
     else if(act==='scene'){ pushHistory(); t.scene=el.value; save();broadcast(); }
@@ -5499,7 +6168,11 @@ function applyStdLockUI(){
 }
 
 function rerender(){
+  // 安全清理：每次重渲染时强制隐藏所有拖拽残留（drop-guide、dragging 状态等）
+  ['dropG0','dropG1','dropBand'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('show');});
+  document.querySelectorAll('.dragging,.dup-src,.row-target').forEach(el=>el.classList.remove('dragging','dup-src','row-target'));
   _resetPeakParCache();                 // 排期可能变更→清空并行峰值缓存，确保人级并行判定实时
+  document.body.classList.toggle('hr-view',view==='hr');  // 人力视图隐藏左列拖拽手柄
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
 }
@@ -5535,6 +6208,7 @@ const ZOOM_KEY='gantt_zoom';
 function setZoom(v,sync){
   v=Math.max(100,Math.min(320,Math.round(+v/10)*10));
   DAY_W=+(DAY_W_BASE*v/100).toFixed(2);
+  document.documentElement.style.setProperty('--day-w',DAY_W+'px');  // v5.5 进度格线按天：同步每天像素宽
   const val=document.getElementById('zoomVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('zoomRange'); if(rng&&(sync||+rng.value!==v))rng.value=v;
   try{localStorage.setItem(ZOOM_KEY,v);}catch(_){}
@@ -5544,6 +6218,7 @@ function initZoom(){
   let v=100; try{const s=localStorage.getItem(ZOOM_KEY); if(s)v=+s;}catch(_){}
   v=Math.max(100,Math.min(320,Math.round(+v/10)*10));
   DAY_W=+(DAY_W_BASE*v/100).toFixed(2);
+  document.documentElement.style.setProperty('--day-w',DAY_W+'px');  // v5.5 进度格线按天：初始化每天像素宽
   const val=document.getElementById('zoomVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('zoomRange'); if(rng)rng.value=v;
 }
@@ -5601,12 +6276,11 @@ try{const cs=localStorage.getItem('gantt_collapsed'); if(cs)collapsed=JSON.parse
 if(loadFromHash()){ hasHashSnap=true; toast('已载入分享链接中的排期'); }
 else { loadSaved(); }
 syncEffFromTiers();
-// 首次/口径升级：用真实排期(Σ分摊后投入比×效率)重算占位工作量。版本号升级时再刷一次。
+// 首次/口径升级：用真实排期(Σ分摊后投入比×效率)重算占位工作量。applySnap 已对有快照的路径迁移过；
+// 这里兜底处理「无快照的全新环境」（localStorage/云端都为空，INV_TIERS 走硬编码初始区间值）。
 if(estRecalcVer < EST_RECALC_VER){
-  // 迁移已存快照里的旧跟进系数：完整跟进 0.5→0.4、部分跟进 0.3→0.2（仅命中旧默认值，自定义值不动）
-  INV_TIERS.forEach(t=>{ if(Math.abs(t.val-0.5)<1e-6)t.val=0.4; else if(Math.abs(t.val-0.3)<1e-6)t.val=0.2; });
-  reqs.forEach(r=>r.segs.forEach(s=>{ if(s.inv!=null){ if(Math.abs(s.inv-0.5)<1e-6)s.inv=0.4; else if(Math.abs(s.inv-0.3)<1e-6)s.inv=0.2; } }));
-  recalcEstimatesFromSchedule(); estRecalc=true; estRecalcVer=EST_RECALC_VER; syncInvSelectHTML(); save();
+  migrateInvModel();   // 幂等：补齐区间 + 重算 estimate + 置 estRecalcVer
+  save();
 }
 bindEffTable();
 applyEffLockUI();

@@ -173,6 +173,7 @@
   .board{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;}
   /* 左侧信息栏与时间轴分界：可拖拽手柄（双击=自动适配内容宽度） */
   .lw-grip{position:absolute;top:0;bottom:0;left:var(--left-w);width:11px;transform:translateX(-50%);z-index:9;cursor:col-resize;display:flex;align-items:center;justify-content:center;}
+  body.hr-view .lw-grip{display:none!important;}
   .lw-grip .lw-bar{width:2px;height:100%;background:transparent;transition:background .12s,width .12s;}
   .lw-grip:hover .lw-bar,.lw-grip.drag .lw-bar{background:var(--blue);width:3px;box-shadow:0 0 0 1px rgba(51,112,255,.25);}
   .lw-grip::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:5px;height:34px;border-radius:3px;background:#c2c8d0;opacity:0;transition:opacity .12s;}
@@ -6171,6 +6172,7 @@ function rerender(){
   ['dropG0','dropG1','dropBand'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('show');});
   document.querySelectorAll('.dragging,.dup-src,.row-target').forEach(el=>el.classList.remove('dragging','dup-src','row-target'));
   _resetPeakParCache();                 // 排期可能变更→清空并行峰值缓存，确保人级并行判定实时
+  document.body.classList.toggle('hr-view',view==='hr');  // 人力视图隐藏左列拖拽手柄
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
 }
