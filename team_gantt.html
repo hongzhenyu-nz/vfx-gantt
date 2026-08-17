@@ -1158,7 +1158,7 @@
       <label class="org-chk"><input type="checkbox" id="archiveOn" checked onchange="changeArchiveOn(this.checked)">启用</label>
     </span>
     <span class="org-group" title="隐藏已完成/已废弃的需求，只显示进行中与未来的需求（按需求看 / 按人看 均生效）">
-      <label class="org-chk"><input type="checkbox" id="hideDoneOn" checked onchange="changeHideDone(this.checked)">🙈 隐藏已完成</label>
+      <label class="org-chk"><input type="checkbox" id="hideDoneOn" onchange="changeHideDone(this.checked)">🙈 隐藏已完成</label>
     </span>
     <span class="spacer"></span>
     <span class="org-hint" id="orgHint"></span>
@@ -1381,7 +1381,7 @@ function effLeft(m){
 let ARCHIVE = { on:true, val:2, unit:'week' };   // 阈值=val×unit；unit: day|week|month
 /* 「隐藏已完成」开关：开启时，已完成(done) / 已废弃(dropped) / 派生已完成的需求，从「按需求看」与「按人看」视图中整体隐藏，
    只显示正在进行中(active/paused/doing)与未来(todo)的需求。与「超期归档」(按结束日阈值折叠)正交——本开关只看"是否完成"，不看结束日。 */
-let HIDE_DONE = { on:true };
+let HIDE_DONE = { on:false };
 /* 阈值换算成天数：周=7天，月=30天。供 memArchived/reqArchived 比较用。 */
 function archiveDays(){
   const u=ARCHIVE.unit, n=(+ARCHIVE.val||0);
@@ -5120,10 +5120,9 @@ function applySnap(snap){
     if(a.unit){ ARCHIVE.unit=a.unit; ARCHIVE.val=(a.val!=null?a.val:2); }
     else if(a.days!=null){ ARCHIVE.unit='day'; ARCHIVE.val=a.days; }   // 兼容旧快照
   }
-  if(typeof snap.hideDone==='boolean'){
-    HIDE_DONE.on=snap.hideDone;
-    const h=document.getElementById('hideDoneOn'); if(h)h.checked=snap.hideDone;
-  }
+  // 默认显示已完成/已废弃（不再自动隐藏）；若旧快照残留 hideDone:true 也强制忽略，保证默认都展示。
+  HIDE_DONE.on=false;
+  { const h=document.getElementById('hideDoneOn'); if(h)h.checked=false; }
   if(snap.groupMode){ if(snap.groupMode.person)GROUP_MODE.person=snap.groupMode.person; if(snap.groupMode.req)GROUP_MODE.req=snap.groupMode.req; }
   if(typeof snap.estRecalc==='boolean') estRecalc=snap.estRecalc;
   if(typeof snap.estRecalcVer==='number') estRecalcVer=snap.estRecalcVer;
