@@ -372,6 +372,8 @@
   .emp-badge .el{font-size:12px;font-weight:800;line-height:1;writing-mode:vertical-rl;letter-spacing:1px;}
   .emp-badge.reg{background:#e7f0ff;border-color:#a9c7f7;}
   .emp-badge.reg .el{color:#0052d9;}
+  .emp-badge.sub{background:#d1fae5;border-color:#6ee7b7;}
+  .emp-badge.sub .el{color:#059669;}
   .emp-badge.base{background:#eef1f7;border-color:#c4ccdb;}
   .emp-badge.base .el{color:#56607a;}
   .emp-badge.sup{background:#cffafe;border-color:#67e8f9;}
@@ -678,6 +680,7 @@
   .ptag .crown{font-style:normal;font-size:10px;line-height:1;}
   /* 编制主色（仅两种，差异强烈） */
   .ptag.reg{background:#0052d9;color:#fff;border-color:#0044b5;}
+  .ptag.sub{background:#059669;color:#fff;border-color:#047857;}
   .ptag.base{background:#eef1f7;color:#56607a;border-color:#c4ccdb;}
   /* 隶属带队圆点 */
   .ptag .team-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 1.5px rgba(255,255,255,.85);}
@@ -1049,6 +1052,7 @@
   .hr-makers .mk-left .left-tag{font-size:9px;color:#f87171;background:#fef2f2;border:1px solid #fca5a5;border-radius:3px;padding:0 3px;margin-left:3px;font-weight:normal;vertical-align:middle;line-height:1.4;}
   .hr-makers .mk.sup{background:#e0f7fa;color:#0e7490;border:1px solid #9adfe9;}
   .hr-makers .mk.reg-mk{background:#dbeafe;color:#1d4ed8;font-weight:600;border:1px solid #93c5fd;}  /* 正编带队：蓝底蓝字+边框 */
+  .hr-makers .mk.sub-mk{background:#d1fae5;color:#047857;font-weight:600;border:1px solid #6ee7b7;}  /* 子公司：青绿底青绿字+边框 */
   .hr-makers .empty{font-size:11px;color:var(--tx3);font-style:italic;}
   .hr-note{font-size:11px;color:var(--tx3);margin-left:auto;flex-shrink:0;max-width:200px;text-align:right;}
 </style>
@@ -1424,7 +1428,9 @@ function personGroupKey(m){
   if(mode==='lead'){ const L=leadOf(m); return L?{key:'lead:'+L,label:'隶属 '+L,color:leadColor(L)}:{key:'lead:free',label:'游离 / 无带队归属',color:'#a3acba'}; }
   if(mode==='corp'){
     if(isExtLoan(m)) return {key:'corp:loan',label:'外借支援（非角色线）',color:'#f08c00'};
-    return m.corp==='reg'?{key:'corp:reg',label:'正编（带队）',color:'#0052d9'}:{key:'corp:base',label:'基地',color:'#56607a'};
+    if(m.corp==='reg') return {key:'corp:reg',label:'正编（带队）',color:'#0052d9'};
+    if(m.corp==='sub') return {key:'corp:sub',label:'子公司',color:'#059669'};
+    return {key:'corp:base',label:'基地',color:'#56607a'};
   }
   return null;   // none
 }
@@ -1435,12 +1441,12 @@ function reqGroupKey(r){
   return null;   // none
 }
 /* 分组顺序：corp 用固定优先级，其余按出现顺序。 */
-const CORP_GROUP_ORDER=['corp:reg','corp:base','corp:loan'];
+const CORP_GROUP_ORDER=['corp:reg','corp:sub','corp:base','corp:loan'];
 function groupSortVal(key){ const i=CORP_GROUP_ORDER.indexOf(key); return i<0?99:i; }
 
 /* 分组方式下拉选项（随视图变化） */
 const GROUP_OPTS={
-  person:[{v:'none',t:'不分组'},{v:'corp',t:'按编制（正编/基地/外借）'},{v:'lead',t:'按隶属带队'}],
+  person:[{v:'none',t:'不分组'},{v:'corp',t:'按编制（正编/子公司/基地/外借）'},{v:'lead',t:'按隶属带队'}],
   req:[{v:'none',t:'不分组'},{v:'mod',t:'按模块（出场/检视/组队…）'},{v:'char',t:'按角色'}],
 };
 function updateGroupSelUI(){
@@ -1512,14 +1518,15 @@ function isExtLoan(m){
   return !m.lead || m.lead==='—' || m.lead==='-';
 }
 
-/* 编制三态着色（统一口径，与「按人看·corp 分组」一致）：
-   外借支援(橙) / 正编带队(蓝) / 基地(淡白)。
+/* 编制四态着色（统一口径，与「按人看·corp 分组」一致）：
+   外借支援(橙) / 正编带队(蓝) / 基地(淡白) / 子公司(青绿)。
    返回 {key,label,col,short,txt,bord}：col=底色(甘特条/徽标背景)，txt=前景字色，bord=内描边色(空串表示无)。
    供「一人一行甘特」的条色与标签编制徽标统一取色——即甘特按"编制"上色，而非"隶属带队"。short 为标签徽标单字。
-   注：基地用淡白底，需深字 txt + 描边 bord 才能在深色需求条上可见(纯白条/白字会看不见)；正编/外借为实色底配白字。 */
+   注：基地用淡白底，需深字 txt + 描边 bord 才能在深色需求条上可见(纯白条/白字会看不见)；正编/外借/子公司为实色底配白字。 */
 function corpStyle(m){
   if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借',txt:'#fff',bord:''};
   if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#0052d9',short:'正',txt:'#fff',bord:''};
+  if(m&&m.corp==='sub') return {key:'sub',label:'子公司',col:'#059669',short:'子',txt:'#fff',bord:''};
   return {key:'base',label:'基地',col:'#eef1f7',short:'基',txt:'#56607a',bord:'#c4ccdb'};
 }
 
@@ -3089,8 +3096,8 @@ function personRowHTML(m,inArc){
     const isLoan=isExtLoan(m);
     return `<div class="row${isLeft?' is-left':''}${isLoan?' is-loan':''}${inArc?' in-archived':''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
       <div class="cell-left">
-        <div class="emp-badge ${m.corp}" title="${m.corp==='reg'?'正编（带队）':'基地'}">
-          <span class="el">${m.corp==='reg'?'正编':'基地'}</span>
+        <div class="emp-badge ${m.corp}" title="${m.corp==='reg'?'正编（带队）':m.corp==='sub'?'子公司':'基地'}">
+          <span class="el">${m.corp==='reg'?'正编':m.corp==='sub'?'子':'基地'}</span>
           <i class="ed mstat" data-mem="${m.id}" style="background:${MS.col}" title="${MS.label}（点击设置：在岗/忙碌/请假/外出/离职/新人）"></i>
           ${L.pct>110?'<i class="olflag" title="超载">!</i>':''}
         </div>
@@ -3190,7 +3197,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const ptag=(m,mini)=>{
       const myLead=leadOf(m);
       const isSup = isSupportInReq(m,r);   // 动态：仅当该成员隶属导师 ≠ 本需求带队归属才算支援
-      const corpCls = m.corp==='reg'?'reg':'base';
+      const corpCls = m.corp==='reg'?'reg':m.corp==='sub'?'sub':'base';
       const stCls = effLeft(m)?' is-left':'';
       const supCls = isSup?' is-sup':'';
       const miniCls = mini?' mini':'';
@@ -3201,7 +3208,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
       const rk=rookieFlag(m);
       if(rk==='new') marks+='<i class="mk mk-new" title="新人（分配未满1个月，满月自动转正常）">新</i>';
       else if(rk==='tmp') marks+='<i class="mk mk-tmp" title="临时（分配未满1个月，满月自动转正常）">临</i>';
-      const ttl=`${m.corp==='reg'?'正编·带队':'基地'}${myLead?' · 隶属'+myLead:''}${isSup?' · 跨队支援'+(reqLead?'('+reqLead+'线)':''):''}${effLeft(m)?' · 已离职':m.status==='left'?' · 待离职('+fmt(m.leftAt)+')':m.status==='new'?' · 新人':''}　[拖拽可改派到其他需求]`;
+      const ttl=`${m.corp==='reg'?'正编·带队':m.corp==='sub'?'子公司':'基地'}${myLead?' · 隶属'+myLead:''}${isSup?' · 跨队支援'+(reqLead?'('+reqLead+'线)':''):''}${effLeft(m)?' · 已离职':m.status==='left'?' · 待离职('+fmt(m.leftAt)+')':m.status==='new'?' · 新人':''}　[拖拽可改派到其他需求]`;
       return `<span class="ptag ${corpCls}${supCls}${stCls}${miniCls}" title="${ttl}" data-chip-mem="${m.id}" data-chip-req="${r.id}">${crown}${dot}<span class="nm-txt">${m.name}</span>${marks}</span>`;
     };
     // 左侧：按编制分两行（正编行 / 基地行），不混排。加人按钮统一移到时间线侧（不再每组各放一个）
@@ -3635,14 +3642,14 @@ function renderHR(){
         if (stt === 'left' && !isDone) return '';           // 非已完成：已离职不显示
         // 已离职参与者：显示名字 + 离职标注
         if (stt === 'left' || leftSet.has(n)) {
-          const cls = corp === 'reg' ? 'mk reg-mk' : 'mk';
+          const cls = corp === 'reg' ? 'mk reg-mk' : corp === 'sub' ? 'mk sub-mk' : 'mk';
           const prefix = corp === 'reg' ? '👑 ' : '';
           return `<span class="${cls} mk-left" title="已离职（历史参与者）" style="opacity:.65;text-decoration:line-through;text-decoration-color:#f87171;">${prefix}${n}<small class="left-tag">已离</small></span>`;
         }
         if (stt === 'new')  return `<span class="mk" title="新人">${n}</span>`;
-        const cls = corp === 'reg' ? 'mk reg-mk' : 'mk';
+        const cls = corp === 'reg' ? 'mk reg-mk' : corp === 'sub' ? 'mk sub-mk' : 'mk';
         const prefix = corp === 'reg' ? '👑 ' : '';
-        return `<span class="${cls}" title="${corp === 'reg' ? '正编·带队' : '基地'}${stt === 'new' ? '·新人' : ''}">${prefix}${n}</span>`;
+        return `<span class="${cls}" title="${corp === 'reg' ? '正编·带队' : corp === 'sub' ? '子公司' : '基地'}${stt === 'new' ? '·新人' : ''}">${prefix}${n}</span>`;
       };
       // 正编组（蓝标）
       r.regs.forEach(n => makersHTML += mkTag(n, 'reg'));
@@ -4589,7 +4596,7 @@ function openAddTaskFor(memId){
     ? avail.map(r=>{const g=HR_GRADE[r.grade]||HR_GRADE[''];const lbl=`${r.char?charShort(r.char)+' · ':''}${r.name}（${g.label}${r.line&&r.line!=='-'?'·'+lineName(r.line):''}）`;return `<option value="${r.id}">${lbl}</option>`;}).join('')
     : '';
   const body = avail.length ? `
-    <div class="ctx">为 <b>${m.name}</b>（${m.corp==='reg'?'正编·带队':'基地'}${m.grade?' · '+m.grade+'级':''}）新分配一条任务。提交后，「按需求看」对应需求的蓝色标签里会同步出现该成员。</div>
+    <div class="ctx">为 <b>${m.name}</b>（${m.corp==='reg'?'正编·带队':m.corp==='sub'?'子公司':'基地'}${m.grade?' · '+m.grade+'级':''}）新分配一条任务。提交后，「按需求看」对应需求的蓝色标签里会同步出现该成员。</div>
     <div class="fld"><label>分配到哪条需求</label>
       <select id="addReqSel" onchange="addPrefillDates()">${optHTML}</select></div>
     <div class="row2">
@@ -4762,7 +4769,7 @@ function openNewMember(){
     <div class="ctx">添加一名<b>新成员</b>到团队名单。提交后会立即出现在「按人看」列表中，并纳入本地缓存 / 团队链接 / 云端协作同步。<br><span style="color:#8a9099;font-size:11px">💡 品级/管线跟随成员当前负责的角色线自动确定，无需在此设置</span></div>
     <div class="row2">
       <div class="fld"><label>姓名</label><input type="text" id="nmName" placeholder="如：张三"></div>
-      <div class="fld"><label>编制</label><select id="nmCorp" onchange="nmCorpChange()"><option value="base" selected>基地</option><option value="reg">正编（带队）</option></select></div>
+      <div class="fld"><label>编制</label><select id="nmCorp" onchange="nmCorpChange()"><option value="base" selected>基地</option><option value="sub">子公司</option><option value="reg">正编（带队）</option></select></div>
     </div>
     <div class="row2">
       <div class="fld" id="nmLeadFld"><label>隶属带队（正编）</label><select id="nmLead">${regLeaderOpts('—')}</select></div>
@@ -4799,7 +4806,7 @@ function confirmNewMember(){
   pushHistory();
   const m={
     id:genId('m_'), name,
-    role:(corp==='reg'?'正编·带队':'基地')+(support?'·外借支援':''),
+    role:(corp==='reg'?'正编·带队':corp==='sub'?'子公司':'基地')+(support?'·外借支援':''),
     corp, lead,
     mod:document.getElementById('nmMod').value,
     grade:'',      // 品级不再与成员绑定，由 memWorkGrade() 从角色线动态取
@@ -4828,7 +4835,7 @@ function openEditMember(memId){
     <div class="ctx">编辑 <b>${escAttr(m.name)}</b> 的成员信息。提交后实时刷新左侧名单、等级圆标、效率档位表与负载统计。</div>
     <div class="row2">
       <div class="fld"><label>姓名</label><input type="text" id="nmName" value="${escAttr(m.name)}" placeholder="如：张三"></div>
-      <div class="fld"><label>编制</label><select id="nmCorp" onchange="nmCorpChange()"><option value="base" ${m.corp==='base'?'selected':''}>基地</option><option value="reg" ${m.corp==='reg'?'selected':''}>正编（带队）</option></select></div>
+      <div class="fld"><label>编制</label><select id="nmCorp" onchange="nmCorpChange()"><option value="base" ${m.corp==='base'?'selected':''}>基地</option><option value="sub" ${m.corp==='sub'?'selected':''}>子公司</option><option value="reg" ${m.corp==='reg'?'selected':''}>正编（带队）</option></select></div>
     </div>
     <div class="row2">
       <div class="fld" id="nmLeadFld"><label>隶属带队（正编）</label><select id="nmLead">${regLeaderOpts(m.corp==='reg'?m.name:(m.lead||'—'))}</select></div>
