@@ -1521,35 +1521,35 @@ function corpStyle(m){
    corp=编制(reg正编带队/base基地)，lead=该正编带队负责的范围，mod=模块，grade=品级，line=管线，tmp=临时，status含 left离职/new新人 */
 const members = [
   // ===== 正编（带领基地同学，搭配负责需求）=====
-  {id:'yhz', name:'余洪震', role:'正编·带队 红角+金角', corp:'reg', lead:'红角 + 金角', mod:'出场', grade:'金', line:'J',  eff:1.1, status:'on'},
-  {id:'xxy', name:'薛旭阳', role:'正编·带队 橙角露西亚(管线1)', corp:'reg', lead:'橙角露西亚·管线1', mod:'出场', grade:'橙', line:'L1', eff:1.05, status:'on'},
-  {id:'cc',  name:'陈琛',   role:'正编·带队 检视/组队/饰品', corp:'reg', lead:'橙角 检视 / 组队 / 饰品', mod:'检视', grade:'橙', line:'-', eff:1.05, status:'on'},
+  {id:'yhz', name:'余洪震', role:'正编·带队 红角+金角', corp:'reg', lead:'红角 + 金角', mod:'出场', grade:'金', line:'J', eff:2, status:'on'},
+  {id:'xxy', name:'薛旭阳', role:'正编·带队 橙角露西亚(管线1)', corp:'reg', lead:'橙角露西亚·管线1', mod:'出场', grade:'橙', line:'L1', eff:2, status:'on'},
+  {id:'cc', name:'陈琛', role:'正编·带队 检视/组队/饰品', corp:'reg', lead:'橙角 检视 / 组队 / 饰品', mod:'检视', grade:'橙', line:'-', eff:2, status:'on'},
+  {id:'m_3xqr1', name:'暂缺', role:'正编·带队', corp:'reg', lead:'暂缺', mod:'出场', grade:'橙', line:'L2', eff:2, status:'leave'},
 
-  // ===== 基地：管线1 露西亚线（薛旭阳带）=====
-  {id:'ygh', name:'杨光豪', role:'基地·橙(露西亚 管线1)', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:1.05, status:'on'},
-  {id:'ll',  name:'李龙',   role:'基地·橙(露西亚 管线1)', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on'},
-  {id:'zyq', name:'张雍祺', role:'基地·橙(露西亚 管线1)',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.95, status:'left', leftAt:DT(2026,8,10)},
-  {id:'zjj', name:'曾俊杰', role:'基地·橙(露西亚 管线1)', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:1.0,  status:'on'},
-  {id:'zcz', name:'张长喆', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true, leftAt:DT(2026,5,1)},
-  {id:'ljy', name:'梁骏源', role:'基地·橙(露西亚)·已离职', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.9,  status:'left', tmp:true, leftAt:DT(2026,5,1)},
-  {id:'zjh', name:'邹佳豪', role:'基地·橙(露西亚)·新人',   corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'L1', eff:0.85, status:'new',  tmp:true},
-
-  // ===== 基地：管线2 比安卡线（余洪震统筹，目前仅胡斯雨1名基地同学）=====
-  {id:'hsy', name:'胡斯雨', role:'基地·橙(比安卡 管线2)', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'L2', eff:1.0, status:'on'},
-
-  // ===== 基地：金角线（七十·出场，余洪震带）=====
-  {id:'yh',  name:'于航',   role:'基地·金(七十)', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'J', eff:1.0, status:'on'},
-  {id:'psq', name:'彭诗淇', role:'基地·金(七十)', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'J', eff:1.0, status:'on'},
-  {id:'lzs', name:'刘振山', role:'基地·金(七十)', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'J', eff:1.0, status:'on'},
-  {id:'zc',  name:'宗丞',   role:'基地·金(七十)', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'J', eff:1.0, status:'on'},
-
-  // ===== 基地：检视/组队（陈琛带）=====
-  {id:'cyh', name:'陈禹汗', role:'基地·检视 橙(露西亚)', corp:'base', lead:'陈琛', mod:'检视', grade:'橙', line:'-', eff:1.0, status:'on'},
-  {id:'zbw', name:'郑博文', role:'基地·检视 橙(比安卡)', corp:'base', lead:'陈琛', mod:'检视', grade:'橙', line:'-', eff:1.0, status:'on'},
-  {id:'ljj', name:'娄佳俊', role:'基地·组队 橙(比安卡)', corp:'base', lead:'陈琛', mod:'组队', grade:'橙', line:'-', eff:1.0, status:'on'},
-
-  // ===== 支援：金潇（暂时支援武器特效，不属于商业化角色特效需求模块）=====
-  {id:'jx',  name:'金潇',   role:'支援·武器特效(非角色特效模块)', corp:'base', lead:'—', mod:'武器特效', grade:'', line:'-', eff:1.0, status:'busy', support:true},
+  // ===== 基地（隶属正编带队；管线随正编线，不再单独设置）=====
+  {id:'ygh', name:'杨光豪', role:'基地', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'-', eff:0.8, status:'on'},
+  {id:'ll', name:'李龙', role:'基地·外借支援', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'-', eff:1, status:'on', support:true},
+  {id:'zyq', name:'张雍祺', role:'基地', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'-', eff:0.5, status:'left', leftAt:DT(2026,7,17)},
+  {id:'zjj', name:'曾俊杰', role:'基地·外借支援', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'-', eff:1, status:'on', support:true},
+  {id:'zcz', name:'张长喆', role:'基地', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'-', eff:0.5, status:'left', tmp:true, leftAt:DT(2026,5,1)},
+  {id:'ljy', name:'梁骏源', role:'基地', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'-', eff:0.5, status:'left', tmp:true, leftAt:DT(2026,5,1)},
+  {id:'zjh', name:'邹佳豪', role:'基地', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'-', eff:0.3, status:'new', tmp:true},
+  {id:'hsy', name:'胡斯雨', role:'基地', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'-', eff:0.5, status:'on'},
+  {id:'yh', name:'于航', role:'基地', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'-', eff:1, status:'on'},
+  {id:'psq', name:'彭诗淇', role:'基地', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'-', eff:1, status:'on'},
+  {id:'lzs', name:'刘振山', role:'基地', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'-', eff:0.5, status:'left', leftAt:DT(2026,7,17)},
+  {id:'zc', name:'宗丞', role:'基地', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'-', eff:0.5, status:'left', leftAt:DT(2026,7,3)},
+  {id:'cyh', name:'陈禹汗', role:'基地', corp:'base', lead:'陈琛', mod:'检视', grade:'橙', line:'-', eff:0.8, status:'on'},
+  {id:'zbw', name:'郑博文', role:'基地', corp:'base', lead:'陈琛', mod:'检视', grade:'橙', line:'-', eff:1, status:'on'},
+  {id:'ljj', name:'娄佳俊', role:'基地', corp:'base', lead:'陈琛', mod:'组队', grade:'橙', line:'-', eff:0.3, status:'on'},
+  {id:'jx', name:'金潇', role:'基地·外借支援', corp:'base', lead:'—', mod:'武器特效', grade:'', line:'-', eff:1, status:'busy', support:true},
+  {id:'m_p00qs', name:'袁诗睿', role:'基地', corp:'base', lead:'余洪震', mod:'出场', grade:'橙', line:'-', eff:0.5, status:'left', leftAt:DT(2026,7,31)},
+  {id:'m_ovsy7', name:'王君豪', role:'基地', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'-', eff:0.5, status:'on'},
+  {id:'m_s1wmk', name:'许未名', role:'基地', corp:'base', lead:'余洪震', mod:'出场', grade:'金', line:'-', eff:0.5, status:'left', leftAt:DT(2026,7,31)},
+  {id:'m_ck8mo', name:'王雨菡', role:'基地', corp:'base', lead:'薛旭阳', mod:'出场', grade:'橙', line:'-', eff:0.3, status:'on'},
+  {id:'m_5eibi', name:'暂缺-基地1', role:'基地', corp:'base', lead:'暂缺', mod:'出场', grade:'橙', line:'-', eff:1, status:'on'},
+  {id:'m_t7pqf', name:'暂缺-基地2', role:'基地', corp:'base', lead:'暂缺', mod:'出场', grade:'橙', line:'-', eff:1, status:'on'},
+  {id:'m_7hk9c', name:'暂缺-基地3', role:'基地', corp:'base', lead:'暂缺', mod:'出场', grade:'橙', line:'-', eff:1, status:'on'}
 ];
 
 /* 需求 = 企微数据源表 q979lj 橙角出场特效排期(权威) + 大甘特图(image#1)红角女指挥官特效模块 + 金角/检视/组队/机动/武器支援。
@@ -1558,109 +1558,50 @@ const members = [
 /* kind: fx=特效(紫,主体) | lt=联调(特效后→全量测试前) | qa=全量测试里程碑(黑,bug修复阶段,不计排期负载)。
    support:true 标在 seg 上=该人为支援性质(非本管线编制)。 */
 const reqs = [
-  /* ===== 橙·露西亚·誓焰 X 安琪儿（管线1，薛旭阳带；李龙/曾俊杰为薛旭阳L1基地橙角） ===== */
-  {id:'LU_cc', name:'露西亚 出场特效', char:'露西亚·誓焰 X 安琪儿', mod:'出场', grade:'橙', line:'L1', kind:'fx', estimate:24, done:16, end:DT(2026,6,23),
-    segs:[{m:'xxy',s:DT(2026,4,20),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'ygh',s:DT(2026,4,20),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'ll',s:DT(2026,4,25),e:DT(2026,6,23),prog:0.75,status:'doing'},{m:'zyq',s:DT(2026,5,4),e:DT(2026,6,23),prog:0.6,status:'doing'},{m:'zjh',s:DT(2026,5,11),e:DT(2026,6,23),prog:0.5,status:'doing'}]},
-  {id:'LU_cs', name:'露西亚 检视特效', char:'露西亚·誓焰 X 安琪儿', mod:'检视', grade:'橙', line:'L1', kind:'fx', estimate:16, done:7, end:DT(2026,6,23),
-    segs:[{m:'cyh',s:DT(2026,5,1),e:DT(2026,6,23),prog:0.5,status:'doing'},{m:'cc',s:DT(2026,5,1),e:DT(2026,6,23),prog:0.45,status:'doing'}]},
-  {id:'LU_zd', name:'露西亚 组队特效', char:'露西亚·誓焰 X 安琪儿', mod:'组队', grade:'橙', line:'L1', kind:'fx', estimate:16, done:6, end:DT(2026,6,23),
-    segs:[{m:'cc',s:DT(2026,5,8),e:DT(2026,6,23),prog:0.4,status:'doing'},{m:'zjj',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.45,status:'doing'}]},
-  {id:'LU_lt', name:'露西亚 联调', char:'露西亚·誓焰 X 安琪儿', mod:'联调', grade:'橙', line:'L1', kind:'lt', estimate:22, done:0, end:DT(2026,7,17),
-    segs:[{m:'xxy',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'ygh',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'ll',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zyq',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zjh',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'},{m:'zjj',s:DT(2026,6,24),e:DT(2026,7,17),prog:0,status:'todo'}]},
-  {id:'LU_qa', name:'露西亚 全量测试', char:'露西亚·誓焰 X 安琪儿', mod:'全量测试', grade:'橙', line:'L1', kind:'qa', estimate:0, done:0, end:DT(2026,7,29),
-    segs:[{m:'xxy',s:DT(2026,7,20),e:DT(2026,7,29),prog:0,status:'todo'}]},
-
-  /* ===== 橙·比安卡·寻 X 奈芙（管线2 S4.1，余洪震统筹，胡斯雨线） ===== */
-  {id:'BK_cc', name:'比安卡 出场特效', char:'比安卡·寻 X 奈芙', mod:'出场', grade:'橙', line:'L2', kind:'fx', estimate:30, done:11, end:DT(2026,7,10),
-    segs:[{m:'hsy',s:DT(2026,5,15),e:DT(2026,7,10),prog:0.35,status:'doing'}]},
-  {id:'BK_cs', name:'比安卡 检视特效', char:'比安卡·寻 X 奈芙', mod:'检视', grade:'橙', line:'L2', kind:'fx', estimate:12, done:4, end:DT(2026,7,10),
-    segs:[{m:'zbw',s:DT(2026,5,15),e:DT(2026,7,10),prog:0.35,status:'doing'}]},
-  {id:'BK_zd', name:'比安卡 组队特效', char:'比安卡·寻 X 奈芙', mod:'组队', grade:'橙', line:'L2', kind:'fx', estimate:12, done:3, end:DT(2026,7,10),
-    segs:[{m:'ljj',s:DT(2026,5,15),e:DT(2026,7,10),prog:0.3,status:'doing'}]},
-  {id:'BK_lt', name:'比安卡 联调', char:'比安卡·寻 X 奈芙', mod:'联调', grade:'橙', line:'L2', kind:'lt', estimate:12, done:0, end:DT(2026,8,3),
-    segs:[{m:'hsy',s:DT(2026,7,13),e:DT(2026,8,3),prog:0,status:'todo'},{m:'zbw',s:DT(2026,7,13),e:DT(2026,8,3),prog:0,status:'todo'}]},
-  {id:'BK_qa', name:'比安卡 全量测试', char:'比安卡·寻 X 奈芙', mod:'全量测试', grade:'橙', line:'L2', kind:'qa', estimate:0, done:0, end:DT(2026,8,14),
-    segs:[{m:'hsy',s:DT(2026,8,4),e:DT(2026,8,14),prog:0,status:'todo'}]},
-
-  /* ===== 金·七十·芒星之迹 X 茉莉（S3.2，余洪震带，于航团队，已进入转测） ===== */
-  {id:'QS_cc', name:'七十 出场特效', char:'七十·芒星之迹 X 茉莉', mod:'出场', grade:'金', line:'J', kind:'fx', estimate:48, done:40, end:DT(2026,6,23),
-    segs:[{m:'yhz',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.85,status:'doing'},{m:'yh',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.85,status:'doing'},{m:'psq',s:DT(2026,4,27),e:DT(2026,6,23),prog:0.85,status:'doing'},{m:'lzs',s:DT(2026,5,4),e:DT(2026,6,23),prog:0.8,status:'doing'},{m:'zc',s:DT(2026,5,4),e:DT(2026,6,23),prog:0.8,status:'doing'}]},
-  {id:'QS_qa', name:'七十 全量测试', char:'七十·芒星之迹 X 茉莉', mod:'全量测试', grade:'金', line:'J', kind:'qa', estimate:0, done:0, end:DT(2026,7,24),
-    segs:[{m:'yh',s:DT(2026,6,24),e:DT(2026,7,24),prog:0,status:'todo'}]},
-
-  /* ===== 金·红蔻（S4.3，余洪震带，于航团队） ===== */
-  {id:'HK_cc', name:'红蔻 出场特效', char:'红蔻', mod:'出场', grade:'金', line:'J', kind:'fx', estimate:42, done:0, end:DT(2026,8,21),
-    segs:[{m:'yh',s:DT(2026,7,6),e:DT(2026,8,21),prog:0,status:'todo'},{m:'psq',s:DT(2026,7,6),e:DT(2026,8,21),prog:0,status:'todo'},{m:'lzs',s:DT(2026,7,6),e:DT(2026,8,21),prog:0,status:'todo'}]},
-  {id:'HK_lt', name:'红蔻 联调', char:'红蔻', mod:'联调', grade:'金', line:'J', kind:'lt', estimate:10, done:0, end:DT(2026,9,11),
-    segs:[{m:'yh',s:DT(2026,8,24),e:DT(2026,9,11),prog:0,status:'todo'}]},
-  {id:'HK_qa', name:'红蔻 全量测试', char:'红蔻', mod:'全量测试', grade:'金', line:'J', kind:'qa', estimate:0, done:0, end:DT(2026,9,25),
-    segs:[{m:'yh',s:DT(2026,9,14),e:DT(2026,9,25),prog:0,status:'todo'}]},
-
-  /* ===== 金·Cyndi（S5.1，余洪震带，于航团队） ===== */
-  {id:'CY_cc', name:'Cyndi 出场特效', char:'Cyndi', mod:'出场', grade:'金', line:'J', kind:'fx', estimate:42, done:0, end:DT(2026,10,23),
-    segs:[{m:'yh',s:DT(2026,9,7),e:DT(2026,10,23),prog:0,status:'todo'},{m:'psq',s:DT(2026,9,7),e:DT(2026,10,23),prog:0,status:'todo'},{m:'zc',s:DT(2026,9,7),e:DT(2026,10,23),prog:0,status:'todo'}]},
-  {id:'CY_lt', name:'Cyndi 联调', char:'Cyndi', mod:'联调', grade:'金', line:'J', kind:'lt', estimate:10, done:0, end:DT(2026,11,13),
-    segs:[{m:'yh',s:DT(2026,10,26),e:DT(2026,11,13),prog:0,status:'todo'}]},
-  {id:'CY_qa', name:'Cyndi 全量测试', char:'Cyndi', mod:'全量测试', grade:'金', line:'J', kind:'qa', estimate:0, done:0, end:DT(2026,11,27),
-    segs:[{m:'yh',s:DT(2026,11,16),e:DT(2026,11,27),prog:0,status:'todo'}]},
-
-  /* ===== 武器特效支援（金潇，非商业化角色特效模块） ===== */
-  {id:'WP_sup', name:'武器特效 支援', char:'武器（支援）', mod:'武器特效', grade:'', line:'-', kind:'fx', estimate:30, done:12, end:DT(2026,8,31),
-    segs:[{m:'jx',s:DT(2026,5,1),e:DT(2026,8,31),prog:0.4,status:'doing',support:true}]},
-
-  /*__MORE__*/
-
-  /* ===== 橙·白老板（S4.3，管线2 胡斯雨线，余洪震统筹） ===== */
-  {id:'BL_cc', name:'白老板 出场特效', char:'白老板', mod:'出场', grade:'橙', line:'L2', kind:'fx', estimate:30, done:0, end:DT(2026,9,4),
-    segs:[{m:'hsy',s:DT(2026,7,20),e:DT(2026,9,4),prog:0,status:'todo'}]},
-  {id:'BL_cs', name:'白老板 检视组队特效', char:'白老板', mod:'检视/组队', grade:'橙', line:'L2', kind:'fx', estimate:18, done:0, end:DT(2026,9,4),
-    segs:[{m:'zbw',s:DT(2026,7,20),e:DT(2026,9,4),prog:0,status:'todo'},{m:'ljj',s:DT(2026,7,20),e:DT(2026,9,4),prog:0,status:'todo'}]},
-  {id:'BL_lt', name:'白老板 联调', char:'白老板', mod:'联调', grade:'橙', line:'L2', kind:'lt', estimate:14, done:0, end:DT(2026,9,25),
-    segs:[{m:'hsy',s:DT(2026,9,7),e:DT(2026,9,25),prog:0,status:'todo'}]},
-  {id:'BL_qa', name:'白老板 全量测试', char:'白老板', mod:'全量测试', grade:'橙', line:'L2', kind:'qa', estimate:0, done:0, end:DT(2026,10,16),
-    segs:[{m:'hsy',s:DT(2026,9,28),e:DT(2026,10,16),prog:0,status:'todo'}]},
-
-  /* ===== 橙·荷光者（S5.1，管线1 露西亚线后续，薛旭阳带；李龙为薛旭阳L1基地橙角） ===== */
-  {id:'HG_cc', name:'荷光者 出场特效', char:'荷光者', mod:'出场', grade:'橙', line:'L1', kind:'fx', estimate:32, done:0, end:DT(2026,10,16),
-    segs:[{m:'xxy',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'ygh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'ll',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'zjh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'}]},
-  {id:'HG_cs', name:'荷光者 检视组队特效', char:'荷光者', mod:'检视/组队', grade:'橙', line:'L1', kind:'fx', estimate:18, done:0, end:DT(2026,10,16),
-    segs:[{m:'cyh',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'},{m:'cc',s:DT(2026,9,7),e:DT(2026,10,16),prog:0,status:'todo'}]},
-  {id:'HG_lt', name:'荷光者 整体效果联调', char:'荷光者', mod:'联调', grade:'橙', line:'L1', kind:'lt', estimate:18, done:0, end:DT(2026,11,20),
-    segs:[{m:'xxy',s:DT(2026,10,19),e:DT(2026,11,20),prog:0,status:'todo'},{m:'ygh',s:DT(2026,10,19),e:DT(2026,11,20),prog:0,status:'todo'}]},
-  {id:'HG_qa', name:'荷光者 全量测试', char:'荷光者', mod:'全量测试', grade:'橙', line:'L1', kind:'qa', estimate:0, done:0, end:DT(2026,12,11),
-    segs:[{m:'xxy',s:DT(2026,11,23),e:DT(2026,12,11),prog:0,status:'todo'}]},
-
-  /* ===== 橙·阿尔法（S6.1，管线2 远期，余洪震统筹） ===== */
-  {id:'AF_cc', name:'阿尔法 出场特效', char:'阿尔法', mod:'出场', grade:'橙', line:'L2', kind:'fx', estimate:32, done:0, end:DT(2027,1,15),
-    segs:[{m:'hsy',s:DT(2026,12,1),e:DT(2027,1,15),prog:0,status:'todo'}]},
-  {id:'AF_cs', name:'阿尔法 检视组队特效', char:'阿尔法', mod:'检视/组队', grade:'橙', line:'L2', kind:'fx', estimate:18, done:0, end:DT(2027,1,15),
-    segs:[{m:'zbw',s:DT(2026,12,1),e:DT(2027,1,15),prog:0,status:'todo'}]},
-  {id:'AF_lt', name:'阿尔法 联调', char:'阿尔法', mod:'联调', grade:'橙', line:'L2', kind:'lt', estimate:14, done:0, end:DT(2027,2,5),
-    segs:[{m:'hsy',s:DT(2027,1,18),e:DT(2027,2,5),prog:0,status:'todo'}]},
-  {id:'AF_qa', name:'阿尔法 全量测试', char:'阿尔法', mod:'全量测试', grade:'橙', line:'L2', kind:'qa', estimate:0, done:0, end:DT(2027,2,26),
-    segs:[{m:'hsy',s:DT(2027,2,8),e:DT(2027,2,26),prog:0,status:'todo'}]},
-
-  /* ===== 红·女指挥官 S5.1 各模块特效（余洪震带，全管线缺人最严重；按版本里程碑顺排） ===== */
-  {id:'NV_bt', name:'女指挥官 本体&3C特效', char:'女指挥官（S5.1）', mod:'本体/3C', grade:'红', line:'R', kind:'fx', estimate:45, done:0, end:DT(2026,9,30),
-    segs:[{m:'yhz',s:DT(2026,7,1),e:DT(2026,9,30),prog:0,status:'todo'}]},
-  {id:'NV_cc', name:'女指挥官 出场特效', char:'女指挥官（S5.1）', mod:'出场', grade:'红', line:'R', kind:'fx', estimate:20, done:0, end:DT(2026,11,11),
-    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
-  {id:'NV_mvp', name:'女指挥官 MVP特效', char:'女指挥官（S5.1）', mod:'MVP', grade:'红', line:'R', kind:'fx', estimate:15, done:0, end:DT(2026,11,11),
-    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
-  {id:'NV_rj', name:'女指挥官 入局Cuts特效', char:'女指挥官（S5.1）', mod:'入局', grade:'红', line:'R', kind:'fx', estimate:15, done:0, end:DT(2026,11,11),
-    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
-  {id:'NV_tpp', name:'女指挥官 TPP特效', char:'女指挥官（S5.1）', mod:'TPP', grade:'红', line:'R', kind:'fx', estimate:12, done:0, end:DT(2026,11,11),
-    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
-  {id:'NV_dt', name:'女指挥官 大厅特效', char:'女指挥官（S5.1）', mod:'大厅', grade:'红', line:'R', kind:'fx', estimate:10, done:0, end:DT(2026,11,11),
-    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
-  {id:'NV_cs', name:'女指挥官 检视特效', char:'女指挥官（S5.1）', mod:'检视', grade:'红', line:'R', kind:'fx', estimate:9, done:0, end:DT(2026,11,11),
-    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
-  {id:'NV_zd', name:'女指挥官 组队特效', char:'女指挥官（S5.1）', mod:'组队', grade:'红', line:'R', kind:'fx', estimate:9, done:0, end:DT(2026,11,11),
-    segs:[{m:'yhz',s:DT(2026,7,13),e:DT(2026,11,11),prog:0,status:'todo'}]},
-  {id:'NV_lt', name:'女指挥官 整体效果联调', char:'女指挥官（S5.1）', mod:'联调', grade:'红', line:'R', kind:'lt', estimate:20, done:0, end:DT(2026,12,25),
-    segs:[{m:'yhz',s:DT(2026,12,1),e:DT(2026,12,25),prog:0,status:'todo'}]},
-  {id:'NV_qa', name:'女指挥官 全量测试', char:'女指挥官（S5.1）', mod:'全量测试', grade:'红', line:'R', kind:'qa', estimate:0, done:0, end:DT(2027,1,15),
-    segs:[{m:'yhz',s:DT(2026,12,28),e:DT(2027,1,15),prog:0,status:'todo'}]},
+  {id:'LU_cc', name:'露西亚 出场特效', char:'露西亚·誓焰 X 安琪儿', mod:'出场', grade:'橙', line:'L1', kind:'fx', state:'done', estimate:134, end:DT(2026,6,24), split:null, split2:91, done:128, segs:[{m:'xxy', s:DT(2026,4,29), e:DT(2026,6,24), prog:1, status:'done'}, {m:'ygh', s:DT(2026,4,13), e:DT(2026,6,24), prog:1, status:'done'}, {m:'ll', s:DT(2026,5,27), e:DT(2026,6,24), prog:1, status:'done', support:true}, {m:'zyq', s:DT(2026,6,18), e:DT(2026,6,24), prog:1, status:'done'}, {m:'zjh', s:DT(2026,6,4), e:DT(2026,6,24), prog:1, status:'done'}, {m:'yhz', s:DT(2026,5,20), e:DT(2026,6,24), prog:1, status:'done', support:true, inv:0.3}, {m:'lzs', s:DT(2026,6,20), e:DT(2026,6,24), prog:1, status:'done', support:true}, {m:'zc', s:DT(2026,6,20), e:DT(2026,6,24), prog:1, status:'done', support:true}, {m:'cyh', s:DT(2026,6,9), e:DT(2026,6,16), prog:1, status:'done', support:true}, {m:'ljj', s:DT(2026,6,13), e:DT(2026,6,23), prog:1, status:'done', support:true}]},
+  {id:'LU_cs', name:'露西亚 检视特效', char:'露西亚·誓焰 X 安琪儿', mod:'检视', grade:'橙', line:'L1', kind:'fx', state:'done', estimate:27, end:DT(2026,6,30), split:46, split2:null, done:27, segs:[{m:'cyh', s:DT(2026,6,16), e:DT(2026,6,30), prog:1, status:'done'}, {m:'cc', s:DT(2026,5,6), e:DT(2026,6,24), prog:1, status:'done', inv:0.6}, {m:'cyh', s:DT(2026,5,6), e:DT(2026,6,9), prog:1, status:'done'}]},
+  {id:'LU_zd', name:'露西亚 组队特效', char:'露西亚·誓焰 X 安琪儿', mod:'组队', grade:'橙', line:'L1', kind:'fx', state:'done', estimate:29, end:DT(2026,6,26), split:null, split2:null, done:29, segs:[{m:'cc', s:DT(2026,5,19), e:DT(2026,6,26), prog:1, status:'done'}, {m:'zjj', s:DT(2026,6,3), e:DT(2026,6,24), prog:1, status:'done', support:true}]},
+  {id:'LU_lt', name:'露西亚 联调', char:'露西亚·誓焰 X 安琪儿', mod:'联调', grade:'橙', line:'L1', kind:'lt', state:'done', estimate:33, end:DT(2026,7,9), split:null, split2:null, done:20, segs:[{m:'xxy', s:DT(2026,6,24), e:DT(2026,6,29), prog:1, status:'done'}, {m:'ygh', s:DT(2026,6,24), e:DT(2026,7,9), prog:1, status:'done'}, {m:'ll', s:DT(2026,6,24), e:DT(2026,7,8), prog:1, status:'done', support:true}, {m:'zyq', s:DT(2026,6,24), e:DT(2026,7,9), prog:1, status:'done'}, {m:'zjh', s:DT(2026,6,24), e:DT(2026,7,9), prog:1, status:'done'}, {m:'zjj', s:DT(2026,6,24), e:DT(2026,6,27), prog:1, status:'done', support:true}, {m:'cc', s:DT(2026,6,24), e:DT(2026,7,8), prog:1, status:'done', support:true}, {m:'lzs', s:DT(2026,6,24), e:DT(2026,6,29), prog:1, status:'done', support:true}, {m:'zbw', s:DT(2026,6,24), e:DT(2026,7,1), prog:1, status:'done', support:true, inv:0.6}]},
+  {id:'BK_cc', name:'比安卡 出场特效', char:'比安卡·寻 X 奈芙', mod:'出场', grade:'橙', line:'L2', kind:'fx', state:'done', estimate:119, end:DT(2026,8,3), split:null, split2:null, done:15, segs:[{m:'hsy', s:DT(2026,6,2), e:DT(2026,7,29), prog:1, status:'done'}, {m:'yhz', s:DT(2026,6,29), e:DT(2026,7,29), prog:1, status:'done', support:true}, {m:'psq', s:DT(2026,6,29), e:DT(2026,7,29), prog:1, status:'done', support:true}, {m:'zjj', s:DT(2026,6,29), e:DT(2026,7,29), prog:1, status:'done', support:true}, {m:'ll', s:DT(2026,6,29), e:DT(2026,7,29), prog:1, status:'done', support:true}, {m:'ygh', s:DT(2026,6,29), e:DT(2026,7,29), prog:1, status:'done', support:true}, {m:'m_p00qs', s:DT(2026,7,8), e:DT(2026,7,29), prog:1, status:'done'}, {m:'m_ovsy7', s:DT(2026,7,8), e:DT(2026,7,16), prog:1, status:'done'}, {m:'zbw', s:DT(2026,7,25), e:DT(2026,8,3), prog:1, status:'done', support:true}, {m:'xxy', s:DT(2026,7,10), e:DT(2026,7,20), prog:1, status:'done', support:true}]},
+  {id:'BK_cs', name:'比安卡 检视特效', char:'比安卡·寻 X 奈芙', mod:'检视', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:47, end:DT(2026,7,25), split:51, split2:null, done:16, segs:[{m:'cc', s:DT(2026,5,9), e:DT(2026,7,25), prog:1, status:'done', inv:0.6}, {m:'zbw', s:DT(2026,5,9), e:DT(2026,7,25), prog:1, status:'done'}]},
+  {id:'BK_zd', name:'比安卡 组队特效', char:'比安卡·寻 X 奈芙', mod:'组队', grade:'橙', line:'L2', kind:'fx', state:'done', estimate:38, end:DT(2026,7,29), split:72, split2:null, done:10, segs:[{m:'cc', s:DT(2026,5,15), e:DT(2026,7,29), prog:1, status:'done'}, {m:'ljj', s:DT(2026,5,15), e:DT(2026,6,13), prog:1, status:'done'}]},
+  {id:'BK_lt', name:'比安卡 联调', char:'比安卡·寻 X 奈芙', mod:'大厅', grade:'橙', line:'L2', kind:'lt', state:'done', estimate:13, end:DT(2026,8,16), split:null, split2:null, done:0, segs:[{m:'hsy', s:DT(2026,7,29), e:DT(2026,8,16), prog:1, status:'done'}, {m:'ljj', s:DT(2026,7,7), e:DT(2026,7,16), prog:1, status:'done', support:true}]},
+  {id:'QS_cc', name:'七十 出场特效', char:'七十·芒星之迹 X 茉莉', mod:'出场', grade:'金', line:'J', kind:'fx', state:'done', estimate:79, end:DT(2026,6,23), split:null, split2:null, done:65, segs:[{m:'yhz', s:DT(2026,5,20), e:DT(2026,6,23), prog:1, status:'done', inv:0.6}, {m:'yh', s:DT(2026,5,20), e:DT(2026,6,20), prog:1, status:'done'}, {m:'psq', s:DT(2026,5,27), e:DT(2026,6,23), prog:1, status:'done'}, {m:'lzs', s:DT(2026,5,13), e:DT(2026,6,20), prog:1, status:'done'}, {m:'zc', s:DT(2026,5,27), e:DT(2026,6,20), prog:1, status:'done'}, {m:'zyq', s:DT(2026,5,11), e:DT(2026,6,18), prog:0, status:'todo', support:true}]},
+  {id:'HK_cc', name:'红蔻 出场特效', char:'红蔻', mod:'出场', grade:'金', line:'J', kind:'fx', state:'active', estimate:112, end:DT(2026,9,25), split:null, split2:null, done:0, segs:[{m:'lzs', s:DT(2026,6,29), e:DT(2026,9,7), prog:0, status:'todo'}, {m:'yhz', s:DT(2026,6,29), e:DT(2026,9,25), prog:0, status:'todo', inv:0.6}, {m:'zyq', s:DT(2026,6,29), e:DT(2026,9,7), prog:0, status:'todo', support:true}, {m:'yh', s:DT(2026,6,29), e:DT(2026,9,7), prog:0, status:'todo'}, {m:'zjh', s:DT(2026,6,29), e:DT(2026,9,7), prog:0, status:'todo', support:true}, {m:'m_ovsy7', s:DT(2026,7,16), e:DT(2026,9,7), prog:0, status:'todo'}, {m:'m_s1wmk', s:DT(2026,7,8), e:DT(2026,9,7), prog:0, status:'todo'}]},
+  {id:'HK_lt', name:'红蔻 联调', char:'红蔻', mod:'联调', grade:'金', line:'J', kind:'lt', state:'active', estimate:10, end:DT(2026,9,11), split:null, split2:null, done:0, segs:[]},
+  {id:'CY_cc', name:'Cyndi 出场特效', char:'Cyndi', mod:'出场', grade:'金', line:'J', kind:'fx', state:'active', estimate:68, end:DT(2026,10,23), split:null, split2:null, done:0, segs:[{m:'yh', s:DT(2026,9,7), e:DT(2026,10,23), prog:0, status:'todo'}, {m:'m_ovsy7', s:DT(2026,9,7), e:DT(2026,10,23), prog:0, status:'todo'}, {m:'zjh', s:DT(2026,9,7), e:DT(2026,10,23), prog:0, status:'todo', support:true}]},
+  {id:'CY_lt', name:'Cyndi 联调', char:'Cyndi', mod:'联调', grade:'金', line:'J', kind:'lt', state:'active', estimate:14, end:DT(2026,11,13), split:null, split2:null, done:0, segs:[{m:'yh', s:DT(2026,10,26), e:DT(2026,11,13), prog:0, status:'todo'}]},
+  {id:'WP_sup', name:'武器特效 支援', char:'武器（支援）', mod:'武器特效', grade:'', line:'-', kind:'fx', state:'active', estimate:30, end:DT(2026,8,31), split:null, split2:null, done:12, segs:[{m:'jx', s:DT(2026,5,1), e:DT(2026,8,31), prog:0.4, status:'doing', support:true, open:true}]},
+  {id:'BL_cc', name:'白老板 出场特效', char:'白老板', mod:'出场', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:114, end:DT(2026,10,14), split:null, split2:null, done:0, segs:[{m:'xxy', s:DT(2026,7,20), e:DT(2026,10,14), prog:0, status:'todo', support:true}, {m:'ygh', s:DT(2026,8,4), e:DT(2026,10,14), prog:0, status:'todo'}, {m:'hsy', s:DT(2026,8,4), e:DT(2026,10,14), prog:0, status:'todo', support:true}, {m:'m_ck8mo', s:DT(2026,8,4), e:DT(2026,10,14), prog:0, status:'todo'}]},
+  {id:'BL_cs', name:'白老板 检视组队特效', char:'白老板', mod:'检视', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:34, end:DT(2026,9,11), split:101, split2:null, done:0, segs:[{m:'cyh', s:DT(2026,7,1), e:DT(2026,9,11), prog:0, status:'doing'}, {m:'cc', s:DT(2026,7,1), e:DT(2026,8,15), prog:0, status:'doing', inv:0.3}, {m:'cc', s:DT(2026,8,17), e:DT(2026,9,11), prog:0, status:'todo', inv:0.6}]},
+  {id:'BL_lt', name:'白老板 联调', char:'白老板', mod:'联调', grade:'橙', line:'L2', kind:'lt', state:'active', estimate:14, end:DT(2026,9,25), split:null, split2:null, done:0, segs:[]},
+  {id:'HG_cc', name:'荷光者 出场特效', char:'荷光者', mod:'出场', grade:'橙', line:'L1', kind:'fx', state:'active', estimate:136, end:DT(2026,12,10), split:null, split2:null, done:0, segs:[{m:'m_3xqr1', s:DT(2026,9,7), e:DT(2026,12,10), prog:0, status:'todo', support:true}, {m:'m_t7pqf', s:DT(2026,9,7), e:DT(2026,12,10), prog:0, status:'todo'}, {m:'m_7hk9c', s:DT(2026,9,7), e:DT(2026,12,10), prog:0, status:'todo'}]},
+  {id:'HG_cs', name:'荷光者 检视组队特效', char:'荷光者', mod:'检视', grade:'橙', line:'L1', kind:'fx', state:'active', estimate:43, end:DT(2026,11,12), split:144, split2:null, done:0, segs:[{m:'zbw', s:DT(2026,8,24), e:DT(2026,11,7), prog:0, status:'todo'}, {m:'cc', s:DT(2026,8,21), e:DT(2026,11,12), prog:0, status:'todo', inv:0.3}]},
+  {id:'HG_lt', name:'荷光者 整体效果联调', char:'荷光者', mod:'联调', grade:'橙', line:'L1', kind:'lt', state:'active', estimate:18, end:DT(2027,1,15), split:null, split2:null, done:0, segs:[{m:'m_3xqr1', s:DT(2026,12,14), e:DT(2027,1,15), prog:0, status:'todo'}]},
+  {id:'AF_cc', name:'阿尔法 出场特效', char:'阿尔法', mod:'出场', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:17, end:DT(2027,2,20), split:null, split2:null, done:0, segs:[{m:'hsy', s:DT(2026,11,11), e:DT(2027,2,20), prog:0, status:'todo'}, {m:'xxy', s:DT(2026,11,11), e:DT(2027,2,20), prog:0, status:'todo', inv:0.6}, {m:'ygh', s:DT(2026,11,11), e:DT(2027,2,20), prog:0, status:'todo'}, {m:'m_ck8mo', s:DT(2026,11,11), e:DT(2027,2,20), prog:0, status:'todo'}]},
+  {id:'AF_cs', name:'阿尔法 检视组队特效', char:'阿尔法', mod:'检视', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:33, end:DT(2026,12,13), split:null, split2:null, done:0, segs:[{m:'cyh', s:DT(2026,10,14), e:DT(2026,12,13), prog:0, status:'todo'}]},
+  {id:'AF_lt', name:'阿尔法 联调', char:'阿尔法', mod:'联调', grade:'橙', line:'L2', kind:'lt', state:'active', estimate:7, end:DT(2027,3,13), split:null, split2:null, done:0, segs:[{m:'hsy', s:DT(2027,2,23), e:DT(2027,3,13), prog:0, status:'todo'}, {m:'ygh', s:DT(2027,2,23), e:DT(2027,3,13), prog:0, status:'todo'}, {m:'xxy', s:DT(2027,2,23), e:DT(2027,3,13), prog:0, status:'todo'}, {m:'m_ck8mo', s:DT(2027,2,23), e:DT(2027,3,13), prog:0, status:'todo'}]},
+  {id:'NV_bt', name:'女指挥官 本体&3C特效', char:'女指挥官（S5.1）', mod:'本体/3C', grade:'红', line:'R', kind:'fx', state:'active', estimate:45, end:DT(2026,11,26), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,8,19), e:DT(2026,11,26), prog:0, status:'todo', inv:0.3}, {m:'ll', s:DT(2026,8,17), e:DT(2026,11,7), prog:0, status:'todo', inv:0.3}]},
+  {id:'NV_cc', name:'女指挥官 出场特效', char:'女指挥官（S5.1）', mod:'出场', grade:'红', line:'R', kind:'fx', state:'active', estimate:26, end:DT(2026,11,26), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,8,19), e:DT(2026,11,26), prog:0, status:'todo'}, {m:'psq', s:DT(2026,8,24), e:DT(2026,11,26), prog:0, status:'todo'}, {m:'zjj', s:DT(2026,8,17), e:DT(2026,11,26), prog:0, status:'todo'}]},
+  {id:'NV_mvp', name:'女指挥官 MVP特效', char:'女指挥官（S5.1）', mod:'MVP', grade:'红', line:'R', kind:'fx', state:'active', estimate:15, end:DT(2026,11,26), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,8,19), e:DT(2026,11,26), prog:0, status:'todo', inv:0.3}]},
+  {id:'NV_rj', name:'女指挥官 入局Cuts特效', char:'女指挥官（S5.1）', mod:'入局', grade:'红', line:'R', kind:'fx', state:'active', estimate:15, end:DT(2026,11,26), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,8,19), e:DT(2026,11,26), prog:0, status:'todo', inv:0.3}]},
+  {id:'NV_tpp', name:'女指挥官 TPP特效', char:'女指挥官（S5.1）', mod:'TPP', grade:'红', line:'R', kind:'fx', state:'active', estimate:12, end:DT(2026,11,26), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,19), e:DT(2026,11,26), prog:0, status:'todo', inv:0.3}]},
+  {id:'NV_dt', name:'女指挥官 大厅特效', char:'女指挥官（S5.1）', mod:'大厅', grade:'红', line:'R', kind:'fx', state:'active', estimate:10, end:DT(2026,12,5), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,8,19), e:DT(2026,12,5), prog:0, status:'todo', inv:0.3}, {m:'cyh', s:DT(2026,9,21), e:DT(2026,10,14), prog:0, status:'todo', support:true, inv:0.3}]},
+  {id:'NV_cs', name:'女指挥官 检视特效', char:'女指挥官（S5.1）', mod:'检视', grade:'红', line:'R', kind:'fx', state:'active', estimate:9, end:DT(2026,12,14), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,21), e:DT(2026,12,14), prog:0, status:'todo', inv:0.3}]},
+  {id:'NV_zd', name:'女指挥官 组队特效', char:'女指挥官（S5.1）', mod:'组队', grade:'红', line:'R', kind:'fx', state:'active', estimate:9, end:DT(2026,12,14), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,21), e:DT(2026,12,14), prog:0, status:'todo', inv:0.3}]},
+  {id:'NV_lt', name:'女指挥官 整体效果联调', char:'女指挥官（S5.1）', mod:'联调', grade:'红', line:'R', kind:'lt', state:'active', estimate:65, end:DT(2027,1,15), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,11,26), e:DT(2027,1,15), prog:0, status:'todo'}]},
+  {id:'r_2i3iv', name:'幽魂骑士bug修复', char:'幽魂骑士', mod:'入局Cuts', grade:'红', line:'R', kind:'fx', state:'active', estimate:20, end:DT(2026,6,17), split:null, split2:null, done:0, segs:[{m:'xxy', s:DT(2026,5,18), e:DT(2026,6,17), prog:1, status:'done', inv:0.6}]},
+  {id:'r_r17wv', name:'产假', char:'产假', mod:'通用', grade:'橙', line:'-', kind:'fx', state:'active', estimate:18, end:DT(2026,7,10), split:null, split2:null, done:0, segs:[{m:'xxy', s:DT(2026,6,29), e:DT(2026,7,10), prog:1, status:'done', support:true}]},
+  {id:'r_o4g0p', name:'荷光者 组队', char:'荷光者', mod:'组队', grade:'橙', line:'L1', kind:'fx', state:'active', estimate:26, end:DT(2026,11,11), split:144, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,21), e:DT(2026,11,11), prog:0, status:'todo'}, {m:'m_5eibi', s:DT(2026,9,7), e:DT(2026,11,7), prog:0, status:'todo', support:true}]},
+  {id:'r_tx5q5', name:'白老板 组队', char:'白老板', mod:'组队', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:19, end:DT(2026,9,5), split:114, split2:null, done:0, segs:[{m:'cc', s:DT(2026,7,15), e:DT(2026,8,29), prog:0, status:'todo', support:true, inv:0.3}, {m:'ljj', s:DT(2026,7,16), e:DT(2026,9,5), prog:0, status:'todo'}]},
+  {id:'r_tvz0u', name:'休假 出场', char:'休假', mod:'出场', grade:'橙', line:'-', kind:'fx', state:'done', estimate:3, end:DT(2026,6,25), split:null, split2:null, done:3, segs:[{m:'yh', s:DT(2026,6,22), e:DT(2026,6,25), prog:1, status:'done'}]},
+  {id:'r_ja61d', name:'S4.1饰品需求*6', char:'S4.1饰品需求*6', mod:'饰品', grade:'金', line:'-', kind:'fx', state:'done', estimate:3, end:DT(2026,7,10), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,6,25), e:DT(2026,7,10), prog:1, status:'done', inv:0.3}, {m:'ljj', s:DT(2026,6,25), e:DT(2026,7,7), prog:1, status:'done'}]},
+  {id:'r_n1r76', name:'露西亚bug修复', char:'露西亚bug修复', mod:'通用', grade:'橙', line:'L1', kind:'fx', state:'done', estimate:20, end:DT(2026,7,20), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,7,8), e:DT(2026,7,20), prog:1, status:'done'}]},
+  {id:'r_1rbi5', name:'性能&bug修复', char:'比安卡', mod:'联调', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:20, end:DT(2026,8,30), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,7,30), e:DT(2026,8,19), prog:1, status:'done'}, {m:'cc', s:DT(2026,7,30), e:DT(2026,8,30), prog:1, status:'doing', support:true}, {m:'zbw', s:DT(2026,8,3), e:DT(2026,8,14), prog:1, status:'done', support:true}, {m:'ll', s:DT(2026,7,29), e:DT(2026,8,14), prog:1, status:'done'}, {m:'zjj', s:DT(2026,7,29), e:DT(2026,8,14), prog:1, status:'done'}]},
+  {id:'r_ghct5', name:'阿尔法', char:'阿尔法', mod:'组队', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:20, end:DT(2027,1,9), split:null, split2:null, done:0, segs:[{m:'ljj', s:DT(2026,10,14), e:DT(2026,12,6), prog:0, status:'todo'}, {m:'xxy', s:DT(2026,10,14), e:DT(2027,1,9), prog:0, status:'todo', support:true, inv:0.3}]},
+  {id:'r_5xu2m', name:'白老板', char:'白老板', mod:'联调', grade:'橙', line:'L1', kind:'fx', state:'active', estimate:20, end:DT(2026,11,11), split:null, split2:null, done:0, segs:[{m:'ljj', s:DT(2026,9,5), e:DT(2026,10,10), prog:0, status:'todo'}, {m:'cc', s:DT(2026,8,14), e:DT(2026,9,23), prog:0, status:'todo', inv:0.3}, {m:'ygh', s:DT(2026,10,14), e:DT(2026,11,11), prog:0, status:'todo', support:true}, {m:'hsy', s:DT(2026,10,14), e:DT(2026,11,11), prog:0, status:'todo', support:true}, {m:'m_ck8mo', s:DT(2026,10,14), e:DT(2026,11,11), prog:0, status:'todo', support:true}]},
+  {id:'r_eeozh', name:'荷光者', char:'荷光者', mod:'通用', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:20, end:DT(2026,12,19), split:null, split2:null, done:0, segs:[{m:'m_5eibi', s:DT(2026,11,9), e:DT(2026,12,19), prog:0, status:'todo'}]},
+  {id:'lt_gaf25', name:'比安卡 联调', char:'比安卡', mod:'联调', grade:'橙', line:'L2', kind:'lt', state:'active', estimate:12, end:DT(2026,9,18), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,31), e:DT(2026,9,18), prog:0, status:'todo'}, {m:'psq', s:DT(2026,7,29), e:DT(2026,8,30), prog:0, status:'todo'}]}
 ];
 
 /* ============ 需求预处理：删除全量测试(qa) + 联调(lt)降为本体附属(不单独成行) ============ */
