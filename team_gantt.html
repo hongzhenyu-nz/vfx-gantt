@@ -1235,7 +1235,7 @@
         <div class="t"><i style="background:#0a7d3c"></i>效率系数标定（实时驱动产能/风险计算）
           <button class="eff-lock locked" id="effLock" title="点击激活/锁定编辑">🔒 已锁定</button>
           <button class="eff-add-tier hide" id="effAddTier" title="新增一档">＋ 加一档</button>
-          <button class="eff-sync-btn" id="effSyncBtn" title="根据甘特图中成员的实际效率系数，自动将成员归入最匹配的档位（离职者自动移出）">🔄 同步</button>
+          <button class="eff-sync-btn" id="effSyncBtn" title="将系数标定表中各档位的系数值，同步写入甘特图对应成员的效率字段（标定为锚，下发至成员）">🔄 同步</button>
         </div>
         <div id="effTiers" class="eff-tiers locked"></div>
         <p style="margin-top:8px;color:var(--tx3);">系数以 <b>1.0 = 一名标准基地人力</b> 为基准；&gt;1 比基准强、&lt;1 偏弱。修改系数、人群说明或把成员在档位间调整后，<b>每位成员的效率、负载率与需求风险会立即按新值重算</b>。</p>
@@ -6466,39 +6466,28 @@ function applyEffLockUI(){
   if(box) box.classList.toggle('locked', L);
   renderEffTable();
 }
-/* 同步：根据成员实际 m.eff 自动归档到最匹配档位（离职者移出） */
-function syncEffFromMembers(){
+/* 同步：将系数标定（锚点）的各档系数下发至甘特图成员 m.eff */
+function syncEffToMembers(){
   if(!requireWrite())return;
   pushHistory();
-  let moved=0, removed=0;
+  let updated=0;
+  const byMem={};
+  EFF_TIERS.forEach(t=>{const c=Number(t.coef);if(!isFinite(c))return;(t.mems||[]).forEach(id=>{byMem[id]=c;});});
   members.forEach(m=>{
-    if(effLeft(m)){
-      // 离职：从所有档位移出
-      EFF_TIERS.forEach(t=>{t.mems=(t.mems||[]).filter(x=>x!==m.id);});
-      removed++;
-      return;
-    }
-    const curEff=m.eff!=null?m.eff:1;
-    // 找系数最接近的档
-    let bi=0, bd=1e9;
-    EFF_TIERS.forEach((t,i)=>{const d=Math.abs(curEff-(t.coef||1));if(d<bd){bd=d;bi=i;}});
-    const alreadyIn=(EFF_TIERS[bi].mems||[]).indexOf(m.id)>=0;
-    if(!alreadyIn){
-      EFF_TIERS.forEach(t=>{t.mems=(t.mems||[]).filter(x=>x!==m.id);});
-      EFF_TIERS[bi].mems.push(m.id);
-      moved++;
+    if(byMem[m.id]!=null && m.eff!==byMem[m.id]){
+      m.eff=byMem[m.id];
+      updated++;
     }
   });
-  syncEffFromTiers();  // 回写 eff（双向一致）
   save();broadcast();rerender();
   renderEffTable();
-  toast(`已同步：${moved}人调整档位${removed>0?'，'+removed+'人离职移出':''}`);
+  toast(`已同步：${updated}名成员的效率系数已按标定档位更新`);
 }
 /* 绑定同步按钮 */
 function bindEffSyncBtn(){
   const btn=document.getElementById('effSyncBtn');
   if(!btn||btn._bound)return; btn._bound=1;
-  btn.addEventListener('click',syncEffFromMembers);
+  btn.addEventListener('click',syncEffToMembers);
 }
 
 /* ============ 投入比 / 精力分配表：渲染 + 编辑交互（数据驱动 + 锁定） ============ */
