@@ -1976,6 +1976,51 @@ function memGapCount(memId){
   }));
   return total;
 }
+/* 从 STD_CFG 表的 ppl 文本中解析出数值化的标配人力 {reg, base}。
+   解析规则（按常见写法）：
+     "3 个基地人力"          → {reg:0, base:3}
+     "3–4 个基地人力"        → {reg:0, base:3}  （区间取下限）
+     "1 正编 + 3 个基地人力"  → {reg:1, base:3}
+     "0.2 正编+1个基地人力"   → {reg:0.2, base:1}
+     "按模块/缺口视图核定"等    → {reg:0, base:0}  （无法解析）
+   返回值 base 用于与 HR 角色线的 cfg(基地在岗数) 对比算缺口。 */
+function parseStdPpl(text){
+  if(!text) return {reg:0,base:0};
+  const t = String(text).trim();
+  let reg=0, base=0;
+  // 匹配 "N 正编" / "N正编" / "0.2 正编"
+  const regM = t.match(/([\d.]+)\s*正编/);
+  if(regM) reg = parseFloat(regM[1])||0;
+  // 匹配 "M–N 个基地"（区间取下限 M）或 "N 个基地"（单值）
+  const rangeM = t.match(/([\d.]+)\s*[-–~～]\s*([\d.]+)\s*个?\s*基地/);
+  if(rangeM){
+    base = parseFloat(rangeM[1])||0;   // 区间下限
+  } else {
+    const singleM = t.match(/([\d.]+)\s*个?\s*基地/);
+    if(singleM) base = parseFloat(singleM[1])||0;
+  }
+  return {reg, base};
+}
+/* 查某需求在 STD_CFG 表中的标准基地编制。
+   匹配逻辑：按 req.grade + req.mod 查找 STD_CFG 条目，解析 ppl 得到 base 值。
+   找不到或无法解析时 fallback 到 REQ_STD[r.id]（保持向后兼容）。 */
+function stdCfgBaseForReq(r){
+  if(!r) return 0;
+  // 优先从 STD_CFG 表动态查找
+  const g = r.grade || '';
+  const m = r.mod || '';
+  const entry = STD_CFG.find(e =>
+    (e.grade===g || g.includes(e.grade) || e.grade.includes(g)) &&
+    (e.mod===m || m.includes(e.mod) || e.mod.includes(m))
+  );
+  if(entry && entry.ppl && !entry.ppl.includes('核定')){
+    const p = parseStdPpl(entry.ppl);
+    if(p.base > 0) return p.base;
+  }
+  // fallback: 硬编码 REQ_STD
+  return REQ_STD[r.id] || 0;
+}
+
 /* 动态人力缺口 = 标配 − 实际在岗（≥0）。无标配的需求恒为 0 */
 function reqGapPpl(r){
   const std=REQ_STD[r&&r.id]; if(std==null) return 0;
@@ -3408,7 +3453,7 @@ function fitBarLabels(){
    每条线的数据全部从 reqs.segs 实时计算：
    - status: 聚合该角色该模块下所有需求的任务段状态
    - cfg:   实际在岗基地人数(baseSet.size，正编带队不占编制)
-   - std:   标配人数(REQ_STD 之和)
+   - std:   标配基地人数(STD_CFG 表动态解析，按品级×模块匹配 ppl 文本)
    - gap:   标配缺口(std − cfg, ≥0)
    - regs:  正编人员名单(from segs, corp=reg, 排除 support/left)
    - bases: 基地人员名单(from segs, corp=base, 排除 support/left)
@@ -3489,9 +3534,9 @@ function buildRoleLines(){
       });
       // 配置人数：已完成=全部参与者（含离职，记录历史编制）；未完成=仅在岗基地
       const cfg = baseSet.size;
-      // 标准配置 = REQ_STD 之和
+      // 标准配置 = 从 STD_CFG 表动态读取（按品级×模块匹配），fallback 到 REQ_STD
       let std = 0;
-      rl.forEach(r => { std += (REQ_STD[r.id]||0); });
+      rl.forEach(r => { std += stdCfgBaseForReq(r); });
       // 缺口（已完成的需求不再显示缺口）
       const gap = (status === '已完成') ? 0 : Math.max(0, std - cfg);
       // note: 简要说明
