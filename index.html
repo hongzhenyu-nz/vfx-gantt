@@ -487,6 +487,35 @@
   .vacant-bar{width:100%;height:100%;min-height:28px;background:repeating-linear-gradient(-45deg,#fef2f2 0px,#fef2f2 6px,#fff 6px,#fff 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;}
   .vacant-bar::after{content:'缺人';font-size:11px;font-weight:700;color:#f87171;letter-spacing:2px;opacity:.7;white-space:nowrap;text-shadow:0 1px 0 rgba(255,255,255,.8);}
   .ltag.vacant .vacant-ic{margin-right:2px;}
+  /* v5.34 暂缺占位行：区别于真人行的「缺人状态卡」 */
+  .row.vacant-row{background:linear-gradient(90deg,#fef9f0 0%,#fff5eb 40%,#fff 100%);border-left:3px dashed #f87171;}
+  .row.vacant-row .cell-left{display:flex;align-items:center;padding:6px 10px;}
+  .row.vacant-row .vacant-card{
+    display:flex;align-items:center;gap:8px;flex:1;
+    background:#fef2f2;border:1.5px dashed #fca5a5;border-radius:8px;
+    padding:6px 12px;position:relative;
+  }
+  .row.vacant-row .vc-icon{
+    width:28px;height:28px;border-radius:50%;background:#fee2e2;
+    display:flex;align-items:center;justify-content:center;font-size:14px;
+    flex-shrink:0;border:1.5px solid #f87171;
+  }
+  .row.vacant-row .vc-body{flex:1;min-width:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .row.vacant-row .vc-label{
+    font-size:13px;font-weight:700;color:#d32320;letter-spacing:.5px;
+    white-space:nowrap;
+  }
+  .row.vacant-row .vc-meta{
+    font-size:11px;color:#9a8b7a;display:flex;align-items:center;gap:6px;
+  }
+  .row.vacant-row .vc-meta span{background:#fff;border:1px solid #e5e1d8;border-radius:4px;padding:1px 6px;}
+  .row.vacant-row .vc-eff{font-size:11px;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:1px 6px;}
+  .row.vacant-row .vc-act{display:flex;gap:4px;flex-shrink:0;}
+  .row.vacant-row .vc-act button{
+    background:#fff;border:1px solid #ddd;border-radius:4px;padding:2px 8px;
+    font-size:11px;cursor:pointer;color:#666;transition:all .15s;
+  }
+  .row.vacant-row .vc-act button:hover{border-color:#f87171;color:#d32320;background:#fef2f2;}
   /* 成员行缺口徽标（按人看：该人涉及的角色线共缺N人） */
   .mem-gap-badge{font-size:10px;font-weight:700;color:#fff;background:#ef4444;border-radius:6px;padding:1px 7px;margin-left:6px;flex-shrink:0;line-height:1.6;box-shadow:0 1px 3px rgba(239,68,68,.35);}
   .badge{font-size:10px;padding:2px 7px;border-radius:5px;font-weight:600;margin-left:8px;flex-shrink:0;}
@@ -2861,8 +2890,67 @@ function renderPerson(){
   }
   paint(rows);
 }
+/* v5.34 暂缺占位行：将「暂缺」成员渲染为缺人状态卡（非真人行）
+   - 左侧：虚线卡片 + 🔴缺人占位 + 模块/角色/效率信息
+   - 时间线：斜纹 vacant-bar（已有 CSS）
+   - 可被 isVacantMem / computeHR 统计识别 */
+function vacantRowHTML(m,inArc){
+    // 收集此占位的任务段（与真人行同样的逻辑，但用 vacant-bar 样式）
+    const items=[];
+    reqs.forEach(r=>r.segs.forEach((s,si)=>{
+      if(s.m!==m.id)return;
+      if(HIDE_DONE.on && reqIsCompleted(r)) return;
+      let si0=idx(s.s),ei0=idx(s.e);
+      if(s.open){ si0=0; ei0=DAYS; }
+      else if(ei0-si0<=0) return;
+      items.push({r,sg:s,si,si0,ei0});
+    }));
+    const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
+    const laneCount=Math.max(laid.lanes,1);
+    let rowH = laneCount<=1 ? ROW_BASE : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
+    let bars='';
+    laid.items.forEach(it=>{
+      const {r,sg,si}=it;
+      const isOpen=!!sg.open;
+      const x=isOpen?0:it.si0*DAY_W, w=isOpen?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
+      const risk=reqRisk(r);
+      const auto=autoSegState(sg);
+      const st=STATUS[auto.status||'doing'];
+      const tip=`<b>${r.name}</b><br><span class='g'>占位</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g' style='color:#f87171'>此为缺人占位，分配真人后自动转为正常任务条</span>`;
+      bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:0%;height:100%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+        onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
+        <div class="prog" style="--p:0"></div>
+        <i class="grip gl"></i><i class="grip gr"></i></div>`;
+    });
+    // 占位卡左侧信息
+    const modLabel = m.mod ? MOD_META[m.mod]?.label || m.mod : '';
+    const leadLabel = (m.lead && m.lead!=='—' && m.lead!=='-') ? m.lead : '';
+    const effShow = m.eff && m.eff!==1 ? `<span class="vc-eff">⚡ 效率 ${m.eff}</span>` : '';
+    return `<div class="row vacant-row${inArc?' in-archived':''}" data-mem="${m.id}" style="min-height:${rowH}px">
+      <div class="cell-left">
+        <div class="vacant-card">
+          <div class="vc-icon">🔴</div>
+          <div class="vc-body">
+            <span class="vc-label">缺人占位</span>
+            <div class="vc-meta">
+              ${modLabel?`<span>${escAttr(modLabel)}</span>`:''}
+              ${leadLabel?`<span>👑 ${escAttr(leadLabel)}</span>`:''}
+              ${effShow}
+            </div>
+          </div>
+          <div class="vc-act">
+            <button onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openEditMember('${m.id}')" title="编辑占位（可改为真人或调整）">✎ 编辑</button>
+            <button onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给此占位分配需求"><span class="pl">＋</span> 任务</button>
+          </div>
+        </div>
+      </div>
+      <div class="timeline" style="width:${DAYS*DAY_W}px">${bars}</div>
+    </div>`;
+}
 /* 渲染单个成员行（inArc=是否归档区内，仅加淡化样式类） */
 function personRowHTML(m,inArc){
+    /* v5.34：暂缺成员 → 渲染为「缺人占位状态卡」，不再伪装成真人行 */
+    if(isVacantMem(m)) return vacantRowHTML(m,inArc);
     const fr=focusRole(m);
     const L=memLoad(m.id);
     const MS=MSTATUS[m.status||'on'];
@@ -3481,6 +3569,7 @@ function renderHR(){
       const mkTag = (n) => {
         const mem = members.find(x => x.name === n);
         if (leftLong(mem)) return '';            // 离职满1月：从角色名单隐藏
+        if (isVacantMem(mem)) return `<span class="mk tmp" title="缺人占位（尚未分配真人）" style="background:#fef2f2;color:#d32320;border:1.5px dashed #f87171;font-weight:700;">🔴 ${n}</span>`;
         const stt = effLeft(mem) ? 'left' : (mem ? mem.status : 'on');   // 未到离职日仍按在岗呈现
         if (stt === 'left') return `<span class="mk left" title="已离职">${n}·离职</span>`;
         if (stt === 'new')  return `<span class="mk new" title="新人">${n}·新人</span>`;
