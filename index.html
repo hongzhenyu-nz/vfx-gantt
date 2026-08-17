@@ -3304,16 +3304,113 @@ function fitBarLabels(){
   });
 }
 
+/* ============ 动态角色线聚合（从 reqs + members 生成，替代写死 hrData）============
+   按 mod(出场/检视/组队) 分组 → 每组内按 char(角色)×grade(品级) 聚合为一条角色线。
+   每条线的数据全部从 reqs.segs 实时计算：
+   - status: 聚合该角色该模块下所有需求的任务段状态
+   - cfg:   实际在岗基地人数(activeBase 之和，去重)
+   - std:   标配人数(REQ_STD 之和)
+   - gap:   标配缺口(std − cfg, ≥0)
+   - makers: 正编/基地人员名单(from segs, 排除 support/left)
+   - sup:    支援人员
+   - tmp:    临时/储备人员(名字含括号备注的)
+*/
+function buildRoleLines(){
+  // 只取特效类需求(kind=fx)，排除 qa/lt/联调 等
+  const fxReqs = reqs.filter(r => r.kind === 'fx');
+  // 按模组分
+  const modGroups = {};
+  fxReqs.forEach(r => {
+    const m = r.mod || '其他';
+    if(!modGroups[m]) modGroups[m] = [];
+    modGroups[m].push(r);
+  });
+  const result = [];  // [{mod, roles:[{role,grade,status,cfg,std,gap,makers,sup,tmp,note}]}]
+  for(const [mod, reqsOfMod] of Object.entries(modGroups)){
+    // 该模块内按 char × grade 聚合
+    const charMap = {};
+    reqsOfMod.forEach(r => {
+      const key = (r.char||'') + '::' + (r.grade||'');
+      if(!charMap[key]){
+        charMap[key] = {char:r.char, grade:r.grade, reqs:[]};
+      }
+      charMap[key].reqs.push(r);
+    });
+    const roles = [];
+    for(const {char:cname, grade, reqs:rl} of Object.values(charMap)){
+      // 短角色名
+      const shortC = charShort(cname);
+      // 角色显示名: "金（七十）" / "橙（露西亚·管线1）" / "红（女指挥官）"
+      // 尝试从 line 字段取管线标识
+      const lineTag = rl[0] && rl[0].line && rl[0].line !== '-' ? ('·'+rl[0].line) : '';
+      const roleLabel = `${grade}（${shortC}${lineTag}）`;
+      // 聚合状态: 任何 doing/review→启动中, 任何 todo→将要启动, 全 done→已完成
+      let hasDoing=false, hasTodo=false, hasDone=false;
+      rl.forEach(r => {
+        const s = aggStatus(r);
+        if(s==='doing'||s==='review'||s==='blocked') hasDoing=true;
+        else if(s==='todo') hasTodo=true;
+        else if(s==='done') hasDone=true;
+      });
+      let status = '';
+      if(hasDoing) status = '启动中';
+      else if(hasTodo) status = '将要启动';
+      else if(hasDone && !hasTodo && !hasDoing) status = '已完成';
+      // 收集人员: 从 segs 提取
+      const makerSet = new Set();     // 正常在岗
+      const supSet = new Set();       // 支援
+      const tmpSet = new Set();       // 临时/新人/离职显示用
+      rl.forEach(r => {
+        (r.segs||[]).forEach(s => {
+          const m = memById(s.m); if(!m) return;
+          if(leftLong(m)) return;             // 离职满1月: 隐藏
+          if(s.support){ supSet.add(m.name); return; }
+          if(effLeft(m)){ tmpSet.add(m.name); return; }  // 将离职
+          makerSet.add(m.name);
+        });
+      });
+      // 配置人数 = 实际在岗(不含支援/离职)
+      const cfg = makerSet.size;
+      // 标准配置 = REQ_STD 之和
+      let std = 0;
+      rl.forEach(r => { std += (REQ_STD[r.id]||0); });
+      // 缺口
+      const gap = Math.max(0, std - cfg);
+      // note: 简要说明
+      const leadInfo = [...makerSet].find(n => {
+        const mm = members.find(x=>x.name===n);
+        return mm && mm.corp === 'reg';
+      });
+      const noteParts = [];
+      if(leadInfo) noteParts.push(`${leadInfo}带`);
+      if(supSet.size) noteParts.push(`${[...supSet].join('/')}为支援`);
+      if(tmpSet.size) noteParts.push(`临时${tmpSet.size}人`);
+      roles.push({
+        role: roleLabel,
+        grade: grade,
+        status: status,
+        cfg: cfg,
+        std: std,
+        gap: gap,
+        makers: [...makerSet],
+        sup: [...supSet],
+        tmp: [...tmpSet],
+        note: noteParts.join(' · ') || undefined
+      });
+    }
+    // 按品级排序: 金 > 橙 > 红 > 其他
+    const gradeOrder = {'金':0,'橙':1,'红':2};
+    roles.sort((a,b) => (gradeOrder[a.grade]??9) - (gradeOrder[b.grade]??9));
+    result.push({mod, roles});
+  }
+  // 模块排序: 出场 > 检视 > 组队 > 其他
+  const modOrder = {'出场':0,'检视':1,'组队':2};
+  result.sort((a,b) => (modOrder[a.mod]??9) - (modOrder[b.mod]??9));
+  return result;
+}
+
 /* ============ 视图3：人力分配（按模块） ============ */
 function renderHR(){
-  // 汇总（在岗去重排除离职）
-  let totalMakers=new Set(), totalCfg=0, totalGap=0, gradeCnt={金:0,橙:0,红:0}, gradeGap={金:0,橙:0,红:0};
-  const isLeftName=(n)=>{const b=String(n).replace(/[·\(].*$/,'');const m=members.find(x=>x.name===b);return m&&m.status==='left';};
-  hrData.forEach(m=>m.roles.forEach(r=>{
-    r.makers.forEach(n=>{if(!isLeftName(n))totalMakers.add(n);});
-    r.tmp.forEach(n=>{if(!isLeftName(n))totalMakers.add(String(n).replace(/[·\(].*$/,''));});
-    if(r.grade && gradeCnt[r.grade]!==undefined) gradeCnt[r.grade]+=(r.cfg+r.gap);
-  }));
   // ★ 顶部汇总卡：全部改用实时数据（computeHR 从 members+reqs 算），不再读 hrData/HR_CONCLUSION
   const HR = computeHR();
   const detailParts=[];
@@ -3353,54 +3450,56 @@ function renderHR(){
     <span class="lg"><i class="hr-flag left" style="margin:0">已离职</i> 灰色</span>
     <span class="lg"><i class="hr-flag sup" style="margin:0">支援</i> 金潇·武器特效(非角色特效模块)</span>
   </div>`;
-  // 各模块
-  hrData.forEach(m=>{
-    const modGap=m.roles.reduce((a,r)=>a+r.gap,0);
-    html+=`<div class="hr-mod">
+  // 各模块 —— 从 reqs 动态聚合角色线（替代写死 hrData）
+  const roleModules = buildRoleLines();
+  roleModules.forEach(m => {
+    const modGap = m.roles.reduce((a, r) => a + r.gap, 0);
+    html += `<div class="hr-mod">
       <div class="hr-mod-head"><span>${m.mod}</span><span class="mtag">${m.roles.length} 个角色线</span>
-        <span class="mgap" style="color:${modGap>0?'#d32320':'#1a8a3c'}">${modGap>0?'缺 '+modGap+' 人':'无缺口'}</span></div>`;
-    m.roles.forEach(r=>{
-      const g=HR_GRADE[r.grade]||HR_GRADE[''];
-      const st=HR_STATUS[r.status]||HR_STATUS[''];
-      let makersHTML='';
-      const mkTag=(n)=>{
-        const mem=members.find(x=>x.name===n);
-        if(leftLong(mem)) return '';            // 离职满1月：从角色名单隐藏
-        const stt=effLeft(mem)?'left':(mem?mem.status:'on');   // 未到离职日仍按在岗呈现
-        if(stt==='left') return `<span class="mk left" title="已离职">${n}·离职</span>`;
-        if(stt==='new')  return `<span class="mk new" title="新人">${n}·新人</span>`;
+        <span class="mgap" style="color:${modGap > 0 ? '#d32320' : '#1a8a3c'}">${modGap > 0 ? '缺 ' + modGap + ' 人' : '无缺口'}</span></div>`;
+    m.roles.forEach(r => {
+      const g = HR_GRADE[r.grade] || HR_GRADE[''];
+      const st = HR_STATUS[r.status] || HR_STATUS[''];
+      let makersHTML = '';
+      const mkTag = (n) => {
+        const mem = members.find(x => x.name === n);
+        if (leftLong(mem)) return '';            // 离职满1月：从角色名单隐藏
+        const stt = effLeft(mem) ? 'left' : (mem ? mem.status : 'on');   // 未到离职日仍按在岗呈现
+        if (stt === 'left') return `<span class="mk left" title="已离职">${n}·离职</span>`;
+        if (stt === 'new')  return `<span class="mk new" title="新人">${n}·新人</span>`;
         return `<span class="mk">${n}</span>`;
       };
-      r.makers.forEach(n=>makersHTML+=mkTag(n));
-      (r.sup||[]).forEach(n=>{
-        makersHTML+=`<span class="mk sup" title="支援(非本管线编制)">${n}·支援</span>`;
+      r.makers.forEach(n => makersHTML += mkTag(n));
+      (r.sup || []).forEach(n => {
+        makersHTML += `<span class="mk sup" title="支援(非本管线编制)">${n}·支援</span>`;
       });
-      r.tmp.forEach(n=>{
-        const base=n.replace(/\(.*\)/,'');
-        const mem=members.find(x=>x.name===base);
-        if(leftLong(mem)) return;               // 离职满1月：从临时/储备名单隐藏
-        const stt=effLeft(mem)?'left':(mem?mem.status:'');   // 未到离职日仍按在岗呈现
-        const cls=stt==='left'?'mk left':stt==='new'?'mk new':'mk tmp';
-        const suf=stt==='left'?'·离职':stt==='new'?'·新人':'(临)';
-        makersHTML+=`<span class="${cls}" title="${stt==='left'?'已离职':stt==='new'?'新人':'临时'}">${base}${suf}</span>`;
+      r.tmp.forEach(n => {
+        const base = n.replace(/\(.*\)/, '');
+        const mem = members.find(x => x.name === base);
+        if (leftLong(mem)) return;               // 离职满1月：从临时/储备名单隐藏
+        const stt = effLeft(mem) ? 'left' : (mem ? mem.status : '');   // 未到离职日仍按在岗呈现
+        const cls = stt === 'left' ? 'mk left' : stt === 'new' ? 'mk new' : 'mk tmp';
+        const suf = stt === 'left' ? '·离职' : stt === 'new' ? '·新人' : '(临)';
+        makersHTML += `<span class="${cls}" title="${stt === 'left' ? '已离职' : stt === 'new' ? '新人' : '临时'}">${base}${suf}</span>`;
       });
-      if(!r.makers.length && !r.tmp.length) makersHTML=`<span class="empty">暂无人员</span>`;
-      const cntHTML = r.gap>0
+      if (!r.makers.length && !r.tmp.length) makersHTML = `<span class="empty">暂无人员</span>`;
+      // 配置/缺口：全部从 reqs 聚合的实时数据
+      const cntHTML = r.gap > 0
         ? `<span class="cfg">配置${r.cfg}人</span><span class="gapb">缺${r.gap}</span>`
-        : (r.cfg>0?`<span class="cfg">配置${r.cfg}人</span><span class="okb">齐</span>`:`<span class="cfg">—</span>`);
-      html+=`<div class="hr-role">
+        : (r.cfg > 0 ? `<span class="cfg">配置${r.cfg}人</span><span class="okb">齐</span>` : `<span class="cfg">—</span>`);
+      html += `<div class="hr-role">
         <span class="gdot" style="background:${g.col}"></span>
         <span class="rname">${r.role}</span>
-        ${r.status?`<span class="hr-stat" style="background:${st.bg};color:${st.tx}">${r.status}</span>`:''}
+        ${r.status ? `<span class="hr-stat" style="background:${st.bg};color:${st.tx}">${r.status}</span>` : ''}
         <span class="hr-cnt">${cntHTML}</span>
         <span class="hr-makers">${makersHTML}</span>
-        ${r.note?`<span class="hr-note">${r.note}</span>`:''}
+        ${r.note ? `<span class="hr-note">${r.note}</span>` : ''}
       </div>`;
     });
-    html+=`</div>`;
+    html += `</div>`;
   });
-  html+=`</div>`;
-  document.getElementById('grid').innerHTML=html;
+  html += `</div>`;
+  document.getElementById('grid').innerHTML = html;
 }
 
 function updateKPIs(){
