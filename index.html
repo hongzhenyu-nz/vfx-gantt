@@ -1159,7 +1159,7 @@
       <span class="org-unit">后自动收纳</span>
       <label class="org-chk"><input type="checkbox" id="archiveOn" checked onchange="changeArchiveOn(this.checked)">启用</label>
     </span>
-    <span class="org-group" title="隐藏已完成/已废弃的需求，只显示进行中与未来的需求（按需求看 / 按人看 均生效）">
+    <span class="org-group" title="隐藏已完成/已废弃的需求（仅对当前视图生效，各视图独立记忆）">
       <label class="org-chk"><input type="checkbox" id="hideDoneOn" onchange="changeHideDone(this.checked)">🙈 隐藏已完成</label>
     </span>
     <span class="spacer"></span>
@@ -1381,9 +1381,9 @@ function effLeft(m){
    collapsed：记录被折叠的分组 key（含归档区），值为 true 表示已折叠。
    以上均纳入 snapshot/applySnap 持久化（本地 / 分享链接 / 云端三链路一致）。 */
 let ARCHIVE = { on:true, val:2, unit:'week' };   // 阈值=val×unit；unit: day|week|month
-/* 「隐藏已完成」开关：开启时，已完成(done) / 已废弃(dropped) / 派生已完成的需求，从「按需求看」与「按人看」视图中整体隐藏，
-   只显示正在进行中(active/paused/doing)与未来(todo)的需求。与「超期归档」(按结束日阈值折叠)正交——本开关只看"是否完成"，不看结束日。 */
-let HIDE_DONE = { on:false };
+/* 「隐藏已完成」开关（按视图独立）：开启时，已完成(done) / 已废弃(dropped) / 派生已完成的需求从当前视图中隐藏。
+   每个视图（person/req/hr）各自记录开关状态，切换视图时自动同步复选框。 */
+let HIDE_DONE = { person:false, req:false, hr:false };
 /* 阈值换算成天数：周=7天，月=30天。供 memArchived/reqArchived 比较用。 */
 function archiveDays(){
   const u=ARCHIVE.unit, n=(+ARCHIVE.val||0);
@@ -1472,10 +1472,15 @@ function changeArchiveOn(on){
   toast(on?'已启用超期自动归档':'已关闭自动归档（显示全部）');
 }
 function changeHideDone(on){
-  HIDE_DONE.on=!!on;
+  HIDE_DONE[view]=!!on;
   const el=document.getElementById('hideDoneOn'); if(el)el.checked=!!on;
   save();broadcast();rerender();
-  toast(on?'已隐藏已完成需求（仅显示进行中 / 未来）':'已显示全部需求（含已完成）');
+  toast(on?'已隐藏已完成需求（仅当前视图）':'已显示全部需求（含已完成）');
+}
+/* 切换视图时，将复选框同步为该视图的独立状态 */
+function syncHideDoneCheckbox(){
+  const el=document.getElementById('hideDoneOn'); if(!el)return;
+  el.checked=!!HIDE_DONE[view];
 }
 function toggleGroup(key){
   collapsed[key]=!collapsed[key];
@@ -2862,7 +2867,7 @@ function vacantRowHTML(m,inArc){
     const items=[];
     reqs.forEach(r=>r.segs.forEach((s,si)=>{
       if(s.m!==m.id)return;
-      if(HIDE_DONE.on && reqIsCompleted(r)) return;
+      if(HIDE_DONE[view] && reqIsCompleted(r)) return;
       let si0=idx(s.s),ei0=idx(s.e);
       if(s.open){ si0=0; ei0=DAYS; }
       else if(ei0-si0<=0) return;
@@ -2951,7 +2956,7 @@ function personRowHTML(m,inArc){
     const items=[];
     reqs.forEach(r=>r.segs.forEach((s,si)=>{
       if(s.m!==m.id)return;
-      if(HIDE_DONE.on && reqIsCompleted(r)) return;   // 隐藏已完成需求：其人任务段不渲染
+      if(HIDE_DONE[view] && reqIsCompleted(r)) return;   // 隐藏已完成需求：其人任务段不渲染
       let si0=idx(s.s),ei0=idx(s.e);
       if(s.open){ si0=0; ei0=DAYS; }              // 无明确时间(open)段铺满整行，按整行占位
       else if(ei0-si0<=0) return;                  // 普通段需有正时长
@@ -3062,7 +3067,7 @@ function personRowHTML(m,inArc){
 function renderReq(){
   // 可见需求（联调附属不单独成行）；按分组方式归类，已完结超期的收纳进归档区。
   const vis=reqs.filter(r=>!r.attached);
-  const hideDone=HIDE_DONE.on;
+  const hideDone=HIDE_DONE[view];
   const live=vis.filter(r=>!reqArchived(r) && !(hideDone && reqIsCompleted(r)));
   const archived=vis.filter(r=>reqArchived(r) && !(hideDone && reqIsCompleted(r)));
   const mode=GROUP_MODE.req;
@@ -3412,7 +3417,7 @@ function fitBarLabels(){
 */
 function buildRoleLines(){
   // 只取特效类需求(kind=fx)，排除 qa/lt/联调 等
-  const fxReqs = reqs.filter(r => r.kind === 'fx' && !(HIDE_DONE.on && reqIsCompleted(r)));
+  const fxReqs = reqs.filter(r => r.kind === 'fx' && !(HIDE_DONE[view] && reqIsCompleted(r)));
   // 按模组分
   const modGroups = {};
   fxReqs.forEach(r => {
@@ -5020,7 +5025,7 @@ function coreSnapshot(){
     invTiers:INV_TIERS.map(t=>({key:t.key,name:t.name,val:t.val,lo:t.lo,hi:t.hi,col:t.col,vbg:t.vbg,vfg:t.vfg,desc:t.desc,scene:t.scene})),
     invLocked:invLocked,
     archive:{on:ARCHIVE.on,val:ARCHIVE.val,unit:ARCHIVE.unit},
-    hideDone:HIDE_DONE.on,
+    hideDone:{person:HIDE_DONE.person, req:HIDE_DONE.req, hr:HIDE_DONE.hr},
     estRecalc:estRecalc,
     estRecalcVer:estRecalcVer,
     groupMode:{person:GROUP_MODE.person,req:GROUP_MODE.req},
@@ -5082,9 +5087,16 @@ function applySnap(snap){
     if(a.unit){ ARCHIVE.unit=a.unit; ARCHIVE.val=(a.val!=null?a.val:2); }
     else if(a.days!=null){ ARCHIVE.unit='day'; ARCHIVE.val=a.days; }   // 兼容旧快照
   }
-  // 默认显示已完成/已废弃（不再自动隐藏）；若旧快照残留 hideDone:true 也强制忽略，保证默认都展示。
-  HIDE_DONE.on=false;
-  { const h=document.getElementById('hideDoneOn'); if(h)h.checked=false; }
+  // 默认显示已完成（不再自动隐藏）；兼容旧快照(boolean)和新格式(per-view object)
+  if(snap.hideDone){
+    if(typeof snap.hideDone === 'boolean'){ HIDE_DONE.person=HIDE_DONE.req=HIDE_DONE.hr=snap.hideDone; }
+    else if(typeof snap.hideDone === 'object'){
+      if(typeof snap.hideDone.person==='boolean')HIDE_DONE.person=snap.hideDone.person;
+      if(typeof snap.hideDone.req==='boolean')HIDE_DONE.req=snap.hideDone.req;
+      if(typeof snap.hideDone.hr==='boolean')HIDE_DONE.hr=snap.hideDone.hr;
+    }
+  }
+  syncHideDoneCheckbox();
   if(snap.groupMode){ if(snap.groupMode.person)GROUP_MODE.person=snap.groupMode.person; if(snap.groupMode.req)GROUP_MODE.req=snap.groupMode.req; }
   if(typeof snap.estRecalc==='boolean') estRecalc=snap.estRecalc;
   if(typeof snap.estRecalcVer==='number') estRecalcVer=snap.estRecalcVer;
@@ -6399,7 +6411,7 @@ function rerender(){
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
 }
-function setView(v,btn){view=v;document.getElementById('viewTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();updateGroupSelUI();rerender();}
+function setView(v,btn){view=v;document.getElementById('viewTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();updateGroupSelUI();syncHideDoneCheckbox();rerender();}
 function updateHint(){
   const h=document.getElementById('hintBar'); if(!h)return;
   if(view==='req'){
