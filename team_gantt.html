@@ -203,12 +203,12 @@
   .row:last-child{border-bottom:none;}
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);}
   /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色 */
-  .load-heatmap{display:flex;align-items:center;border-bottom:1px solid var(--line2);background:var(--panel);position:relative;z-index:4;height:28px;flex-shrink:0;}
-  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;align-items:center;padding-left:14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:1px;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;}
-  .load-heatmap .load-track{position:relative;flex:1;height:100%;overflow:hidden;display:flex;}
-  /* 周粒度色段 —— 参考甘特图条的圆角/阴影/白蒙版风格 */
-  .load-heatmap .load-seg{position:absolute;top:3px;bottom:3px;border-radius:4px;transition:background .2s;box-shadow:0 1px 3px rgba(0,0,0,.12),inset 0 0 0 9999px rgba(255,255,255,.15);cursor:pointer;}
-  .load-heatmap .load-seg:hover{box-shadow:0 1px 5px rgba(0,0,0,.2),inset 0 0 0 9999px rgba(255,255,255,.25);z-index:2;}
+  .load-heatmap{display:flex;align-items:center;border-bottom:1px solid var(--line2);background:var(--panel);position:relative;z-index:4;height:28px;flex-shrink:0;overflow:hidden;}
+  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;align-items:center;padding-left:14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:1px;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;overflow:hidden;}
+  .load-heatmap .load-track{position:relative;flex:1;height:100%;overflow:hidden;}
+  /* 周粒度色段 —— 简洁纯色，不出框 */
+  .load-heatmap .load-seg{position:absolute;top:3px;bottom:3px;border-radius:3px;transition:background .2s;cursor:pointer;}
+  .load-heatmap .load-seg:hover{opacity:.8;z-index:2;}
   /* 空闲周：斜纹警示 + 橙色边框 */
   .load-heatmap .load-seg.idle-wk{background-image:repeating-linear-gradient(-45deg,transparent,transparent 3px,rgba(255,255,255,.35) 3px,rgba(255,255,255,.35) 6px) !important;box-shadow:inset 0 0 0 1.5px rgba(245,158,11,.65),0 1px 3px rgba(0,0,0,.1);}
   .load-heatmap .load-legend-idle{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:#b45309;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:10px;padding:2px 10px;white-space:nowrap;z-index:6;animation:idlePulse 2s ease-in-out infinite;pointer-events:none;box-shadow:0 2px 8px rgba(245,158,11,.25);}
@@ -2944,10 +2944,10 @@ function loadHeatmapHTML(){
   if(activeMembers.length === 0) return '';
   const totalActive = activeMembers.length;
 
-  // 2. 预计算每天的任务覆盖（仅工作日参与负载率计算）
-  const dayLoad = new Int32Array(DAYS);     // 每天被分配的总人次
-  const dayCovers = new Uint8Array(DAYS);   // 每天有任务的成员数（去重）
-  const memberHasTaskOnDay = new Map();     // memberId → Set of day indices
+  // 2. 预计算每天的「被分配人次数」（一人同天多段=多次，并行度）
+  const dayLoad = new Int32Array(DAYS);
+  // 成员→哪些天有任务（用于检测空闲）
+  const memberHasTaskOnDay = new Map();
 
   activeMembers.forEach(m => {
     const taskDays = new Set();
@@ -2965,93 +2965,79 @@ function loadHeatmapHTML(){
         }
       });
     });
-    taskDays.forEach(d => { dayCovers[d]++; });
     memberHasTaskOnDay.set(m.id, taskDays);
   });
 
-  // 3. 检测完全空闲的成员
+  // 3. 完全空闲的成员
   const idleMembers = activeMembers.filter(m => {
     const tasks = memberHasTaskOnDay.get(m.id);
     return !tasks || tasks.size === 0;
   });
 
-  // 4. 按周聚合（每周一为起始，自然周边界）
+  // 4. 按周聚合（自然周，周一起始）
   const weeks = [];
   for(let i=0; i<DAYS; ){
     const d = new Date(START.getTime() + i*dayMs);
-    // 找到本周一（或起始日如果不在整周内）
-    const dow = d.getDay(); // 0=日 1=一 ... 6=六
-    let wkStart = i - ((dow + 6) % 7); // 回退到周一
-    if(wkStart < 0) wkStart = 0;       // 起始周不回退到负数
-    if(wkStart < i && i !== wkStart){
-      // 当前位置不是周一，先补上从wkStart到i的段（只会在第一周发生）
-      // 实际上直接用 i 作为当前周的起点，找该周结束
-      wkStart = i;
-    }
+    const dow = d.getDay();
+    let wkStart = i - ((dow + 6) % 7);
+    if(wkStart < 0) wkStart = 0;
+    if(wkStart < i && i !== wkStart) wkStart = i;
     let wkEnd = wkStart + 7;
-    // 对齐：找到 wkEnd 所在周的日末
     if(wkEnd > DAYS) wkEnd = DAYS;
     weeks.push({s: wkStart, e: wkEnd});
     i = wkEnd;
   }
-
-  // 合并过短的尾周（<3天）到前一周
   if(weeks.length > 1 && (weeks[weeks.length-1].e - weeks[weeks.length-1].s) < 3){
     const last = weeks.pop();
     weeks[weeks.length-1].e = last.e;
   }
 
-  // 5. 颜色映射（工作日负载率 → 颜色，参考导航拥堵色阶）
-  const loadColor = (workdayCovered, workdayTotal) => {
-    if(workdayTotal === 0) return 'transparent';
-    const ratio = workdayCovered / workdayTotal;
-    if(ratio <= 0.45) return '#22c55e';  // 🟢 空闲宽松
-    if(ratio <= 0.65) return '#86efac';  // 浅绿：轻度负载
-    if(ratio <= 0.80) return '#facc15';  // 🟡 适中
-    if(ratio <= 0.95) return '#fb923c';  // 🟠 繁忙
-    if(ratio <= 1.15) return '#f87171';  // 🔴 饱和/微超
-    return '#dc2626';                     // 深红：严重超载
+  // 5. 颜色映射：人天利用率 = 实际分配人天数 / (在岗人数 × 工作日数)
+  //    <50% 绿(闲) / 50-70% 浅绿 / 70-85% 黄 / 85-100% 橙 / >100% 红(超载)
+  const loadColor = (ratio) => {
+    if(ratio <= 0.50) return '#22c55e';
+    if(ratio <= 0.70) return '#86efac';
+    if(ratio <= 0.85) return '#facc15';
+    if(ratio <= 1.00) return '#fb923c';
+    if(ratio <= 1.20) return '#f87171';
+    return '#dc2626';
   };
 
-  // 6. 生成周粒度色带 HTML
+  // 6. 生成周粒度色带
   let bars = '';
   weeks.forEach((wk, wi) => {
     const wkDays = wk.e - wk.s;
     if(wkDays <= 0) return;
 
-    // 统计本周内的工作日数和工作日覆盖
-    let workdays = 0, wdCovered = 0, wdTotalLoad = 0;
+    let workdays = 0, totalAssignments = 0;
     let hasIdleInWk = false;
-    const idleNamesInWk = [];
 
     for(let d=wk.s; d<wk.e; d++){
-      // 跳过周末和节假日（不参与负载着色）
-      if(shadeType(d) !== null) continue;
+      if(shadeType(d) !== null) continue;  // 跳过周末/节假日
       workdays++;
-      wdCovered += Math.min(dayCovers[d], 1); // 有任务就算1
-      wdTotalLoad += dayLoad[d];
+      totalAssignments += dayLoad[d];
 
-      // 检测当天是否有空闲者
       if(!hasIdleInWk){
         const hasIdleToday = idleMembers.some(m => {
           const tasks = memberHasTaskOnDay.get(m.id);
           if(!tasks || tasks.size === 0) return true;
           return !tasks.has(d);
         });
-        if(hasIdleToday){ hasIdleInWk = true; }
+        if(hasIdleToday) hasIdleInWk = true;
       }
     }
 
-    const color = loadColor(wdCovered, workdays);
+    // 核心指标：利用率（可超过100%=超载）
+    const capacity = totalActive * workdays;
+    const ratio = capacity > 0 ? totalAssignments / capacity : 0;
+    const color = loadColor(ratio);
+
     const leftPx = wk.s * DAY_W;
-    const widthPx = (wk.e - wk.s) * DAY_W;
+    const widthPx = Math.min((wk.e - wk.s) * DAY_W, DAYS * DAY_W - leftPx);
     const idleCls = hasIdleInWk ? ' idle-wk' : '';
 
-    // tooltip
-    const ratioPct = workdays > 0 ? Math.round(wdCovered/workdays*100) : 0;
-    const parallelExtra = Math.max(0, wdTotalLoad - wdCovered);
-    const tipParts = [`第${wi+1}周 负载 ${ratioPct}%（${wdCovered}/${workdays}工作日有人）`];
-    if(parallelExtra > 0) tipParts.push(`并行 +${parallelExtra}人次`);
+    const ratioPct = Math.round(ratio * 100);
+    const tipParts = [`第${wi+1}周 利用率 ${ratioPct}%（${totalAssignments}人次/${capacity}容量）`];
     if(hasIdleInWk && idleMembers.length > 0) tipParts.push(`⚠ ${idleMembers.map(m=>m.name).join('、')} 空闲`);
     const tip = tipParts.join('　');
 
@@ -3066,7 +3052,7 @@ function loadHeatmapHTML(){
 
   return `<div class="load-heatmap" id="loadHeatmap">
     <div class="load-label">📊 负载</div>
-    <div class="load-track" style="width:${DAYS*DAY_W}px">${bars}</div>
+    <div class="load-track">${bars}</div>
     ${legend}
   </div>`;
 }
