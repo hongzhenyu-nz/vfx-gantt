@@ -1448,8 +1448,7 @@ function personGroupKey(m){
   if(mode==='lead'){ const L=leadOf(m); return L?{key:'lead:'+L,label:'隶属 '+L,color:leadColor(L)}:{key:'lead:free',label:'游离 / 无带队归属',color:'#a3acba'}; }
   if(mode==='corp'){
     if(isExtLoan(m)) return {key:'corp:loan',label:'外借支援（非角色线）',color:'#f08c00'};
-    if(m.corp==='reg') return {key:'corp:reg',label:'正编（带队）',color:'#0052d9'};
-    if(m.corp==='sub') return {key:'corp:sub',label:'子公司',color:'#059669'};
+    if(m.corp==='reg'||m.corp==='sub') return {key:'corp:reg',label:'正编 / 子公司',color:'#0052d9'};
     return {key:'corp:base',label:'基地',color:'#56607a'};
   }
   return null;   // none
@@ -1461,7 +1460,7 @@ function reqGroupKey(r){
   return null;   // none
 }
 /* 分组顺序：corp 用固定优先级，其余按出现顺序。 */
-const CORP_GROUP_ORDER=['corp:reg','corp:sub','corp:base','corp:loan'];
+const CORP_GROUP_ORDER=['corp:reg','corp:base','corp:loan'];
 function groupSortVal(key){ const i=CORP_GROUP_ORDER.indexOf(key); return i<0?99:i; }
 
 /* 分组方式下拉选项（随视图变化） */
@@ -3432,8 +3431,8 @@ function reqRowHTML(r, prevR, nextR, inArc){
       if(sa!==sb) return sa-sb;                                   // 本队 → 前，支援 → 后
       return (a.name||'').localeCompare(b.name||'','zh-Hans-CN');
     });
-    const regs=sortMem(memObjs.filter(m=>m.corp==='reg'));
-    const bases=sortMem(memObjs.filter(m=>m.corp!=='reg'));
+    const regs=sortMem(memObjs.filter(m=>m.corp==='reg'||m.corp==='sub'));
+    const bases=sortMem(memObjs.filter(m=>m.corp!=='reg'&&m.corp!=='sub'));
     const olTip = risk.overloaded.length?`<br><span class='g' style='color:#ff8f8f'>⚠ 超载占用</span> ${risk.overloaded.join('、')}（产能已折损）`:'';
     const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 人力缺口</span> 标配${REQ_STD[r.id]}人 · 在岗${activeBase(r)}人 · 缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
     const teamTip = `<br><span class='g'>团队</span> 正编${regs.length}人${regs.length?'（'+regs.map(m=>m.name).join('、')+'）':''} · 基地${bases.length}人${bases.length?'（'+bases.map(m=>m.name).join('、')+'）':''}`;
