@@ -1052,7 +1052,10 @@
 
   /* ===== 人力分配视图 ===== */
   .hr-wrap{padding:18px;}
-  .hr-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px;}
+  /* HR 汇总区固定头部：KPI卡 + 品级条 + 编制说明 不随角色线滚动 */
+  .hr-sticky-header{position:sticky;top:0;z-index:10;background:var(--bg);padding:16px 18px 12px;border-bottom:1px solid var(--line);}
+  .hr-body{padding:12px 18px 24px;}   /* 角色线明细滚动区 */
+  .hr-summary{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:14px;}
   .hr-sc{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fafbfc;}
   .hr-sc .lab{color:var(--tx2);font-size:12px;}
   .hr-sc .val{font-size:24px;font-weight:700;margin-top:6px;}
@@ -3892,7 +3895,8 @@ function renderHR(){
   const peakLoad = loads.length ? Math.max(...loads, 0) : 0;
   const highRiskCount = reqs.filter(r => reqRisk(r).lvl === '高').length;
 
-  let html=`<div class="hr-wrap">`;
+  // ★ 固定头部：KPI汇总卡 + 品级统计 + 编制说明（sticky，不随角色线滚动）
+  let html=`<div class="hr-sticky-header">`;
   // 顶部汇总卡（全部动态计算，随甘特表实时联动）
   html+=`<div class="hr-summary">
     <div class="hr-sc total"><div class="lab">在岗编制人数</div><div class="val">${HR.base}</div></div>
@@ -3942,8 +3946,9 @@ function renderHR(){
   if(statusParts.length){
     html += `<span class="lg-div">|</span><span class="lg-t">状态：</span>${statusParts.join('')}`;
   }
-  html += `</div>`;
-  // 各模块 —— 从 reqs 动态聚合角色线（替代写死 hrData）
+  html += `</div></div><!-- /hr-sticky-header -->`;
+  // 各模块 —— 从 reqs 动态聚合角色线（替代写死 hrData，随内容滚动）
+  html += `<div class="hr-body">`;
   const roleModules = buildRoleLines();
   roleModules.forEach(m => {
     const modGap = m.roles.reduce((a, r) => a + r.gap, 0);
@@ -4005,7 +4010,7 @@ function renderHR(){
     });
     html += `</div>`;
   });
-  html += `</div>`;
+  html += `</div></div><!-- /hr-body -->`;
   document.getElementById('grid').innerHTML = html;
 }
 
