@@ -3781,6 +3781,7 @@ function buildRoleLines(){
       const regSet = new Set();       // 正编
       const baseSet = new Set();      // 基地
       const supSet = new Set();       // 支援
+      const tmpSet = new Set();       // 暂缺占位（不计入编制）
       const leftNames = new Set();    // 已离职参与者名单（用于渲染"离职"标注）
       rl.forEach(r => {
         (r.segs||[]).forEach(s => {
@@ -3788,9 +3789,10 @@ function buildRoleLines(){
           // 已完成：不跳过离职者，照常收集但记录到 leftNames
           if(isDone && (leftLong(m) || effLeft(m))) { leftNames.add(m.name); }
           else {
-            // 未完成：跳过离职者
+            // 未完成：跳过离职者 + 暂缺占位（均不计入编制）
             if(leftLong(m)) return;             // 离职满1月: 隐藏
             if(effLeft(m)) return;              // 已离职: 不显示（优先于支援判断）
+            if(isVacantMem(m)) { tmpSet.add(m.name); return; }  // 暂缺: 单独收集，不占编制
           }
           // 与按人看/按需求看同源：动态判定支援
           if(isSupportInReq(m, r)){ supSet.add(m.name); return; }
@@ -3824,6 +3826,7 @@ function buildRoleLines(){
         regs: [...regSet],
         bases: [...baseSet],
         sup: [...supSet],
+        tmp: [...tmpSet],             // 暂缺占位名单（不计入编制）
         left: [...leftNames],       // 已离职参与者名单（渲染用）
         note: noteParts.join(' · ') || undefined
       });
@@ -3914,14 +3917,20 @@ function renderHR(){
       r.regs.forEach(n => makersHTML += mkTag(n, 'reg'));
       // 基地组（灰标）
       r.bases.forEach(n => makersHTML += mkTag(n, 'base'));
+      // 暂缺组（红虚线）—— 单独渲染，不计入编制
+      (r.tmp || []).forEach(n => {
+        makersHTML += `<span class="mk tmp" title="缺人占位（尚未分配真人）" style="background:#fef2f2;color:#d32320;border:1.5px dashed #f87171;font-weight:700;">🔴 ${n}</span>`;
+      });
       // 支援组
       (r.sup || []).forEach(n => {
         makersHTML += `<span class="mk sup" title="支援(非本管线编制)">${n}·支援</span>`;
       });
       if (!r.regs.length && !r.bases.length && !(r.sup||[]).length) makersHTML = `<span class="empty">暂无人员</span>`;
-      // 配置/缺口：全部从 reqs 聚合的实时数据
-      const cntHTML = r.gap > 0
-        ? `<span class="cfg">配置${r.cfg}人</span><span class="gapb">缺${r.gap}</span>`
+      // 配置/缺口：缺口 = 标配缺口(std−cfg) + 暂缺占位数（两者独立累加）
+      const tmpCount = (r.tmp || []).length;
+      const totalGap = r.gap + tmpCount;
+      const cntHTML = totalGap > 0
+        ? `<span class="cfg">配置${r.cfg}人</span><span class="gapb">缺${totalGap}</span>`
         : (r.cfg > 0 ? `<span class="cfg">配置${r.cfg}人</span><span class="okb">齐</span>` : `<span class="cfg">—</span>`);
       html += `<div class="hr-role">
         <span class="gdot" style="background:${g.col}"></span>
