@@ -3130,6 +3130,9 @@ function renderPerson(){
   const live=visible.filter(m=>!memArchived(m));
   const archived=visible.filter(m=>memArchived(m));
   const mode=GROUP_MODE.person;
+  // 基础排序（所有模式通用）：正编(reg) → 子公司(sub) → 基地(base) → 外借(loan)
+  const corpPri={reg:0,sub:1,base:2,loan:99};
+  live.sort((a,b)=>(corpPri[a.corp]??99)-(corpPri[b.corp]??99));
   let rows='';
   if(mode==='none' || view!=='person'){
     live.forEach(m=>{ rows+=personRowHTML(m); });
@@ -3144,6 +3147,9 @@ function renderPerson(){
     order.sort((a,b)=> groupSortVal(a)-groupSortVal(b) || groups[a].g.label.localeCompare(groups[b].g.label,'zh-Hans-CN'));
     order.forEach(k=>{
       const {g,arr}=groups[k];
+      // 组内排序：正编(reg) → 子公司(sub) → 基地(base) → 外借(loan)，同编制按原始顺序
+      const corpPri={reg:0,sub:1,base:2,loan:99};
+      arr.sort((a,b)=>(corpPri[a.corp]??99)-(corpPri[b.corp]??99));
       rows+=groupHeaderHTML(g,arr.length,false,'');
       if(!collapsed[k]) arr.forEach(m=>{ rows+=personRowHTML(m); });
     });
