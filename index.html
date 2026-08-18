@@ -279,6 +279,8 @@
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
 
   .bar-task{position:absolute;z-index:1;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
+  /* 连续填充条：无并行时自动填满任务间隙，视觉上表达"持续在岗"而非断续离散 */
+  .bar-fill{position:absolute;z-index:0;top:0%;height:100%;border-radius:5px;background:linear-gradient(90deg,rgba(99,120,153,.18),rgba(99,120,153,.12));border:1px dashed rgba(99,120,153,.20);pointer-events:none;}
   /* z-index:1 封住任务条自身的层叠上下文，使条内「✓已完成」大浮标(::after z-index:4)等永远压在 sticky 左侧成员栏 .cell-left(z-index:4) 之下，横向滚动时不再穿透覆盖左栏。拖拽态(.dragging z-index:30)另行抬高。 */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
@@ -3336,6 +3338,18 @@ function personRowHTML(m,inArc){
     // 判断某泳道在 [s,e) 时段是否被别的条目占用
     const occupied=(lane,s,e)=> laid.items.some(b=> b.lane===lane && b.si0<e && b.ei0>s);
     let bars='';
+    // ★ 连续填充条：无并行时（laneCount===1，即所有任务段不重叠），用淡色背景填满首尾间隙
+    //   视觉上表达"持续在岗"而非断续离散条；有并行时不填（多行条本身已表达密度）
+    if(laid.items.length >= 2 && laneCount === 1){
+      const nonOpen = laid.items.filter(it => !it.sg.open);
+      if(nonOpen.length >= 2){
+        const fStart = Math.min(...nonOpen.map(it => it.si0));
+        const fEnd   = Math.max(...nonOpen.map(it => it.ei0));
+        if(fEnd > fStart){
+          bars += `<div class="bar-fill" style="left:${fStart*DAY_W}px;width:${(fEnd-fStart)*DAY_W}px"></div>`;
+        }
+      }
+    }
     laid.items.forEach(it=>{
       const {r,sg,si}=it;
       const isOpen=!!sg.open;
