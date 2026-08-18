@@ -3331,7 +3331,7 @@ function personRowHTML(m,inArc){
         <div class="who">
           <div class="nm"><span class="gdot-grade" style="background:${(G||HR_GRADE['']).col}" title="${G?G.label+'级':'未设品级'}"></span>${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-edit" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openEditMember('${m.id}')" title="编辑成员信息（姓名/编制/隶属/模块/效率/状态）">✎</button><button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
           <div class="tags">
-            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：负责的角色与模块（可下拉选择）">${formatLeadDisplay(m)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
+            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'||m.corp==='sub'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：负责的角色与模块（可下拉选择）">${formatLeadDisplay(m)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
             <span class="ltag eff" title="效率系数（1.0 为基准产能，>1 更快、<1 更慢）">⚡ 效率 ${m.eff}</span>
           </div>
         </div>
@@ -3428,7 +3428,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
       const stCls = effLeft(m)?' is-left':'';
       const supCls = isSup?' is-sup':'';
       const miniCls = mini?' mini':'';
-      const crown = m.corp==='reg'?'<i class="crown">👑</i>':'';
+      const crown = (m.corp==='reg'||m.corp==='sub')?'<i class="crown">👑</i>':'';
       const dot = '';   // 已去除隶属带队色圆点：编制已统一按 corpStyle 着色，隶属圆点冗余且与编制色混淆
       let marks='';
       if(isSup) marks+='<i class="mk mk-sup" title="跨队支援">支</i>';
@@ -3872,12 +3872,12 @@ function renderHR(){
         // 已离职参与者：显示名字 + 离职标注
         if (stt === 'left' || leftSet.has(n)) {
           const cls = corp === 'reg' ? 'mk reg-mk' : corp === 'sub' ? 'mk sub-mk' : 'mk';
-          const prefix = corp === 'reg' ? '👑 ' : '';
+          const prefix = (corp === 'reg' || corp === 'sub') ? '👑 ' : '';
           return `<span class="${cls} mk-left" title="已离职（历史参与者）" style="opacity:.65;text-decoration:line-through;text-decoration-color:#f87171;">${prefix}${n}<small class="left-tag">已离</small></span>`;
         }
         if (stt === 'new')  return `<span class="mk" title="新人">${n}</span>`;
         const cls = corp === 'reg' ? 'mk reg-mk' : corp === 'sub' ? 'mk sub-mk' : 'mk';
-        const prefix = corp === 'reg' ? '👑 ' : '';
+        const prefix = (corp === 'reg' || corp === 'sub') ? '👑 ' : '';
         return `<span class="${cls}" title="${corp === 'reg' ? '正编·带队' : corp === 'sub' ? '子公司' : '基地'}${stt === 'new' ? '·新人' : ''}">${prefix}${n}</span>`;
       };
       // 正编组（蓝标）
@@ -4995,7 +4995,7 @@ const LINE_OPTS_LIST=[['-','通用'],['L1','露西亚·管线1'],['L2','比安�
    品级使用 HR_GRADE 配色（金/橙/红）。
    若多名正编选中同一品级，自动追加序号区分（金①/金②），按成员 id 排序确定顺序。 */
 function formatLeadDisplay(m){
-  if(!m || m.corp!=='reg') return '';
+  if(!m || (m.corp!=='reg' && m.corp!=='sub')) return '';
   const chars = (m.leadChars||'').split(',').filter(Boolean);
   const mods  = (m.leadMods||'').split(',').filter(Boolean);
   if(chars.length || mods.length){
@@ -5064,8 +5064,8 @@ function openNewMember(){
 function nmCorpChange(){
   const corp=document.getElementById('nmCorp').value;
   const leadFld=document.getElementById('nmLeadFld');
-  if(leadFld) leadFld.style.opacity = corp==='reg'?'.4':'1';
-  const ld=document.getElementById('nmLead'); if(ld) ld.disabled = corp==='reg';
+  if(leadFld) leadFld.style.opacity = (corp==='reg'||corp==='sub')?'.4':'1';
+  const ld=document.getElementById('nmLead'); if(ld) ld.disabled = (corp==='reg'||corp==='sub');
 }
 function confirmNewMember(){
   if(!requireWrite())return;
@@ -5075,7 +5075,7 @@ function confirmNewMember(){
   if(members.some(m=>m.name===name)){ warn.textContent='已存在同名成员，请用其它名称'; warn.classList.add('show'); return; }
   const corp=document.getElementById('nmCorp').value;
   const support=document.getElementById('nmSupport').checked;
-  let lead=corp==='reg'?name:(document.getElementById('nmLead').value||'—');
+  let lead=(corp==='reg'||corp==='sub')?name:(document.getElementById('nmLead').value||'—');
   if(support) lead='—';   // 外借支援：无角色线归属
   const eff=parseFloat(document.getElementById('nmEff').value)||1.0;
   pushHistory();
@@ -5136,7 +5136,7 @@ function confirmEditMember(){
   if(members.some(x=>x.id!==memId && x.name===name)){ warn.textContent='已存在同名成员，请用其它名称'; warn.classList.add('show'); return; }
   const corp=document.getElementById('nmCorp').value;
   const support=document.getElementById('nmSupport').checked;
-  let lead=corp==='reg'?name:(document.getElementById('nmLead').value||'—');
+  let lead=(corp==='reg'||corp==='sub')?name:(document.getElementById('nmLead').value||'—');
   if(support) lead='—';   // 外借支援：无角色线归属
   const eff=parseFloat(document.getElementById('nmEff').value)||1.0;
   pushHistory();
