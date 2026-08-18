@@ -3329,10 +3329,42 @@ function personRowHTML(m,inArc){
        · 某条任务所在时段确有并行 → 只有真正打架的条目各占一槽、等高等分。
        槽位用 (lo/laneCount ~ hi/laneCount) 的百分比切分，bar 内插 GAP_PX 间距留缝。 */
     const FILL=0.8;                                  // 蓝条只占所在泳道段高度的 80%，上下留白以区分行/条（不再 100% 撑满）
-    /* 行高 v4.8：横向单行标签后不再需要为「竖排 N 行」撑高。
-       单泳道维持基础行高（横排单行足够）；多泳道时按 BAR_MIN 保证每条不低于可读下限。 */
-    let rowH = laneCount<=1 ? ROW_BASE
-               : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
+    /* 行高 v5.91（分位数自适应）：旧算法按「绝对峰值泳道数」撑高——但真实数据里峰值往往只出现在极少天数
+       （实测陈琛峰值 9 条并行只占 3.6% 天数、平均并发 4.41 → 行高只用到 49%，余下 51% 是空白，
+        这正是"看起来像没排需求"的根源）。改为按「覆盖 P 分位天数的并发数」定行高：
+       高并发的极少数天允许条子变薄（有 BAR_MIN_TIGHT 下限保护，仍可读），换取绝大多数天数不再留大片空白。
+       注意：只改行高，不动任何条的几何形状/文字/进度条/拖拽逻辑 → 零交互风险。 */
+    const ROW_P=0.85;                                // 行高覆盖分位：按能容纳 85% 天数的并发数定高
+    const BAR_MIN_TIGHT=15;                          // 峰值时段允许压缩到的最小条高（低于此则回退抬高行高）
+    const LANE_SQUEEZE_FROM=4;                       // 仅泳道数 ≥ 此值才做分位数压缩（2~3 泳道是常态，压缩反而挤）
+    const effLanes=(()=>{
+      if(laneCount<=1) return 1;
+      if(laneCount<LANE_SQUEEZE_FROM) return laneCount;   // 低并行(2~3条)不压缩，保证常态排期清晰
+      // 统计每个并发数各占多少天（按密度变化点切分，与渲染同源）
+      const pts=[...new Set(laid.items.map(it=>it.si0).concat(laid.items.map(it=>it.ei0)))].sort((a,b)=>a-b);
+      const dist=new Map();  let total=0;
+      for(let i=0;i<pts.length-1;i++){
+        const a=pts[i], b=pts[i+1], days=b-a;
+        if(days<=0) continue;
+        const n=laid.items.filter(it=>it.si0<b && it.ei0>a).length;
+        if(!n) continue;
+        dist.set(n,(dist.get(n)||0)+days); total+=days;
+      }
+      if(!total) return laneCount;
+      // 找最小的 n，使得「并发 ≤ n」的天数占比 ≥ ROW_P
+      let acc=0, pick=laneCount;
+      for(const n of [...dist.keys()].sort((a,b)=>a-b)){
+        acc+=dist.get(n);
+        if(acc/total>=ROW_P){ pick=n; break; }
+      }
+      pick=Math.max(pick, 2);                        // 有并行就至少留 2 条的空间
+      // 下限保护：若按 pick 定高会让峰值时段的条低于 BAR_MIN_TIGHT，则适度抬高
+      const hAt=(lanes)=>Math.max(ROW_BASE, PADV*2 + lanes*BAR_MIN + (lanes-1)*LANE_GAP);
+      while(pick<laneCount && (hAt(pick)-PADV*2)/laneCount < BAR_MIN_TIGHT) pick++;
+      return Math.max(1,Math.min(pick,laneCount));
+    })();
+    let rowH = effLanes<=1 ? ROW_BASE
+               : Math.max(ROW_BASE, PADV*2 + effLanes*BAR_MIN + (effLanes-1)*LANE_GAP);
     // 判断某泳道在 [s,e) 时段是否被别的条目占用
     const occupied=(lane,s,e)=> laid.items.some(b=> b.lane===lane && b.si0<e && b.ei0>s);
     let bars='';
