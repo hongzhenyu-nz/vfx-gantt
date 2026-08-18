@@ -4023,7 +4023,7 @@ function renderHR(){
       (r.sup || []).forEach(n => {
         makersHTML += `<span class="mk sup" title="支援(非本管线编制)">${n}·支援</span>`;
       });
-      if (!r.regs.length && !r.bases.length && !(r.sup||[]).length) makersHTML = `<span class="empty">暂无人员</span>`;
+      if (!r.regs.length && !r.bases.length && !(r.sup||[]).length && !(r.tmp||[]).length) makersHTML = `<span class="empty">暂无人员</span>`;
       // 配置/缺口：缺口 = 标配缺口(std−cfg) + 暂缺占位数（两者独立累加）
       const tmpCount = (r.tmp || []).length;
       const totalGap = r.gap + tmpCount;
