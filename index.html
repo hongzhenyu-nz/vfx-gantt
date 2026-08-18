@@ -1100,11 +1100,11 @@
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
 
   <div class="kpis">
-    <div class="kpi"><div class="lab">在岗编制人数</div><div class="val" id="kp-mem">—</div></div>
-    <div class="kpi"><div class="lab">在岗制作人(去重)</div><div class="val" id="kp-maker">—</div></div>
-    <div class="kpi"><div class="lab">已配置总岗位</div><div class="val" id="kp-cfg">—</div></div>
-    <div class="kpi"><div class="lab">标配缺口</div><div class="val" id="kp-gap">—</div></div>
-    <div class="kpi"><div class="lab">缺少数(含暂缺)</div><div class="val d" id="kp-lack">—</div></div>
+    <div class="kpi"><div class="lab">实际编制人数</div><div class="val" id="kp-mem">—</div></div>
+    <div class="kpi"><div class="lab">实际在岗人数(去重)</div><div class="val" id="kp-maker">—</div></div>
+    <div class="kpi"><div class="lab">已配岗位/已分配率%</div><div class="val" id="kp-cfg">—</div></div>
+    <div class="kpi"><div class="lab">对标缺口</div><div class="val" id="kp-gap">—</div></div>
+    <div class="kpi"><div class="lab">缺少/需要人数</div><div class="val d" id="kp-lack">—</div></div>
   </div>
 
   <div class="bar">
@@ -3881,11 +3881,11 @@ function renderHR(){
   let html=`<div class="hr-wrap">`;
   // 顶部汇总卡（全部动态计算，随甘特表实时联动）
   html+=`<div class="hr-summary">
-    <div class="hr-sc total"><div class="lab">在岗编制人数</div><div class="val">${HR.base}</div></div>
-    <div class="hr-sc"><div class="lab">在岗制作人(去重)</div><div class="val">${HR.makers}</div></div>
-    <div class="hr-sc"><div class="lab">已配置岗位</div><div class="val">${HR.totalCfg}</div></div>
-    <div class="hr-sc gap"><div class="lab">标配缺口</div><div class="val">${HR.totalGap}</div></div>
-    <div class="hr-sc"><div class="lab">缺少数(含暂缺)</div><div class="val d">${HR.lack}</div></div>
+    <div class="hr-sc total"><div class="lab">实际编制人数</div><div class="val">${HR.base}</div></div>
+    <div class="hr-sc"><div class="lab">实际在岗人数(去重)</div><div class="val">${HR.makers}</div></div>
+    <div class="hr-sc"><div class="lab">已配岗位/已分配率%</div><div class="val">${HR.totalCfg}</div></div>
+    <div class="hr-sc gap"><div class="lab">对标缺口</div><div class="val">${HR.totalGap}</div></div>
+    <div class="hr-sc"><div class="lab">缺少/需要人数</div><div class="val d">${HR.lack}</div></div>
   </div>`;
   // 品级统计条（动态：实人数 + 缺口 + 暂缺，全部从 computeHR 实时取）
   let gradeBarHtml = '';
