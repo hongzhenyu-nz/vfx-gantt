@@ -1079,6 +1079,9 @@
   .hr-makers .mk.sup{background:#e0f7fa;color:#0e7490;border:1px solid #9adfe9;}
   .hr-makers .mk.reg-mk{background:#dbeafe;color:#1d4ed8;font-weight:600;border:1px solid #93c5fd;}  /* 正编带队：蓝底蓝字+边框 */
   .hr-makers .mk.sub-mk{background:#e7edff;color:#0052d9;font-weight:600;border:1px solid #b4cefc;}  /* 子公司：蓝底蓝字+边框（与正编一致） */
+  /* 云端动态同步成员标识：名字右侧小圆点 + 脉冲动画 */
+  .hr-makers .dyn-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#3b82f6;vertical-align:middle;margin-left:4px;box-shadow:0 0 0 2px rgba(59,130,246,.25);animation:dynPulse 2s infinite;flex-shrink:0;}
+  @keyframes dynPulse{0%,100%{opacity:1;box-shadow:0 0 0 2px rgba(59,130,246,.25);}50%{opacity:.5;box-shadow:0 0 0 5px rgba(59,130,246,.15);}}
   .hr-makers .empty{font-size:11px;color:var(--tx3);font-style:italic;}
   .hr-note{font-size:11px;color:var(--tx3);margin-left:auto;flex-shrink:0;max-width:200px;text-align:right;}
 </style>
@@ -1590,6 +1593,10 @@ const members = [
   {id:'m_t7pqf', name:'暂缺-基地2', role:'基地', corp:'base', lead:'暂缺', mod:'出场', grade:'橙', line:'-', eff:1, status:'on'},
   {id:'m_7hk9c', name:'暂缺-基地3', role:'基地', corp:'base', lead:'暂缺', mod:'出场', grade:'橙', line:'-', eff:1, status:'on'}
 ];
+
+/* 初始成员 ID 快照：用于区分「硬编码本地成员」与「云端动态同步新增的成员」（如子公司/外协等）。
+   在 members 定义后立即冻结，applySnap 新增的成员不在其中 → 渲染时加「动态」标识。 */
+const LOCAL_MEMBER_IDS = new Set(members.map(m => m.id));
 
 /* 需求 = 企微数据源表 q979lj 橙角出场特效排期(权威) + 大甘特图(image#1)红角女指挥官特效模块 + 金角/检视/组队/机动/武器支援。
    每条需求覆盖一个"角色×模块×品级"的特效工作；segs=投入的核心制作人(含正编带队+基地)。
@@ -3907,12 +3914,14 @@ function renderHR(){
         if (stt === 'left' || leftSet.has(n)) {
           const cls = corp === 'reg' ? 'mk reg-mk' : corp === 'sub' ? 'mk sub-mk' : 'mk';
           const prefix = (corp === 'reg' || corp === 'sub') ? '👑 ' : '';
-          return `<span class="${cls} mk-left" title="已离职（历史参与者）" style="opacity:.65;text-decoration:line-through;text-decoration-color:#f87171;">${prefix}${n}<small class="left-tag">已离</small></span>`;
+          const dyn = (mem && !LOCAL_MEMBER_IDS.has(mem.id)) ? '<i class="dyn-dot" title="云端动态同步成员"></i>' : '';
+          return `<span class="${cls} mk-left" title="已离职（历史参与者）" style="opacity:.65;text-decoration:line-through;text-decoration-color:#f87171;">${prefix}${n}${dyn}<small class="left-tag">已离</small></span>`;
         }
         if (stt === 'new')  return `<span class="mk" title="新人">${n}</span>`;
         const cls = corp === 'reg' ? 'mk reg-mk' : corp === 'sub' ? 'mk sub-mk' : 'mk';
         const prefix = (corp === 'reg' || corp === 'sub') ? '👑 ' : '';
-        return `<span class="${cls}" title="${corp === 'reg' ? '正编·带队' : corp === 'sub' ? '子公司' : '基地'}${stt === 'new' ? '·新人' : ''}">${prefix}${n}</span>`;
+        const dyn = (mem && !LOCAL_MEMBER_IDS.has(mem.id)) ? '<i class="dyn-dot" title="云端动态同步成员"></i>' : '';
+        return `<span class="${cls}" title="${corp === 'reg' ? '正编·带队' : corp === 'sub' ? '子公司' : '基地'}${stt === 'new' ? '·新人' : ''}${dyn ? ' · 云端同步' : ''}">${prefix}${n}${dyn}</span>`;
       };
       // 正编组（蓝标）
       r.regs.forEach(n => makersHTML += mkTag(n, 'reg'));
