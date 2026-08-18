@@ -3884,10 +3884,9 @@ function renderHR(){
   if(HR.vacantCount>0) detailParts.push(`暂缺占位${HR.vacantCount}人`);
   const detailStr = detailParts.length ? detailParts.join(' / ') : '各线已配齐';
 
-  // 补充指标：高峰并行角色数 / 高峰负载率 / 高风险需求数（与顶部 KPI 同源）
-  const activeReqs = reqs.filter(r => r.kind !== 'qa' && !r.done && aggStatus(r) !== 'done' && r.end >= TODAY);
-  let peakParallel = 0;
-  for (let di = 0; di < DAYS; di++) { if (isWE(di)) continue; const d = new Date(START); d.setDate(d.getDate() + di); let cnt = 0; for (const r of activeReqs) { const rs = new Date(r.start), re = new Date(r.end); if (d >= rs && d <= re) cnt++; } if (cnt > peakParallel) peakParallel = cnt; }
+  // 补充指标：高峰角色线数 / 高峰负载率 / 高风险需求数（与顶部 KPI 同源）
+  const roleLines = buildRoleLines();
+  const roleLineCount = roleLines.reduce((sum, g) => sum + g.roles.length, 0);   // HR 角色线总数（如红蔻/金角/橙角等）
   const activeMems = members.filter(m => !effLeft(m) && !isVacantMem(m) && !isExtLoan(m));
   const loads = activeMems.map(m => memLoad(m.id).pct);
   const peakLoad = loads.length ? Math.max(...loads, 0) : 0;
@@ -3897,7 +3896,7 @@ function renderHR(){
   // 顶部汇总卡（全部动态计算，随甘特表实时联动）
   html+=`<div class="hr-summary">
     <div class="hr-sc total"><div class="lab">在岗编制人数</div><div class="val">${HR.base}</div></div>
-    <div class="hr-sc"><div class="lab">高峰并行角色数量</div><div class="val">${peakParallel}</div></div>
+    <div class="hr-sc"><div class="lab">高峰并行角色数量</div><div class="val">${roleLineCount}</div></div>
     <div class="hr-sc"><div class="lab">高峰负载率</div><div class="val w">${Math.round(peakLoad)}%</div></div>
     <div class="hr-sc gap"><div class="lab">高风险需求</div><div class="val ${highRiskCount > 0 ? 'd' : ''}">${highRiskCount}</div></div>
     <div class="hr-sc"><div class="lab">常规管线缺口</div><div class="val d">${HR.lack}人</div></div>
@@ -4016,20 +4015,10 @@ function updateKPIs(){
   // 1. 在岗编制人数：花名册在岗总人头（排除已离职）
   document.getElementById('kp-mem').textContent = HR.base;
 
-  // 2. 高峰并行角色数量：任意一天同时进行的需求数峰值（反映并行压力）
-  const activeReqs = reqs.filter(r => r.kind !== 'qa' && !r.done && aggStatus(r) !== 'done' && r.end >= TODAY);
-  let peakParallel = 0;
-  for (let di = 0; di < DAYS; di++) {
-    const d = new Date(START); d.setDate(d.getDate() + di);
-    if (isWE(di)) continue;
-    let cnt = 0;
-    for (const r of activeReqs) {
-      const rs = new Date(r.start), re = new Date(r.end);
-      if (d >= rs && d <= re) cnt++;
-    }
-    if (cnt > peakParallel) peakParallel = cnt;
-  }
-  document.getElementById('kp-maker').textContent = peakParallel;
+  // 2. 高峰并行角色数量：HR 角色线总数（buildRoleLines 输出的角色行数，如红蔻/金角/橙角等）
+  const roleLines = buildRoleLines();
+  const roleLineCount = roleLines.reduce((sum, g) => sum + g.roles.length, 0);
+  document.getElementById('kp-maker').textContent = roleLineCount;
 
   // 3. 高峰负载率：在岗成员中个人负载率的最大值（%）
   const activeMems = members.filter(m => !effLeft(m) && !isVacantMem(m) && !isExtLoan(m));
