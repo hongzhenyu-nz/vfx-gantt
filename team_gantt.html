@@ -1100,11 +1100,11 @@
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
 
   <div class="kpis">
-    <div class="kpi"><div class="lab">实际编制人数</div><div class="val" id="kp-mem">—</div></div>
-    <div class="kpi"><div class="lab">实际在岗人数(去重)</div><div class="val" id="kp-maker">—</div></div>
-    <div class="kpi"><div class="lab">已配岗位/已分配率%</div><div class="val" id="kp-cfg">—</div></div>
-    <div class="kpi"><div class="lab">对标缺口</div><div class="val" id="kp-gap">—</div></div>
-    <div class="kpi"><div class="lab">缺少/需要人数</div><div class="val d" id="kp-lack">—</div></div>
+    <div class="kpi"><div class="lab">在岗编制人数</div><div class="val" id="kp-mem">—</div></div>
+    <div class="kpi"><div class="lab">高峰并行角色数量</div><div class="val" id="kp-maker">—</div></div>
+    <div class="kpi"><div class="lab">高峰负载率</div><div class="val w" id="kp-cfg">—</div></div>
+    <div class="kpi"><div class="lab">高风险需求</div><div class="val d" id="kp-gap">—</div></div>
+    <div class="kpi"><div class="lab">常规管线缺口</div><div class="val d" id="kp-lack">—</div></div>
   </div>
 
   <div class="bar">
@@ -3878,14 +3878,24 @@ function renderHR(){
   if(HR.gradeGap.红>0) detailParts.push(`红角${HR.gradeGap.红}人`);
   if(HR.vacantCount>0) detailParts.push(`暂缺占位${HR.vacantCount}人`);
   const detailStr = detailParts.length ? detailParts.join(' / ') : '各线已配齐';
+
+  // 补充指标：高峰并行角色数 / 高峰负载率 / 高风险需求数（与顶部 KPI 同源）
+  const activeReqs = reqs.filter(r => r.kind !== 'qa' && !r.done && aggStatus(r) !== 'done' && r.end >= TODAY);
+  let peakParallel = 0;
+  for (let di = 0; di < DAYS; di++) { if (isWE(di)) continue; const d = new Date(START); d.setDate(d.getDate() + di); let cnt = 0; for (const r of activeReqs) { const rs = new Date(r.start), re = new Date(r.end); if (d >= rs && d <= re) cnt++; } if (cnt > peakParallel) peakParallel = cnt; }
+  const activeMems = members.filter(m => !effLeft(m) && !isVacantMem(m) && !isExtLoan(m));
+  const loads = activeMems.map(m => memLoad(m.id).pct);
+  const peakLoad = loads.length ? Math.max(...loads, 0) : 0;
+  const highRiskCount = reqs.filter(r => reqRisk(r).lvl === '高').length;
+
   let html=`<div class="hr-wrap">`;
   // 顶部汇总卡（全部动态计算，随甘特表实时联动）
   html+=`<div class="hr-summary">
-    <div class="hr-sc total"><div class="lab">实际编制人数</div><div class="val">${HR.base}</div></div>
-    <div class="hr-sc"><div class="lab">实际在岗人数(去重)</div><div class="val">${HR.makers}</div></div>
-    <div class="hr-sc"><div class="lab">已配岗位/已分配率%</div><div class="val">${HR.totalCfg}</div></div>
-    <div class="hr-sc gap"><div class="lab">对标缺口</div><div class="val">${HR.totalGap}</div></div>
-    <div class="hr-sc"><div class="lab">缺少/需要人数</div><div class="val d">${HR.lack}</div></div>
+    <div class="hr-sc total"><div class="lab">在岗编制人数</div><div class="val">${HR.base}</div></div>
+    <div class="hr-sc"><div class="lab">高峰并行角色数量</div><div class="val">${peakParallel}</div></div>
+    <div class="hr-sc"><div class="lab">高峰负载率</div><div class="val w">${Math.round(peakLoad)}%</div></div>
+    <div class="hr-sc gap"><div class="lab">高风险需求</div><div class="val ${highRiskCount > 0 ? 'd' : ''}">${highRiskCount}</div></div>
+    <div class="hr-sc"><div class="lab">常规管线缺口</div><div class="val d">${HR.lack}人</div></div>
   </div>`;
   // 品级统计条（动态：实人数 + 缺口 + 暂缺，全部从 computeHR 实时取）
   let gradeBarHtml = '';
@@ -3996,14 +4006,41 @@ function renderHR(){
 }
 
 function updateKPIs(){
-  // 统一使用 computeHR() 数据，与 HR 视图汇总卡完全一致
   const HR = computeHR();
+
+  // 1. 在岗编制人数：花名册在岗总人头（排除已离职）
   document.getElementById('kp-mem').textContent = HR.base;
-  document.getElementById('kp-maker').textContent = HR.makers;
-  document.getElementById('kp-cfg').textContent = HR.totalCfg;
-  const gapEl = document.getElementById('kp-gap');
-  gapEl.textContent = HR.totalGap;
-  gapEl.className = 'val ' + (HR.totalGap > 0 ? 'd' : 's');
+
+  // 2. 高峰并行角色数量：任意一天同时进行的需求数峰值（反映并行压力）
+  const activeReqs = reqs.filter(r => r.kind !== 'qa' && !r.done && aggStatus(r) !== 'done' && r.end >= TODAY);
+  let peakParallel = 0;
+  for (let di = 0; di < DAYS; di++) {
+    const d = new Date(START); d.setDate(d.getDate() + di);
+    if (isWE(di)) continue;
+    let cnt = 0;
+    for (const r of activeReqs) {
+      const rs = new Date(r.start), re = new Date(r.end);
+      if (d >= rs && d <= re) cnt++;
+    }
+    if (cnt > peakParallel) peakParallel = cnt;
+  }
+  document.getElementById('kp-maker').textContent = peakParallel;
+
+  // 3. 高峰负载率：在岗成员中个人负载率的最大值（%）
+  const activeMems = members.filter(m => !effLeft(m) && !isVacantMem(m) && !isExtLoan(m));
+  const loads = activeMems.map(m => memLoad(m.id).pct);
+  const peakLoad = loads.length ? Math.max(...loads, 0) : 0;
+  const loadEl = document.getElementById('kp-cfg');
+  loadEl.textContent = Math.round(peakLoad) + '%';
+  loadEl.className = 'val ' + (peakLoad <= 85 ? 's' : peakLoad <= 110 ? 'w' : 'd');
+
+  // 4. 高风险需求：风险等级为"高"的需求数量
+  const highRiskCount = reqs.filter(r => reqRisk(r).lvl === '高').length;
+  const riskEl = document.getElementById('kp-gap');
+  riskEl.textContent = highRiskCount;
+  riskEl.className = 'val ' + (highRiskCount > 0 ? 'd' : 's');
+
+  // 5. 常规管线缺口：标配缺口 + 暂缺占位（与 HR 汇总卡一致）
   document.getElementById('kp-lack').textContent = HR.lack + '人';
 }
 
