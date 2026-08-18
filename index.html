@@ -3938,10 +3938,18 @@ function renderHR(){
       // 正编/子：读 leadChars+leadMods（v5.49b 结构化字段），兼容旧 m.lead
       const chars = (m.leadChars||'').split(',').filter(Boolean);
       const mods  = (m.leadMods||'').split(',').filter(Boolean);
-      const parts = [];
-      if(chars.length) parts.push(chars.join('+'));
-      if(mods.length) parts.push(mods.join('/'));
-      detail = parts.length ? parts.join(' · ') : '';
+      // ★ 配对分行文本：角色(模块1 模块2) / 角色2(模块3)
+      if(chars.length > 0){
+        const pairs = chars.map((c, i) => {
+          const start = Math.round(i * mods.length / chars.length);
+          const end   = Math.round((i + 1) * mods.length / chars.length);
+          const rowMods = mods.slice(start, end);
+          return rowMods.length ? c+'('+rowMods.join(' ')+')' : c;
+        });
+        detail = pairs.join(' / ');
+      } else if(mods.length){
+        detail = mods.join('/');
+      }
     } else if(m.corp==='base'){
       // 基地：显示隶属 + 模块
       const belong = (m.lead && m.lead!=='—' && m.lead!=='-') ? m.lead : '';
@@ -5173,10 +5181,31 @@ function formatLeadDisplay(m){
     }).join('');
     const modSpans = mods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('');
 
-    // ★ 角色与模块分行显示：避免"多角色×全模块"的歧义
+    // ★ 角色与模块配对分行：每个角色一行，带上其对应的模块
+    // 数据模型中 leadChars/leadMods 是两个扁平列表，无显式配对 → 均分模块到各角色
     let html = '<span class="ld-block">';
-    if(charSpans) html += '<span class="ld-row ld-row-ch">'+charSpans+'</span>';
-    if(modSpans)  html += '<span class="ld-row ld-row-md">'+modSpans+'</span>';
+    if(chars.length > 0){
+      // 把模块均分到各角色行
+      const rows = chars.map((c, i) => {
+        const gInfo = HR_GRADE[c] || HR_GRADE[''];
+        let label = c;
+        if((gradeCount[c]||0) > 1){
+          const idx = (gradeOrder[c]||[]).indexOf(m.id);
+          if(idx >= 0) label += ['①','②','③','④','⑤'][idx] || '';
+        }
+        const chSpan = `<span class="ld-ch" style="background:${gInfo.col}22;color:${gInfo.col};border-color:${gInfo.col}44">${escAttr(label)}</span>`;
+        // 计算该角色行分配的模块范围 [start, end)
+        const start = Math.round(i * mods.length / chars.length);
+        const end   = Math.round((i + 1) * mods.length / chars.length);
+        const rowMods = mods.slice(start, end);
+        const mdStr = rowMods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('');
+        return '<span class="ld-row">'+chSpan+(mdStr ? ' · '+mdStr : '')+'</span>';
+      });
+      html += rows.join('');
+    } else if(mods.length > 0){
+      // 无角色但有模块（边缘情况）：模块单独成行
+      html += '<span class="ld-row ld-row-md">'+mods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('')+'</span>';
+    }
     html += '</span>';
     return '负责 '+html;
   }
