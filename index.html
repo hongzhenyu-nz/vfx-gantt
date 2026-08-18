@@ -3922,27 +3922,57 @@ function renderHR(){
     ${gradeBarHtml}
     <div class="gi" style="margin-left:auto;color:#646a73">📌 ${detailStr}</div>
   </div>`;
-  // 编制/状态图例（全部动态生成：从 members 实时取）
-  const regMems = members.filter(m => !effLeft(m) && !isVacantMem(m) && (m.corp==='reg'||m.corp==='sub'));
-  const baseCnt = (HR.corpCount.base||0);
+  // 编制/状态图例（全部动态生成：从 members 实时取，逐人列出编制+负责信息）
+  const legendMems = members.filter(m => !effLeft(m) && !isVacantMem(m));
+  const regMems = legendMems.filter(m => m.corp==='reg'||m.corp==='sub');
+  const baseMems = legendMems.filter(m => m.corp==='base');
+  const loanMems = legendMems.filter(m => isExtLoan(m));
   const newMems = members.filter(m => m.status==='new' && !isVacantMem(m));
   const leftMems = members.filter(m => effLeft(m));
-  const loanMems = members.filter(m => isExtLoan(m) && !effLeft(m));
   const supMems = members.filter(m => m.support && !effLeft(m) && !isExtLoan(m));
-  // 正编带队列表：名字(负责模块)
-  const regList = regMems.map(m => {
-    const leadInfo = m.lead && m.lead!=='—' ? m.lead : m.mod || '';
-    return `${m.name}${leadInfo ? '('+leadInfo+')' : ''}`;
-  }).join(' · ');
+  // 逐人格式化：名字（编制 / 负责信息）
+  const fmtMem = (m) => {
+    const corpLabel = m.corp==='reg'?'正编':m.corp==='sub'?'子公司':'基地';
+    let detail = '';
+    if(m.corp==='reg'||m.corp==='sub'){
+      // 正编/子：读 leadChars+leadMods（v5.49b 结构化字段），兼容旧 m.lead
+      const chars = (m.leadChars||'').split(',').filter(Boolean);
+      const mods  = (m.leadMods||'').split(',').filter(Boolean);
+      const parts = [];
+      if(chars.length) parts.push(chars.join('+'));
+      if(mods.length) parts.push(mods.join('/'));
+      detail = parts.length ? parts.join(' · ') : '';
+    } else if(m.corp==='base'){
+      // 基地：显示隶属 + 模块
+      const belong = (m.lead && m.lead!=='—' && m.lead!=='-') ? m.lead : '';
+      const modInfo = m.mod || '';
+      const parts = [];
+      if(belong) parts.push('隶属'+belong);
+      if(modInfo) parts.push(modInfo);
+      detail = parts.join('/');
+    }
+    if(isExtLoan(m)) detail = '外借支援'+(m.mod?'·'+m.mod:'');
+    if(m.support && !isExtLoan(m)) detail = detail ? detail+'·支援' : '跨队支援';
+    return `${m.name}（${corpLabel}${detail ? '·'+detail : ''}）`;
+  };
   html+=`<div class="hr-legend">
-    <span class="lg-t">编制与带队：</span>
-    <span class="lg"><i class="corp-tag" style="background:#e7f0ff;color:#0052d9">正编/子${regMems.length}人</i> ${regList || '—'}</span>
-    <span class="lg"><i class="corp-tag" style="background:#eef1f7;color:#56607a;border:1px solid #c4ccdb">基地${baseCnt}人</i> 由正编带领搭配</span>`;
-  // 动态状态行（仅在有对应成员时显示）
+    <span class="lg-t">编制与带队：</span>`;
+  // 正编/子组
+  if(regMems.length){
+    html+=`<span class="lg"><i class="corp-tag" style="background:#e7f0ff;color:#0052d9">正编/子${regMems.length}人</i> ${regMems.map(fmtMem).join(' / ')}</span>`;
+  }
+  // 基地组（逐人列出）
+  if(baseMems.length){
+    html+=`<span class="lg"><i class="corp-tag" style="background:#eef1f7;color:#56607a;border:1px solid #c4ccdb">基地${baseMems.length}人</i> ${baseMems.map(fmtMem).join(' / ')}</span>`;
+  }
+  // 外借组
+  if(loanMems.length){
+    html+=`<span class="lg"><i class="corp-tag" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">外借${loanMems.length}人</i> ${loanMems.map(fmtMem).join(' / ')}</span>`;
+  }
+  // 动态状态行（仅在有对应成员时显示；外借已在主列表展示，不重复）
   const statusParts = [];
   if(newMems.length) statusParts.push(`<span class="lg"><i class="hr-flag new" style="margin:0">新人</i> ${newMems.map(m=>m.name).join(',')}</span>`);
   if(leftMems.length) statusParts.push(`<span class="lg"><i class="hr-flag left" style="margin:0">已离职</i> ${leftMems.length}人</span>`);
-  if(loanMems.length) statusParts.push(`<span class="lg"><i class="hr-flag sup" style="margin:0">外借</i> ${loanMems.map(m=>m.name+(m.mod?'('+m.mod+')':'')).join(',')}</span>`);
   if(supMems.length) statusParts.push(`<span class="lg"><i class="hr-flag sup" style="margin:0">支援</i> ${supMems.map(m=>m.name).join(',')}</span>`);
   if(statusParts.length){
     html += `<span class="lg-div">|</span><span class="lg-t">状态：</span>${statusParts.join('')}`;
@@ -6902,6 +6932,7 @@ function rerender(){
   document.querySelectorAll('.dragging,.dup-src,.row-target').forEach(el=>el.classList.remove('dragging','dup-src','row-target'));
   _resetPeakParCache();                 // 排期可能变更→清空并行峰值缓存，确保人级并行判定实时
   document.body.classList.toggle('hr-view',view==='hr');  // 人力视图隐藏左列拖拽手柄
+  if(typeof buildMeSel==='function') buildMeSel();        // 刷新「我是谁」下拉（成员/角色可能已变）
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
 }
