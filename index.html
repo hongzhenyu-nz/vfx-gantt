@@ -507,9 +507,14 @@
   /* 暂缺标签：无隶属/无带队归属的成员，红色醒目胶囊表示缺人 */
   .ltag.vacant{color:#d32320;background:#fef2f2;border:1.5px solid #fca5a5;font-weight:700;letter-spacing:.5px;}
   /* 甘特图时间线区域：缺人成员(无隶属)的空行显示斜纹占位提示 */
-  .vacant-bar{width:100%;height:100%;min-height:28px;background:repeating-linear-gradient(-45deg,#fca5a5 0px,#fca5a5 6px,#fecdd3 6px,#fecdd3 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;gap:4px;padding:0 6px;overflow:hidden;color:#7f1d1d;font-weight:600;text-shadow:0 1px 1px rgba(255,255,255,.35);}
+  .vacant-bar{width:100%;height:100%;min-height:28px;background:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;gap:4px;padding:0 6px;overflow:hidden;color:#fff;font-weight:700;text-shadow:0 1px 2px rgba(120,10,10,.55),0 0 8px rgba(120,10,0,.2);}
   /* 缺人角标：在任务条信息右侧显示醒目的红色"🔴缺人"标记 */
   .vacant-bar .vacant-badge{flex-shrink:0;font-size:10px;font-weight:700;color:#fff;background:#dc2626;border-radius:8px;padding:1px 6px;white-space:nowrap;line-height:1.6;}
+  /* 缺人条内部元素：全部白字+深阴影，确保在红底斜纹上清晰可读 */
+  .vacant-bar .rt-nm{color:#fff!important;text-shadow:0 1px 2px rgba(80,5,5,.6)!important;}
+  .vacant-bar .rt-line>span{color:#fff!important;text-shadow:0 1px 2px rgba(80,5,5,.5)!important;}
+  .vacant-bar .mod-tag{background:rgba(0,0,0,.25)!important;color:#fff!important;border-color:rgba(255,255,255,.3)!important;}
+  .vacant-bar .rt-dur{background:rgba(0,0,0,.22)!important;color:#fff!important;border-color:rgba(255,255,255,.25)!important;}
   .ltag.vacant .vacant-ic{margin-right:2px;}
   /* v5.34 暂缺占位行：区别于真人行的「缺人状态卡」 */
   .row.vacant-row{background:linear-gradient(90deg,#fef9f0 0%,#fff5eb 40%,#fff 100%);border-left:3px dashed #f87171;}
