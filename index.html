@@ -279,10 +279,10 @@
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
 
   .bar-task{position:absolute;z-index:1;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
-  /* 拼图填满扩展块(v5.88)：无并行时段把任务条补高到整行，纯视觉延展、不参与交互。
-     配色类(barCls)与主条一致，故看起来是同一块条自动"变胖"填满了整行。 */
-  .bar-ext{position:absolute;z-index:1;border-radius:5px;pointer-events:none;border-left:3px solid rgba(0,0,0,.24);
-           box-shadow:inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));opacity:.92;}
+  /* 按天自适应高度的延伸段(v5.89)：同一任务段在「并行数不同的天」渲染为不同高度的切片，
+     与主条同色无缝拼接成一条形状随天数变化的条。带 bar-task 类故拖拽/点击/菜单行为完全一致；
+     去掉左边框与外阴影，使拼接处不出现分割线；不含文字避免重复。 */
+  .bar-task.seg-ext{border-left:none;box-shadow:inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));}
   /* z-index:1 封住任务条自身的层叠上下文，使条内「✓已完成」大浮标(::after z-index:4)等永远压在 sticky 左侧成员栏 .cell-left(z-index:4) 之下，横向滚动时不再穿透覆盖左栏。拖拽态(.dragging z-index:30)另行抬高。 */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
@@ -3368,16 +3368,21 @@ function personRowHTML(m,inArc){
       const isOpen=!!sg.open;
       // 无明确时间段：横向铺满整条时间线（前后无限延长，靠 CSS 两端羽化表达"未定/持续"）
       const x=isOpen?0:it.si0*DAY_W, w=isOpen?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
-      // ★ 拼图式填满（v5.88）：主条纵向占位取「本段所有切片中最小的高度」（即最挤时段的占位），
-      // 保证主条在任何时段都不会压盖并行条；随后为「比主条更宽松的切片」补渲染 .bar-ext 扩展块，
-      // 使无并行时段视觉上长满整行——这就是"像拼图一样把整行填满"的效果。
+      // ★ 按天自适应高度（v5.89）：任务条不再是一个固定高度的矩形，而是拆成一串首尾相接的切片，
+      // 每个切片按它自己那段时间的真实并行数 k 取高度：k=1 → 满行、k=2 → 半行……
+      // 主条落在「最宽的那个切片」上（承载文字/进度/拖拽手柄），其余切片渲染为同色延伸段。
+      // 每个切片都在自己的纵向槽位上，互不覆盖 → 绝不会遮挡并行条（这是 v5.88 盖补丁方案的错误所在）。
       const slices=sliceLayout.get(it)||[];
-      let baseK=laneCount, basePos=it.lane;
+      let mainSlice=null;
       if(slices.length){
-        // 主条用「k 最大（最挤）」的切片定位，确保绝不压盖
-        const tight=slices.reduce((a,b)=> b.k>a.k ? b : a, slices[0]);
-        baseK=tight.k; basePos=tight.pos;
+        // 主切片 = 最宽的那片（像素最长 → 最适合放文字标签）
+        mainSlice=slices.reduce((a,b)=> (b.e-b.s)>(a.e-a.s) ? b : a, slices[0]);
       }
+      const baseK = mainSlice ? mainSlice.k : laneCount;
+      const basePos = mainSlice ? mainSlice.pos : it.lane;
+      // 主条横向范围：open 段铺满整行；否则只覆盖主切片（其余段由延伸块补齐）
+      const mainX = isOpen ? 0 : (mainSlice ? mainSlice.s*DAY_W : it.si0*DAY_W);
+      const mainW = isOpen ? DAYS*DAY_W : (mainSlice ? (mainSlice.e-mainSlice.s)*DAY_W : (it.ei0-it.si0)*DAY_W);
       const segTop=basePos/baseK;                              // 本条顶部占比
       const segH=1/baseK;                                      // 本条占整行高度比
       const topPct=((segTop+segH*(1-FILL)/2)*100).toFixed(3);
@@ -3398,7 +3403,7 @@ function personRowHTML(m,inArc){
       /* 横向单行 v4.8：按条子像素宽度决定显示几个信息位（任务名永远显示），按高度选字号档。
          任务名 > 模块 > 人天 > 投入比 优先级递减；窄条从右往左省略，不缩字号硬撑、不换行裁切。 */
       const barHpx = segH*FILL*rowH;                                        // 本条像素高度
-      const barWpx = w;                                                     // 本条像素宽度
+      const barWpx = mainW;                                                 // 主切片像素宽度（文字排布依据）
       const nShow = calcNShow(barWpx);                                      // 1~4，按条宽自动选
       const szTier = pickSizeTier(barHpx);                                  // 1=正常 2=紧凑
       // 复用「按需求看」的居中大浮标：整条完成 + 条够宽够高（不溢出/不遮挡）→ done-float 居中「✓ 已完成」，
@@ -3407,25 +3412,35 @@ function personRowHTML(m,inArc){
       const floatCls = canFloat ? (barHpx>=34?' done-float':' done-float sm') : '';
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
-      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      // 主条与延伸段相邻处去掉圆角，使整段任务视觉上是连续的一条（形状随天数变高变矮）
+      const mJoinL = !isOpen && mainSlice && slices.some(o=>o!==mainSlice && o.e===mainSlice.s);
+      const mJoinR = !isOpen && mainSlice && slices.some(o=>o!==mainSlice && o.s===mainSlice.e);
+      const mRad = (mJoinL||mJoinR) ? `border-radius:${mJoinL?'0':'5px'} ${mJoinR?'0':'5px'} ${mJoinR?'0':'5px'} ${mJoinL?'0':'5px'};` : '';
+      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${mainX}px;width:${mainW}px;top:${topPct}%;height:${hPct}%;${mRad}border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(effProg*100)}">${isOpen?'':restBlocksHTML(it.si0,it.ei0)}</div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
-      /* ★ 扩展块（v5.88 拼图填满）：主条按「最挤时段」定位后，在并行更少的时段主条上下会留白。
-         这里为每个「比主条宽松（k 更小）」的切片补渲染同色扩展块，把该时段的整行填满。
-         扩展块无文字/无交互(pointer-events:none)，纯视觉延展；先于主条渲染故被主条覆盖，
-         文字与拖拽手柄始终可用。视觉结果：无并行时段整行被填满，像拼图咬合。 */
-      if(!isOpen && slices.length){
+      /* ★ 延伸段（v5.89 按天自适应高度）：主条只覆盖「最宽的切片」，本段其余切片在这里渲染。
+         每个延伸段用自己那片的 (pos/k) 定位——所以在无并行的天数它长满整行、在有并行的天数它只占 1/k，
+         看起来就是同一条任务的条子「随天数自动变高/变矮」，而不是一个矩形加补丁。
+         关键：延伸段各自占据自己的槽位，永不覆盖并行条（v5.88 的 bar-ext 盖补丁问题已消除）。
+         延伸段带 data-req/data-seg，点击/悬停行为与主条一致；不放文字避免重复。 */
+      if(!isOpen && slices.length>1){
         slices.forEach(sl=>{
-          if(sl.k >= baseK) return;                              // 不比主条宽松 → 无需扩展
+          if(sl===mainSlice) return;                             // 主切片已由主条渲染
           const exTop=(sl.pos/sl.k + (1/sl.k)*(1-FILL)/2)*100;
           const exH=(1/sl.k)*FILL*100;
           const exX=sl.s*DAY_W, exW=(sl.e-sl.s)*DAY_W;
           if(exW<=0) return;
-          bars+=`<div class="bar-ext ${barCls(r,autoSeg,m)}${doneCls}" style="left:${exX}px;width:${exW}px;top:${exTop.toFixed(3)}%;height:${exH.toFixed(3)}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"></div>`;
+          // 与主切片相邻的一侧不圆角，视觉上无缝拼接成一条
+          const joinL = slices.some(o=>o!==sl && o.e===sl.s);
+          const joinR = slices.some(o=>o!==sl && o.s===sl.e);
+          const rad = `border-radius:${joinL?'0':'5px'} ${joinR?'0':'5px'} ${joinR?'0':'5px'} ${joinL?'0':'5px'}`;
+          bars+=`<div class="bar-task seg-ext ${barCls(r,autoSeg,m)}${doneCls}" data-req="${r.id}" data-seg="${si}" style="left:${exX}px;width:${exW}px;top:${exTop.toFixed(3)}%;height:${exH.toFixed(3)}%;${rad}"
+            onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()"></div>`;
         });
       }
     });
