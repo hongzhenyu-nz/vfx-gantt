@@ -5581,7 +5581,7 @@ function snapshot(){
 function coreSnapshot(){
   return {
     // 成员：除原有 status 外，序列化全部字段，使「新增成员」可在刷新/分享/云端后保留
-    members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null)})),
+    members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null),leadChars:m.leadChars||'',leadMods:m.leadMods||''})),
     effTiers:EFF_TIERS.map(t=>({coef:t.coef,label:t.label,mems:(t.mems||[]).slice()})),
     effLocked:effLocked,
     stdCfg:STD_CFG.map(t=>({mod:t.mod||'',grade:t.grade,col:t.col,dur:t.dur||'',weeks:t.weeks,ppl:t.ppl})),
@@ -5613,8 +5613,11 @@ function applySnap(snap){
       if(ms.eff!=null)m.eff=ms.eff;
       if(ms.support!=null)m.support=ms.support;
       if(ms.leftAt!=null)m.leftAt=i2d(ms.leftAt);
+      // ★ v5.83 持久化修复：负责(leadChars/leadMods)结构化字段也要随快照/云端同步，否则刷新后丢失
+      if(ms.leadChars!=null)m.leadChars=ms.leadChars;
+      if(ms.leadMods!=null)m.leadMods=ms.leadMods;
     }else if(ms.name){
-      const nm={id:ms.id,name:ms.name,role:ms.role||'',corp:ms.corp||'base',lead:ms.lead||'—',mod:ms.mod||'',grade:ms.grade||'',line:ms.line||'-',eff:(ms.eff!=null?ms.eff:1.0),status:ms.status||'on'};
+      const nm={id:ms.id,name:ms.name,role:ms.role||'',corp:ms.corp||'base',lead:ms.lead||'—',mod:ms.mod||'',grade:ms.grade||'',line:ms.line||'-',eff:(ms.eff!=null?ms.eff:1.0),status:ms.status||'on',leadChars:ms.leadChars||'',leadMods:ms.leadMods||''};
       if(ms.support)nm.support=true;
       if(ms.tmp)nm.tmp=true;
       if(ms.leftAt!=null)nm.leftAt=i2d(ms.leftAt);
