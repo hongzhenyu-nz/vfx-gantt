@@ -1991,6 +1991,7 @@ function activeBase(r){
     const m=memById(s.m); if(!m) return;
     if(m.corp==='reg') return;          // 正编带队：统筹/带教，不占基地标配
     if(effLeft(m)) return;              // 已离职（离职日已到）：不计；未来离职日仍在岗计入
+    if(isVacantMem(m)) return;          // 暂缺占位：不计入编制（仅占位）
     if(isSupportInReq(m,r)) return;     // 跨队支援：临时借调，不抵消本编制缺口
     seen.add(m.id);
   });
