@@ -202,10 +202,11 @@
   .row{display:flex;border-bottom:1px solid var(--line2);min-height:var(--row-h);position:relative;transition:background .12s;}
   .row:last-child{border-bottom:none;}
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);}
-  /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色 */
-  .load-heatmap{display:flex;align-items:center;border-bottom:1px solid var(--line2);background:var(--panel);position:relative;z-index:4;height:28px;flex-shrink:0;overflow:hidden;}
-  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;align-items:center;padding-left:14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:1px;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;overflow:hidden;}
-  .load-heatmap .load-track{position:relative;flex:1;height:100%;overflow:hidden;}
+  /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色
+     布局与 .row 一致：左侧 sticky 冻结 + 右侧 timeline 固定像素宽，杜绝出框/裁剪 */
+  .load-heatmap{display:flex;align-items:center;border-bottom:1px solid var(--line2);background:var(--panel);position:relative;z-index:4;height:28px;flex-shrink:0;}
+  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;align-items:center;padding:8px 14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:0;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;position:sticky;left:0;background:var(--panel);z-index:4;}
+  .load-heatmap .load-track{position:relative;height:100%;flex-shrink:0;min-width:0;overflow:visible;}
   /* 周粒度色段 —— 简洁纯色，不出框 */
   .load-heatmap .load-seg{position:absolute;top:3px;bottom:3px;border-radius:3px;transition:background .2s;cursor:pointer;}
   .load-heatmap .load-seg:hover{opacity:.8;z-index:2;}
@@ -3051,7 +3052,7 @@ function loadHeatmapHTML(){
 
   return `<div class="load-heatmap" id="loadHeatmap">
     <div class="load-label">📊 负载</div>
-    <div class="load-track">${bars}</div>
+    <div class="load-track" style="width:${DAYS*DAY_W}px">${bars}</div>
     ${legend}
   </div>`;
 }
