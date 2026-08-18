@@ -2084,6 +2084,17 @@ function computeHR(){
   const makerSet = new Set();
   let totalCfg = 0, totalGap = 0;
   const gradeGap = {金:0, 橙:0, 红:0};
+  // 品级实人统计（在岗非暂非离，按成员.grade 聚合）
+  const gradeCount = {金:0, 橙:0, 红:0, '':0};
+  // 编制类型统计（在岗非暂非离）
+  const corpCount = {reg:0, sub:0, base:0, loan:0};
+  activeMems.forEach(m => {
+    if(isVacantMem(m)) return;   // 暂缺不计入品级/编制实人
+    const g = m.grade || '';
+    gradeCount[g] = (gradeCount[g]||0) + 1;
+    const c = m.corp || 'base';
+    corpCount[c] = (corpCount[c]||0) + 1;
+  });
   reqs.forEach(r=>{
     if(r.kind==='qa') return;                     // 全量测试里程碑不计人力
     (r.segs||[]).forEach(s=>{
@@ -2104,6 +2115,8 @@ function computeHR(){
     vacantCount,
     lack: totalGap + vacantCount,                   // 缺少数 = 标配缺口 + 暂缺占位
     gradeGap,
+    gradeCount,                                     // 品级→在岗实人数 {金:N, 橙:N, 红:N}
+    corpCount,                                     // 编制→在岗人数 {reg:N, sub:N, base:N, loan:N}
   };
 }
 /* 兼容旧调用（按管线粗粒度），现已不参与风险计算 */
@@ -3869,28 +3882,48 @@ function renderHR(){
     <div class="hr-sc gap"><div class="lab">标配缺口</div><div class="val">${HR.totalGap}</div></div>
     <div class="hr-sc"><div class="lab">缺少数(含暂缺)</div><div class="val d">${HR.lack}</div></div>
   </div>`;
-  // 缺口结论条（动态生成）
+  // 品级统计条（动态：实人数 + 缺口 + 暂缺，全部从 computeHR 实时取）
   let gradeBarHtml = '';
-  if(HR.gradeGap.金>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#16a34a"></span>金角 <b>缺${HR.gradeGap.金}人</b></div>`;
-  if(HR.gradeGap.橙>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#f59e0b"></span>橙角 <b style="color:#d97706">缺${HR.gradeGap.橙}人</b></div>`;
-  if(HR.gradeGap.红>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#ef3b39"></span>红角 <b style="color:#d32320">缺${HR.gradeGap.红}人</b></div>`;
-  if(HR.vacantCount>0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#d32320"></span>暂缺占位 <b style="color:#d32320">${HR.vacantCount}人</b></div>`;
+  ['金','橙','红'].forEach(g => {
+    const cnt = HR.gradeCount[g] || 0;
+    if(cnt > 0) {
+      const col = (HR_GRADE[g]||{}).col || '#646a73';
+      const gap = HR.gradeGap[g] || 0;
+      gradeBarHtml += `<div class="gi"><span class="gdot" style="background:${col}"></span>${g} <b>${cnt}人</b>${gap>0 ? `<small style="color:#d32320;margin-left:2px">缺${gap}</small>` : ''}</div>`;
+    }
+  });
+  if(HR.vacantCount > 0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#d32320"></span>暂缺占位 <b style="color:#d32320">${HR.vacantCount}人</b></div>`;
   if(!gradeBarHtml) gradeBarHtml = `<div class="gi" style="color:#16a34a">✅ 各角色线暂无缺口</div>`;
   html+=`<div class="hr-grade-bar">
     ${gradeBarHtml}
     <div class="gi" style="margin-left:auto;color:#646a73">📌 ${detailStr}</div>
   </div>`;
-  // 编制/状态图例
+  // 编制/状态图例（全部动态生成：从 members 实时取）
+  const regMems = members.filter(m => !effLeft(m) && !isVacantMem(m) && (m.corp==='reg'||m.corp==='sub'));
+  const baseCnt = (HR.corpCount.base||0);
+  const newMems = members.filter(m => m.status==='new' && !isVacantMem(m));
+  const leftMems = members.filter(m => effLeft(m));
+  const loanMems = members.filter(m => isExtLoan(m) && !effLeft(m));
+  const supMems = members.filter(m => m.support && !effLeft(m) && !isExtLoan(m));
+  // 正编带队列表：名字(负责模块)
+  const regList = regMems.map(m => {
+    const leadInfo = m.lead && m.lead!=='—' ? m.lead : m.mod || '';
+    return `${m.name}${leadInfo ? '('+leadInfo+')' : ''}`;
+  }).join(' · ');
   html+=`<div class="hr-legend">
     <span class="lg-t">编制与带队：</span>
-    <span class="lg"><i class="corp-tag" style="background:#e7f0ff;color:#0052d9">正编</i> 余洪震(红角+金角) · 薛旭阳(露西亚 管线1) · 陈琛(检视/组队/饰品)</span>
-    <span class="lg"><i class="corp-tag" style="background:#eef1f7;color:#56607a;border:1px solid #c4ccdb">基地</i> 由正编带领搭配</span>
-    <span class="lg-div">|</span>
-    <span class="lg-t">状态：</span>
-    <span class="lg"><i class="hr-flag new" style="margin:0">新人</i> 蓝色(新进)</span>
-    <span class="lg"><i class="hr-flag left" style="margin:0">已离职</i> 灰色</span>
-    <span class="lg"><i class="hr-flag sup" style="margin:0">支援</i> 金潇·武器特效(非角色特效模块)</span>
-  </div>`;
+    <span class="lg"><i class="corp-tag" style="background:#e7f0ff;color:#0052d9">正编/子${regMems.length}人</i> ${regList || '—'}</span>
+    <span class="lg"><i class="corp-tag" style="background:#eef1f7;color:#56607a;border:1px solid #c4ccdb">基地${baseCnt}人</i> 由正编带领搭配</span>`;
+  // 动态状态行（仅在有对应成员时显示）
+  const statusParts = [];
+  if(newMems.length) statusParts.push(`<span class="lg"><i class="hr-flag new" style="margin:0">新人</i> ${newMems.map(m=>m.name).join(',')}</span>`);
+  if(leftMems.length) statusParts.push(`<span class="lg"><i class="hr-flag left" style="margin:0">已离职</i> ${leftMems.length}人</span>`);
+  if(loanMems.length) statusParts.push(`<span class="lg"><i class="hr-flag sup" style="margin:0">外借</i> ${loanMems.map(m=>m.name+(m.mod?'('+m.mod+')':'')).join(',')}</span>`);
+  if(supMems.length) statusParts.push(`<span class="lg"><i class="hr-flag sup" style="margin:0">支援</i> ${supMems.map(m=>m.name).join(',')}</span>`);
+  if(statusParts.length){
+    html += `<span class="lg-div">|</span><span class="lg-t">状态：</span>${statusParts.join('')}`;
+  }
+  html += `</div>`;
   // 各模块 —— 从 reqs 动态聚合角色线（替代写死 hrData）
   const roleModules = buildRoleLines();
   roleModules.forEach(m => {
