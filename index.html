@@ -6575,8 +6575,27 @@ window.addEventListener('storage',e=>{
 let meId=localStorage.getItem('gantt_me')||members[0].id;
 let focusMode=localStorage.getItem('gantt_focus')||'off';   // off | hl | only
 function buildMeSel(){
+  // ★ 与 formatLeadDisplay() 保持一致：用 leadChars+leadMods 生成配对分行纯文本
+  const fmtOpt = (m) => {
+    const chars = (m.leadChars||'').split(',').filter(Boolean);
+    const mods  = (m.leadMods||'').split(',').filter(Boolean);
+    let detail = m.role || '';
+    if((m.corp==='reg'||m.corp==='sub') && (chars.length||mods.length)){
+      if(chars.length > 0){
+        const pairs = chars.map((c,i)=>{
+          const s=Math.round(i*mods.length/chars.length), e=Math.round((i+1)*mods.length/chars.length);
+          const rm=mods.slice(s,e);
+          return rm.length ? c+'('+rm.join(' ')+')' : c;
+        });
+        detail = pairs.join(' / ');
+      } else if(mods.length){
+        detail = mods.join('/');
+      }
+    }
+    return `${m.name}（${detail || m.role}）`;
+  };
   const sel=document.getElementById('meSel');
-  sel.innerHTML=members.map(m=>`<option value="${m.id}" ${m.id===meId?'selected':''}>${m.name}（${m.role}）</option>`).join('');
+  sel.innerHTML=members.map(m=>`<option value="${m.id}" ${m.id===meId?'selected':''}>${escAttr(fmtOpt(m))}</option>`).join('');
   const fs=document.getElementById('focusSel'); if(fs) fs.value=focusMode;
 }
 function changeMe(){
