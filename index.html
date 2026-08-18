@@ -399,8 +399,10 @@
   .ptag{font-size:10px;font-weight:700;border:1px solid;border-radius:5px;padding:1px 6px;background:#fff;white-space:nowrap;}
   .mtag2{font-size:10px;font-weight:600;color:#3a6df0;background:#eef3ff;border:1px solid #c9dbff;border-radius:5px;padding:1px 6px;white-space:nowrap;}
   /* 归属标签（带队/隶属）：实心胶囊，主信息 */
-  .ltag{font-size:10.5px;font-weight:600;border-radius:6px;padding:2px 8px;white-space:nowrap;line-height:1.4;}
-  .ltag.lead{color:#7c3aed;background:#f3e8ff;border:1px solid #d9c2fb;}
+  .ltag{font-size:10.5px;font-weight:600;border-radius:6px;padding:2px 8px;line-height:1.4;}
+  /* 负责标签(lead)需要内部换行显示角色+模块配对行，不能 nowrap */
+  .ltag.lead{color:#7c3aed;background:#f3e8ff;border:1px solid #d9c2fb;white-space:normal;max-width:none;}
+  .who .tags .ltag.lead{max-width:none;overflow:visible;text-overflow:clip;}
   .ltag.belong{color:#646a73;background:#f2f4f7;border:1px solid #e1e5ea;}
   /* 效率：弱化为"指标"态——无填充描边、灰底细框，明显区别于归属胶囊 */
   .ltag.eff{font-weight:700;color:#0a7d3c;background:transparent;border:1px dashed #b7e0c6;padding:2px 7px;letter-spacing:.2px;}
