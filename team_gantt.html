@@ -278,8 +278,7 @@
 
   .bar-task{position:absolute;z-index:1;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
   /* z-index:1 封住任务条自身的层叠上下文，使条内「✓已完成」大浮标(::after z-index:4)等永远压在 sticky 左侧成员栏 .cell-left(z-index:4) 之下，横向滚动时不再穿透覆盖左栏。拖拽态(.dragging z-index:30)另行抬高。 */
-  /* 泛白后底色变浅，文字加深色描边保持可读（白蒙版越浓描边越明显） */
-  .bar-task,.bar-addon{text-shadow:0 0 2px rgba(0,0,0,.6),0 1px 3px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.3);-webkit-text-stroke:0.5px rgba(0,0,0,.25);}
+  .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
   /* 进度表现（填充式·无废弃感）：左侧「已完成」段=本体饱和满色；右侧「未完成」段=盖一层半透明白，
      呈现「浅色空槽待填满」的观感（而非斜纹/废弃）。交界处一根高亮竖线标记当前进度位置，并叠加一层
@@ -307,7 +306,7 @@
   .bar-task.open .prog::after{display:none;}                              /* 无限延长（时间待定/长期持续）：无明确起止，不画进度分界竖线 */
   /* 无限延长条：去掉基于 --p 的「已完成/未完成」深浅分区覆盖层，整条统一底色，只保留天格线 */
   .bar-task.open .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px));}
-  .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 0 2px rgba(0,0,0,.55),0 1px 2px rgba(0,0,0,.4);}
+  .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
   /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上） */
   .bar-task .sup-mk{position:absolute;right:3px;top:2px;z-index:2;font-size:8.5px;font-weight:800;line-height:1;
@@ -622,7 +621,7 @@
   .bar-task .rt-line{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:5px;position:relative;z-index:1;max-width:100%;width:100%;pointer-events:none;line-height:1;height:100%;white-space:nowrap;overflow:hidden;}
   /* 父条横向兜底裁切（防左溢压栏） */
   .bar-task:has(.rt-line){overflow:hidden;}
-  .bar-task .rt-line .rt-nm{color:#fff;font-size:13.5px;font-weight:800;letter-spacing:.2px;text-shadow:0 0 2px rgba(0,0,0,.6),0 1px 3px rgba(0,0,0,.45);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;flex:0 1 auto;min-width:0;}
+  .bar-task .rt-line .rt-nm{color:#fff;font-size:13.5px;font-weight:800;letter-spacing:.2px;text-shadow:0 1px 1px rgba(0,0,0,.28);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;flex:0 1 auto;min-width:0;}
   /* v4.9 任务名竖排（每字一列）：极窄条上短名放不下横排时转竖排，确保完整显示不截断 */
   .bar-task .rt-line .rt-nm[data-nm="v"]{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0;line-height:1.02;white-space:nowrap;overflow:visible;text-overflow:clip;max-height:100%;text-shadow:0 1px 1px rgba(0,0,0,.32);}
   /* v5.2 模块竖排补列：竖排任务名后横向仍有富余时，把模块名也竖排补一列（去底色/边框，纯白文字，秀气不抢戏） */
