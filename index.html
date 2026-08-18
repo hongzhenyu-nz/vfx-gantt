@@ -419,9 +419,14 @@
   /* 结构化「负责」编辑器：角色多选 + 模块多选 + 确认/取消 */
   .lead-edit-struct{display:inline-flex;align-items:flex-start;gap:5px;vertical-align:middle;background:#faf5ff;border:1px solid #c4b5fd;border-radius:8px;padding:5px 8px;box-shadow:0 2px 8px rgba(124,58,237,.12);position:relative;z-index:20;}
   .le-lbl{font-size:10px;font-weight:700;color:#7c3aed;white-space:nowrap;padding-top:4px;line-height:1;}
-  .le-sel{font-size:11px;font-weight:500;border:1px solid #ddd8f7;border-radius:6px;padding:2px 4px;background:#fff;color:#334155;outline:none;min-width:90px;height:56px;overflow-y:auto;}
+  .le-sel{font-size:11px;font-weight:500;border:1px solid #ddd8f7;border-radius:6px;padding:3px 4px;background:#fff;color:#334155;outline:none;min-width:90px;overflow-y:auto;}
   .le-sel:focus{border-color:#7c3aed;box-shadow:0 0 0 2px rgba(124,58,237,.18);}
-  .le-sel option{padding:1px 4px;font-size:11px;}
+  /* 自定义多选列表项：点击即切换，无需Ctrl */
+  .le-opt{display:flex;align-items:center;gap:4px;padding:3px 6px;margin:1px 0;border-radius:4px;cursor:pointer;font-size:11px;font-weight:500;user-select:none;line-height:1.3;transition:background .12s;}
+  .le-opt:hover{background:#f5f3ff;}
+  .le-opt.sel{background:#ede9fe;color:#6d28d9;font-weight:700;}
+  .le-chk{width:14px;height:14px;border-radius:3px;border:2px solid #c4b5fd;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;background:#fff;}
+  .le-opt.sel .le-chk{background:#7c3aed;border-color:#7c3aed;color:#fff;}
   /* 结构化「负责」显示标签：角色色块 + 分隔 + 模块色块 */
   .ld-ch{display:inline-flex;align-items:center;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;margin:0 2px;white-space:nowrap;border:1px solid #f59e0b;}
   .ld-md{display:inline-flex;align-items:center;background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;margin:0 2px;white-space:nowrap;border:1px solid #3b82f6;}
@@ -5288,22 +5293,36 @@ function startEditLead(ev, mid, kind){
     // 旧格式回退：尝试从 lead 文本解析
     const fallbackLead = (m.lead||'').trim();
 
-    // 品级选择（多选下拉）
+    // 品级选择（自定义多选：点击即切换）
     const charLbl=document.createElement('span'); charLbl.className='le-lbl'; charLbl.textContent='品级';
-    const charSel=document.createElement('select'); charSel.multiple=true; charSel.size=3; charSel.className='le-sel le-sel-char';
-    CHAR_OPTS_LIST.forEach(c => {
-      const o=document.createElement('option'); o.value=c; o.textContent=c;
-      if(curChars.includes(c) || (!curChars.length && fallbackLead.includes(c))) o.selected=true;
-      charSel.appendChild(o);
-    });
-    // 模块选择（多选下拉）
+    const charSel=document.createElement('div'); charSel.className='le-sel le-sel-char';
+    const charState={}; CHAR_OPTS_LIST.forEach(c=>{charState[c]=curChars.includes(c)||(!curChars.length&&fallbackLead.includes(c));});
+    const rebuildCharOpts=()=>{
+      charSel.innerHTML='';
+      CHAR_OPTS_LIST.forEach(c=>{
+        const opt=document.createElement('div');
+        opt.className='le-opt'+(charState[c]?' sel':'');
+        opt.innerHTML=`<span class="le-chk">${charState[c]?'✓':''}</span><span>${c}</span>`;
+        opt.onclick=e=>{e.stopPropagation();charState[c]=!charState[c];rebuildCharOpts();};
+        charSel.appendChild(opt);
+      });
+    };
+    rebuildCharOpts();
+    // 模块选择（自定义多选：点击即切换）
     const modLbl=document.createElement('span'); modLbl.className='le-lbl'; modLbl.textContent='模块';
-    const modSel=document.createElement('select'); modSel.multiple=true; modSel.size=3; modSel.className='le-sel le-sel-mod';
-    MOD_OPTS_LIST.forEach(md => {
-      const o=document.createElement('option'); o.value=md; o.textContent=md;
-      if(curMods.includes(md) || (!curMods.length && fallbackLead.includes(md))) o.selected=true;
-      modSel.appendChild(o);
-    });
+    const modSel=document.createElement('div'); modSel.className='le-sel le-sel-mod';
+    const modState={}; MOD_OPTS_LIST.forEach(md=>{modState[md]=curMods.includes(md)||(!curMods.length&&fallbackLead.includes(md));});
+    const rebuildModOpts=()=>{
+      modSel.innerHTML='';
+      MOD_OPTS_LIST.forEach(md=>{
+        const opt=document.createElement('div');
+        opt.className='le-opt'+(modState[md]?' sel':'');
+        opt.innerHTML=`<span class="le-chk">${modState[md]?'✓':''}</span><span>${md}</span>`;
+        opt.onclick=e=>{e.stopPropagation();modState[md]=!modState[md];rebuildModOpts();};
+        modSel.appendChild(opt);
+      });
+    };
+    rebuildModOpts();
 
     const ok=document.createElement('button'); ok.className='lk ok'; ok.textContent='✓';
     const cc=document.createElement('button'); cc.className='lk cancel'; cc.textContent='✕';
@@ -5313,8 +5332,8 @@ function startEditLead(ev, mid, kind){
     cc.onclick=e=>{e.stopPropagation();finish(false);};
     const finish=(commit)=>{
       if(commit){
-        const selChars = [...charSel.selectedOptions].map(o=>o.value);
-        const selMods  = [...modSel.selectedOptions].map(o=>o.value);
+        const selChars = CHAR_OPTS_LIST.filter(c=>charState[c]);
+        const selMods  = MOD_OPTS_LIST.filter(md=>modState[md]);
         const newLeadChars = selChars.join(',');
         const newLeadMods  = selMods.join(',');
         // 组合为 lead 文本（向后兼容）
