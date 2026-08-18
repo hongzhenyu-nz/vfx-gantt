@@ -433,6 +433,10 @@
   .ld-ch{display:inline-flex;align-items:center;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;margin:0 2px;white-space:nowrap;border:1px solid #f59e0b;}
   .ld-md{display:inline-flex;align-items:center;background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;margin:0 2px;white-space:nowrap;border:1px solid #3b82f6;}
   .ld-sep{color:#94a3b8;font-weight:400;margin:0 2px;font-size:11px;}
+  /* 负责标签：角色与模块分行显示（避免"多角色×全模块"歧义） */
+  .ld-block{display:inline-flex;flex-direction:column;gap:3px;vertical-align:middle;}
+  .ld-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;line-height:1.4;}
+  .ld-row-md{opacity:.88;}  /* 模块行略淡，与品级行区分层级 */
   .mstat{cursor:pointer;}
   .emp-badge .ed.mstat:hover{transform:scale(1.35);}
   .load{margin-left:auto;text-align:right;flex-shrink:0;min-width:85px;}
@@ -5132,22 +5136,24 @@ function formatLeadDisplay(m){
     // 按 memberId 排序保证序号稳定
     Object.keys(gradeOrder).forEach(g => gradeOrder[g].sort());
 
-    const parts = [];
-    if(chars.length){
-      const charSpans = chars.map(c => {
-        const gInfo = HR_GRADE[c] || HR_GRADE[''];
-        let label = c;
-        // 同一品级被多人选 → 加序号
-        if((gradeCount[c]||0) > 1){
-          const idx = (gradeOrder[c]||[]).indexOf(m.id);
-          if(idx >= 0) label += ['①','②','③','④','⑤'][idx] || '';
-        }
-        return `<span class="ld-ch" style="background:${gInfo.col}22;color:${gInfo.col};border-color:${gInfo.col}44">${escAttr(label)}</span>`;
-      });
-      parts.push(charSpans.join(''));
-    }
-    if(mods.length)  parts.push('<span class="ld-sep">·</span>'+mods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('/'));
-    return '负责 '+parts.join('');
+    const charSpans = chars.map(c => {
+      const gInfo = HR_GRADE[c] || HR_GRADE[''];
+      let label = c;
+      // 同一品级被多人选 → 加序号
+      if((gradeCount[c]||0) > 1){
+        const idx = (gradeOrder[c]||[]).indexOf(m.id);
+        if(idx >= 0) label += ['①','②','③','④','⑤'][idx] || '';
+      }
+      return `<span class="ld-ch" style="background:${gInfo.col}22;color:${gInfo.col};border-color:${gInfo.col}44">${escAttr(label)}</span>`;
+    }).join('');
+    const modSpans = mods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('');
+
+    // ★ 角色与模块分行显示：避免"多角色×全模块"的歧义
+    let html = '<span class="ld-block">';
+    if(charSpans) html += '<span class="ld-row ld-row-ch">'+charSpans+'</span>';
+    if(modSpans)  html += '<span class="ld-row ld-row-md">'+modSpans+'</span>';
+    html += '</span>';
+    return '负责 '+html;
   }
   // 旧格式回退：原样展示 lead 文本
   const t = (m.lead||'').trim();
