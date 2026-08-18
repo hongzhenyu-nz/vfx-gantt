@@ -391,8 +391,10 @@
   .emp-badge.sup .el{color:#0e7490;}
   .emp-badge .ed{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 .5px rgba(0,0,0,.06);}
   .emp-badge .olflag{position:absolute;left:-4px;top:-4px;width:15px;height:15px;border-radius:50%;background:var(--red);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 3px rgba(245,65,63,.5);}
-  .who{min-width:0;}
-  .who .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;align-items:center;}
+  .who{min-width:0;flex:1;overflow:hidden;display:flex;flex-direction:column;gap:2px;}
+  .who .nm{font-weight:600;font-size:13px;display:flex;align-items:center;flex-wrap:wrap;gap:5px 0;} .who .ro{color:var(--tx3);font-size:11px;}
+  .who .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:2px;align-items:center;overflow:hidden;}
+  .who .tags .ltag{max-width:180px;overflow:hidden;text-overflow:ellipsis;}
   .ptag{font-size:10px;font-weight:700;border:1px solid;border-radius:5px;padding:1px 6px;background:#fff;white-space:nowrap;}
   .mtag2{font-size:10px;font-weight:600;color:#3a6df0;background:#eef3ff;border:1px solid #c9dbff;border-radius:5px;padding:1px 6px;white-space:nowrap;}
   /* 归属标签（带队/隶属）：实心胶囊，主信息 */
@@ -431,10 +433,9 @@
   .ld-ch{display:inline-flex;align-items:center;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;margin:0 2px;white-space:nowrap;border:1px solid #f59e0b;}
   .ld-md{display:inline-flex;align-items:center;background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;margin:0 2px;white-space:nowrap;border:1px solid #3b82f6;}
   .ld-sep{color:#94a3b8;font-weight:400;margin:0 2px;font-size:11px;}
-  .who .nm{font-weight:600;font-size:13px;display:flex;align-items:center;flex-wrap:wrap;gap:5px 0;} .who .ro{color:var(--tx3);font-size:11px;}
   .mstat{cursor:pointer;}
   .emp-badge .ed.mstat:hover{transform:scale(1.35);}
-  .load{margin-left:auto;text-align:right;flex-shrink:0;}
+  .load{margin-left:auto;text-align:right;flex-shrink:0;min-width:85px;}
   .load .bar-l{width:78px;height:6px;border-radius:3px;background:#eef0f3;overflow:hidden;margin-top:3px;position:relative;}
   .load .bar-l i{display:block;height:100%;border-radius:3px;}
   .load .bar-l.over{box-shadow:0 0 0 1.5px rgba(245,65,63,.55);}
