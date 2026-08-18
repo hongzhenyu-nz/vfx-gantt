@@ -1095,11 +1095,11 @@
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
 
   <div class="kpis">
-    <div class="kpi"><div class="lab">出场制作人</div><div class="val" id="kp-mem">—</div></div>
-    <div class="kpi"><div class="lab">在排出场需求</div><div class="val" id="kp-active">—</div></div>
-    <div class="kpi"><div class="lab">高峰负载率</div><div class="val w" id="kp-load">—</div></div>
-    <div class="kpi"><div class="lab">高风险需求</div><div class="val d" id="kp-high">—</div></div>
-    <div class="kpi"><div class="lab">常规管线缺口</div><div class="val d" id="kp-done">—</div></div>
+    <div class="kpi"><div class="lab">在岗编制人数</div><div class="val" id="kp-mem">—</div></div>
+    <div class="kpi"><div class="lab">在岗制作人(去重)</div><div class="val" id="kp-maker">—</div></div>
+    <div class="kpi"><div class="lab">已配置总岗位</div><div class="val" id="kp-cfg">—</div></div>
+    <div class="kpi"><div class="lab">标配缺口</div><div class="val" id="kp-gap">—</div></div>
+    <div class="kpi"><div class="lab">缺少数(含暂缺)</div><div class="val d" id="kp-lack">—</div></div>
   </div>
 
   <div class="bar">
@@ -3991,22 +3991,15 @@ function renderHR(){
 }
 
 function updateKPIs(){
-  // 出席制作人：排除已离职 + 外借支援，只算在岗正编+基地
-  const activeMems = members.filter(m => m.status !== 'left' && !isExtLoan(m));
-  document.getElementById('kp-mem').textContent = activeMems.length;
-  // 在排出场需求：未完成 + 未废弃 + 结束日期≥今天
-  const active=reqs.filter(r=>r.end>=TODAY && r.done<r.estimate && aggStatus(r)!=='done').length;
-  document.getElementById('kp-active').textContent=active;
-  // 高峰负载：取所有在岗成员负载率的最大值（更能反映撞车）
-  const loads=activeMems.map(m=>memLoad(m.id).pct);
-  const peak=loads.length?Math.max(...loads,0):0;
-  const le=document.getElementById('kp-load');le.textContent=Math.round(peak)+'%';
-  le.className='val '+(peak<=85?'s':peak<=110?'w':'d');
-  // 高风险需求
-  const high=reqs.filter(r=>reqRisk(r).lvl==='高').length;
-  document.getElementById('kp-high').textContent=high;
-  // 常规管线缺口：与下方 HR 汇总口径统一 = 标配缺口 + 暂缺占位（实时从 members+reqs 算）
-  document.getElementById('kp-done').textContent=computeHR().lack+'人';
+  // 统一使用 computeHR() 数据，与 HR 视图汇总卡完全一致
+  const HR = computeHR();
+  document.getElementById('kp-mem').textContent = HR.base;
+  document.getElementById('kp-maker').textContent = HR.makers;
+  document.getElementById('kp-cfg').textContent = HR.totalCfg;
+  const gapEl = document.getElementById('kp-gap');
+  gapEl.textContent = HR.totalGap;
+  gapEl.className = 'val ' + (HR.totalGap > 0 ? 'd' : 's');
+  document.getElementById('kp-lack').textContent = HR.lack + '人';
 }
 
 /* ============ tooltip ============ */
