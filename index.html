@@ -3346,11 +3346,13 @@ function personRowHTML(m,inArc){
       // 变超高、相邻条被夹扁，导致同一个人的两条任务高度参差不齐）。改为：与本条时间重叠的若干条，
       // 平均瓜分该时段的整行高度（等高居中），不重叠的条各自按其局部并行数占位——既保证同时段的条
       // 等高、又不为远期泳道预留空白。assignLanes 已保证重叠条 lane 互异，故按重叠集合的 lane 排名定位不会相互压盖。
-      const overlapLanes=clusterLanesOf(it);                   // 本条所在「重叠簇」的 distinct lane 列表（传递闭包，避免链式重叠压盖）
-      const kPar=Math.max(overlapLanes.length,1);              // 本簇并行条数（同簇统一分母）
-      const posPar=Math.max(overlapLanes.indexOf(it.lane),0);  // 本条在簇内的次序（0-based）
-      const segTop=posPar/kPar;                                // 本条顶部占比（按局部并行数等分）
-      const segH=1/kPar;                                       // 本条占整行高度比（等分）
+      /* v6.01: 全局等分对齐——用整行 laneCount 做统一分母（不再用局部 clusterLanesOf/kPar）。
+         局部 kPar 导致同一条 bar 在不同日期段属于不同簇 => 高度中途跳变、同行条参差不齐。
+         修复：segTop/segH 统一按 it.lane / laneCount => 同行所有条等高、同一 bar 全程一致；
+         仍用百分比(top%/height%)自动适配不同行高，避免固定 px 溢出(v5.96/97/99三连崩)。 */
+      const kAll=Math.max(laneCount,1);                       // 全局泳道数（整行统一分母）
+      const segTop=it.lane/kAll;                              // 本条顶部占比（按全局 lane 号）
+      const segH=1/kAll;                                      // 本条占整行高度比（全员等分）
       const topPct=((segTop+segH*(1-FILL)/2)*100).toFixed(3);
       const hPct=(segH*FILL*100).toFixed(3);
       const frac=segH*FILL;                                    // 本条实际占整行内高的比例（估算是否纤细）
