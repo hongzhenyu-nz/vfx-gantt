@@ -279,8 +279,6 @@
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
 
   .bar-task{position:absolute;z-index:1;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
-  /* 连续填充条：无并行时自动填满任务间隙，视觉上表达"持续在岗"而非断续离散 */
-  .bar-fill{position:absolute;z-index:0;top:0%;height:100%;border-radius:5px;background:linear-gradient(90deg,rgba(99,120,153,.18),rgba(99,120,153,.12));border:1px dashed rgba(99,120,153,.20);pointer-events:none;}
   /* z-index:1 封住任务条自身的层叠上下文，使条内「✓已完成」大浮标(::after z-index:4)等永远压在 sticky 左侧成员栏 .cell-left(z-index:4) 之下，横向滚动时不再穿透覆盖左栏。拖拽态(.dragging z-index:30)另行抬高。 */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
@@ -3338,18 +3336,6 @@ function personRowHTML(m,inArc){
     // 判断某泳道在 [s,e) 时段是否被别的条目占用
     const occupied=(lane,s,e)=> laid.items.some(b=> b.lane===lane && b.si0<e && b.ei0>s);
     let bars='';
-    // ★ 连续填充条：无并行时（laneCount===1，即所有任务段不重叠），用淡色背景填满首尾间隙
-    //   视觉上表达"持续在岗"而非断续离散条；有并行时不填（多行条本身已表达密度）
-    if(laid.items.length >= 2 && laneCount === 1){
-      const nonOpen = laid.items.filter(it => !it.sg.open);
-      if(nonOpen.length >= 2){
-        const fStart = Math.min(...nonOpen.map(it => it.si0));
-        const fEnd   = Math.max(...nonOpen.map(it => it.ei0));
-        if(fEnd > fStart){
-          bars += `<div class="bar-fill" style="left:${fStart*DAY_W}px;width:${(fEnd-fStart)*DAY_W}px"></div>`;
-        }
-      }
-    }
     laid.items.forEach(it=>{
       const {r,sg,si}=it;
       const isOpen=!!sg.open;
@@ -5169,7 +5155,37 @@ function formatLeadDisplay(m){
   if(!m || (m.corp!=='reg' && m.corp!=='sub')) return '';
   const chars = (m.leadChars||'').split(',').filter(Boolean);
   const mods  = (m.leadMods||'').split(',').filter(Boolean);
-  if(chars.length || mods.length){
+  // 旧格式回退解析（与 startEditLead 共用同一套逻辑）
+  if(!chars.length && !mods.length){
+    const txt=(m.lead||'').trim();
+    if(txt && txt!=='暂缺' && txt!=='—'){
+      const pi=txt.indexOf(' · ');
+      const cRaw=pi>0?txt.slice(0,pi):txt;
+      const mRaw=pi>0?txt.slice(pi+3):'';
+      const cSet=new Set(CHAR_OPTS_LIST);
+      // 角色提取：+ 分割 + 去尾数字 + 匹配
+      const fc=cRaw.split('+').map(s=>s.trim().replace(/[①②③④⑤]$/,'')).filter(s=>cSet.has(s));
+      // 子串扫描兜底（兼容 "橙角露西亚·管线1"）
+      const ec=fc.length?fc:[...cSet].filter(c=>txt.includes(c));
+      // 模块提取：/ 分割 + 复合模块处理
+      const mp=mRaw.split('/').filter(Boolean);
+      const mSet=new Set(MOD_OPTS_LIST);
+      const em=[];
+      for(let i=0;i<mp.length;i++){
+        const cur=mp[i],nxt=mp[i+1];
+        if(nxt!==undefined&&mSet.has(cur+'/'+nxt)){em.push(cur+'/'+nxt);i++;}
+        else if(mSet.has(cur)){em.push(cur);}
+      }
+      if(ec.length||em.length){ return _formatLeadStructured(m,ec,em); }
+    }
+    // 最终回退：原样展示旧文本
+    const t = txt;
+    return t ? '负责 '+escAttr(t) : '';
+  }
+  return _formatLeadStructured(m, chars, mods);
+}
+/* 结构化负责标签渲染（被 formatLeadDisplay 和回退解析共同调用） */
+function _formatLeadStructured(m, chars, mods){
     // 收集所有正编的品级选择，用于去重序号
     const regMembers = members.filter(x=>x.corp==='reg');
     const gradeCount = {};   // 品级 → 出现次数
@@ -5224,10 +5240,6 @@ function formatLeadDisplay(m){
     }
     html += '</span>';
     return '负责 '+html;
-  }
-  // 旧格式回退：原样展示 lead 文本
-  const t = (m.lead||'').trim();
-  return t ? '负责 '+escAttr(t) : '';
 }
 
 function openNewMember(){
@@ -5401,16 +5413,42 @@ function startEditLead(ev, mid, kind){
     const wrap=document.createElement('span');
     wrap.className='lead-edit lead-edit-struct';
 
-    // 解析当前值
+    // 解析当前值（优先读结构化字段，回退解析旧 lead 文本）
     const curChars = (m.leadChars||'').split(',').filter(Boolean);
     const curMods  = (m.leadMods||'').split(',').filter(Boolean);
-    // 旧格式回退：尝试从 lead 文本解析
-    const fallbackLead = (m.lead||'').trim();
+    // 旧格式回退解析器：能处理 "橙 · 出场/组队"、"橙+红 · 检视/TPP"、"橙角露西亚·管线1" 等历史格式
+    function parseLeadFallback(txt){
+      if(!txt || txt==='暂缺' || txt==='—') return {chars:[],mods:[]};
+      const raw=(txt||'').trim();
+      const cSet=new Set(CHAR_OPTS_LIST);
+      const mSet=new Set(MOD_OPTS_LIST);
+      // 尝试标准格式 "角色部分 · 模块部分"
+      const pi=raw.indexOf(' · ');
+      let cRaw='', mRaw='';
+      if(pi>0){ cRaw=raw.slice(0,pi); mRaw=raw.slice(pi+3); }
+      else{ cRaw=raw; } // 无分隔符时整体当角色部分扫描
+      // 提取角色：按 + 分割，逐词去尾数字（如"红①"→"红"），匹配 CHAR_OPTS_LIST
+      const chars=cRaw.split('+').map(s=>s.trim().replace(/[①②③④⑤]$/,'')).filter(s=>cSet.has(s));
+      // 如果标准格式没拆出角色，对整串做子串扫描（兼容 "橙角露西亚·管线1"）
+      const finalChars=chars.length?chars:[...cSet].filter(c=>raw.includes(c));
+      // 提取模块：按 / 分割，处理复合模块名（本体/3C）
+      const mp=mRaw.split('/').filter(Boolean);
+      const mods=[];
+      for(let i=0;i<mp.length;i++){
+        const cur=mp[i], nxt=mp[i+1];
+        if(nxt!==undefined && mSet.has(cur+'/'+nxt)){ mods.push(cur+'/'+nxt); i++; }
+        else if(mSet.has(cur)){ mods.push(cur); }
+      }
+      return {chars:finalChars,mods};
+    }
+    const fb=(!curChars.length||!curMods.length)?parseLeadFallback(m.lead||''):{chars:[],mods:[]};
+    const effChars=curChars.length?curChars:fb.chars;
+    const effMods=curMods.length?curMods:fb.mods;
 
     // 品级选择（自定义多选：点击即切换）
     const charLbl=document.createElement('span'); charLbl.className='le-lbl'; charLbl.textContent='品级';
     const charSel=document.createElement('div'); charSel.className='le-sel le-sel-char';
-    const charState={}; CHAR_OPTS_LIST.forEach(c=>{charState[c]=curChars.includes(c)||(!curChars.length&&fallbackLead.includes(c));});
+    const charState={}; CHAR_OPTS_LIST.forEach(c=>{charState[c]=effChars.includes(c);});
     const rebuildCharOpts=()=>{
       charSel.innerHTML='';
       CHAR_OPTS_LIST.forEach(c=>{
@@ -5425,7 +5463,7 @@ function startEditLead(ev, mid, kind){
     // 模块选择（自定义多选：点击即切换）
     const modLbl=document.createElement('span'); modLbl.className='le-lbl'; modLbl.textContent='模块';
     const modSel=document.createElement('div'); modSel.className='le-sel le-sel-mod';
-    const modState={}; MOD_OPTS_LIST.forEach(md=>{modState[md]=curMods.includes(md)||(!curMods.length&&fallbackLead.includes(md));});
+    const modState={}; MOD_OPTS_LIST.forEach(md=>{modState[md]=effMods.includes(md);});
     const rebuildModOpts=()=>{
       modSel.innerHTML='';
       MOD_OPTS_LIST.forEach(md=>{
