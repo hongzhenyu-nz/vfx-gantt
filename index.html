@@ -279,6 +279,14 @@
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
 
   .bar-task{position:absolute;z-index:1;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
+  /* v5.93 按天动态高度（方案2）：元素本体始终覆盖完整行高，再用 clip-path 按每个日期区间的真实并发数裁成阶梯/拼图形。
+     这样仍只有一个 DOM 任务条，拖拽、缩放、右键、进度和休息日纹理全部沿用原逻辑；只有可见几何形状随并发变化。 */
+  .bar-task.day-shape{top:0!important;height:100%!important;display:block;padding:0;transition:box-shadow .12s;}
+  .bar-task.day-shape .rt-line{position:absolute;left:var(--label-left,0%);right:auto;top:var(--label-top,4%);height:var(--label-h,92%);width:var(--label-width,100%);max-width:none;padding:0 8px 0 22px;box-sizing:border-box;}
+  .bar-task.day-shape>.sdot{position:absolute;left:calc(var(--label-left,0%) + 9px);top:var(--label-mid,50%);transform:translateY(-50%);margin:0;}
+  .bar-task.day-shape>.sup-mk{right:auto;left:calc(var(--label-left,0%) + var(--label-width,100%) - 19px);top:calc(var(--label-top,4%) + 2px);}
+  .bar-task.day-shape>.open-r{right:auto;left:calc(var(--label-left,0%) + var(--label-width,100%) - 14px);top:var(--label-mid,50%);}
+  .bar-task.day-shape.done-float::after{left:var(--label-xmid,50%);top:var(--label-mid,50%);}
   /* z-index:1 封住任务条自身的层叠上下文，使条内「✓已完成」大浮标(::after z-index:4)等永远压在 sticky 左侧成员栏 .cell-left(z-index:4) 之下，横向滚动时不再穿透覆盖左栏。拖拽态(.dragging z-index:30)另行抬高。 */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
@@ -3312,25 +3320,39 @@ function personRowHTML(m,inArc){
     // 分配泳道（用天索引判重叠）；open 段已在上方归一化为整行 [0,DAYS) 占位，故此处直接用 si0/ei0。
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
-    /* 「时间重叠传递闭包」内的 distinct lane 列表：用于均高等分定位。
-       关键修复——只看「直接重叠」会在链式重叠(A↔B↔C 但 A、C 不重叠)时算出不一致的分母，
-       导致同簇内的条槽位错位、互相压盖(同一垂直位糊成一团)。改用传递闭包后，同一重叠簇内
-       所有条共享同一分母(簇内 distinct lane 数)、各按自身 lane 排名占槽，链式重叠也绝不重叠。
-       不重叠的条各自成簇(lane 数=1)，仍铺满整行，与原行为一致。 */
-    const clusterLanesOf=(it)=>{
-      const inC=new Set([it]); const stk=[it];
-      while(stk.length){ const cur=stk.pop();
-        for(const b of laid.items){ if(inC.has(b))continue; if(b.si0<cur.ei0 && b.ei0>cur.si0){ inC.add(b); stk.push(b);} } }
-      return [...new Set([...inC].map(b=>b.lane))].sort((a,b)=>a-b);
+    /* v5.93 方案2——按日期区间动态撑满：
+       任务条仍然只渲染为一个 DOM（保证拖拽/缩放/右键/进度逻辑不拆散），但依据所有任务的起止变化点，
+       为每个区间计算「当天真正并行的任务数 + 本任务在其中的稳定顺序」，再拼成 x 单调的 clip-path 多边形。
+       结果：单任务日期占满整行；2/3/... 条并行日期分别等分；并发变化边界形成阶梯，正是用户选择的拼图形方案。 */
+    const SHAPE_FILL=0.92;                           // 槽内占高 92%，相邻任务/成员行之间保留细缝
+    const dayShapeOf=(it)=>{
+      const cuts=new Set([it.si0,it.ei0]);
+      for(const b of laid.items){
+        if(b.si0>=it.ei0 || b.ei0<=it.si0) continue;
+        cuts.add(Math.max(it.si0,b.si0));
+        cuts.add(Math.min(it.ei0,b.ei0));
+      }
+      const pts=[...cuts].sort((a,b)=>a-b);
+      const parts=[];
+      for(let i=0;i<pts.length-1;i++){
+        const a=pts[i],b=pts[i+1]; if(b<=a)continue;
+        const active=laid.items.filter(x=>x.si0<b&&x.ei0>a).sort((x,y)=>x.lane-y.lane||x.si0-y.si0||x.ei0-y.ei0);
+        const pos=Math.max(active.indexOf(it),0), k=Math.max(active.length,1), slot=1/k;
+        const top=pos*slot+slot*(1-SHAPE_FILL)/2, h=slot*SHAPE_FILL;
+        const prev=parts[parts.length-1];
+        if(prev&&prev.b===a&&Math.abs(prev.top-top)<1e-7&&Math.abs(prev.h-h)<1e-7) prev.b=b;
+        else parts.push({a,b,top,h});
+      }
+      if(!parts.length) parts.push({a:it.si0,b:it.ei0,top:(1-SHAPE_FILL)/2,h:SHAPE_FILL});
+      const span=Math.max(it.ei0-it.si0,1), xp=d=>((d-it.si0)/span*100), yp=v=>(v*100);
+      const poly=[];
+      for(const p of parts){poly.push(`${xp(p.a).toFixed(4)}% ${yp(p.top).toFixed(4)}%`,`${xp(p.b).toFixed(4)}% ${yp(p.top).toFixed(4)}%`);}
+      for(let i=parts.length-1;i>=0;i--){const p=parts[i],bot=p.top+p.h;poly.push(`${xp(p.b).toFixed(4)}% ${yp(bot).toFixed(4)}%`,`${xp(p.a).toFixed(4)}% ${yp(bot).toFixed(4)}%`);}
+      // 标签放进最宽的连续平坦区，避免文字正好落在被裁掉的阶梯区域。
+      const anchor=parts.reduce((best,p)=>(p.b-p.a)>(best.b-best.a)?p:best,parts[0]);
+      const labelLeft=xp(anchor.a), labelWidth=xp(anchor.b)-labelLeft, labelTop=yp(anchor.top), labelH=yp(anchor.h);
+      return {clip:`polygon(${poly.join(',')})`,labelLeft,labelWidth,labelTop,labelH,labelMid:labelTop+labelH/2,labelXMid:labelLeft+labelWidth/2};
     };
-    /* 自适应条高（关键）：纵向位置/高度全部用「行实际高度的百分比」表达，而不是固定像素。
-       这样无论左侧信息栏把行撑多高，蓝条都会自动充满整行：
-       · 某条任务所在时段没有别的条目挤占 → 它向上下吞并相邻空泳道，纵向占满整行（填满红框）。
-       · 某条任务所在时段确有并行 → 只有真正打架的条目各占一槽、等高等分。
-       槽位用 (lo/laneCount ~ hi/laneCount) 的百分比切分，bar 内插 GAP_PX 间距留缝。 */
-    const FILL=0.88;                                 /* v5.92：0.80→0.88。条在所在泳道槽位内的占高比例。
-                                                        实测空隙 9.2→5.5px（单泳道）、6.6→4.0px（双泳道），条高 36.8→40.5px，
-                                                        视觉密度明显提升、"像没排需求"的空旷感减弱。仍留 12% 以区分相邻条/行。 */
     /* 行高 v5.91（分位数自适应）：旧算法按「绝对峰值泳道数」撑高——但真实数据里峰值往往只出现在极少天数
        （实测陈琛峰值 9 条并行只占 3.6% 天数、平均并发 4.41 → 行高只用到 49%，余下 51% 是空白，
         这正是"看起来像没排需求"的根源）。改为按「覆盖 P 分位天数的并发数」定行高：
@@ -3367,27 +3389,15 @@ function personRowHTML(m,inArc){
     })();
     let rowH = effLanes<=1 ? ROW_BASE
                : Math.max(ROW_BASE, PADV*2 + effLanes*BAR_MIN + (effLanes-1)*LANE_GAP);
-    // 判断某泳道在 [s,e) 时段是否被别的条目占用
-    const occupied=(lane,s,e)=> laid.items.some(b=> b.lane===lane && b.si0<e && b.ei0>s);
     let bars='';
     laid.items.forEach(it=>{
       const {r,sg,si}=it;
       const isOpen=!!sg.open;
       // 无明确时间段：横向铺满整条时间线（前后无限延长，靠 CSS 两端羽化表达"未定/持续"）
       const x=isOpen?0:it.si0*DAY_W, w=isOpen?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
-      // 局部并行密度等分（关键·均高）：每条的纵向高度/位置只取决于它所在时段「真正并行的条数」，
-      // 而不再被远期高并行撑大的全局 laneCount 影响、也不贪心吞并空泳道（旧算法会让某条独吞下方空槽
-      // 变超高、相邻条被夹扁，导致同一个人的两条任务高度参差不齐）。改为：与本条时间重叠的若干条，
-      // 平均瓜分该时段的整行高度（等高居中），不重叠的条各自按其局部并行数占位——既保证同时段的条
-      // 等高、又不为远期泳道预留空白。assignLanes 已保证重叠条 lane 互异，故按重叠集合的 lane 排名定位不会相互压盖。
-      const overlapLanes=clusterLanesOf(it);                   // 本条所在「重叠簇」的 distinct lane 列表（传递闭包，避免链式重叠压盖）
-      const kPar=Math.max(overlapLanes.length,1);              // 本簇并行条数（同簇统一分母）
-      const posPar=Math.max(overlapLanes.indexOf(it.lane),0);  // 本条在簇内的次序（0-based）
-      const segTop=posPar/kPar;                                // 本条顶部占比（按局部并行数等分）
-      const segH=1/kPar;                                       // 本条占整行高度比（等分）
-      const topPct=((segTop+segH*(1-FILL)/2)*100).toFixed(3);
-      const hPct=(segH*FILL*100).toFixed(3);
-      const frac=segH*FILL;                                    // 本条实际占整行内高的比例（估算是否纤细）
+      // 逐区间计算阶梯形裁切路径；标签锚定在本条最宽的平坦区。
+      const shape=dayShapeOf(it);
+      const frac=shape.labelH/100;                              // 标签所在区间的实际占高比例（估算是否纤细）
       const slimCls = frac<0.34 ? ' slim' : '';
       const risk=reqRisk(r);
       // v5.8：状态/进度按今天日期自动推算（到开始日灰→蓝，进度随已过工作日增长；休息日不推进）。
@@ -3402,8 +3412,8 @@ function personRowHTML(m,inArc){
       const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
       /* 横向单行 v4.8：按条子像素宽度决定显示几个信息位（任务名永远显示），按高度选字号档。
          任务名 > 模块 > 人天 > 投入比 优先级递减；窄条从右往左省略，不缩字号硬撑、不换行裁切。 */
-      const barHpx = segH*FILL*rowH;                                        // 本条像素高度
-      const barWpx = w;                                                     // 本条像素宽度
+      const barHpx = shape.labelH/100*rowH;                                 // 标签所在平坦区的像素高度
+      const barWpx = w*shape.labelWidth/100;                                // 标签所在平坦区的可用像素宽度
       const nShow = calcNShow(barWpx);                                      // 1~4，按条宽自动选
       const szTier = pickSizeTier(barHpx);                                  // 1=正常 2=紧凑
       // 复用「按需求看」的居中大浮标：整条完成 + 条够宽够高（不溢出/不遮挡）→ done-float 居中「✓ 已完成」，
@@ -3412,7 +3422,7 @@ function personRowHTML(m,inArc){
       const floatCls = canFloat ? (barHpx>=34?' done-float':' done-float sm') : '';
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
-      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      bars+=`<div class="bar-task day-shape ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;--label-left:${shape.labelLeft.toFixed(4)}%;--label-width:${shape.labelWidth.toFixed(4)}%;--label-top:${shape.labelTop.toFixed(4)}%;--label-h:${shape.labelH.toFixed(4)}%;--label-mid:${shape.labelMid.toFixed(4)}%;--label-xmid:${shape.labelXMid.toFixed(4)}%;clip-path:${shape.clip};-webkit-clip-path:${shape.clip};border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
@@ -3685,10 +3695,12 @@ function fitBarLabels(){
     // 圆点(.sdot)是「非必要」装饰元素，与 rt-line 同级、flex-shrink:0 不收缩；任务名(rt-nm)才是必须保命的。
     const bar=line.closest('.bar-task');
     const isReq=!!(bar&&bar.classList.contains('req-bar'));
+    const isDay=!!(bar&&bar.classList.contains('day-shape'));
     const sdot=(bar&&!isReq)?bar.querySelector(':scope > .sdot'):null;
     // 复位：清掉上一轮的 inline 降级痕迹，从「全显示、原始字号、横排、有圆点、原内边距」开始重新测
     line.querySelectorAll('[data-rank]').forEach(el=>{ el.style.display=''; el.style.fontSize=''; el.removeAttribute('data-nm'); });
     if(sdot) sdot.style.display='';
+    line.style.paddingLeft=''; line.style.paddingRight='';
     if(bar&&!isReq){ bar.style.paddingLeft=''; bar.style.paddingRight=''; }
     nm.style.fontSize=''; nm.style.writingMode=''; nm.style.textOrientation='';
     nm.removeAttribute('data-nm'); nm.style.textOverflow='';
@@ -3711,8 +3723,16 @@ function fitBarLabels(){
        导致任务名整个消失、只剩顽固不收缩的圆点（就是用户截图里的问题）。
        圆点是非必要装饰、任务名必须保命——所以放不下时优先牺牲圆点、再收窄内边距，把空间还给任务名。 */
     if(fits() && avail>0) return;                        // 全显示放得下：完事
-    if(sdot){ sdot.style.display='none'; avail=line.clientWidth; if(fits()&&avail>0) return; }
-    if(bar&&!isReq){ bar.style.paddingLeft='2px'; bar.style.paddingRight='2px'; avail=line.clientWidth; if(fits()&&avail>0) return; }
+    if(sdot){
+      sdot.style.display='none';
+      if(isDay) line.style.paddingLeft='8px';             // 阶梯条圆点为绝对定位，隐藏后同步回收其预留内边距
+      avail=line.clientWidth; if(fits()&&avail>0) return;
+    }
+    if(bar&&!isReq){
+      if(isDay){ line.style.paddingLeft='2px'; line.style.paddingRight='2px'; }
+      else{ bar.style.paddingLeft='2px'; bar.style.paddingRight='2px'; }
+      avail=line.clientWidth; if(fits()&&avail>0) return;
+    }
     if(avail<=0) return;                                 // 回收后仍无可用宽（条本身近乎 0px）：无解，跳过
     // —— 到这里说明横向放不下全部信息，必须降级 ——
     const short=nm.textContent||'';
