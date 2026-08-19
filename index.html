@@ -3332,7 +3332,7 @@ function personRowHTML(m,inArc){
     /* 行高 v4.8：横向单行标签后不再需要为「竖排 N 行」撑高。
        单泳道维持基础行高（横排单行足够）；多泳道时按 BAR_MIN 保证每条不低于可读下限。 */
     let rowH = laneCount<=1 ? ROW_BASE
-               : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
+               : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_H + (laneCount-1)*BAR_G);
     // 判断某泳道在 [s,e) 时段是否被别的条目占用
     const occupied=(lane,s,e)=> laid.items.some(b=> b.lane===lane && b.si0<e && b.ei0>s);
     let bars='';
@@ -3341,20 +3341,14 @@ function personRowHTML(m,inArc){
       const isOpen=!!sg.open;
       // 无明确时间段：横向铺满整条时间线（前后无限延长，靠 CSS 两端羽化表达"未定/持续"）
       const x=isOpen?0:it.si0*DAY_W, w=isOpen?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
-      // 局部并行密度等分（关键·均高）：每条的纵向高度/位置只取决于它所在时段「真正并行的条数」，
-      // 而不再被远期高并行撑大的全局 laneCount 影响、也不贪心吞并空泳道（旧算法会让某条独吞下方空槽
-      // 变超高、相邻条被夹扁，导致同一个人的两条任务高度参差不齐）。改为：与本条时间重叠的若干条，
-      // 平均瓜分该时段的整行高度（等高居中），不重叠的条各自按其局部并行数占位——既保证同时段的条
-      // 等高、又不为远期泳道预留空白。assignLanes 已保证重叠条 lane 互异，故按重叠集合的 lane 排名定位不会相互压盖。
-      const overlapLanes=clusterLanesOf(it);                   // 本条所在「重叠簇」的 distinct lane 列表（传递闭包，避免链式重叠压盖）
-      const kPar=Math.max(overlapLanes.length,1);              // 本簇并行条数（同簇统一分母）
-      const posPar=Math.max(overlapLanes.indexOf(it.lane),0);  // 本条在簇内的次序（0-based）
-      const segTop=posPar/kPar;                                // 本条顶部占比（按局部并行数等分）
-      const segH=1/kPar;                                       // 本条占整行高度比（等分）
-      const topPct=((segTop+segH*(1-FILL)/2)*100).toFixed(3);
-      const hPct=(segH*FILL*100).toFixed(3);
-      const frac=segH*FILL;                                    // 本条实际占整行内高的比例（估算是否纤细）
-      const slimCls = frac<0.34 ? ' slim' : '';
+      // v5.95 统一条高对齐：所有甘特条使用固定像素高度(32px)和固定间距(4px)，
+      // 按泳道号(line)线性排列。不再按局部并发数百分比缩放——解决跨行条高参差不齐、垂直错位问题。
+      // 单任务行和多任务并行行的每条任务完全等高等大，视觉整齐划一。
+      const BAR_H = 32;                                       // 固定条高（与 CSS .bar-task {height:32px} 一致）
+      const BAR_G = 4;                                        // 固定泳道间距
+      const barTop = PADV + it.lane * (BAR_H + BAR_G);        // 按泳道号算绝对像素 top
+      const barH = BAR_H;                                     // 固定高度
+      const slimCls = '';                                      // 不再纤细（固定高度足够）
       const risk=reqRisk(r);
       // v5.8：状态/进度按今天日期自动推算（到开始日灰→蓝，进度随已过工作日增长；休息日不推进）。
       //       人工「已完成/废弃」仍为准，不被日期覆盖。构造 autoSeg 供着色/标签/进度统一使用。
@@ -3368,7 +3362,7 @@ function personRowHTML(m,inArc){
       const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
       /* 横向单行 v4.8：按条子像素宽度决定显示几个信息位（任务名永远显示），按高度选字号档。
          任务名 > 模块 > 人天 > 投入比 优先级递减；窄条从右往左省略，不缩字号硬撑、不换行裁切。 */
-      const barHpx = segH*FILL*rowH;                                        // 本条像素高度
+      const barHpx = barH;                                                     // 本条像素高度（固定 32px）
       const barWpx = w;                                                     // 本条像素宽度
       const nShow = calcNShow(barWpx);                                      // 1~4，按条宽自动选
       const szTier = pickSizeTier(barHpx);                                  // 1=正常 2=紧凑
@@ -3378,7 +3372,7 @@ function personRowHTML(m,inArc){
       const floatCls = canFloat ? (barHpx>=34?' done-float':' done-float sm') : '';
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
-      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${barTop}px;height:${barH}px;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
