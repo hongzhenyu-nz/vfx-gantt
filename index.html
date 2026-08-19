@@ -3355,6 +3355,13 @@ function personRowHTML(m,inArc){
       const hPct=(segH*FILL*100).toFixed(3);
       const frac=segH*FILL;                                    // 本条实际占整行内高的比例（估算是否纤细）
       const slimCls = frac<0.34 ? ' slim' : '';
+      /* v5.99: 固定像素高度对齐（用全局 lane 号，不用局部 posPar）
+         posPar 是"本条在当前重叠簇内的次序"，同一条 bar 在不同日期段可能属于不同簇
+         导致 posPar 跳变 → bar 内部上下错位（v5.97 崩溃根因）。
+         改用 it.lane（assignLanes 全局分配，整条任务一致）计算固定 px 值：
+         所有 bar 统一高 32px，按 lane 号线性排列，跨行对齐。 */
+      const barTopPx = PADV + it.lane * (32 + 4);             // 7 + lane号×36px
+      const barHPx = 32;                                       // 统一条高
       const risk=reqRisk(r);
       // v5.8：状态/进度按今天日期自动推算（到开始日灰→蓝，进度随已过工作日增长；休息日不推进）。
       //       人工「已完成/废弃」仍为准，不被日期覆盖。构造 autoSeg 供着色/标签/进度统一使用。
@@ -3378,7 +3385,7 @@ function personRowHTML(m,inArc){
       const floatCls = canFloat ? (barHpx>=34?' done-float':' done-float sm') : '';
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
-      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${barTopPx}px;height:${barHPx}px;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
