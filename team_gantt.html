@@ -16,7 +16,7 @@
     --green:#34c759; --green-l:#e3f7e8;
     --amber:#ff9f0a; --amber-l:#fff1da;
     --red:#f5413f; --red-l:#ffe5e4;
-    --row-h:46px; --day-w:30px; --left-w:340px;
+    --row-h:44px; --day-w:30px; --left-w:340px;
     --wash:0;   /* 任务条色彩浓度的「淡化量」：0=原色，1=最大淡化(底色之上叠白蒙版泛白)。由滑块的“浓度%”反推：wash=(100-浓度)/100。仅淡化底色,不碰文字/甘特/标签 */
   }
   /* 淡化作用区：仅任务条（标签）底色。真·泛白 = 在底色之上叠一层白色蒙版（不是降饱和变灰、也不是压暗），
@@ -291,7 +291,7 @@
   .vline.we{background:#fafbfc;width:var(--day-w);}
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
 
-  .bar-task{position:absolute;z-index:1;height:32px;top:7px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
+  .bar-task{position:absolute;z-index:1;height:32px;top:6px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
   /* z-index:1 封住任务条自身的层叠上下文，使条内「✓已完成」大浮标(::after z-index:4)等永远压在 sticky 左侧成员栏 .cell-left(z-index:4) 之下，横向滚动时不再穿透覆盖左栏。拖拽态(.dragging z-index:30)另行抬高。 */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
@@ -728,19 +728,10 @@
     border:1px solid #b6ead6;box-shadow:0 2px 8px rgba(0,0,0,.22);}
   .bar-task.done-float.sm::after{font-size:10.5px;padding:1px 9px;letter-spacing:.5px;}
   /* 联调附属小条：虚线胶囊，挂在本体条之后 */
-  .bar-addon{position:absolute;height:20px;top:31px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));cursor:grab;z-index:2;user-select:none;touch-action:none;}
+  .bar-addon{position:absolute;height:18px;top:30px;border-radius:5px;display:inline-flex;align-items:center;gap:3px;padding:0 7px;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;border:1.5px dashed rgba(255,255,255,.85);background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.20) 0 5px,rgba(255,255,255,0) 5px 10px);box-shadow:0 1px 3px rgba(0,0,0,.18),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));cursor:grab;z-index:2;user-select:none;touch-action:none;}
   .bar-addon .ax-ic{font-size:9px;}
   .bar-addon:hover{filter:brightness(1.06);}
   .bar-addon.dragging{opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32);z-index:30;}
-  /* v6.24: 排期空隙指示器 —— 甘特条之间的空白区域，显示「空闲 N天」标签
-     半透设计：底纹足够看清（~10%不透明度），同时日期条纹（周末灰/节假日红）可透出 */
-  .gap-indicator{position:absolute;z-index:0;display:flex;align-items:center;justify-content:center;
-    background:repeating-linear-gradient(-45deg,rgba(250,204,21,.10) 0 6px,transparent 6px 12px);
-    border-top:1px dashed rgba(234,179,8,.30);border-bottom:1px dashed rgba(234,179,8,.30);
-    pointer-events:none;overflow:hidden;}
-  .gap-indicator .gap-label{font-size:10px;font-weight:600;color:#92400e;white-space:nowrap;
-    background:rgba(255,253,235,.82);padding:1px 7px;border-radius:8px;border:1px solid rgba(234,179,8,.35);
-    opacity:.88;letter-spacing:.3px;}
   /* 按需求看：左侧主名行内联调附属徽标 */
   .req .nm .addon-mk{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#7c3aed;background:#f1e9fd;border:1px dashed #c4a9f5;border-radius:5px;padding:0 6px;margin-left:2px;}
   /* ===== 统一人员标签 .ptag：一套设计自适应深/浅背景 =====
@@ -1149,7 +1140,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.25 · build 2026-08-20 20:15</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.22R · build 2026-08-20 20:25</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
@@ -3198,7 +3189,7 @@ function headerHTML(){
 /* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
 /* 自适应条高：单任务时条占满行高（饱满），同行多任务并行时按泳道平分自动变窄。
    ROW_BASE=单泳道行高；PADV=行内上下留白；LANE_GAP=泳道间距；BAR_MIN=多泳道时单条最小高度（保证可读）。 */
-const ROW_BASE=46, PADV=7, LANE_GAP=4, BAR_MIN=18;   // ROW_BASE=单条行高; PADV=行内上下留白; LANE_GAP=条间距(旧固定值，v6.23改用动态固定缝隙); BAR_MIN=多泳道时单条最小高度
+const ROW_BASE=44, PADV=6, LANE_GAP=5, BAR_MIN=24;   // v6.21 统一间距：PADV=6(上下留白), LANE_GAP=5(条间距), ROW_BASE=44(单条行高=6+32+6)
 const LANE_TOP=PADV;  // 兼容旧引用
 function assignLanes(items){               // items: [{s,e,...}]，s/e 为天索引
   const arr=items.slice().sort((a,b)=>a.s-b.s||a.e-b.e);
@@ -3380,16 +3371,7 @@ function personRowHTML(m,inArc){
        · 某条任务所在时段没有别的条目挤占 → 它向上下吞并相邻空泳道，纵向占满整行（填满红框）。
        · 某条任务所在时段确有并行 → 只有真正打架的条目各占一槽、等高等分。
        槽位用 (lo/laneCount ~ hi/laneCount) 的百分比切分，bar 内插 GAP_PX 间距留缝。 */
-    /* v6.23: 固定像素缝隙（替代旧 FILL 比例方案）
-       旧方案：FILL=0.86 固定比例 → 缝隙 = rowH*(1-FILL)/kPar，随并行数反比缩放（并行少→缝隙大）
-       新方案：BAR_GAP_PX=4 固定像素 → 无论并行几条，条间缝隙恒定 4px，条高自动均分剩余空间 */
-    const BAR_GAP_PX = 4;                              // 条间固定缝隙（像素）
-    const totalGapPx = (kPar - 1) * BAR_GAP_PX;        // 总缝隙
-    const availH = rowH - PADV * 2 - totalGapPx;       // 扣除上下留白+条间缝隙后，可供条子使用的总高度
-    let barHPx = availH / kPar;                        // 每条理论高度（均分）
-    if(barHPx < BAR_MIN) barHPx = BAR_MIN;             // 不低于最小可读高度
-    const slotH = rowH / kPar;                         // 每个槽位的高度（百分比分母）
-    const effFill = Math.min(barHPx / slotH, 0.98);   // 动态填充率（上限98%避免浮点溢出）
+    const FILL=0.86;                                 // v6.21: 条子填充率 86%（旧 80%），减少条内上下留白，视觉更紧凑
     /* 行高 v4.8：横向单行标签后不再需要为「竖排 N 行」撑高。
        单泳道维持基础行高（横排单行足够）；多泳道时按 BAR_MIN 保证每条不低于可读下限。 */
     let rowH = laneCount<=1 ? ROW_BASE
@@ -3412,9 +3394,9 @@ function personRowHTML(m,inArc){
       const posPar=Math.max(overlapLanes.indexOf(it.lane),0);  // 本条在簇内的次序（0-based）
       const segTop=posPar/kPar;                                // 本条顶部占比（按局部并行数等分）
       const segH=1/kPar;                                       // 本条占整行高度比（等分）
-      const topPct=((segTop+segH*(1-effFill)/2)*100).toFixed(3);
-      const hPct=(segH*effFill*100).toFixed(3);
-      const frac=segH*effFill;                                    // 本条实际占整行内高的比例（估算是否纤细）
+      const topPct=((segTop+segH*(1-FILL)/2)*100).toFixed(3);
+      const hPct=(segH*FILL*100).toFixed(3);
+      const frac=segH*FILL;                                    // 本条实际占整行内高的比例（估算是否纤细）
       const slimCls = frac<0.34 ? ' slim' : '';
       const risk=reqRisk(r);
       // v5.8：状态/进度按今天日期自动推算（到开始日灰→蓝，进度随已过工作日增长；休息日不推进）。
@@ -3429,7 +3411,7 @@ function personRowHTML(m,inArc){
       const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
       /* 横向单行 v4.8：按条子像素宽度决定显示几个信息位（任务名永远显示），按高度选字号档。
          任务名 > 模块 > 人天 > 投入比 优先级递减；窄条从右往左省略，不缩字号硬撑、不换行裁切。 */
-      const barHpx = segH*effFill*rowH;                                        // 本条像素高度
+      const barHpx = segH*FILL*rowH;                                        // 本条像素高度
       const barWpx = w;                                                     // 本条像素宽度
       const nShow = calcNShow(barWpx);                                      // 1~4，按条宽自动选
       const szTier = pickSizeTier(barHpx);                                  // 1=正常 2=紧凑
@@ -3447,38 +3429,6 @@ function personRowHTML(m,inArc){
         <div class="prog" style="--p:${Math.round(effProg*100)}">${isOpen?'':restBlocksHTML(it.si0,it.ei0)}</div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
-    /* v6.25: 排期空隙检测 —— 暂时禁用，待排查运行时崩溃后重新启用 */
-    let gapHtml = '';
-    /* DISABLED - causes white screen on some rows
-    try {
-      const GAP_MIN_DAYS = 3;
-      const GAP_MIN_PX = GAP_MIN_DAYS * DAY_W;
-      const sortedBars = [...laid.items].sort((a,b)=>a.si0-b.si0||a.ei0-b.ei0);
-      if(sortedBars.length > 0){
-        const covered = sortedBars.map(b => [b.si0, b.ei0]);
-        const merged = [];
-        covered.forEach(([s,e]) => {
-          if(merged.length && s <= merged[merged.length-1][1]){
-            merged[merged.length-1][1] = Math.max(merged[merged.length-1][1], e);
-          } else { merged.push([s,e]); }
-        });
-        const gaps = [];
-        if(merged[0][0] > 0) gaps.push([0, merged[0][0]]);
-        for(let i=0;i<merged.length-1;i++){
-          if(merged[i][1] < merged[i+1][0]) gaps.push([merged[i][1], merged[i+1][0]]);
-        }
-        if(merged[merged.length-1][1] < DAYS) gaps.push([merged[merged.length-1][1], DAYS]);
-        gaps.forEach(([gs,ge]) => {
-          const gw = (ge - gs) * DAY_W;
-          if(gw >= GAP_MIN_PX){
-            const gdays = ge - gs;
-            gapHtml += `<div class="gap-indicator" style="left:${gs*DAY_W}px;width:${gw}px;top:0;bottom:0;" title="排期空隙：${gdays} 天空闲（${fmt(i2d(gs))} ~ ${fmt(i2d(ge))}）"><span class="gap-label">空闲 ${gdays}天</span></div>`;
-          }
-        });
-      }
-    } catch(e) { console.warn('[gap-indicator]', e); }
-    */
-    bars += gapHtml;
     const focusCls = focusMode==='hl' ? (fr==='self'?' me-self':fr==='team'?' me-team':' dim') : (fr==='self'?' me-self':fr==='team'?' me-team':'');
     const isLoan=isExtLoan(m);
     return `<div class="row${isLeft?' is-left':''}${isLoan?' is-loan':''}${inArc?' in-archived':''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
