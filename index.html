@@ -4145,7 +4145,27 @@ grid.addEventListener('pointerdown',e=>{
         delta:0,movedPx:0,targetMember:null,
         srcMember:isSeg?reqs.find(r=>r.id===bar.dataset.req).segs[+bar.dataset.seg].m:null};
   bar.classList.add('dragging'); if(dup)bar.classList.add('dup-src'); hideTip();hideMenu();
-  e.preventDefault();
+  /* [DIAG3] v5.90+diag3: 拖拽期间扫描整个甘特区域，揪出任何绿色背景元素（DOM 或 backgroundImage） */
+  if(!window._diagGreen3){
+    window._diagGreen3=true;
+    let _iv3=null;
+    const _isGreen=c=>{const m=String(c).match(/rgba?\((\d+)[,\s]+(\d+)[,\s]+(\d+)/);if(!m)return false;const r=+m[1],g=+m[2],b=+m[3];return g>r+30&&g>b+30&&g>100;};
+    const _scan3=()=>{
+      const scope=document.querySelector('.scroll')||document.body;
+      const found=[];
+      scope.querySelectorAll('*').forEach(el=>{
+        const s=getComputedStyle(el);
+        if(_isGreen(s.backgroundColor)) found.push(el.tagName+'#'+el.id+'.'+String(el.className).slice(0,36)+' bg='+s.backgroundColor);
+        else if(s.backgroundImage && s.backgroundImage!=='none' && _isGreen(s.backgroundImage)) found.push(el.tagName+'#'+el.id+'.'+String(el.className).slice(0,36)+' bgImg='+s.backgroundImage.slice(0,36));
+      });
+      const sel=window.getSelection();
+      console.log('[DG3] greens='+found.length, found.slice(0,8), '| sel.rangeCount='+(sel?sel.rangeCount:0));
+    };
+    window.addEventListener('pointerdown',e=>{ if(e.target.closest('.bar-task')) setTimeout(()=>{ if(!_iv3)_iv3=setInterval(_scan3,150); },80); },true);
+    window.addEventListener('pointerup',()=>{ if(_iv3){clearInterval(_iv3);_iv3=null;console.log('[DG3] 扫描停止');} },true);
+    window.addEventListener('pointercancel',()=>{ if(_iv3){clearInterval(_iv3);_iv3=null;} },true);
+  }
+  /* [/DIAG3] */
   e.preventDefault();
 });
 window.addEventListener('pointermove',e=>{
