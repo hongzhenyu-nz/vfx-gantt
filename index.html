@@ -4145,27 +4145,29 @@ grid.addEventListener('pointerdown',e=>{
         delta:0,movedPx:0,targetMember:null,
         srcMember:isSeg?reqs.find(r=>r.id===bar.dataset.req).segs[+bar.dataset.seg].m:null};
   bar.classList.add('dragging'); if(dup)bar.classList.add('dup-src'); hideTip();hideMenu();
-  /* [DIAG] v5.90+diag: 拖拽绿色方块定位 —— pointermove 时用 elementFromPoint 探测鼠标下方元素，输出到控制台(F12)。仅首次拖条触发，自动卸载。 */
+  /* [DIAG2] v5.90+diag2: 去掉 moved 守卫，拖拽期间每帧都输出鼠标下方元素 + 选区状态 */
   if(!window._diagGreen){
     window._diagGreen=true;
+    let _dgCnt=0;
     const _dgHandler=e=>{
-      if(!drag||!drag.moved) return;
+      if(!drag) return;
+      _dgCnt++;
       const el=document.elementFromPoint(e.clientX,e.clientY);
-      if(el){
-        const style=getComputedStyle(el);
-        console.log('[DIAG-GREEN] element=', el.tagName, '#'+el.id, '.'+el.className,
-          '| bg=', style.backgroundColor, 'color=', style.color,
-          '| selection=', getComputedStyle(document.body).userSelect);
-      }
+      const sel=window.getSelection();
+      const selInfo=sel ? {type:sel.type,rangeCount:sel.rangeCount,toString:sel.toString().slice(0,80)} : null;
+      console.log('[DG#'+_dgCnt+']',
+        'el=', el?.tagName, '#'+el?.id, '.'+el?.className?.toString().slice(0,60),
+        '| bg=', el ? getComputedStyle(el).backgroundColor : '-',
+        '| sel=', JSON.stringify(selInfo));
     };
     window.addEventListener('pointermove', _dgHandler, true);
     window.addEventListener('pointerup', function _off(){
       window.removeEventListener('pointermove', _dgHandler, true);
       window.removeEventListener('pointerup', _off, true);
-      console.log('[DIAG-GREEN] 诊断监听已卸载（本次拖拽结束）。若看到绿色，请向上翻看 [DIAG-GREEN] 日志，告诉我那个元素的 tagName + className + backgroundColor。');
+      console.log('[DG] 诊断结束，共 '+_dgCnt+' 帧。请向上翻 [DG#] 日志，把有绿色时那几行复制给我。');
     }, true);
   }
-  /* [/DIAG] */
+  /* [/DIAG2] */
   e.preventDefault();
 });
 window.addEventListener('pointermove',e=>{
