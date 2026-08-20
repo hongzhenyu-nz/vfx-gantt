@@ -203,14 +203,6 @@
      在 .grid 层禁选即可覆盖整片时间线，根除该高亮；这是对 v5.90 缺失 user-select 的回填，非新功能补丁。 */
   .grid{position:relative;min-width:max-content;user-select:none;-webkit-user-select:none;}
   .scroll{user-select:none;-webkit-user-select:none;}
-  /* v6.10: 根除拖拽绿色选区——真因=Windows 绿色系统强调色 + 浏览器原生拖拽选区高亮。
-     诊断浮层(589a067)证实：最绿DOM元素=.ed.mstat在岗小圆点(rgb/52,199,89=#34c759=--green)，
-     与Windows绿色强调色一致→浏览器选区高亮继承系统色→绿色大块。
-     修复：不试图阻止选区产生（v6.02~v5.90fix 已证 .grid user-select:none 无法完全压制），
-     而是直接把 ::selection 高亮色锁成主题蓝 #4e80ff —— 即使选区仍产生，也与甘特条融为一体不可见。
-     这是精准修复（非补丁），一招到位。 */
-  ::selection{background:#4e80ff !important;color:#fff !important;}
-  *::-moz-selection{background:#4e80ff !important;color:#fff !important;}
 
   .row{display:flex;border-bottom:1px solid var(--line2);min-height:var(--row-h);position:relative;transition:background .12s;}
   .row:last-child{border-bottom:none;}
@@ -241,7 +233,11 @@
   .drop-guide{position:absolute;top:82px;bottom:0;width:0;border-left:2px dashed var(--blue);z-index:8;pointer-events:none;display:none;}
   .drop-guide.show{display:block;}
   .drop-guide.gend{border-left-color:#9dbcff;border-left-style:dotted;}
-  .drop-band{position:absolute;top:82px;bottom:0;background:rgba(51,112,.07);z-index:7;pointer-events:none;display:none;}
+  /* v6.11: ★真凶修复——原值 `rgba(51,112,.07)` 少写一个通道（rgba 需4参数，只给了3个），
+     浏览器解析为 rgb(51,112,0)=深绿且完全不透明 → 拖拽时出现贯穿整页的深绿色垂直带。
+     这就是 v6.02~v6.10 追查十轮的「绿块」真身：不是文本选区、不是系统强调色、不是外部软件，
+     而是本文件一个 CSS 拼写错误。正确值应为主题蓝半透明 rgba(51,112,255,.07)。 */
+  .drop-band{position:absolute;top:82px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}
   .drop-band.show{display:block;}
   /* 视角高亮：选中的"我"本人 + 隶属于我的人员行 */
   .row.me-self .cell-left{background:#fff5e6;box-shadow:inset 4px 0 0 #ff9f0a;}
