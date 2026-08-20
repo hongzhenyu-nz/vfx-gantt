@@ -245,10 +245,10 @@
   .drop-band{position:absolute;top:82px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}
   .drop-band.show{display:block;}
   /* 视角高亮：选中的"我"本人 + 隶属于我的人员行
-     v6.34：整行米黄底改为极淡半透（.10），让时间轴的日期/周末底纹清晰透出；
+     v6.35：整行米黄底完全去掉（transparent），让时间轴的日期/周末底纹100%透出；
      左侧名栏(.cell-left)保持实心（本就该盖住日期底纹）。 */
   .row.me-self .cell-left{background:#fff5e6;box-shadow:inset 4px 0 0 #ff9f0a;}
-  .row.me-self{background:rgba(255,239,204,.10);}
+  .row.me-self{background:transparent;}
   .row.me-team .cell-left{background:#fffaf2;box-shadow:inset 4px 0 0 #ffd591;}
   .row.dim{opacity:.32;filter:grayscale(.4);}
 
@@ -812,7 +812,7 @@
   .row.row-sel .timeline{background:transparent;}
   /* v6.33：本人/暂缺/离职/外借行被选中时，保留各自的半透行底色（不再强制透明），
      这样"选中"不会让原有的黄/紫/灰底色消失；这些底色本身已是半透，日期底纹照样透出。 */
-  .row.me-self.row-sel{background:rgba(255,239,204,.10);}
+  .row.me-self.row-sel{background:transparent;}
   .row.vacant-row.row-sel,.row.is-left.row-sel,.row.is-loan.row-sel{background:transparent;}
   /* 剪贴板浮条 */
   #clipchip{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1d2330;color:#fff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.32);display:none;align-items:center;gap:10px;z-index:9998;}
@@ -1157,7 +1157,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.34 · build 2026-08-20 21:12</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.35 · build 2026-08-20 21:15</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
