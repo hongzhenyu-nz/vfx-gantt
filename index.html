@@ -446,15 +446,22 @@
   .le-chk{width:14px;height:14px;border-radius:3px;border:2px solid #c4b5fd;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;background:#fff;}
   .le-opt.sel .le-chk{background:#7c3aed;border-color:#7c3aed;color:#fff;}
   /* v6.17: 按品级分行编辑器（每行=品级勾选+该品级专属模块多选） */
-  .le-grid{display:flex;flex-direction:column;gap:2px;min-width:240px;}
-  .le-hdr{display:flex;gap:8px;padding-bottom:2px;border-bottom:1px solid #ede9fe;margin-bottom:2px;}
-  .le-hdr .le-lbl{width:36px;text-align:center;}
+  .le-grid{display:flex;flex-direction:column;gap:2px;min-width:340px;}
+  .le-hdr{display:flex;gap:6px;padding-bottom:2px;border-bottom:1px solid #ede9fe;margin-bottom:2px;}
+  .le-hdr .le-lbl{width:36px;text-align:center;flex-shrink:0;}
   .le-hdr .le-lbl+.le-lbl{flex:1;text-align:left;}
   .le-row{display:flex;gap:6px;align-items:flex-start;}
   .le-char-ck{width:36px;flex-shrink:0;padding-top:1px;}
   .le-char-ck .le-opt{justify-content:center;}
   .le-mod-area{flex:1;min-width:0;display:flex;}
   .le-mod-area.le-hidden{display:none;}
+  /* v6.18: 品级行自定义标签输入框 */
+  .le-lbl-area{flex:1;min-width:0;display:flex;align-items:center;padding-top:1px;}
+  .le-lbl-area.le-hidden{display:none;}
+  .le-label-input{width:100%;min-width:60px;max-width:120px;height:22px;border:1px solid #c4b5fd;border-radius:4px;padding:0 6px;font-size:11px;font-weight:600;color:#6d28d9;background:#fff;outline:none;transition:border-color .15s,box-shadow .15s;font-family:inherit;}
+  .le-label-input:focus{border-color:#7c3aed;box-shadow:0 0 0 2px rgba(124,58,237,.15);}
+  .le-label-input::placeholder{color:#a78bfa;font-weight:400;font-size:10px;}
+  .le-hint{font-weight:400;color:#a78bfa;font-size:9px;margin-left:4px;}
   /* 结构化「负责」显示标签：角色色块 + 分隔 + 模块色块 */
   .ld-ch{display:inline-flex;align-items:center;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;margin:0 2px;white-space:nowrap;border:1px solid #f59e0b;}
   .ld-md{display:inline-flex;align-items:center;background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;margin:0 2px;white-space:nowrap;border:1px solid #3b82f6;}
@@ -1130,7 +1137,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.17 · build 2026-08-20 17:40</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.18 · build 2026-08-20 17:50</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
@@ -5266,8 +5273,9 @@ function _formatLeadStructured(m, chars, mods){
     mapEntries.forEach(entry=>{
       const c=entry.c;
       const gInfo = HR_GRADE[c] || HR_GRADE[''];
-      let label = c;
-      if((gradeCount[c]||0) > 1){
+      // ★ v6.18: 优先用用户自定义标签(entry.label)；留空则回退自动序号
+      let label = (entry.label && entry.label.trim()) ? entry.label.trim() : c;
+      if(!(entry.label && entry.label.trim()) && (gradeCount[c]||0) > 1){
         const idx = (gradeOrder[c]||[]).indexOf(m.id);
         if(idx >= 0) label += ['①','②','③','④','⑤'][idx] || '';
       }
@@ -5500,34 +5508,50 @@ function startEditLead(ev, mid, kind){
       });
     }
 
-    // ---- UI：每行 = 品级勾选 + 该品级的模块多选 ----
+    // ---- UI：每行 = 品级勾选 + 自定义标签 + 该品级的模块多选 ----
     const grid=document.createElement('div'); grid.className='le-grid';
 
     // 表头
     const hdr=document.createElement('div'); hdr.className='le-hdr';
-    hdr.innerHTML='<span class="le-lbl">品级</span><span class="le-lbl">模块</span>';
+    hdr.innerHTML='<span class="le-lbl">品级</span><span class="le-lbl" style="flex:1;text-align:left">显示名<span class="le-hint">（留空=自动序号）</span></span><span class="le-lbl">模块</span>';
     grid.appendChild(hdr);
 
     // 每个品级一行
     const rowEls={};
+    const labelInputs={};   // 保存各品级的 label input 引用
     CHAR_OPTS_LIST.forEach(c=>{
       const row=document.createElement('div'); row.className='le-row';
       const active=leadMap.some(x=>x.c===c);
       const entry=leadMap.find(x=>x.c===c);
       const modSet=new Set(entry?entry.m:[]);
+      const customLabel=(entry&&entry.label)?entry.label:'';
 
-      // 品级勾选
+      // 左列：品级勾选
       const chk=document.createElement('div'); chk.className='le-char-ck';
       chk.innerHTML=`<span class="le-opt${active?' sel':''}"><span class="le-chk">${active?'✓':''}</span><span>${c}</span></span>`;
       chk.querySelector('.le-opt').onclick=e=>{e.stopPropagation();
         const idx=leadMap.findIndex(x=>x.c===c);
         if(idx>=0){ leadMap.splice(idx,1); }
-        else{ leadMap.push({c:c,m:[]}); }
+        else{ leadMap.push({c:c,m:[],label:''}); }
         rebuildGrid();
       };
       row.appendChild(chk);
 
-      // 该品级的模块多选（仅当品级选中时显示）
+      // 中列：自定义显示名（可编辑文本框）
+      const lblArea=document.createElement('div'); lblArea.className='le-lbl-area'+(active?'':' le-hidden');
+      const lblInput=document.createElement('input'); lblInput.type='text'; lblInput.className='le-label-input';
+      lblInput.placeholder=c+'①';   // 提示用户留空则自动序号
+      lblInput.value=customLabel;
+      lblInput.onpointerdown=e=>e.stopPropagation();
+      lblInput.oninput=e=>{e.stopPropagation();
+        const entry2=leadMap.find(x=>x.c===c);
+        if(entry2) entry2.label = lblInput.value.trim();
+      };
+      lblArea.appendChild(lblInput);
+      labelInputs[c]=lblInput;
+      row.appendChild(lblArea);
+
+      // 右列：该品级的模块多选（仅当品级选中时显示）
       const modArea=document.createElement('div'); modArea.className='le-mod-area'+(active?'':' le-hidden');
       const modSel=document.createElement('div'); modSel.className='le-sel le-sel-mod';
       MOD_OPTS_LIST.forEach(md=>{
@@ -5559,6 +5583,9 @@ function startEditLead(ev, mid, kind){
         const ckOpt=row.querySelector('.le-char-ck .le-opt');
         if(active){ ckOpt.classList.add('sel'); ckOpt.querySelector('.le-chk').textContent='✓'; }
         else{ ckOpt.classList.remove('sel'); ckOpt.querySelector('.le-chk').textContent=''; }
+        // 更新标签区域可见性
+        const lblArea=row.querySelector('.le-lbl-area');
+        if(active)lblArea.classList.remove('le-hidden'); else lblArea.classList.add('le-hidden');
         // 更新模块区域可见性 + 勾选状态
         const modArea=row.querySelector('.le-mod-area');
         if(active)modArea.classList.remove('le-hidden'); else modArea.classList.add('le-hidden');
