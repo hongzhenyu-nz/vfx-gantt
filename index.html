@@ -1150,7 +1150,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.29 · build 2026-08-20 20:44</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.30 · build 2026-08-20 20:48</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
@@ -5305,6 +5305,22 @@ function regLeaderOpts(sel){
 const GRADE_OPTS_LIST=['','通用','金','橙','红'];
 const MOD_OPTS_LIST=['出场','检视','组队','饰品','入局Cuts','TPP','MVP','大厅','本体/3C','武器特效','通用','联调'];
 const CHAR_OPTS_LIST=['金','橙','红','通用'];   /* 正编「负责」可选品级（对应 HR_GRADE 的金/橙/红/通用） */
+/* 按品级返回模块选项列表：金/橙/红用静态 MOD_OPTS_LIST；通用从 HR 角色线动态提取（与 HR 视图匹配）。 */
+function modOptsForGrade(grade){
+  if(grade !== '通用') return MOD_OPTS_LIST;
+  // 从 buildRoleLines 提取所有含 通用 品级的模块名（去重保序）
+  const lines = buildRoleLines();
+  const mods = [];
+  const seen = new Set();
+  lines.forEach(g => {
+    if(g.roles.some(r => r.grade === '通用') && !seen.has(g.mod)){
+      seen.add(g.mod); mods.push(g.mod);
+    }
+  });
+  // 补齐静态列表中可能遗漏的
+  MOD_OPTS_LIST.forEach(m => { if(!seen.has(m)){ seen.add(m); mods.push(m); }});
+  return mods;
+}
 const LINE_OPTS_LIST=[['-','通用'],['L1','露西亚·管线1'],['L2','比安卡·管线2'],['J','七十·金角线'],['R','女指挥官·红角线']];
 
 /* 格式化正编「负责」显示：从 leadChars(品级) + leadMods(模块) 渲染为结构化标签。
@@ -5672,10 +5688,11 @@ function startEditLead(ev, mid, kind){
       labelInputs[c]=lblInput;
       row.appendChild(lblArea);
 
-      // 右列：该品级的模块多选（仅当品级选中时显示）
+      // 右列：该品级的模块多选（仅当品级选中时显示）——通用从 HR 角色线动态提取
       const modArea=document.createElement('div'); modArea.className='le-mod-area'+(active?'':' le-hidden');
       const modSel=document.createElement('div'); modSel.className='le-sel le-sel-mod';
-      MOD_OPTS_LIST.forEach(md=>{
+      const gradeMods = modOptsForGrade(c);
+      gradeMods.forEach(md=>{
         const opt=document.createElement('div');
         opt.className='le-opt'+(modSet.has(md)?' sel':'');
         opt.innerHTML=`<span class="le-chk">${modSet.has(md)?'✓':''}</span><span>${md}</span>`;
