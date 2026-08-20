@@ -198,7 +198,9 @@
   .scroll::-webkit-scrollbar-thumb{background:#c2c8d0;border-radius:7px;border:3px solid #f2f4f7;}
   .scroll::-webkit-scrollbar-thumb:hover{background:#a6adb8;}
   .scroll::-webkit-scrollbar-corner{background:#f2f4f7;}
-  .grid{position:relative;min-width:max-content;}
+  .grid{position:relative;min-width:max-content;user-select:none;}
+  /* 拖拽甘特条/标签时，整层禁止文本选中（避免拖动时出现绿色/蓝色选区） */
+  .scroll:has(.dragging){user-select:none!important;}
 
   .row{display:flex;border-bottom:1px solid var(--line2);min-height:var(--row-h);position:relative;transition:background .12s;}
   .row:last-child{border-bottom:none;}
