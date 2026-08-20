@@ -1149,7 +1149,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.25 · build 2026-08-20 20:10</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.25 · build 2026-08-20 20:15</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
@@ -3447,32 +3447,27 @@ function personRowHTML(m,inArc){
         <div class="prog" style="--p:${Math.round(effProg*100)}">${isOpen?'':restBlocksHTML(it.si0,it.ei0)}</div>
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
-    /* v6.24: 排期空隙检测与可视化 —— 在甘特条之间的空白区域渲染「空闲」提示，
-       拖动条子时自动重算（rerender 触发），动态匹配空隙变化。
-       只显示 ≥ GAP_MIN_DAYS(3天) 的有意义空隙，避免碎片噪音。 */
+    /* v6.25: 排期空隙检测 —— 暂时禁用，待排查运行时崩溃后重新启用 */
     let gapHtml = '';
+    /* DISABLED - causes white screen on some rows
     try {
-      const GAP_MIN_DAYS = 3;                                    // 最小空隙天数（小于此值不显示）
-      const GAP_MIN_PX = GAP_MIN_DAYS * DAY_W;                   // 最小空隙像素宽
+      const GAP_MIN_DAYS = 3;
+      const GAP_MIN_PX = GAP_MIN_DAYS * DAY_W;
       const sortedBars = [...laid.items].sort((a,b)=>a.si0-b.si0||a.ei0-b.ei0);
       if(sortedBars.length > 0){
-        // 收集所有已覆盖的时间段 [si0, ei0)
         const covered = sortedBars.map(b => [b.si0, b.ei0]);
-        // 合并重叠/相邻段
         const merged = [];
         covered.forEach(([s,e]) => {
           if(merged.length && s <= merged[merged.length-1][1]){
             merged[merged.length-1][1] = Math.max(merged[merged.length-1][1], e);
           } else { merged.push([s,e]); }
         });
-        // 检测空隙：从时间线起点到第一段、段与段之间、最后一段到时间线终点
         const gaps = [];
-        if(merged[0][0] > 0) gaps.push([0, merged[0][0]]);           // 首条之前
+        if(merged[0][0] > 0) gaps.push([0, merged[0][0]]);
         for(let i=0;i<merged.length-1;i++){
-          if(merged[i][1] < merged[i+1][0]) gaps.push([merged[i][1], merged[i+1][0]]);  // 段间
+          if(merged[i][1] < merged[i+1][0]) gaps.push([merged[i][1], merged[i+1][0]]);
         }
-        if(merged[merged.length-1][1] < DAYS) gaps.push([merged[merged.length-1][1], DAYS]);  // 末条之后
-        // 渲染有意义的空隙
+        if(merged[merged.length-1][1] < DAYS) gaps.push([merged[merged.length-1][1], DAYS]);
         gaps.forEach(([gs,ge]) => {
           const gw = (ge - gs) * DAY_W;
           if(gw >= GAP_MIN_PX){
@@ -3482,6 +3477,7 @@ function personRowHTML(m,inArc){
         });
       }
     } catch(e) { console.warn('[gap-indicator]', e); }
+    */
     bars += gapHtml;
     const focusCls = focusMode==='hl' ? (fr==='self'?' me-self':fr==='team'?' me-team':' dim') : (fr==='self'?' me-self':fr==='team'?' me-team':'');
     const isLoan=isExtLoan(m);
