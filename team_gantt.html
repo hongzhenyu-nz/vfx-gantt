@@ -253,17 +253,16 @@
   .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:4;transition:background .12s;}
   .row.head .cell-left{background:#fafbfc;z-index:6;}
   .timeline{position:relative;flex:1;display:flex;align-items:center;}
-  /* v6.26 排期空隙提示：半透琥珀底纹（斜纹），始终显示、半透露日期；
-     置于任务条之下(z-index:0 < 任务条 z-index:1)，不挡交互(pointer-events:none)。
-     设计：圆角胶囊形 + 内缩留白 + 柔和渐变边框，避免"裁切感"。 */
+  /* v6.28 排期空隙提示：极淡琥珀斜纹，日期底纹清晰透出；
+     置于任务条之下(z-index:0)，不挡交互(pointer-events:none)。
+     圆角胶囊 + 内缩留白 + 极淡边框。 */
   .gap-indicator{position:absolute;top:4px;bottom:4px;z-index:0;pointer-events:none;
-    background:repeating-linear-gradient(45deg, rgba(245,158,11,.12) 0 6px, transparent 6px 12px);
-    border-radius:6px;border:1px solid rgba(217,119,6,.25);
-    box-shadow:inset 0 0 8px rgba(245,158,11,.08);
+    background:repeating-linear-gradient(45deg, rgba(245,158,11,.055) 0 6px, transparent 6px 12px);
+    border-radius:6px;border:1px solid rgba(217,119,6,.15);
     display:flex;align-items:center;justify-content:center;}
-  .gap-indicator .gap-lbl{font-size:10px;font-weight:600;color:#b07d00;background:rgba(255,252,245,.92);
-    border:1px solid rgba(217,119,6,.35);border-radius:10px;padding:1px 8px;white-space:nowrap;
-    box-shadow:0 1px 4px rgba(180,120,0,.12);letter-spacing:.5px;}
+  .gap-indicator .gap-lbl{font-size:10px;font-weight:600;color:#b07d00;background:rgba(255,252,245,.88);
+    border:1px solid rgba(217,119,6,.28);border-radius:10px;padding:1px 8px;white-space:nowrap;
+    box-shadow:0 1px 3px rgba(180,120,0,.10);letter-spacing:.5px;}
   /* 行内「＋加任务/加人」按钮：收纳在左侧信息栏内（不再用 sticky 飘在时间线上、不遮挡任务条）。
      按人看挂在姓名行末尾；按需求看放在成员区下方独立一行。低调浅蓝实心，悬停高亮。 */
   .inl-add{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;vertical-align:middle;
@@ -1151,7 +1150,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.28 · build 2026-08-20 20:42</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.29 · build 2026-08-20 20:44</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
