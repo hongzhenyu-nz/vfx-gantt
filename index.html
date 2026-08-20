@@ -97,6 +97,9 @@
   .cloud-ind.locked .ci-dot{background:#7a8290;}
   .cloud-ind.busy{border-color:#e08c00;background:#fff4e0;color:#b8730b;}
   .cloud-ind.busy .ci-dot{background:#e08c00;box-shadow:0 0 0 3px rgba(224,140,0,.18);animation:cipulse2 1.6s infinite;}
+  /* 放弃编辑按钮：仅持锁时显示，与 cloud-ind 并排 */
+  .discard-edit-btn{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid #e5e7eb;background:#fff;color:#9ca3af;white-space:nowrap;transition:all .15s;}
+  .discard-edit-btn:hover{background:#fef2f2;border-color:#fca5a5;color:#dc2626;}
   @keyframes cipulse2{0%,100%{box-shadow:0 0 0 0 rgba(224,140,0,.4);}50%{box-shadow:0 0 0 4px rgba(224,140,0,0);}}
   @keyframes cipulse{0%,100%{box-shadow:0 0 0 0 rgba(55,178,77,.35);}50%{box-shadow:0 0 0 4px rgba(55,178,77,0);}}
   /* 新建实体按钮（+新成员 / +新需求）：醒目主色描边 */
@@ -1117,8 +1120,9 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.14 · build 2026-08-20 17:05</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.15 · build 2026-08-20 17:12</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
+    <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
 
@@ -5911,6 +5915,9 @@ function syncLockUI(){
   if(lockMine) cloudSetStatus('on',lockBtnLabel());
   else if(lockHolderCid && lockHolderCid!==cloudCid) cloudSetStatus('busy',lockBtnLabel());
   else cloudSetStatus('locked',lockBtnLabel());
+  /* 放弃编辑按钮：仅持锁时显示 */
+  const db=document.getElementById('discardEditBtn');
+  if(db) db.style.display=lockMine?'inline-flex':'none';
 }
 function refreshAllUI(){
   rerender();
@@ -6354,6 +6361,30 @@ async function releaseLock(silent){
   lockMine=false; lockHolderCid=''; lockHolderName='';
   syncLockUI();
   if(!silent) toast('已提交并释放编辑权，其他人现在可以编辑了');
+}
+/* 放弃编辑：不保存当前修改，直接释放锁 + 从云端还原数据 */
+async function discardEdit(){
+  if(!lockMine) return;
+  if(!confirm('确定放弃所有未保存的修改吗？\n\n数据将还原到上次提交的状态，你的改动不会保存到云端。')) return;
+  stopHeart();
+  try{
+    // 释放锁（不上传本地快照）
+    await sb.from(SB_TABLE).update({editor:null,editor_name:null,updated_at:new Date().toISOString()}).eq('id',SB_ROW).eq('editor',cloudCid);
+  }catch(e){ console.warn('discard lock failed',e); }
+  lockMine=false; lockHolderCid=''; lockHolderName='';
+  syncLockUI();
+  // 从云端重新拉取数据（还原到上次提交的状态）
+  toast('正在还原数据…');
+  try{
+    const {data}=await sb.from(SB_TABLE).select('snap').eq('id',SB_ROW).maybeSingle();
+    if(data&&data.snap){
+      const obj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
+      applyingRemote=true; applySnap(obj); applyingRemote=false;
+      lastSyncJSON=JSON.stringify(snapshot());
+      refreshAllUI();
+    }
+  }catch(e){ console.warn('discard reload failed',e); }
+  toast('已放弃编辑，数据已还原');
 }
 /* 仅刷新锁状态（用于抢锁失败后了解是谁占着） */
 async function refreshLockStatus(){
