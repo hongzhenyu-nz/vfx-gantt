@@ -4145,29 +4145,7 @@ grid.addEventListener('pointerdown',e=>{
         delta:0,movedPx:0,targetMember:null,
         srcMember:isSeg?reqs.find(r=>r.id===bar.dataset.req).segs[+bar.dataset.seg].m:null};
   bar.classList.add('dragging'); if(dup)bar.classList.add('dup-src'); hideTip();hideMenu();
-  /* [DIAG2] v5.90+diag2: 去掉 moved 守卫，拖拽期间每帧都输出鼠标下方元素 + 选区状态 */
-  if(!window._diagGreen){
-    window._diagGreen=true;
-    let _dgCnt=0;
-    const _dgHandler=e=>{
-      if(!drag) return;
-      _dgCnt++;
-      const el=document.elementFromPoint(e.clientX,e.clientY);
-      const sel=window.getSelection();
-      const selInfo=sel ? {type:sel.type,rangeCount:sel.rangeCount,toString:sel.toString().slice(0,80)} : null;
-      console.log('[DG#'+_dgCnt+']',
-        'el=', el?.tagName, '#'+el?.id, '.'+el?.className?.toString().slice(0,60),
-        '| bg=', el ? getComputedStyle(el).backgroundColor : '-',
-        '| sel=', JSON.stringify(selInfo));
-    };
-    window.addEventListener('pointermove', _dgHandler, true);
-    window.addEventListener('pointerup', function _off(){
-      window.removeEventListener('pointermove', _dgHandler, true);
-      window.removeEventListener('pointerup', _off, true);
-      console.log('[DG] 诊断结束，共 '+_dgCnt+' 帧。请向上翻 [DG#] 日志，把有绿色时那几行复制给我。');
-    }, true);
-  }
-  /* [/DIAG2] */
+  e.preventDefault();
   e.preventDefault();
 });
 window.addEventListener('pointermove',e=>{
