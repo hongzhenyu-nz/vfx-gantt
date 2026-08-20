@@ -349,10 +349,11 @@
   /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
      用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
   .bar-task.open{
-    background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.16) 0 8px,rgba(255,255,255,0) 8px 16px);
+    background-color:transparent;
+    background-image:repeating-linear-gradient(45deg,rgba(180,160,140,.10) 0 8px,transparent 8px 16px);
     -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
             mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
-    border-left:none!important;opacity:.9;}
+    border-left:none!important;opacity:1;box-shadow:none!important;}
   .bar-task.open .grip{display:none;}
   .bar-task.open::before{content:'«';position:absolute;left:5px;top:50%;transform:translateY(-50%);z-index:2;
     font-size:13px;font-weight:900;color:rgba(255,255,255,.8);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.35);}
@@ -1155,7 +1156,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.36 · build 2026-08-20 21:18</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.37 · build 2026-08-20 21:23</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
