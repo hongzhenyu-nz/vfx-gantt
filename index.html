@@ -724,6 +724,9 @@
   /* v5.9 逾期未完印章：橙底白字，与「✓已完成」视觉对称，醒目提醒收尾 */
   .rt-late{display:inline-flex;align-items:center;gap:3px;font-size:10.5px;font-weight:900;border-radius:4px;padding:1px 7px;line-height:1.5;flex-shrink:0;letter-spacing:.3px;white-space:nowrap;color:#fff;background:#f59e0b;border:1px solid #d98008;box-shadow:0 1px 2px rgba(0,0,0,.22);text-shadow:none;}
   .bar-task .rt-line[data-sz="2"] .rt-late{font-size:9px;padding:0 5px;}
+  /* v6.38 超标准工期徽标：紫红色（与橙色「逾期」区分），表示排期超出制作工期标准 */
+  .rt-ovr{display:inline-flex;align-items:center;gap:2px;font-size:10px;font-weight:800;border-radius:4px;padding:1px 6px;line-height:1.5;flex-shrink:0;letter-spacing:.2px;white-space:nowrap;color:#fff;background:linear-gradient(135deg,#a855f7,#7c3aed);border:1px solid #6d28d9;box-shadow:0 1px 3px rgba(124,58,237,.35);text-shadow:none;}
+  .bar-task .rt-line[data-sz="2"] .rt-ovr{font-size:8.5px;padding:0 4px;}
   /* 「按人看」任务段=已完成：信息「全部保留显示」（不淡化锁定到看不清、不隐藏徽标、不盖居中印章）。
      完成语义改由行内「✓ 已完成 / ✓ 本人完成」徽标表达（见 .rt-done），并把条内信息轻微降饱和提示"已封存"，
      但角色名/模块/人天/投入比仍清晰可读，满足「信息全显示」诉求。 */
@@ -1156,7 +1159,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.37 · build 2026-08-20 21:23</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.38 · build 2026-08-20 21:30</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
@@ -2791,6 +2794,28 @@ function segDoneBadge(r,s){
 /* v5.9 逾期徽标：排期结束日已过、但没人工点「已完成」→ 条上橙色「⚠ 逾期未完」提醒收尾。
    仅在 autoSegState 判为 overdue 时插入（rank3，与完成印章同级，尽量保命）。 */
 function segOverdueBadge(){ return `<span class="rt-late" data-rank="3" title="排期结束日已过，但尚未人工确认完成 → 请尽快收尾或调整排期">⚠ 逾期未完</span>`; }
+
+/* v6.38 超标准工期标注：从 STD_CFG 按 (r.grade, r.mod) 查制作工期（周），与段实际日历天数对比。
+   标准工期为空或0时不显示；实际 ≤ 标准 不显示；超出时返回紫红色「📏 超 N周」徽标。
+   周数按日历天/7 粗算（与甘特条日历刻度一致），方便直观对比条长。 */
+function stdWeeksForReq(r){
+  const g = r.grade || '';
+  const m = r.mod || '';
+  const entry = STD_CFG.find(e => (e.grade||'') === g && (e.mod||'') === m);
+  if(!entry || !entry.weeks) return 0;
+  const mch = (entry.weeks||'').match(/(\d+(?:\.\d+)?)\s*周/);
+  return mch ? parseFloat(mch[1]) : 0;
+}
+function segStdOverflowBadge(seg, r){
+  const stdWks = stdWeeksForReq(r);
+  if(stdWks <= 0) return '';
+  const actualDays = Math.max(0, idx(seg.e) - idx(seg.s) + 1);
+  const stdDays = stdWks * 7;   // 日历天粗算（与甘特轴对齐）
+  if(actualDays <= stdDays) return '';
+  const ovrWks = ((actualDays - stdDays) / 7).toFixed(1);
+  return `<span class="rt-ovr" data-rank="2.5" title="该段排期约 ${actualDays} 天（≈${(actualDays/7).toFixed(1)}周），超过 ${stdWks} 周标准工期约 ${ovrWks} 周→ 建议核查或调整排期">📏 超${ovrWks}周</span>`;
+}
+
 /* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
 function personDayFullCount(id, t){
   let n=0;
@@ -3451,7 +3476,7 @@ function personRowHTML(m,inArc){
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
       bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}</span>
+        <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}${segStdOverflowBadge(sg,r)}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(effProg*100)}">${isOpen?'':restBlocksHTML(it.si0,it.ei0)}</div>
