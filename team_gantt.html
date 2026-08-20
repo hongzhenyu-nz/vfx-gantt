@@ -88,6 +88,7 @@
   .cloud-ind.syncing .ci-dot{background:#f59f00;}
   .cloud-ind.syncing{border-color:#f59f00;background:#fff9db;color:#b8860b;}
   .cloud-ind.err{border-color:#f5413f;background:#fff0f0;color:#d63a39;}
+  .ver-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:#56607a;background:#f1f3f6;border:1px solid var(--line);border-radius:20px;padding:2px 10px;letter-spacing:.3px;white-space:nowrap;user-select:none;}
   .cloud-ind.err .ci-dot{background:#f5413f;}
   .cloud-ind.offline{border-color:#b8730b;background:#fff4e0;color:#b8730b;}
   .cloud-ind.offline .ci-dot{background:#e08c00;animation:cipulse2 1.6s infinite;}
@@ -1176,6 +1177,7 @@
       <span class="seg-lab">协同</span>
       <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
       <button class="ubtn sync-btn" onclick="exportSync()" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">📋 一键复制排期</button>
+      <span class="ver-badge" id="verBadge" title="当前版本号——拖动条若仍出现绿色，先看这里是否显示 v6.07，不是则说明没刷到最新版">v6.07</span>
     </div>
     <div class="spacer"></div>
     <div class="bar-section">
@@ -4128,14 +4130,11 @@ let phdrag=null;   // L1/L2 分割线拖拽态
    - dragstart：拖拽中进行时 preventDefault，禁止浏览器原生拖放产生的半透明拖影 */
 document.addEventListener('selectstart',e=>{ if(drag||phdrag||chipDrag) e.preventDefault(); }, true);
 document.addEventListener('dragstart', e=>{ if(drag||phdrag||chipDrag) e.preventDefault(); }, true);
-/* v6.06: 拖拽绿色选区·终极方案（轮询清除 + 三道防线）。
-   前序：v6.02(CSS)→v6.03(selectstart拦截)→v6.04(body.noselect+removeAllRanges)→v6.05(mousedown preventDefault)
-   均未彻底根除——用户截图显示整片时间线区域仍被浏览器原生文本选中（大面积绿色）。
-   不再纠结"为什么某道防线失效"，直接上终极兜底：
-   1) mousedown 阶段 preventDefault（掐断 legacy 鼠标链路）；
-   2) pointerdown 时 body.noselect + removeAllRanges（全局 CSS 约束 + 清残留）；
-   3) ★ 拖拽期间 setInterval(16ms) 持续 removeAllRanges() —— 不管选区怎么产生，每帧清一次，肉眼不可见。
-      这是唯一不依赖事件时序/CSS优先级/浏览器行为的方案，100%有效。 */
+/* v6.07: 拖拽绿色选区·终极方案（轮询清除 + 范围扩大到整个时间线）。
+   前序 v6.02~v6.06 在"精确命中条才禁选"上有潜在缺口——用户实际手势可能从条附近的 grid 空白处按下再划过，
+   此时老逻辑未进入禁选态。v6.07 改为【时间线区域(#grid)内任意左键按下即禁选】，彻底堵死轨迹选区。
+   三道防线：mousedown preventDefault + body.noselect(全程) + setInterval(16ms) 持续 removeAllRanges。
+   表单元素(input/textarea/contenteditable/button)保留原生行为，不参与禁选。 */
 const _DRAG_SEL='.bar-task,.ph-div,.eff-chip,.bar-addon,.ptag';
 let _selTimer=null;
 document.addEventListener('mousedown',e=>{
@@ -4144,7 +4143,9 @@ document.addEventListener('mousedown',e=>{
 }, true);
 document.addEventListener('pointerdown',e=>{
   if(e.button!==0) return;
-  if(e.target.closest(_DRAG_SEL)){
+  const t=e.target;
+  if(t.closest('input,textarea,[contenteditable],button')) return;  // 表单元素保留原生行为
+  if(t.closest('#grid')){   // ★ 时间线区域内任意按下都进入禁选态，杜绝拖拽轨迹选区
     const s=window.getSelection(); if(s&&s.removeAllRanges) s.removeAllRanges();
     document.body.classList.add('noselect');
     if(!_selTimer) _selTimer=setInterval(()=>{ window.getSelection()?.removeAllRanges(); }, 16);
