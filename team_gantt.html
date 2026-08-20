@@ -244,11 +244,9 @@
      而是本文件一个 CSS 拼写错误。正确值应为主题蓝半透明 rgba(51,112,255,.07)。 */
   .drop-band{position:absolute;top:82px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}
   .drop-band.show{display:block;}
-  /* 视角高亮：选中的"我"本人 + 隶属于我的人员行
-     v6.35：整行米黄底完全去掉（transparent），让时间轴的日期/周末底纹100%透出；
-     左侧名栏(.cell-left)保持实心（本就该盖住日期底纹）。 */
+  /* 视角高亮：选中的"我"本人 + 隶属于我的人员行 */
   .row.me-self .cell-left{background:#fff5e6;box-shadow:inset 4px 0 0 #ff9f0a;}
-  .row.me-self{background:transparent;}
+  .row.me-self{background:#fffaf2;}
   .row.me-team .cell-left{background:#fffaf2;box-shadow:inset 4px 0 0 #ffd591;}
   .row.dim{opacity:.32;filter:grayscale(.4);}
 
@@ -485,12 +483,12 @@
   .ld-row-md{opacity:.88;}  /* 模块行略淡，与品级行区分层级 */
   .mstat{cursor:pointer;}
   .emp-badge .ed.mstat:hover{transform:scale(1.35);}
-  .load{margin-left:auto;text-align:right;flex-shrink:0;min-width:85px;}
+  .load{margin-left:auto;text-align:right;flex-shrink:0;min-width:85px;position:relative;}
   .load .bar-l{width:78px;height:6px;border-radius:3px;background:#eef0f3;overflow:hidden;margin-top:3px;position:relative;}
   .load .bar-l i{display:block;height:100%;border-radius:3px;}
   .load .bar-l.over{box-shadow:0 0 0 1.5px rgba(245,65,63,.55);}
   .load .bar-l.has-gap{box-shadow:0 0 0 1.5px rgba(245,158,11,.4);}
-  .load .load-gap-tip{position:absolute;right:-2px;top:-16px;font-size:9px;font-weight:700;color:#b45309;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:8px;padding:0 5px;white-space:nowrap;pointer-events:none;animation:idlePulse 2s ease-in-out infinite;box-shadow:0 1px 4px rgba(245,158,11,.25);}
+  .load .load-gap-tip{position:absolute;right:6px;top:22px;font-size:9px;font-weight:700;color:#b45309;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:8px;padding:0 5px;white-space:nowrap;pointer-events:none;animation:idlePulse 2s ease-in-out infinite;box-shadow:0 1px 4px rgba(245,158,11,.25);}
   .load .pct{font-size:11px;font-weight:600;}
   .ol-badge{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#fff;background:var(--red);border-radius:5px;padding:1px 6px;margin-left:6px;vertical-align:middle;box-shadow:0 1px 3px rgba(245,65,63,.4);animation:olpulse 1.6s infinite;}
   @keyframes olpulse{0%{box-shadow:0 0 0 0 rgba(245,65,63,.55)}70%{box-shadow:0 0 0 6px rgba(245,65,63,0)}100%{box-shadow:0 0 0 0 rgba(245,65,63,0)}}
@@ -812,7 +810,7 @@
   .row.row-sel .timeline{background:transparent;}
   /* v6.33：本人/暂缺/离职/外借行被选中时，保留各自的半透行底色（不再强制透明），
      这样"选中"不会让原有的黄/紫/灰底色消失；这些底色本身已是半透，日期底纹照样透出。 */
-  .row.me-self.row-sel{background:transparent;}
+  .row.me-self.row-sel{background:#fffaf2;}
   .row.vacant-row.row-sel,.row.is-left.row-sel,.row.is-loan.row-sel{background:transparent;}
   /* 剪贴板浮条 */
   #clipchip{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1d2330;color:#fff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.32);display:none;align-items:center;gap:10px;z-index:9998;}
@@ -1157,7 +1155,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.35 · build 2026-08-20 21:15</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.36 · build 2026-08-20 21:18</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
@@ -3475,7 +3473,8 @@ function personRowHTML(m,inArc){
           </div>
         </div>
         <div class="load"><div class="pct" style="color:${L.col}">${L.pct}% ${L.cls}</div>
-          <div class="bar-l${L.pct>110?' over':''}${gapData.get(m.id)&&gapData.get(m.id).length?' has-gap':''}"><i style="width:${Math.min(L.pct,100)}%;background:${L.col}"></i>${(()=>{const gs=gapData.get(m.id);if(!gs||!gs.length)return '';const td=gs.reduce((s,g)=>s+g.days,0);return `<span class="load-gap-tip" title="排期有空闲缝隙共 ${td} 天（点击时间轴查看详情）">⏳${td}天</span>`;})()}</div></div>
+          ${(()=>{const gs=gapData.get(m.id);if(!gs||!gs.length)return '';const td=gs.reduce((s,g)=>s+g.days,0);return `<span class="load-gap-tip" title="排期有空闲缝隙共 ${td} 天（点击时间轴查看详情）">⏳${td}天</span>`;})()}
+          <div class="bar-l${L.pct>110?' over':''}${gapData.get(m.id)&&gapData.get(m.id).length?' has-gap':''}"><i style="width:${Math.min(L.pct,100)}%;background:${L.col}"></i></div></div>
       </div>
       <div class="timeline" style="width:${DAYS*DAY_W}px">${bars}</div>
     </div>`;
