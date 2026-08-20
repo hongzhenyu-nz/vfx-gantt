@@ -253,6 +253,15 @@
   .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:4;transition:background .12s;}
   .row.head .cell-left{background:#fafbfc;z-index:6;}
   .timeline{position:relative;flex:1;display:flex;align-items:center;}
+  /* v6.26 排期空隙提示：覆盖在空闲区间上的半透琥珀底纹（斜纹），始终显示、半透露日期；
+     置于任务条之下(z-index:0 < 任务条 z-index:1)，不挡交互(pointer-events:none)。 */
+  .gap-indicator{position:absolute;top:0;bottom:0;z-index:0;pointer-events:none;
+    background:repeating-linear-gradient(45deg, rgba(245,158,11,.16) 0 7px, rgba(245,158,11,.09) 7px 14px);
+    border-left:1px dashed rgba(217,119,6,.5);border-right:1px dashed rgba(217,119,6,.5);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;}
+  .gap-indicator .gap-lbl{font-size:10px;font-weight:700;color:#9a5b00;background:rgba(255,247,237,.85);
+    border:1px solid rgba(217,119,6,.45);border-radius:10px;padding:1px 7px;white-space:nowrap;
+    box-shadow:0 1px 3px rgba(180,120,0,.15);}
   /* 行内「＋加任务/加人」按钮：收纳在左侧信息栏内（不再用 sticky 飘在时间线上、不遮挡任务条）。
      按人看挂在姓名行末尾；按需求看放在成员区下方独立一行。低调浅蓝实心，悬停高亮。 */
   .inl-add{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;vertical-align:middle;
@@ -1140,7 +1149,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.22R · build 2026-08-20 20:25</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.26 · build 2026-08-20 21:30</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
@@ -2791,6 +2800,9 @@ function personDayFullCount(id, t){
    带缓存，render 周期内复用，避免 O(段²×天) 重复扫描。 */
 let _peakParCache=null;
 function _resetPeakParCache(){ _peakParCache=null; }
+/* 排期空隙提示缓存：key=成员id，value=该人「空闲区间」数组 [{x0,x1,days}](天索引)。
+   在 personRowHTML 渲染时按真实数据填充，paint 后由 injectGapIndicators 单独注入 DOM（出错只影响该块，绝不白屏）。 */
+let gapData=new Map();
 function personPeakPar(id){
   if(_peakParCache && _peakParCache.has(id)) return _peakParCache.get(id);
   if(!_peakParCache) _peakParCache=new Map();
@@ -3355,6 +3367,12 @@ function personRowHTML(m,inArc){
     // 分配泳道（用天索引判重叠）；open 段已在上方归一化为整行 [0,DAYS) 占位，故此处直接用 si0/ei0。
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
+    // v6.26：计算此人排期「内部空隙」（合并重叠段后，相邻任务块间 ≥3 天的空闲），缓存供渲染后注入半透琥珀提示
+    {
+      const _ivs=laid.items.map(it=>({s:it.si0,e:it.ei0})).sort((a,b)=>a.s-b.s||a.e-b.e);
+      const _mg=[]; for(const iv of _ivs){ if(_mg.length&&iv.s<=_mg[_mg.length-1].e){_mg[_mg.length-1].e=Math.max(_mg[_mg.length-1].e,iv.e);}else _mg.push({s:iv.s,e:iv.e}); }
+      gapData.set(m.id, gapsFromIntervals(_mg));
+    }
     /* 「时间重叠传递闭包」内的 distinct lane 列表：用于均高等分定位。
        关键修复——只看「直接重叠」会在链式重叠(A↔B↔C 但 A、C 不重叠)时算出不一致的分母，
        导致同簇内的条槽位错位、互相压盖(同一垂直位糊成一团)。改用传递闭包后，同一重叠簇内
@@ -3370,8 +3388,8 @@ function personRowHTML(m,inArc){
        这样无论左侧信息栏把行撑多高，蓝条都会自动充满整行：
        · 某条任务所在时段没有别的条目挤占 → 它向上下吞并相邻空泳道，纵向占满整行（填满红框）。
        · 某条任务所在时段确有并行 → 只有真正打架的条目各占一槽、等高等分。
-       槽位用 (lo/laneCount ~ hi/laneCount) 的百分比切分，bar 内插 GAP_PX 间距留缝。 */
-    const FILL=0.86;                                 // v6.21: 条子填充率 86%（旧 80%），减少条内上下留白，视觉更紧凑
+       槽位用 (lo/laneCount ~ hi/laneCount) 的百分比切分，bar 之间留固定像素缝隙（GAP_PX，不随并行数比例缩放）。 */
+    const GAP_PX=5;                                  // v6.26fix: 固定像素条间缝隙（替代旧 FILL 比例缩放；并行越少缝隙也一致，不再忽大忽小）
     /* 行高 v4.8：横向单行标签后不再需要为「竖排 N 行」撑高。
        单泳道维持基础行高（横排单行足够）；多泳道时按 BAR_MIN 保证每条不低于可读下限。 */
     let rowH = laneCount<=1 ? ROW_BASE
@@ -3392,11 +3410,13 @@ function personRowHTML(m,inArc){
       const overlapLanes=clusterLanesOf(it);                   // 本条所在「重叠簇」的 distinct lane 列表（传递闭包，避免链式重叠压盖）
       const kPar=Math.max(overlapLanes.length,1);              // 本簇并行条数（同簇统一分母）
       const posPar=Math.max(overlapLanes.indexOf(it.lane),0);  // 本条在簇内的次序（0-based）
-      const segTop=posPar/kPar;                                // 本条顶部占比（按局部并行数等分）
+      const segTop=posPar/kPar;                                // 本条在簇内次序占比（0-based）
       const segH=1/kPar;                                       // 本条占整行高度比（等分）
-      const topPct=((segTop+segH*(1-FILL)/2)*100).toFixed(3);
-      const hPct=(segH*FILL*100).toFixed(3);
-      const frac=segH*FILL;                                    // 本条实际占整行内高的比例（估算是否纤细）
+      const slotH=segH*rowH;                                   // 本条所在簇槽位的完整像素高度
+      const barHpx=Math.max(2, slotH-GAP_PX);                  // v6.26fix: 固定像素缝隙后本条像素高度（缝隙恒定，并行多少都整齐）
+      const topPct=(((segTop*rowH)+(GAP_PX/2))/rowH*100).toFixed(3);
+      const hPct=(barHpx/rowH*100).toFixed(3);
+      const frac=barHpx/rowH;                                  // 本条实际占整行内高比例（估算是否纤细）
       const slimCls = frac<0.34 ? ' slim' : '';
       const risk=reqRisk(r);
       // v5.8：状态/进度按今天日期自动推算（到开始日灰→蓝，进度随已过工作日增长；休息日不推进）。
@@ -3411,7 +3431,6 @@ function personRowHTML(m,inArc){
       const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
       /* 横向单行 v4.8：按条子像素宽度决定显示几个信息位（任务名永远显示），按高度选字号档。
          任务名 > 模块 > 人天 > 投入比 优先级递减；窄条从右往左省略，不缩字号硬撑、不换行裁切。 */
-      const barHpx = segH*FILL*rowH;                                        // 本条像素高度
       const barWpx = w;                                                     // 本条像素宽度
       const nShow = calcNShow(barWpx);                                      // 1~4，按条宽自动选
       const szTier = pickSizeTier(barHpx);                                  // 1=正常 2=紧凑
@@ -3636,6 +3655,80 @@ function reqRowHTML(r, prevR, nextR, inArc){
   return rowHTML;
 }
 
+/* ============ v6.26 排期空隙提示 ============ */
+/* 取某成员「忙碌区间」（合并重叠段），可选 transient 覆盖某一任务段的瞬时位置（拖拽中用）。
+   仅用于空隙计算，不依赖泳道分配。 */
+function getMemberBusyIntervals(mid, transient){
+  const ivs=[];
+  reqs.forEach(r=>r.segs.forEach((s,si)=>{
+    if(s.m!==mid) return;
+    if(HIDE_DONE[view] && reqIsCompleted(r)) return;
+    let si0=idx(s.s), ei0=idx(s.e);
+    if(s.open){ si0=0; ei0=DAYS; }
+    else if(ei0-si0<=0) return;
+    if(transient && transient.reqId===r.id && transient.seg===si){ si0=transient.si0; ei0=transient.ei0; }
+    ivs.push({s:si0,e:ei0});
+  }));
+  if(!ivs.length) return [];
+  ivs.sort((a,b)=>a.s-b.s||a.e-b.e);
+  const merged=[];
+  for(const iv of ivs){
+    if(merged.length && iv.s<=merged[merged.length-1].e) merged[merged.length-1].e=Math.max(merged[merged.length-1].e, iv.e);
+    else merged.push({s:iv.s,e:iv.e});
+  }
+  return merged;
+}
+/* 由合并后的忙碌区间求「内部空隙」（相邻任务块之间 ≥ MIN 天的空闲段）。
+   不含行首/行尾（1400 天窗口的首尾空隙无意义），只标真正插在排期中间的空档。 */
+function gapsFromIntervals(merged){
+  const gaps=[]; const MIN=3;
+  for(let i=0;i<merged.length-1;i++){
+    const a=merged[i], b=merged[i+1], g=b.s-a.e;
+    if(g>=MIN) gaps.push({x0:a.e, x1:b.s, days:g});
+  }
+  return gaps;
+}
+/* paint 后调用：把 gapData 中的空隙注入对应行的 .timeline（半透琥珀底纹）。
+   先清旧再注入，出错只影响该块，绝不拖垮整页。 */
+function injectGapIndicators(){
+  if(view!=='person') return;
+  document.querySelectorAll('.gap-indicator').forEach(el=>el.remove());
+  document.querySelectorAll('#grid .row[data-mem]').forEach(row=>{
+    const mid=row.getAttribute('data-mem');
+    const gaps=gapData.get(mid);
+    if(!gaps||!gaps.length) return;
+    const tl=row.querySelector('.timeline');
+    if(!tl) return;
+    gaps.forEach(g=>{
+      const d=document.createElement('div');
+      d.className='gap-indicator';
+      d.style.left=(g.x0*DAY_W)+'px';
+      d.style.width=((g.x1-g.x0)*DAY_W)+'px';
+      d.innerHTML=`<span class="gap-lbl">空闲 ${g.days} 天</span>`;
+      tl.appendChild(d);
+    });
+  });
+}
+/* 拖拽过程中实时重算某人空隙（transient 覆盖被拖段的瞬时天索引），只动该行 DOM。 */
+function refreshGapsForMember(mid, transient){
+  const merged=getMemberBusyIntervals(mid, transient);
+  const gaps=gapsFromIntervals(merged);
+  gapData.set(mid, gaps);
+  const row=document.querySelector(`#grid .row[data-mem="${mid}"]`);
+  if(!row) return;
+  const tl=row.querySelector('.timeline');
+  if(!tl) return;
+  tl.querySelectorAll('.gap-indicator').forEach(el=>el.remove());
+  gaps.forEach(g=>{
+    const d=document.createElement('div');
+    d.className='gap-indicator';
+    d.style.left=(g.x0*DAY_W)+'px';
+    d.style.width=((g.x1-g.x0)*DAY_W)+'px';
+    d.innerHTML=`<span class="gap-lbl">空闲 ${g.days} 天</span>`;
+    tl.appendChild(d);
+  });
+}
+
 function paint(rows){
   const h=headerHTML();
   const [head,vlines]=h.split('__VLINES__');
@@ -3647,6 +3740,7 @@ function paint(rows){
     + rows;
   updateKPIs();
   if(typeof reapplySelection==='function') reapplySelection();
+  injectGapIndicators();   // v6.26：渲染后注入排期空隙提示（半透琥珀，始终显示）
   // v5.0：渲染后按真实像素实测降级标签（横排隐藏低优先徽标 → 缩字号 → 竖排 → 省略号）
   requestAnimationFrame(fitBarLabels);
 }
@@ -4245,6 +4339,17 @@ window.addEventListener('pointermove',e=>{
   if(mode==='m'){bar.style.left=(origLeft+d*DAY_W)+'px';}
   else if(mode==='l'){let nl=origLeft+d*DAY_W,nw=origW-d*DAY_W;if(nw<DAY_W){nw=DAY_W;nl=origLeft+origW-DAY_W;}bar.style.left=nl+'px';bar.style.width=nw+'px';}
   else if(mode==='r'){let nw=origW+d*DAY_W;if(nw<DAY_W)nw=DAY_W;bar.style.width=nw+'px';}
+
+  // v6.26：拖拽过程中实时重算「源成员」的排期空隙（被拖段按瞬时位置覆盖），让琥珀提示跟随条子动态变化
+  if(view==='person' && drag.srcMember){
+    try{
+      let si0=Math.round(origLeft/DAY_W), ei0=si0+Math.round(origW/DAY_W);
+      if(mode==='m'||mode==='l') si0=Math.max(0, Math.round(origLeft/DAY_W+d));
+      if(mode==='r') ei0=Math.round(origLeft/DAY_W+origW/DAY_W+d);
+      si0=Math.max(0,Math.min(si0,DAYS)); ei0=Math.max(si0,Math.min(ei0,DAYS));
+      refreshGapsForMember(drag.srcMember,{reqId:bar.dataset.req,seg:+(bar.dataset.seg||0),si0,ei0});
+    }catch(_){}
+  }
 
   document.querySelectorAll('.row-target').forEach(r=>r.classList.remove('row-target'));
   drag.targetMember=null;
