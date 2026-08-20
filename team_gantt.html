@@ -732,14 +732,15 @@
   .bar-addon .ax-ic{font-size:9px;}
   .bar-addon:hover{filter:brightness(1.06);}
   .bar-addon.dragging{opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32);z-index:30;}
-  /* v6.23: 排期空隙指示器 —— 甘特条之间的空白区域，显示「空闲 N天」标签 */
+  /* v6.24: 排期空隙指示器 —— 甘特条之间的空白区域，显示「空闲 N天」标签
+     半透设计：底纹足够看清（~10%不透明度），同时日期条纹（周末灰/节假日红）可透出 */
   .gap-indicator{position:absolute;z-index:0;display:flex;align-items:center;justify-content:center;
-    background:repeating-linear-gradient(-45deg,rgba(156,163,175,.06) 0 6px,transparent 6px 12px);
-    border-top:1px dashed rgba(156,163,175,.25);border-bottom:1px dashed rgba(156,163,175,.25);
+    background:repeating-linear-gradient(-45deg,rgba(250,204,21,.10) 0 6px,transparent 6px 12px);
+    border-top:1px dashed rgba(234,179,8,.30);border-bottom:1px dashed rgba(234,179,8,.30);
     pointer-events:none;overflow:hidden;}
-  .gap-indicator .gap-label{font-size:10px;font-weight:600;color:#9ca3af;white-space:nowrap;
-    background:rgba(255,255,255,.75);padding:1px 7px;border-radius:8px;border:1px solid rgba(156,163,175,.2);
-    opacity:.7;letter-spacing:.3px;}
+  .gap-indicator .gap-label{font-size:10px;font-weight:600;color:#92400e;white-space:nowrap;
+    background:rgba(255,253,235,.82);padding:1px 7px;border-radius:8px;border:1px solid rgba(234,179,8,.35);
+    opacity:.88;letter-spacing:.3px;}
   /* 按需求看：左侧主名行内联调附属徽标 */
   .req .nm .addon-mk{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;color:#7c3aed;background:#f1e9fd;border:1px dashed #c4a9f5;border-radius:5px;padding:0 6px;margin-left:2px;}
   /* ===== 统一人员标签 .ptag：一套设计自适应深/浅背景 =====
@@ -1148,7 +1149,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.24 · build 2026-08-20 20:05</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.25 · build 2026-08-20 20:10</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
