@@ -88,7 +88,6 @@
   .cloud-ind.syncing .ci-dot{background:#f59f00;}
   .cloud-ind.syncing{border-color:#f59f00;background:#fff9db;color:#b8860b;}
   .cloud-ind.err{border-color:#f5413f;background:#fff0f0;color:#d63a39;}
-  .ver-badge{display:inline-flex;align-items:center;font-size:11px;font-weight:700;color:#56607a;background:#f1f3f6;border:1px solid var(--line);border-radius:20px;padding:2px 10px;letter-spacing:.3px;white-space:nowrap;user-select:none;}
   .cloud-ind.err .ci-dot{background:#f5413f;}
   .cloud-ind.offline{border-color:#b8730b;background:#fff4e0;color:#b8730b;}
   .cloud-ind.offline .ci-dot{background:#e08c00;animation:cipulse2 1.6s infinite;}
@@ -199,15 +198,7 @@
   .scroll::-webkit-scrollbar-thumb{background:#c2c8d0;border-radius:7px;border:3px solid #f2f4f7;}
   .scroll::-webkit-scrollbar-thumb:hover{background:#a6adb8;}
   .scroll::-webkit-scrollbar-corner{background:#f2f4f7;}
-  .grid{position:relative;min-width:max-content;user-select:none;}
-  /* v6.04: 拖拽全程对整页强约束禁止选中（含左栏/工具条等 grid 之外的区域），覆盖纯 .grid 兜底不到的情形 */
-  body.noselect, body.noselect *{user-select:none !important;-webkit-user-select:none !important;}
-  /* v6.08: 即使选区仍被浏览器底层创建（pointer/mousedown 防线均可能被绕过），
-     直接用 ::selection 把选中背景杀透明 —— 用户视觉上绝对看不到任何色块。
-     这是"不问来路、只管结果"的终极视觉兜底，不依赖事件时序/CSS优先级/浏览器行为。 */
-  body.noselect::selection, body.noselect *::selection{background:transparent !important;color:inherit !important;}
-  /* 拖拽甘特条/标签时，整层禁止文本选中（避免拖动时出现绿色/蓝色选区） */
-  .scroll:has(.dragging){user-select:none!important;}
+  .grid{position:relative;min-width:max-content;}
 
   .row{display:flex;border-bottom:1px solid var(--line2);min-height:var(--row-h);position:relative;transition:background .12s;}
   .row:last-child{border-bottom:none;}
@@ -1181,7 +1172,6 @@
       <span class="seg-lab">协同</span>
       <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
       <button class="ubtn sync-btn" onclick="exportSync()" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">📋 一键复制排期</button>
-      <span class="ver-badge" id="verBadge" title="当前版本号——拖动条若仍出现绿色，先看这里是否显示 v6.08，不是则说明没刷到最新版">v6.08</span>
     </div>
     <div class="spacer"></div>
     <div class="bar-section">
@@ -3356,13 +3346,11 @@ function personRowHTML(m,inArc){
       // 变超高、相邻条被夹扁，导致同一个人的两条任务高度参差不齐）。改为：与本条时间重叠的若干条，
       // 平均瓜分该时段的整行高度（等高居中），不重叠的条各自按其局部并行数占位——既保证同时段的条
       // 等高、又不为远期泳道预留空白。assignLanes 已保证重叠条 lane 互异，故按重叠集合的 lane 排名定位不会相互压盖。
-      /* v6.01: 全局等分对齐——用整行 laneCount 做统一分母（不再用局部 clusterLanesOf/kPar）。
-         局部 kPar 导致同一条 bar 在不同日期段属于不同簇 => 高度中途跳变、同行条参差不齐。
-         修复：segTop/segH 统一按 it.lane / laneCount => 同行所有条等高、同一 bar 全程一致；
-         仍用百分比(top%/height%)自动适配不同行高，避免固定 px 溢出(v5.96/97/99三连崩)。 */
-      const kAll=Math.max(laneCount,1);                       // 全局泳道数（整行统一分母）
-      const segTop=it.lane/kAll;                              // 本条顶部占比（按全局 lane 号）
-      const segH=1/kAll;                                      // 本条占整行高度比（全员等分）
+      const overlapLanes=clusterLanesOf(it);                   // 本条所在「重叠簇」的 distinct lane 列表（传递闭包，避免链式重叠压盖）
+      const kPar=Math.max(overlapLanes.length,1);              // 本簇并行条数（同簇统一分母）
+      const posPar=Math.max(overlapLanes.indexOf(it.lane),0);  // 本条在簇内的次序（0-based）
+      const segTop=posPar/kPar;                                // 本条顶部占比（按局部并行数等分）
+      const segH=1/kPar;                                       // 本条占整行高度比（等分）
       const topPct=((segTop+segH*(1-FILL)/2)*100).toFixed(3);
       const hPct=(segH*FILL*100).toFixed(3);
       const frac=segH*FILL;                                    // 本条实际占整行内高的比例（估算是否纤细）
@@ -4126,41 +4114,6 @@ const grid=document.getElementById('grid');
 const dlabel=document.getElementById('dlabel');
 let drag=null;
 let phdrag=null;   // L1/L2 分割线拖拽态
-
-/* v6.03: 拖拽中彻底禁止文本选区 / 原生拖影。
-   CSS `.grid{user-select:none}` 仍偶尔失效——浏览器在跨容器/跨元素拖拽时会触发 selectstart，
-   且【已形成的 selection 不受父级 user-select:none 影响】，故纯 CSS 兜不住。这里用全局事件拦截兜底：
-   - selectstart：拖拽进行中(pointerdown 已置 drag/phdrag/chipDrag)时 preventDefault，从源头禁止选区生成
-   - dragstart：拖拽中进行时 preventDefault，禁止浏览器原生拖放产生的半透明拖影 */
-document.addEventListener('selectstart',e=>{ if(drag||phdrag||chipDrag) e.preventDefault(); }, true);
-document.addEventListener('dragstart', e=>{ if(drag||phdrag||chipDrag) e.preventDefault(); }, true);
-/* v6.07: 拖拽绿色选区·终极方案（轮询清除 + 范围扩大到整个时间线）。
-   前序 v6.02~v6.06 在"精确命中条才禁选"上有潜在缺口——用户实际手势可能从条附近的 grid 空白处按下再划过，
-   此时老逻辑未进入禁选态。v6.07 改为【时间线区域(#grid)内任意左键按下即禁选】，彻底堵死轨迹选区。
-   三道防线：mousedown preventDefault + body.noselect(全程) + setInterval(16ms) 持续 removeAllRanges。
-   表单元素(input/textarea/contenteditable/button)保留原生行为，不参与禁选。 */
-const _DRAG_SEL='.bar-task,.ph-div,.eff-chip,.bar-addon,.ptag';
-let _selTimer=null;
-document.addEventListener('mousedown',e=>{
-  if(e.button!==0) return;
-  if(e.target.closest(_DRAG_SEL)) e.preventDefault();
-}, true);
-document.addEventListener('pointerdown',e=>{
-  if(e.button!==0) return;
-  const t=e.target;
-  if(t.closest('input,textarea,[contenteditable],button')) return;  // 表单元素保留原生行为
-  if(t.closest('#grid')){   // ★ 时间线区域内任意按下都进入禁选态，杜绝拖拽轨迹选区
-    const s=window.getSelection(); if(s&&s.removeAllRanges) s.removeAllRanges();
-    document.body.classList.add('noselect');
-    if(!_selTimer) _selTimer=setInterval(()=>{ window.getSelection()?.removeAllRanges(); }, 16);
-  }
-}, true);
-const _clrSel=()=>{
-  document.body.classList.remove('noselect');
-  if(_selTimer){ clearInterval(_selTimer); _selTimer=null; }
-};
-document.addEventListener('pointerup', _clrSel, true);
-document.addEventListener('pointercancel', _clrSel, true);
 
 grid.addEventListener('pointerdown',e=>{
   if(e.button!==0)return;            // 仅左键可拖任务条/分割线；中键留给视图平移、右键留给浏览器菜单
