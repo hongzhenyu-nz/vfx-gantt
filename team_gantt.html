@@ -1151,7 +1151,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.27 · build 2026-08-20 20:38</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.28 · build 2026-08-20 20:42</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
@@ -1973,13 +1973,15 @@ const HR_GRADE = {
   '金': {label:'金', col:'#f6cf3f'},
   '橙': {label:'橙', col:'#f59e0b'},
   '红': {label:'红', col:'#ef3b39'},
-  '':  {label:'通用', col:'#9097a0'},
+  '通用':{label:'通用',col:'#3b82f6'},
+  '':   {label:'游离', col:'#9097a0'},
 };
 /* v6.19: 品级标签(.ld-ch)高对比度配色——解决浅色品级(金)在白底上看不清的问题 */
 const LD_CH_STYLE = {
   '金': {bg:'linear-gradient(135deg,#fff8e6,#fef0c3)', color:'#92400e', border:'#f59e0b'},
   '橙': {bg:'linear-gradient(135deg,#fff7ed,#ffedd5)', color:'#c2410c', border:'#ea580c'},
   '红': {bg:'linear-gradient(135deg,#fef2f2,#fee2e2)', color:'#dc2626', border:'#ef3b39'},
+  '通用':{bg:'linear-gradient(135deg,#eff6ff,#dbeafe)', color:'#1d4ed8', border:'#3b82f6'},
   '':  {bg:'linear-gradient(135deg,#f1f5f9,#e2e8f0)', color:'#475569', border:'#94a3b8'},
 };
 const HR_STATUS = {
@@ -1993,7 +1995,7 @@ const HR_STATUS = {
 /* 动态品级：根据成员当前负责的角色线（hrData）取品级，而非成员固定属性。
    品级跟随任务/角色线绑定（金/橙/红），不是人的固有标签。
    优先级：金 > 橙 > 红；多角色线时取最高；未找到返回空字符串。 */
-const GRADE_PRIORITY = ['金','橙','红'];
+const GRADE_PRIORITY = ['金','橙','红','通用'];
 function memWorkGrade(memId){
   const m = members.find(x=>x.id===memId); if(!m) return '';
   const nm = m.name;
@@ -4008,7 +4010,7 @@ function buildRoleLines(){
       });
     }
     // 按品级排序: 金 > 橙 > 红 > 其他
-    const gradeOrder = {'金':0,'橙':1,'红':2};
+    const gradeOrder = {'金':0,'橙':1,'红':2,'通用':3};
     roles.sort((a,b) => (gradeOrder[a.grade]??9) - (gradeOrder[b.grade]??9));
     result.push({mod, roles});
   }
@@ -4026,6 +4028,7 @@ function renderHR(){
   if(HR.gradeGap.金>0) detailParts.push(`金角${HR.gradeGap.金}人`);
   if(HR.gradeGap.橙>0) detailParts.push(`橙角${HR.gradeGap.橙}人`);
   if(HR.gradeGap.红>0) detailParts.push(`红角${HR.gradeGap.红}人`);
+  if(HR.gradeGap.通用>0) detailParts.push(`通用${HR.gradeGap.通用}人`);
   if(HR.vacantCount>0) detailParts.push(`暂缺占位${HR.vacantCount}人`);
   const detailStr = detailParts.length ? detailParts.join(' / ') : '各线已配齐';
 
@@ -4049,7 +4052,7 @@ function renderHR(){
   </div>`;
   // 品级统计条（动态：实人数 + 缺口 + 暂缺，全部从 computeHR 实时取）
   let gradeBarHtml = '';
-  ['金','橙','红'].forEach(g => {
+  ['金','橙','红','通用'].forEach(g => {
     const cnt = HR.gradeCount[g] || 0;
     if(cnt > 0) {
       const col = (HR_GRADE[g]||{}).col || '#646a73';
@@ -5300,9 +5303,9 @@ function regLeaderOpts(sel){
   return `<option value="—" ${(!sel||sel==='—')?'selected':''}>（无 / 游离人力）</option>`
     + regs.map(m=>`<option value="${escAttr(m.name)}" ${sel===m.name?'selected':''}>${escAttr(m.name)}</option>`).join('');
 }
-const GRADE_OPTS_LIST=['','金','橙','红'];
+const GRADE_OPTS_LIST=['','通用','金','橙','红'];
 const MOD_OPTS_LIST=['出场','检视','组队','饰品','入局Cuts','TPP','MVP','大厅','本体/3C','武器特效','通用','联调'];
-const CHAR_OPTS_LIST=['金','橙','红'];   /* 正编「负责」可选品级（对应 HR_GRADE 的金/橙/红） */
+const CHAR_OPTS_LIST=['金','橙','红','通用'];   /* 正编「负责」可选品级（对应 HR_GRADE 的金/橙/红/通用） */
 const LINE_OPTS_LIST=[['-','通用'],['L1','露西亚·管线1'],['L2','比安卡·管线2'],['J','七十·金角线'],['R','女指挥官·红角线']];
 
 /* 格式化正编「负责」显示：从 leadChars(品级) + leadMods(模块) 渲染为结构化标签。
@@ -5776,7 +5779,7 @@ function composeReqName(ch,md){
 function openNewReq(){
   if(!requireWrite())return;
   addCtx={mode:'newReq'};
-  const gradeOpt=['金','橙','红',''].map(g=>`<option value="${g}" ${g==='橙'?'selected':''}>${g===''?'通用':g+'级'}</option>`).join('');
+  const gradeOpt=['金','橙','红','通用',''].map(g=>`<option value="${g}" ${g==='橙'?'selected':''}>${g===''?'游离':g==='通用'?'通用':g+'级'}</option>`).join('');
   const modOpt=MOD_OPTS_LIST.map(m=>`<option value="${m}" ${m==='出场'?'selected':''}>${m}</option>`).join('');
   const lineOpt=LINE_OPTS_LIST.map(l=>`<option value="${l[0]}">${l[1]}</option>`).join('');
   const today=dInput(TODAY), end60=dInput(i2d(Math.min(idx(TODAY)+40,DAYS)));
