@@ -4128,14 +4128,21 @@ let phdrag=null;   // L1/L2 分割线拖拽态
    - dragstart：拖拽中进行时 preventDefault，禁止浏览器原生拖放产生的半透明拖影 */
 document.addEventListener('selectstart',e=>{ if(drag||phdrag||chipDrag) e.preventDefault(); }, true);
 document.addEventListener('dragstart', e=>{ if(drag||phdrag||chipDrag) e.preventDefault(); }, true);
-/* v6.04: 拖拽全程对整页强约束 user-select:none + 立即清空已存在选区（彻底消灭绿色选区高亮）。
-   根因：pointerdown 上的 preventDefault 拦不住由底层 mousedown 触发的文本选区（Pointer/Lazy 选区割裂），
-   而 selectstart 仅在 drag 已置位时才拦，一旦选区在置位前那瞬被浏览器锁进 DOM 就清不掉 → 一直看到绿块。
-   修法：拖拽起点给 body 加 .noselect（CSS 全局 user-select:none !important），并 removeAllRanges() 清掉残留选区，
-   全程结束（pointerup/pointercancel）再移除。bar/ph-div/eff-chip/bar-addon/ptag 三类拖拽统一覆盖。 */
+/* v6.05: 根除拖拽时的原生文本选区（绿色/蓝色高亮）。
+   根因（关键纠正）：文本选区由浏览器底层 mousedown→mousemove 链路驱动，pointer 事件的 preventDefault
+   拦不住它；且【已生成的 selection 不受父级 user-select:none 影响】，所以纯 CSS / 只拦 pointer 必失败。
+   v6.02/03 都是没定位根因就叠补丁，浪费了你几轮。真正生效的两招：
+   1) ★命中可拖元素时，在 mousedown（legacy 鼠标链路）阶段就 preventDefault —— 从源头掐断原生选区发起（之前一直漏）；
+   2) 同时给 body 加 .noselect（全局 user-select:none !important）并 removeAllRanges() 清残留，pointerup/pointercancel 移除。
+   bar-task / ph-div / eff-chip / bar-addon / ptag 五类拖拽统一覆盖。 */
+const _DRAG_SEL='.bar-task,.ph-div,.eff-chip,.bar-addon,.ptag';
+document.addEventListener('mousedown',e=>{
+  if(e.button!==0) return;
+  if(e.target.closest(_DRAG_SEL)) e.preventDefault();   // ★ 掐断原生文本选区（pointer 的 preventDefault 拦不住这条链路）
+}, true);
 document.addEventListener('pointerdown',e=>{
   if(e.button!==0) return;
-  if(e.target.closest('.bar-task,.ph-div,.eff-chip,.bar-addon,.ptag')){
+  if(e.target.closest(_DRAG_SEL)){
     const s=window.getSelection(); if(s&&s.removeAllRanges) s.removeAllRanges();
     document.body.classList.add('noselect');
   }
