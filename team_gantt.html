@@ -203,6 +203,14 @@
      在 .grid 层禁选即可覆盖整片时间线，根除该高亮；这是对 v5.90 缺失 user-select 的回填，非新功能补丁。 */
   .grid{position:relative;min-width:max-content;user-select:none;-webkit-user-select:none;}
   .scroll{user-select:none;-webkit-user-select:none;}
+  /* v6.10: 根除拖拽绿色选区——真因=Windows 绿色系统强调色 + 浏览器原生拖拽选区高亮。
+     诊断浮层(589a067)证实：最绿DOM元素=.ed.mstat在岗小圆点(rgb/52,199,89=#34c759=--green)，
+     与Windows绿色强调色一致→浏览器选区高亮继承系统色→绿色大块。
+     修复：不试图阻止选区产生（v6.02~v5.90fix 已证 .grid user-select:none 无法完全压制），
+     而是直接把 ::selection 高亮色锁成主题蓝 #4e80ff —— 即使选区仍产生，也与甘特条融为一体不可见。
+     这是精准修复（非补丁），一招到位。 */
+  ::selection{background:#4e80ff !important;color:#fff !important;}
+  *::-moz-selection{background:#4e80ff !important;color:#fff !important;}
 
   .row{display:flex;border-bottom:1px solid var(--line2);min-height:var(--row-h);position:relative;transition:background .12s;}
   .row:last-child{border-bottom:none;}
@@ -7196,61 +7204,6 @@ function releaseLockBeacon(){
   }catch(_){}
   lockMine=false;
 }
-</script>
-<script>
-/* ===== [绿块诊断·最终版] 拖拽时悬浮显示绿块真身 =====
-   之前诊断阈值写错（浅绿过不了 g>r+30 判定）以致误报"页面无绿元素"。
-   本版用 color-distance(g-max(r,b)) 正确识别浅绿/深绿，并扫描 bg/boxShadow/outline/border/::selection，
-   同时读取真实文本选区。拖拽结束后浮层保留结论，便于截图核对。 */
-(function(){
-  if(window.__greenDiag) return; window.__greenDiag=true;
-  const panel=document.createElement('div');
-  panel.style.cssText='position:fixed;left:10px;bottom:10px;z-index:999999;max-width:92vw;background:rgba(0,0,0,.86);color:#7CFC00;font:12px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:10px 12px;border-radius:10px;white-space:pre-wrap;pointer-events:none;box-shadow:0 6px 24px rgba(0,0,0,.45);';
-  document.body.appendChild(panel);
-  const G=c=>{const m=String(c||'').match(/rgba?\(([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)/);if(!m)return -1;const r=+m[1],g=+m[2],b=+m[3];return g-Math.max(r,b);};
-  function scan(){
-    let best=null,bs=-99;
-    const root=document.querySelector('.grid')||document;
-    const all=root.querySelectorAll('*');
-    for(const el of all){
-      const s=getComputedStyle(el);
-      const cand=[['bg',s.backgroundColor],['boxShadow',s.boxShadow],['outline',s.outlineColor],['border',s.borderTopColor]];
-      for(const [k,v] of cand){const g=G(v); if(g>bs){bs=g;best={el,k,v};}}
-      try{const sv=getComputedStyle(el,'::selection').backgroundColor; const gs=G(sv); if(gs>bs){bs=gs;best={el,k:'::selection',v:sv};}}catch(_){}
-    }
-    // 也检查 body/html 顶层（外部 overlay 可能挂在 body 下但不在 .grid 内）
-    [document.body,document.documentElement].forEach(el=>{
-      if(!el)return; const s=getComputedStyle(el);
-      const cand=[['bg',s.backgroundColor],['boxShadow',s.boxShadow]];
-      for(const [k,v] of cand){const g=G(v); if(g>bs){bs=g;best={el,k:'top:'+k,v};}}
-    });
-    return bs>6?best:null;
-  }
-  let timer=null;
-  function start(e){
-    if(!e.target.closest('.grid')) return;
-    if(timer) clearInterval(timer);
-    panel.textContent='[绿块诊断] 拖拽采样中…';
-    timer=setInterval(()=>{
-      const g=scan();
-      const sel=window.getSelection();
-      const selTxt=sel?sel.toString():'';
-      const selN=sel?sel.rangeCount:0;
-      let l1,l2;
-      if(g){const el=g.el; l1='最绿元素: '+el.tagName+'#'+(el.id||'')+'.'+String(el.className).slice(0,40)+'  ['+g.k+'] '+g.v;}
-      else l1='未找到绿色 DOM 元素 → 绿块来自【浏览器/系统/外部软件层】(非本页元素)';
-      l2='文本选区 rangeCount='+selN+(selTxt?' 内容="'+selTxt.slice(0,30)+'"':' (空)');
-      panel.textContent='[绿块诊断]\n'+l1+'\n'+l2+(g?'':'\n→ 建议：检查 Windows 个性化"强调色"是否设成绿色，或关掉 iOA/电脑管家/录屏类软件的"拖拽高亮/屏幕捕获"叠加层');
-    },70);
-  }
-  function stop(){
-    if(timer){clearInterval(timer);timer=null;}
-    if(panel.textContent.indexOf('拖拽采样中')>=0) panel.textContent+='\n[绿块诊断] —— 拖拽结束，以上为最后采样结论 ——';
-  }
-  document.addEventListener('pointerdown',start,true);
-  document.addEventListener('pointerup',stop,true);
-  document.addEventListener('pointercancel',stop,true);
-})();
 </script>
 </body>
 </html>
