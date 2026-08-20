@@ -554,15 +554,16 @@
   }
   .row.vacant-row .vc-body{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:6px;overflow:hidden;}
   .row.vacant-row .vc-label{
-    font-size:13px;font-weight:700;color:#d32320;letter-spacing:.5px;
+    font-size:12px;font-weight:700;color:#fff;letter-spacing:.5px;
     white-space:nowrap;flex-shrink:0;
+    background:linear-gradient(135deg,#ef4444,#dc2626);border-radius:4px;padding:2px 8px;border:1px solid #b91c1c;
   }
   .row.vacant-row .vc-meta{
     font-size:11px;color:#9a8b7a;display:flex;align-items:center;gap:4px;
     flex-wrap:nowrap;overflow:hidden;
   }
-  .row.vacant-row .vc-meta span{background:#fff;border:1px solid #e5e1d8;border-radius:4px;padding:1px 6px;white-space:nowrap;flex-shrink:0;}
-  .row.vacant-row .vc-eff{font-size:11px;color:#b36b00;background:#fff1da;border:1px solid #ffd591;border-radius:4px;padding:1px 6px;white-space:nowrap;flex-shrink:0;}
+  .row.vacant-row .vc-meta span{background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border:1px solid #3b82f6;border-radius:4px;padding:1px 6px;white-space:nowrap;flex-shrink:0;font-weight:600;}
+  .row.vacant-row .vc-eff{font-size:11px;color:#92400e;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:4px;padding:1px 6px;white-space:nowrap;flex-shrink:0;font-weight:600;}
   .row.vacant-row .vc-act{display:flex;gap:4px;flex-shrink:0;margin-left:auto;}
   .row.vacant-row .vc-act button{
     background:#fff;border:1px solid #ddd;border-radius:4px;padding:2px 8px;
@@ -1116,7 +1117,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.13 · build 2026-08-20 17:00</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.14 · build 2026-08-20 17:05</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
   </div>
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
