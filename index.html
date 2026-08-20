@@ -1116,7 +1116,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与我给的编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.12 · build 2026-08-20 16:53</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.13 · build 2026-08-20 17:00</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
   </div>
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
@@ -7203,68 +7203,6 @@ function releaseLockBeacon(){
   }catch(_){}
   lockMine=false;
 }
-</script>
-<script>
-/* ===== v6.12 绿块自检浮层 =====
-   目的：直接读取拖拽时页面上所有【正在显示且尺寸较大】的元素实际生效颜色，
-   按"面积×绿度"排序（而非只按绿度——上一版正因只按绿度排序，被 11px 的小圆点掩盖了真凶），
-   从而必定捕获那个大面积绿块。同时显示 .drop-band 生效色以验证 v6.11 修复是否已加载。 */
-(function(){
-  if(window.__gd612) return; window.__gd612=true;
-  const p=document.createElement('div');
-  p.style.cssText='position:fixed;left:8px;bottom:8px;z-index:2147483647;max-width:96vw;background:rgba(10,12,16,.92);color:#8ef;font:11px/1.5 ui-monospace,Menlo,Consolas,monospace;padding:9px 11px;border-radius:9px;white-space:pre-wrap;pointer-events:none;box-shadow:0 6px 22px rgba(0,0,0,.5);';
-  document.body.appendChild(p);
-  // 绿度：g 通道相对 r/b 的优势；同时解析 alpha（alpha 极低的忽略）
-  function parse(c){
-    const m=String(c||'').match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+))?/);
-    if(!m) return null;
-    return {r:+m[1],g:+m[2],b:+m[3],a:m[4]===undefined?1:+m[4]};
-  }
-  function greenScore(c){
-    const v=parse(c); if(!v) return -1;
-    if(v.a<0.15) return -1;                 // 几乎透明 → 不可能是显眼绿块
-    return (v.g-Math.max(v.r,v.b))*v.a;     // 绿度 × 不透明度
-  }
-  function scan(){
-    const cands=[];
-    document.querySelectorAll('body *').forEach(el=>{
-      const r=el.getBoundingClientRect();
-      if(r.width<40||r.height<40) return;                       // 只看大面积元素（滤掉小圆点/标签）
-      if(r.right<0||r.bottom<0||r.left>innerWidth||r.top>innerHeight) return; // 只看可见区
-      const s=getComputedStyle(el);
-      if(s.display==='none'||s.visibility==='hidden'||+s.opacity<0.1) return;
-      const gs=greenScore(s.backgroundColor);
-      if(gs>8) cands.push({el,gs,area:Math.round(r.width*r.height),bg:s.backgroundColor,
-                           w:Math.round(r.width),h:Math.round(r.height)});
-    });
-    cands.sort((a,b)=>(b.gs*Math.log(b.area+2))-(a.gs*Math.log(a.area+2)));  // 绿度×面积权重
-    return cands.slice(0,3);
-  }
-  let t=null;
-  function tick(){
-    const band=document.getElementById('dropBand');
-    const bandBg=band?getComputedStyle(band).backgroundColor:'(无 dropBand)';
-    const top=scan();
-    let out='[v6.12 绿块自检]  build 2026-08-20 16:53\n';
-    out+='.drop-band 生效色 = '+bandBg+'\n';
-    out+=(String(bandBg).replace(/\s/g,'')==='rgb(51,112,0)'
-          ? '  ⚠ 仍是旧版深绿！浏览器在吃缓存 → 请硬刷新\n'
-          : '  ✓ v6.11 修复已加载（非深绿）\n');
-    if(!top.length) out+='大面积绿色元素：无（Top0）';
-    else out+='大面积绿色元素 Top'+top.length+'：\n'+top.map((c,i)=>
-      '  #'+(i+1)+' '+c.el.tagName+(c.el.id?'#'+c.el.id:'')+'.'+String(c.el.className).slice(0,34)
-      +'\n      bg='+c.bg+'  尺寸='+c.w+'x'+c.h).join('\n');
-    p.textContent=out;
-  }
-  document.addEventListener('pointerdown',e=>{
-    if(!e.target.closest('.grid'))return;
-    if(t)clearInterval(t); tick(); t=setInterval(tick,120);
-  },true);
-  const stop=()=>{ if(t){clearInterval(t);t=null;} };
-  document.addEventListener('pointerup',stop,true);
-  document.addEventListener('pointercancel',stop,true);
-  tick();  // 页面加载即显示一次，便于确认版本
-})();
 </script>
 </body>
 </html>
