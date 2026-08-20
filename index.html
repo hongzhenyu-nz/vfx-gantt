@@ -445,6 +445,16 @@
   .le-opt.sel{background:#ede9fe;color:#6d28d9;font-weight:700;}
   .le-chk{width:14px;height:14px;border-radius:3px;border:2px solid #c4b5fd;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .15s;background:#fff;}
   .le-opt.sel .le-chk{background:#7c3aed;border-color:#7c3aed;color:#fff;}
+  /* v6.17: 按品级分行编辑器（每行=品级勾选+该品级专属模块多选） */
+  .le-grid{display:flex;flex-direction:column;gap:2px;min-width:240px;}
+  .le-hdr{display:flex;gap:8px;padding-bottom:2px;border-bottom:1px solid #ede9fe;margin-bottom:2px;}
+  .le-hdr .le-lbl{width:36px;text-align:center;}
+  .le-hdr .le-lbl+.le-lbl{flex:1;text-align:left;}
+  .le-row{display:flex;gap:6px;align-items:flex-start;}
+  .le-char-ck{width:36px;flex-shrink:0;padding-top:1px;}
+  .le-char-ck .le-opt{justify-content:center;}
+  .le-mod-area{flex:1;min-width:0;display:flex;}
+  .le-mod-area.le-hidden{display:none;}
   /* 结构化「负责」显示标签：角色色块 + 分隔 + 模块色块 */
   .ld-ch{display:inline-flex;align-items:center;background:linear-gradient(135deg,#fef3c7,#fde68a);color:#92400e;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;margin:0 2px;white-space:nowrap;border:1px solid #f59e0b;}
   .ld-md{display:inline-flex;align-items:center;background:linear-gradient(135deg,#dbeafe,#bfdbfe);color:#1e40af;border-radius:4px;padding:1px 6px;font-size:11px;font-weight:600;margin:0 2px;white-space:nowrap;border:1px solid #3b82f6;}
@@ -1120,7 +1130,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.16 · build 2026-08-20 17:20</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.17 · build 2026-08-20 17:40</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
   </div>
@@ -5207,7 +5217,9 @@ function formatLeadDisplay(m){
   }
   return _formatLeadStructured(m, chars, mods);
 }
-/* 结构化负责标签渲染（被 formatLeadDisplay 和回退解析共同调用） */
+/* 结构化负责标签渲染（被 formatLeadDisplay 和回退解析共同调用）
+   v6.17: 优先使用 leadMap（每品级→专属模块列表）进行精确配对；
+   无 leadMap 时从扁平 leadChars/leadMods 均分推导（向后兼容旧数据）。 */
 function _formatLeadStructured(m, chars, mods){
     // 收集所有正编的品级选择，用于去重序号
     const regMembers = members.filter(x=>x.corp==='reg');
@@ -5224,10 +5236,23 @@ function _formatLeadStructured(m, chars, mods){
     // 按 memberId 排序保证序号稳定
     Object.keys(gradeOrder).forEach(g => gradeOrder[g].sort());
 
+    // ★ v6.17: 优先用 leadMap 精确配对
+    let mapEntries = null;
+    if(m.leadMap && Array.isArray(m.leadMap) && m.leadMap.length){
+      mapEntries=m.leadMap.filter(e=>e.c&&chars.includes(e.c));
+    }
+    // 如果没有有效的 leadMap，从扁平数据均分推导（兼容旧格式）
+    if(!mapEntries || !mapEntries.length){
+      mapEntries=chars.map((c,i)=>{
+        const start=Math.round(i*mods.length/chars.length);
+        const end=Math.round((i+1)*mods.length/chars.length);
+        return {c:c, m:mods.slice(start,end)};
+      });
+    }
+
     const charSpans = chars.map(c => {
       const gInfo = HR_GRADE[c] || HR_GRADE[''];
       let label = c;
-      // 同一品级被多人选 → 加序号
       if((gradeCount[c]||0) > 1){
         const idx = (gradeOrder[c]||[]).indexOf(m.id);
         if(idx >= 0) label += ['①','②','③','④','⑤'][idx] || '';
@@ -5236,30 +5261,25 @@ function _formatLeadStructured(m, chars, mods){
     }).join('');
     const modSpans = mods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('');
 
-    // ★ 角色与模块配对分行：每个角色一行，带上其对应的模块
-    // 数据模型中 leadChars/leadMods 是两个扁平列表，无显式配对 → 均分模块到各角色
+    // 每个品级一行，带上其专属模块
     let html = '<span class="ld-block">';
-    if(chars.length > 0){
-      // 把模块均分到各角色行
-      const rows = chars.map((c, i) => {
-        const gInfo = HR_GRADE[c] || HR_GRADE[''];
-        let label = c;
-        if((gradeCount[c]||0) > 1){
-          const idx = (gradeOrder[c]||[]).indexOf(m.id);
-          if(idx >= 0) label += ['①','②','③','④','⑤'][idx] || '';
-        }
-        const chSpan = `<span class="ld-ch" style="background:${gInfo.col}22;color:${gInfo.col};border-color:${gInfo.col}44">${escAttr(label)}</span>`;
-        // 计算该角色行分配的模块范围 [start, end)
-        const start = Math.round(i * mods.length / chars.length);
-        const end   = Math.round((i + 1) * mods.length / chars.length);
-        const rowMods = mods.slice(start, end);
-        const mdStr = rowMods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('');
-        return '<span class="ld-row">'+chSpan+(mdStr ? ' · '+mdStr : '')+'</span>';
-      });
-      html += rows.join('');
-    } else if(mods.length > 0){
-      // 无角色但有模块（边缘情况）：模块单独成行
-      html += '<span class="ld-row ld-row-md">'+mods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('')+'</span>';
+    mapEntries.forEach(entry=>{
+      const c=entry.c;
+      const gInfo = HR_GRADE[c] || HR_GRADE[''];
+      let label = c;
+      if((gradeCount[c]||0) > 1){
+        const idx = (gradeOrder[c]||[]).indexOf(m.id);
+        if(idx >= 0) label += ['①','②','③','④','⑤'][idx] || '';
+      }
+      const chSpan = `<span class="ld-ch" style="background:${gInfo.col}22;color:${gInfo.col};border-color:${gInfo.col}44">${escAttr(label)}</span>`;
+      const mdStr = (entry.m||[]).map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('');
+      html += '<span class="ld-row">'+chSpan+(mdStr ? ' · '+mdStr : '')+'</span>';
+    });
+    // 处理不在 leadMap 中的残留模块（防御性）
+    const mappedMods=new Set(mapEntries.flatMap(e=>e.m||[]));
+    const orphanMods=mods.filter(md=>!mappedMods.has(md));
+    if(orphanMods.length){
+      html += '<span class="ld-row ld-row-md">'+orphanMods.map(md=>`<span class="ld-md">${escAttr(md)}</span>`).join('')+'</span>';
     }
     html += '</span>';
     return '负责 '+html;
@@ -5432,29 +5452,25 @@ function startEditLead(ev, mid, kind){
     tag.replaceWith(wrap);
     sel.focus();
   }else{
-    // 正编「负责」结构化编辑：角色多选 + 模块多选
+    // 正编「负责」结构化编辑：每个品级独立选择自己的模块（v6.17）
     const wrap=document.createElement('span');
     wrap.className='lead-edit lead-edit-struct';
 
-    // 解析当前值（优先读结构化字段，回退解析旧 lead 文本）
+    // ---- 解析当前值 ----
     const curChars = (m.leadChars||'').split(',').filter(Boolean);
     const curMods  = (m.leadMods||'').split(',').filter(Boolean);
-    // 旧格式回退解析器：能处理 "橙 · 出场/组队"、"橙+红 · 检视/TPP"、"橙角露西亚·管线1" 等历史格式
+    // 旧格式回退解析器
     function parseLeadFallback(txt){
       if(!txt || txt==='暂缺' || txt==='—') return {chars:[],mods:[]};
       const raw=(txt||'').trim();
       const cSet=new Set(CHAR_OPTS_LIST);
       const mSet=new Set(MOD_OPTS_LIST);
-      // 尝试标准格式 "角色部分 · 模块部分"
       const pi=raw.indexOf(' · ');
       let cRaw='', mRaw='';
       if(pi>0){ cRaw=raw.slice(0,pi); mRaw=raw.slice(pi+3); }
-      else{ cRaw=raw; } // 无分隔符时整体当角色部分扫描
-      // 提取角色：按 + 分割，逐词去尾数字（如"红①"→"红"），匹配 CHAR_OPTS_LIST
+      else{ cRaw=raw; }
       const chars=cRaw.split('+').map(s=>s.trim().replace(/[①②③④⑤]$/,'')).filter(s=>cSet.has(s));
-      // 如果标准格式没拆出角色，对整串做子串扫描（兼容 "橙角露西亚·管线1"）
       const finalChars=chars.length?chars:[...cSet].filter(c=>raw.includes(c));
-      // 提取模块：按 / 分割，处理复合模块名（本体/3C）
       const mp=mRaw.split('/').filter(Boolean);
       const mods=[];
       for(let i=0;i<mp.length;i++){
@@ -5468,59 +5484,117 @@ function startEditLead(ev, mid, kind){
     const effChars=curChars.length?curChars:fb.chars;
     const effMods=curMods.length?curMods:fb.mods;
 
-    // 品级选择（自定义多选：点击即切换）
-    const charLbl=document.createElement('span'); charLbl.className='le-lbl'; charLbl.textContent='品级';
-    const charSel=document.createElement('div'); charSel.className='le-sel le-sel-char';
-    const charState={}; CHAR_OPTS_LIST.forEach(c=>{charState[c]=effChars.includes(c);});
-    const rebuildCharOpts=()=>{
-      charSel.innerHTML='';
-      CHAR_OPTS_LIST.forEach(c=>{
-        const opt=document.createElement('div');
-        opt.className='le-opt'+(charState[c]?' sel':'');
-        opt.innerHTML=`<span class="le-chk">${charState[c]?'✓':''}</span><span>${c}</span>`;
-        opt.onclick=e=>{e.stopPropagation();charState[c]=!charState[c];rebuildCharOpts();};
-        charSel.appendChild(opt);
+    // ---- 构建/恢复 leadMap（每品级→专属模块列表）----
+    // 优先用已有的 leadMap；否则从扁平列表推导（均分模块到各品级，兼容旧数据）
+    let leadMap;
+    if(m.leadMap && Array.isArray(m.leadMap)){
+      leadMap=m.leadMap.slice();
+      // 确保所有当前品级都在 map 中（防止数据不一致）
+      effChars.forEach(c=>{ if(!leadMap.find(x=>x.c===c)) leadMap.push({c:c,m:[]}); });
+    }else{
+      // 从扁平格式推导：把模块大致均分到各品级（与旧显示逻辑一致）
+      leadMap=effChars.map((c,i)=>{
+        const start=Math.round(i*effMods.length/effChars.length);
+        const end=Math.round((i+1)*effMods.length/effChars.length);
+        return {c:c, m:effMods.slice(start,end)};
       });
-    };
-    rebuildCharOpts();
-    // 模块选择（自定义多选：点击即切换）
-    const modLbl=document.createElement('span'); modLbl.className='le-lbl'; modLbl.textContent='模块';
-    const modSel=document.createElement('div'); modSel.className='le-sel le-sel-mod';
-    const modState={}; MOD_OPTS_LIST.forEach(md=>{modState[md]=effMods.includes(md);});
-    const rebuildModOpts=()=>{
-      modSel.innerHTML='';
+    }
+
+    // ---- UI：每行 = 品级勾选 + 该品级的模块多选 ----
+    const grid=document.createElement('div'); grid.className='le-grid';
+
+    // 表头
+    const hdr=document.createElement('div'); hdr.className='le-hdr';
+    hdr.innerHTML='<span class="le-lbl">品级</span><span class="le-lbl">模块</span>';
+    grid.appendChild(hdr);
+
+    // 每个品级一行
+    const rowEls={};
+    CHAR_OPTS_LIST.forEach(c=>{
+      const row=document.createElement('div'); row.className='le-row';
+      const active=leadMap.some(x=>x.c===c);
+      const entry=leadMap.find(x=>x.c===c);
+      const modSet=new Set(entry?entry.m:[]);
+
+      // 品级勾选
+      const chk=document.createElement('div'); chk.className='le-char-ck';
+      chk.innerHTML=`<span class="le-opt${active?' sel':''}"><span class="le-chk">${active?'✓':''}</span><span>${c}</span></span>`;
+      chk.querySelector('.le-opt').onclick=e=>{e.stopPropagation();
+        const idx=leadMap.findIndex(x=>x.c===c);
+        if(idx>=0){ leadMap.splice(idx,1); }
+        else{ leadMap.push({c:c,m:[]}); }
+        rebuildGrid();
+      };
+      row.appendChild(chk);
+
+      // 该品级的模块多选（仅当品级选中时显示）
+      const modArea=document.createElement('div'); modArea.className='le-mod-area'+(active?'':' le-hidden');
+      const modSel=document.createElement('div'); modSel.className='le-sel le-sel-mod';
       MOD_OPTS_LIST.forEach(md=>{
         const opt=document.createElement('div');
-        opt.className='le-opt'+(modState[md]?' sel':'');
-        opt.innerHTML=`<span class="le-chk">${modState[md]?'✓':''}</span><span>${md}</span>`;
-        opt.onclick=e=>{e.stopPropagation();modState[md]=!modState[md];rebuildModOpts();};
+        opt.className='le-opt'+(modSet.has(md)?' sel':'');
+        opt.innerHTML=`<span class="le-chk">${modSet.has(md)?'✓':''}</span><span>${md}</span>`;
+        opt.onclick=e=>{e.stopPropagation();
+          const entry2=leadMap.find(x=>x.c===c);
+          if(!entry2)return;
+          const mi=entry2.m.indexOf(md);
+          if(mi>=0)entry2.m.splice(mi,1); else entry2.m.push(md);
+          rebuildGrid();
+        };
         modSel.appendChild(opt);
       });
-    };
-    rebuildModOpts();
+      modArea.appendChild(modSel);
+      row.appendChild(modArea);
+      rowEls[c]=row;
+      grid.appendChild(row);
+    });
+
+    function rebuildGrid(){
+      CHAR_OPTS_LIST.forEach(c=>{
+        const row=rowEls[c]; if(!row)return;
+        const active=leadMap.some(x=>x.c===c);
+        const entry=leadMap.find(x=>x.c===c);
+        const modSet=new Set(entry?entry.m:[]);
+        // 更新品级勾选状态
+        const ckOpt=row.querySelector('.le-char-ck .le-opt');
+        if(active){ ckOpt.classList.add('sel'); ckOpt.querySelector('.le-chk').textContent='✓'; }
+        else{ ckOpt.classList.remove('sel'); ckOpt.querySelector('.le-chk').textContent=''; }
+        // 更新模块区域可见性 + 勾选状态
+        const modArea=row.querySelector('.le-mod-area');
+        if(active)modArea.classList.remove('le-hidden'); else modArea.classList.add('le-hidden');
+        modArea.querySelectorAll('.le-sel .le-opt').forEach(opt=>{
+          const md=opt.querySelector('span:last-child').textContent;
+          if(modSet.has(md)){opt.classList.add('sel');opt.querySelector('.le-chk').textContent='✓';}
+          else{opt.classList.remove('sel');opt.querySelector('.le-chk').textContent='';}
+        });
+      });
+    }
 
     const ok=document.createElement('button'); ok.className='lk ok'; ok.textContent='✓';
     const cc=document.createElement('button'); cc.className='lk cancel'; cc.textContent='✕';
 
-    [charSel,modSel,ok,cc].forEach(el=>{ el.onpointerdown=e=>e.stopPropagation(); el.onclick=e=>e.stopPropagation(); });
+    [grid,ok,cc].forEach(el=>{ el.onpointerdown=e=>e.stopPropagation(); el.onclick=e=>e.stopPropagation(); });
     ok.onclick=e=>{e.stopPropagation();finish(true);};
     cc.onclick=e=>{e.stopPropagation();finish(false);};
     const finish=(commit)=>{
       if(commit){
-        const selChars = CHAR_OPTS_LIST.filter(c=>charState[c]);
-        const selMods  = MOD_OPTS_LIST.filter(md=>modState[md]);
-        const newLeadChars = selChars.join(',');
-        const newLeadMods  = selMods.join(',');
-        // 组合为 lead 文本（向后兼容）
+        // 从 leadMap 推导扁平字段（向后兼容）
+        const newLeadChars = leadMap.map(x=>x.c).join(',');
+        const newLeadMods  = leadMap.flatMap(x=>x.m).join(',');
+        // 组合 lead 文本
         let newLeadText = '';
-        if(selChars.length) newLeadText += selChars.join('+');
-        if(selMods.length)  newLeadText += (newLeadText?' · ':'') + selMods.join('/');
+        leadMap.forEach(entry=>{
+          if(newLeadText)newLeadText+=' + ';
+          newLeadText+=entry.c;
+          if(entry.m.length)newLeadText+=' · '+entry.m.join('/');
+        });
         if(newLeadText !== (m.lead||'')){
           pushHistory();
           m.lead = newLeadText || '—';
           m.leadChars = newLeadChars;
           m.leadMods = newLeadMods;
-          m.role='正编·带队'+(selChars.length?''+selChars.join('+'):'')+(selMods.length?'·'+selMods.join('/'):'');
+          m.leadMap = leadMap;   // ★ v6.17: 保存结构化配对
+          m.role='正编·带队'+(newLeadChars?' '+newLeadChars:'')+(newLeadMods?'·'+newLeadMods:'');
           _logDesc='把「'+m.name+'」负责改为'+newLeadText||'(空)';
           save();broadcast();
         }
@@ -5528,11 +5602,10 @@ function startEditLead(ev, mid, kind){
       _editingLead=null;
       rerender();
     };
-    wrap.appendChild(charLbl); wrap.appendChild(charSel);
-    wrap.appendChild(modLbl);  wrap.appendChild(modSel);
+    wrap.appendChild(grid);
     wrap.appendChild(ok);     wrap.appendChild(cc);
     tag.replaceWith(wrap);
-    charSel.focus();
+    grid.focus();
   }
 }
 /* 正编「带队负责」常用预设：品级 + 模块组合，供 datalist 提示 */
@@ -5658,7 +5731,7 @@ function snapshot(){
 function coreSnapshot(){
   return {
     // 成员：除原有 status 外，序列化全部字段，使「新增成员」可在刷新/分享/云端后保留
-    members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null),leadChars:m.leadChars||'',leadMods:m.leadMods||''})),
+    members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null),leadChars:m.leadChars||'',leadMods:m.leadMods||'',leadMap:m.leadMap||null})),
     effTiers:EFF_TIERS.map(t=>({coef:t.coef,label:t.label,mems:(t.mems||[]).slice()})),
     effLocked:effLocked,
     stdCfg:STD_CFG.map(t=>({mod:t.mod||'',grade:t.grade,col:t.col,dur:t.dur||'',weeks:t.weeks,ppl:t.ppl})),
@@ -5693,8 +5766,10 @@ function applySnap(snap){
       // ★ v5.83 持久化修复：负责(leadChars/leadMods)结构化字段也要随快照/云端同步，否则刷新后丢失
       if(ms.leadChars!=null)m.leadChars=ms.leadChars;
       if(ms.leadMods!=null)m.leadMods=ms.leadMods;
+      // ★ v6.17: leadMap（品级→模块配对）同步
+      if(ms.leadMap!=null)m.leadMap=ms.leadMap;
     }else if(ms.name){
-      const nm={id:ms.id,name:ms.name,role:ms.role||'',corp:ms.corp||'base',lead:ms.lead||'—',mod:ms.mod||'',grade:ms.grade||'',line:ms.line||'-',eff:(ms.eff!=null?ms.eff:1.0),status:ms.status||'on',leadChars:ms.leadChars||'',leadMods:ms.leadMods||''};
+      const nm={id:ms.id,name:ms.name,role:ms.role||'',corp:ms.corp||'base',lead:ms.lead||'—',mod:ms.mod||'',grade:ms.grade||'',line:ms.line||'-',eff:(ms.eff!=null?ms.eff:1.0),status:ms.status||'on',leadChars:ms.leadChars||'',leadMods:ms.leadMods||'',leadMap:ms.leadMap||null};
       if(ms.support)nm.support=true;
       if(ms.tmp)nm.tmp=true;
       if(ms.leftAt!=null)nm.leftAt=i2d(ms.leftAt);
