@@ -4119,6 +4119,14 @@ const dlabel=document.getElementById('dlabel');
 let drag=null;
 let phdrag=null;   // L1/L2 分割线拖拽态
 
+/* v6.03: 拖拽中彻底禁止文本选区 / 原生拖影。
+   CSS `.grid{user-select:none}` 仍偶尔失效——浏览器在跨容器/跨元素拖拽时会触发 selectstart，
+   且【已形成的 selection 不受父级 user-select:none 影响】，故纯 CSS 兜不住。这里用全局事件拦截兜底：
+   - selectstart：拖拽进行中(pointerdown 已置 drag/phdrag/chipDrag)时 preventDefault，从源头禁止选区生成
+   - dragstart：拖拽中进行时 preventDefault，禁止浏览器原生拖放产生的半透明拖影 */
+document.addEventListener('selectstart',e=>{ if(drag||phdrag||chipDrag) e.preventDefault(); }, true);
+document.addEventListener('dragstart', e=>{ if(drag||phdrag||chipDrag) e.preventDefault(); }, true);
+
 grid.addEventListener('pointerdown',e=>{
   if(e.button!==0)return;            // 仅左键可拖任务条/分割线；中键留给视图平移、右键留给浏览器菜单
   // 只读模式：任何任务条/分割线的拖拽与点击改状态都不允许（仅当点到可交互条时拦截并提示）
