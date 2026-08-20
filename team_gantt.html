@@ -202,6 +202,10 @@
   .grid{position:relative;min-width:max-content;user-select:none;}
   /* v6.04: 拖拽全程对整页强约束禁止选中（含左栏/工具条等 grid 之外的区域），覆盖纯 .grid 兜底不到的情形 */
   body.noselect, body.noselect *{user-select:none !important;-webkit-user-select:none !important;}
+  /* v6.08: 即使选区仍被浏览器底层创建（pointer/mousedown 防线均可能被绕过），
+     直接用 ::selection 把选中背景杀透明 —— 用户视觉上绝对看不到任何色块。
+     这是"不问来路、只管结果"的终极视觉兜底，不依赖事件时序/CSS优先级/浏览器行为。 */
+  body.noselect::selection, body.noselect *::selection{background:transparent !important;color:inherit !important;}
   /* 拖拽甘特条/标签时，整层禁止文本选中（避免拖动时出现绿色/蓝色选区） */
   .scroll:has(.dragging){user-select:none!important;}
 
@@ -1177,7 +1181,7 @@
       <span class="seg-lab">协同</span>
       <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
       <button class="ubtn sync-btn" onclick="exportSync()" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">📋 一键复制排期</button>
-      <span class="ver-badge" id="verBadge" title="当前版本号——拖动条若仍出现绿色，先看这里是否显示 v6.07，不是则说明没刷到最新版">v6.07</span>
+      <span class="ver-badge" id="verBadge" title="当前版本号——拖动条若仍出现绿色，先看这里是否显示 v6.08，不是则说明没刷到最新版">v6.08</span>
     </div>
     <div class="spacer"></div>
     <div class="bar-section">
