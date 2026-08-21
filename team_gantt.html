@@ -253,9 +253,11 @@
      而是本文件一个 CSS 拼写错误。正确值应为主题蓝半透明 rgba(51,112,255,.07)。 */
   .drop-band{position:absolute;top:82px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}
   .drop-band.show{display:block;}
-  /* 视角高亮：选中的"我"本人 + 隶属于我的人员行 */
+  /* 视角高亮：选中的"我"本人 + 隶属于我的人员行
+     v6.44：整行背景一律用半透 rgba，让时间轴的日期/周末底纹透出来；
+     左侧名栏(.cell-left)保持实心（名栏本就该盖住日期底纹）。 */
   .row.me-self .cell-left{background:#fff5e6;box-shadow:inset 4px 0 0 #ff9f0a;}
-  .row.me-self{background:#fffaf2;}
+  .row.me-self{background:rgba(255,239,204,.32);}
   .row.me-team .cell-left{background:#fffaf2;box-shadow:inset 4px 0 0 #ffd591;}
   .row.dim{opacity:.32;filter:grayscale(.4);}
 
@@ -551,7 +553,7 @@
   .hr-flag.loan{color:#fff;background:#7c3aed;border-color:#6d28d9;font-size:9.5px;padding:1px 7px;box-shadow:0 1px 3px rgba(124,58,237,.35);letter-spacing:.3px;}
   .ltag.loan{color:#6d28d9;background:#f3e8ff;border:1px solid #d8b4fe;font-weight:700;}
   /* 已离职：整行信息统一灰化（姓名/品级/标签/负载都转灰），仅「已离职」徽标保持醒目，一眼看出此人已离场 */
-  .row.is-left{background:#f6f7f9;}
+  .row.is-left{background:rgba(150,158,170,.14);}   /* v6.44 半透，透出日期底纹 */
   .row.is-left .cell-left{background:#f1f2f5;}   /* 左侧信息栏（sticky 白底）也跟着灰化，整行一致 */
   .row.is-left .who .nm{color:#9aa1ab;text-decoration:line-through;text-decoration-color:#bcc2cb;}
   .row.is-left .gdot-grade{filter:grayscale(1);opacity:.5;}
@@ -563,7 +565,7 @@
   .row.is-left .av{filter:grayscale(1);}
   /* 长期外借支援其他管线：不再用醒目 pill 标签，而是整行淡紫底色 + 左侧紫罗兰强调条来区分。
      视觉上一眼可辨「这一行不属于角色线编制」，比单个标签更整体、数量多时也不喧宾夺主。 */
-  .row.is-loan{background:linear-gradient(90deg,#f6f1fe 0%, #faf7fe 60%, #fbfaff 100%);}
+  .row.is-loan{background:rgba(200,180,250,.20);}   /* v6.44 半透，透出日期底纹 */
   .row.is-loan .cell-left{background:#f3ecfd;box-shadow:inset 4px 0 0 #7c3aed;}
   .row.is-loan .who .nm{color:#5b21b6;}
   .loan-note{font-size:10.5px;font-weight:600;color:#7c3aed;background:transparent;border:1px dashed #c9b6f3;border-radius:6px;padding:2px 7px;white-space:nowrap;line-height:1.4;}
@@ -580,9 +582,11 @@
   .vacant-bar .mod-tag{background:rgba(0,0,0,.25)!important;color:#fff!important;border-color:rgba(255,255,255,.3)!important;}
   .vacant-bar .rt-dur{background:rgba(0,0,0,.22)!important;color:#fff!important;border-color:rgba(255,255,255,.25)!important;}
   .ltag.vacant .vacant-ic{margin-right:2px;}
-  /* v5.34 暂缺占位行：区别于真人行的「缺人状态卡」 */
-  .row.vacant-row{background:linear-gradient(90deg,#fef9f0 0%,#fff5eb 40%,#fff 100%);border-left:3px dashed #f87171;}
-  .row.vacant-row .cell-left{display:flex;align-items:center;padding:6px 10px;}
+  /* v5.34 暂缺占位行：区别于真人行的「缺人状态卡」
+     v6.44：整行背景改半透 rgba（原为实心渐变 → 遮住时间轴日期/周末底纹）；
+     名栏由 .cell-left 的 sticky 实心底覆盖，不受影响。 */
+  .row.vacant-row{background:rgba(255,240,220,.30);border-left:3px dashed #f87171;}
+  .row.vacant-row .cell-left{display:flex;align-items:center;padding:6px 10px;background:linear-gradient(90deg,#fef9f0 0%,#fff5eb 100%);}
   .row.vacant-row .vacant-card{
     display:flex;align-items:center;gap:8px;flex:1;
     background:#fef2f2;border:1.5px dashed #fca5a5;border-radius:8px;
@@ -828,8 +832,13 @@
   .row.row-sel .timeline{background:transparent;}
   /* v6.33：本人/暂缺/离职/外借行被选中时，保留各自的半透行底色（不再强制透明），
      这样"选中"不会让原有的黄/紫/灰底色消失；这些底色本身已是半透，日期底纹照样透出。 */
-  .row.me-self.row-sel{background:#fffaf2;}
-  .row.vacant-row.row-sel,.row.is-left.row-sel,.row.is-loan.row-sel{background:transparent;}
+  /* v6.44：本人/暂缺/离职/外借行被选中时，**完整保留各自原有的半透行底色**，
+     选中态只由「蓝色内边框 + 名栏高亮」表达，行背景不产生任何变化（用户要求"选中时不要有变化"）。
+     这些底色本身已是半透 rgba，日期/周末底纹照样透出。 */
+  .row.me-self.row-sel{background:rgba(255,239,204,.32);}
+  .row.vacant-row.row-sel{background:rgba(255,240,220,.30);}
+  .row.is-left.row-sel{background:rgba(150,158,170,.14);}
+  .row.is-loan.row-sel{background:rgba(200,180,250,.20);}
   /* 剪贴板浮条 */
   #clipchip{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1d2330;color:#fff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.32);display:none;align-items:center;gap:10px;z-index:9998;}
   #clipchip.show{display:inline-flex;}
@@ -1173,7 +1182,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.43 · build 2026-08-21 10:58</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.44 · build 2026-08-21 11:04</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
