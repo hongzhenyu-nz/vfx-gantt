@@ -597,6 +597,14 @@
      「占位条铺满整格」遗留，会与行内 style 的 top/height 百分比定位打架（min-height 更会强行
      撑高、抹掉 5px 条间缝隙）。现由 .bar-task 基类提供 position:absolute 与行内百分比定位。 */
   .vacant-bar{background:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;gap:4px;padding:0 6px;overflow:hidden;color:#fff;font-weight:700;text-shadow:0 1px 2px rgba(120,10,10,.55),0 0 8px rgba(120,10,0,.2);}
+  /* v6.50 修复「联调占位条变白」：.bar-task.k-lt（2 类，前面声明）带 background-image:none，
+     特异度高于单类 .vacant-bar，把占位条赖以成色的红色斜纹 repeating-linear-gradient 整个擦掉 → 只剩白底。
+     占位身份（缺人）应优先于需求类型（联调/测试）表达，故用 3 类选择器重新夺回斜纹，
+     并保留联调自身的虚线左边框语义。同理处理 k-qa（全量测试，其规则带 !important）。 */
+  .bar-task.vacant-bar.k-lt{background-image:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px);border-left-style:dashed;border-left-color:rgba(255,255,255,.85);}
+  .bar-task.vacant-bar.k-qa{background:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px)!important;color:#fff;border-left:3px dashed rgba(255,255,255,.85)!important;}
+  /* 占位条右侧已有「缺正编/缺基地」徽标，k-qa 的 🐞测试 浮标会与之撞位 → 占位条上不显示 */
+  .bar-task.vacant-bar.k-qa::after{content:none;}
   /* 缺人角标：在任务条信息右侧显示醒目的红色"🔴缺人"标记 */
   .vacant-bar .vacant-badge{flex-shrink:0;font-size:10px;font-weight:700;color:#fff;background:#dc2626;border-radius:8px;padding:1px 6px;white-space:nowrap;line-height:1.6;}
   /* 缺人条内部元素：全部白字+深阴影，确保在红底斜纹上清晰可读 */
@@ -1210,7 +1218,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.49 · build 2026-08-21 11:36</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.50 · build 2026-08-21 11:42</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
