@@ -1247,7 +1247,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.61 · build 2026-08-21 14:18</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.62 · build 2026-08-21 14:35</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2164,8 +2164,8 @@ const HR_CONCLUSION = {base:14, totalGap:11, detail:'金角4人 / 橙角1号5人
 
 /* 需求 → 基地制作人「标配人数」（应配编制，可按需调整）。
    缺口 = 标配 − 实际在岗基地人数，由 reqGapPpl(r) 动态算，加人/改派/离职后即时刷新。
-   口径：金角出场 4 基地、橙角出场 3 基地、红角各模块 3 基地（来自评估标准）。
-   未列入的需求(检视/组队/联调等)默认无独立编制缺口(标配=0 → 不显示缺人徽标)。 */
+   数据源优先级：STD_CFG 动态表（按品级×模块全匹配）> REQ_STD 硬编码（仅出场/本体等少数条目 fallback）。
+   未列入的需求(联调等)默认无独立编制缺口(标配=0 → 不显示缺人徽标)。 */
 const REQ_STD = {
   'LU_cc':3, 'BK_cc':3, 'BL_cc':3, 'HG_cc':3, 'AF_cc':3,   // 橙角出场：3 基地
   'QS_cc':4, 'HK_cc':4, 'CY_cc':4,                          // 金角出场：4 基地
@@ -2241,10 +2241,18 @@ function stdCfgBaseForReq(r){
   return REQ_STD[r.id] || 0;
 }
 
-/* 动态人力缺口 = 标配 − 实际在岗（≥0）。无标配的需求恒为 0 */
+/* 动态人力缺口 = 标配 − 实际在岗（≥0）。
+   优先从 STD_CFG 动态表按品级×模块匹配（覆盖全部模块），
+   fallback 到硬编码 REQ_STD（仅少数出场/本体条目）。
+   无任何标配的需求返回 0。 */
 function reqGapPpl(r){
-  const std=REQ_STD[r&&r.id]; if(std==null) return 0;
-  return Math.max(0, std-activeBase(r));
+  const std = stdCfgBaseForReq(r);       // 优先：STD_CFG 全表匹配
+  if(std <= 0) {                          // STD_CFG 无匹配 → fallback
+    const fallback = REQ_STD[r && r.id];
+    if(fallback == null) return 0;
+    return Math.max(0, fallback - activeBase(r));
+  }
+  return Math.max(0, std - activeBase(r));
 }
 /* ============ 实时 HR 汇总：全部从 members + reqs 计算，不再依赖写死的 hrData ============
    - 基础编制：在岗（非离职）成员总数
