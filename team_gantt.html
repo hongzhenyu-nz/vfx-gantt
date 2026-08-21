@@ -638,6 +638,11 @@
   .row.vacant-row .vc-tags .ltag.vac-tag{border-style:dashed;cursor:pointer;}
   .row.vacant-row .vc-tags .ltag.vac-tag:hover{filter:brightness(.97);box-shadow:0 1px 4px rgba(248,113,113,.22);}
   .row.vacant-row .vc-tags .vac-hint{color:#b45309;font-weight:600;font-style:italic;opacity:.9;}
+  /* v6.48 隶属对象本身也是「暂缺正编坑位」时的标签样式：琥珀调 + 虚线，
+     一眼看出"这条基地人力挂在一个还没到岗的正编坑位下面"，属待落实的规划态。 */
+  .row.vacant-row .vc-tags .ltag.belong.lead-vac{color:#b45309;background:linear-gradient(135deg,#fffbeb,#fef3c7);border-color:#fbbf24;font-weight:700;}
+  /* 分组下拉里暂缺坑位分组的视觉弱化（optgroup 支持有限，仅作降级增强） */
+  .lead-edit select optgroup{font-style:normal;font-weight:700;color:#64748b;}
   .row.vacant-row .vc-eff{font-size:11px;color:#92400e;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #f59e0b;border-radius:4px;padding:1px 6px;white-space:nowrap;flex-shrink:0;font-weight:600;}
   .row.vacant-row .vc-act{display:flex;gap:4px;flex-shrink:0;margin-left:auto;}
   .row.vacant-row .vc-act button{
@@ -1205,7 +1210,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.47 · build 2026-08-21 11:22</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.48 · build 2026-08-21 11:28</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3440,24 +3445,32 @@ function vacantRowHTML(m,inArc){
     });
     // 占位卡左侧信息 — 根据 corp 区分缺正编/缺基地
     const isRegVac = m.corp === 'reg';
-    const vacTypeLabel = isRegVac ? '缺正编占位' : '缺基地占位';
+    /* v6.48 坑位编号：名字里的编号后缀（如「暂缺-正编2」「暂缺-基地3」）提取出来显示在标题上，
+       让同类的多个占位坑位可区分（旧版正编占位全叫"暂缺"，多个坑位在界面和隶属下拉里都撞车）。
+       编号通过「✎ 编辑」改成员名维护（如把 name 改为 暂缺-正编1），此处只负责解析展示。 */
+    const vacSeq = (()=>{ const mm=(m.name||'').match(/(?:正编|基地)\s*([0-9]+|[一二三四五六七八九十]+)/); return mm?mm[1]:''; })();
+    const vacTypeLabel = (isRegVac ? '缺正编占位' : '缺基地占位') + (vacSeq?(' '+vacSeq):'');
     const vacTypeIcon = isRegVac ? '🔴' : '🔴';
     const vacBorderCls = isRegVac ? 'vacant-card-reg' : 'vacant-card-base';
     const vacRowBorder = '#f87171';  // 统一红色边框
     const effShow = m.eff && m.eff!==1 ? `<span class="vc-eff">⚡ 效率 ${m.eff}</span>` : '';
-    /* v6.42 标签统一：占位行不再用只读的 vc-meta 文本块，改为与正常成员同一套可编辑标签。
-       - 正编占位（缺带队）→ .ltag.lead + startEditLead(kind='lead')：可提前设置负责的品级+模块（结构化 leadMap）
-       - 基地占位（缺人力）→ .ltag.belong + startEditLead(kind='belong')：可提前指定隶属哪个正编带队
-       这样「先规划坑位职责、后招人填坑」的流程与真人行完全一致，编辑入口/格式/数据字段全部统一。 */
+    /* v6.48 按编制区分占位行的可设置内容（基地与正编职责不同，不该给同一套标签）：
+       - 正编占位 = 未来的「带队人」→ 需要提前规划负责的角色品级+模块（结构化 leadMap），
+         并可用「坑位编号」区分同类的多个正编坑位（正编1/正编2/…）。
+       - 基地占位 = 未来的「执行人力」→ 模块由所接需求(r.mod)决定、不属于人，因此
+         **不显示成员级模块标签**（旧版显示 m.mod 的"出场"，与甘特条上各需求的实际模块不一致，
+         用户反馈"模块设置与甘特条内容不一致"）；只需设置隶属哪个正编（含暂缺正编）。 */
     let tagsHTML='';
     if(isRegVac){
       const leadDisp = formatLeadDisplay(m);
       tagsHTML = `<span class="ltag lead editable vac-tag" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击设置：该正编坑位未来负责的角色品级与模块（招到人后直接沿用）">${leadDisp || '<span class="vac-hint">👑 未设置负责范围</span>'}<i class="edp">✎</i></span>`;
     }else{
-      const belongTxt = (m.lead && m.lead!=='—' && m.lead!=='-' && !/暂缺/.test(m.lead)) ? m.lead : '';
-      tagsHTML = `<span class="ltag belong editable vac-tag${belongTxt?'':' vacant'}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击设置：该基地坑位未来隶属哪个正编带队">${belongTxt?'隶属 '+escAttr(belongTxt):'<span class="vacant-ic">👑</span>未设置隶属'}<i class="edp">✎</i></span>`;
+      const belongTxt = (m.lead && m.lead!=='—' && m.lead!=='-') ? m.lead : '';
+      const isVacLead = /暂缺/.test(belongTxt);   // 隶属的是一个「暂缺正编」坑位 → 加虚线提示样式
+      tagsHTML = `<span class="ltag belong editable vac-tag${belongTxt?(isVacLead?' lead-vac':''):' vacant'}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击设置：该基地坑位隶属哪个正编带队（可选尚未到岗的暂缺正编坑位）">${belongTxt?(isVacLead?'隶属 ⏳'+escAttr(belongTxt):'隶属 '+escAttr(belongTxt)):'<span class="vacant-ic">👑</span>未设置隶属'}<i class="edp">✎</i></span>`;
     }
-    const modLabel = m.mod ? MOD_META[m.mod]?.label || m.mod : '';
+    // 模块标签：只有正编占位显示（其模块=带队负责范围，属于人）；基地占位不显示（模块随需求走）
+    const modLabel = (isRegVac && m.mod) ? (MOD_META[m.mod]?.label || m.mod) : '';
     return `<div class="row vacant-row${inArc?' in-archived':''} vacant-row-${isRegVac?'reg':'base'}" data-mem="${m.id}" style="min-height:${rowH}px;border-left-color:${vacRowBorder}">
       <div class="cell-left">
         <div class="vacant-card ${vacBorderCls}">
@@ -5737,12 +5750,27 @@ function startEditLead(ev, mid, kind){
     rerender();
   };
   if(kind==='belong'){
-    // 下拉：所有正编 + 「无 / 游离」
+    /* 下拉：在岗正编 + 暂缺正编坑位 + 「无 / 游离」
+       v6.48：改为分组下拉（optgroup）。基地人力常常先挂到一个「还没招到的正编坑位」下面，
+       所以暂缺正编必须可选、且要与在岗正编视觉区分（⏳ 前缀 + 独立分组）。
+       lead 字段存的是名字文本，故暂缺正编需靠名字后缀（暂缺-正编1/2/…）保持唯一，
+       同名坑位会在选项后附加 id 尾号以便区分。 */
     const sel=document.createElement('select');
-    const regs=members.filter(x=>x.corp==='reg'&&x.status!=='left');
+    const allRegs=members.filter(x=>x.corp==='reg'&&x.status!=='left');
+    const onDuty=allRegs.filter(x=>!isVacantMem(x));
+    const vacRegs=allRegs.filter(x=>isVacantMem(x));
     const cur=(m.lead&&m.lead!=='—'&&m.lead!=='-')?m.lead:'—';
-    sel.innerHTML=`<option value="—"${cur==='—'?' selected':''}>（无 / 游离人力）</option>`
-      + regs.map(x=>`<option value="${escAttr(x.name)}"${cur===x.name?' selected':''}>${escAttr(x.name)}</option>`).join('');
+    // 同名检测：若有重名坑位，选项文案附加 id 尾号（值仍写名字，避免破坏既有 lead 文本约定）
+    const nameCount={};
+    allRegs.forEach(x=>{ nameCount[x.name]=(nameCount[x.name]||0)+1; });
+    const optOf=(x,prefix)=>{
+      const dup=nameCount[x.name]>1 ? `（#${String(x.id).slice(-4)}）` : '';
+      return `<option value="${escAttr(x.name)}"${cur===x.name?' selected':''}>${prefix}${escAttr(x.name)}${dup}</option>`;
+    };
+    let html=`<option value="—"${cur==='—'?' selected':''}>（无 / 游离人力）</option>`;
+    if(onDuty.length) html+=`<optgroup label="在岗正编">`+onDuty.map(x=>optOf(x,'')).join('')+`</optgroup>`;
+    if(vacRegs.length) html+=`<optgroup label="暂缺正编坑位（尚未到岗）">`+vacRegs.map(x=>optOf(x,'⏳ ')).join('')+`</optgroup>`;
+    sel.innerHTML=html;
     sel.onpointerdown=e=>e.stopPropagation();
     sel.onclick=e=>e.stopPropagation();
     sel.onchange=()=>finish(true, sel.value);
