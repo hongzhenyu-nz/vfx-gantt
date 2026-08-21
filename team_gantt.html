@@ -1329,7 +1329,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.68 · build 2026-08-21 16:32</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.69 · build 2026-08-21 16:44</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2261,6 +2261,11 @@ const HR_CONCLUSION = {base:14, totalGap:11, detail:'金角4人 / 橙角1号5人
    缺口 = 标配 − 实际在岗基地人数，由 reqGapPpl(r) 动态算，加人/改派/离职后即时刷新。
    数据源优先级：STD_CFG 动态表（按品级×模块全匹配）> REQ_STD 硬编码（仅出场/本体等少数条目 fallback）。
    未列入的需求(联调等)默认无独立编制缺口(标配=0 → 不显示缺人徽标)。 */
+/* ⚠️ v6.69 起本表已【废弃·不再参与任何计算】。仅保留作历史参考，随时可删。
+   废弃原因：它与底部「出场标准工期 & 标配人力」表(STD_CFG)是两份互相矛盾的标准
+   —— 例如它把 NV_bt(本体/3C) 记作 3 个基地，而 STD_CFG 的「3C相关」实为 1 个基地，
+   模糊匹配失败时 fallback 到这里就产生了虚高缺口（用户实测「配置1人 缺2」应为「缺0」）。
+   现在标配的唯一权威 = STD_CFG，查表入口 = stdCfgBaseForReq()。 */
 const REQ_STD = {
   'LU_cc':3, 'BK_cc':3, 'BL_cc':3, 'HG_cc':3, 'AF_cc':3,   // 橙角出场：3 基地
   'QS_cc':4, 'HK_cc':4, 'CY_cc':4,                          // 金角出场：4 基地
@@ -2318,37 +2323,51 @@ function parseStdPpl(text){
   }
   return {reg, base};
 }
-/* 查某需求在 STD_CFG 表中的标准基地编制。
-   匹配逻辑：按 req.grade + req.mod 查找 STD_CFG 条目，解析 ppl 得到 base 值。
-   找不到或无法解析时 fallback 到 REQ_STD[r.id]（保持向后兼容）。 */
+/* ============ v6.69 标准配置匹配：显式别名 + 严格匹配（唯一权威 = STD_CFG 表）============
+   用户口径：「联调模块不用统计，只动态统计标准配置数据有的模块」。
+   即 —— **底部「出场标准工期 & 标配人力」表里有的模块才统计缺口，没有的一律不统计**。
+
+   v6.68 及之前的两个错误：
+   ① 双向模糊匹配 `m.includes(e.mod) || e.mod.includes(m)` 既会漏也会误命中。
+      典型漏配：需求 mod="本体/3C" 与表里 "3C相关" 互不包含 → 匹配失败。
+   ② 匹配失败后 fallback 到硬编码 `REQ_STD[r.id]`，把 NV_bt 算成 3 个基地
+      —— 而标准表里「3C相关」只需 1 个基地。结果李龙已在岗却仍显示「缺2」（用户截图）。
+
+   v6.69 改法：用显式别名表把「需求里的写法」映射到「标准表里的写法」，只做精确相等匹配；
+   映射不到 → std=0（不统计），不再有任何模糊猜测与硬编码兜底。
+   新增模块时只需在 STD_CFG 加一行 + 在此别名表补一条映射，行为完全可预期。 */
+const MOD_STD_ALIAS = {
+  '出场':'出场',
+  '检视':'检视1p+3p', '检视1p+3p':'检视1p+3p', '检视1p':'检视1p+3p',
+  '组队':'组队',
+  '入局':'入局Cuts', '入局Cuts':'入局Cuts',
+  'TPP':'TPP*3', 'TPP*3':'TPP*3',
+  'MVP':'红角 MVP', '红角MVP':'红角 MVP', '红角 MVP':'红角 MVP',
+  '本体/3C':'3C相关', '3C':'3C相关', '3C相关':'3C相关', '本体':'3C相关',
+  '大厅':'大厅待机', '大厅待机':'大厅待机',
+  // 未列入的模块（联调 / 通用 / 饰品 / 武器特效 / bug修复 等）= 无标准编制，不统计缺口
+};
+const GRADE_STD_ALIAS = {'金':'金角','橙':'橙角','红':'红角','金角':'金角','橙角':'橙角','红角':'红角','通用':'通用'};
+/* 查某需求在 STD_CFG 表中的标准基地编制。映射不到标准模块时返回 0（= 该模块不参与缺口统计）。 */
 function stdCfgBaseForReq(r){
   if(!r) return 0;
-  // 优先从 STD_CFG 表动态查找
-  const g = r.grade || '';
-  const m = r.mod || '';
-  const entry = STD_CFG.find(e =>
-    (e.grade===g || g.includes(e.grade) || e.grade.includes(g)) &&
-    (e.mod===m || m.includes(e.mod) || e.mod.includes(m))
-  );
-  if(entry && entry.ppl && !entry.ppl.includes('核定')){
-    const p = parseStdPpl(entry.ppl);
-    if(p.base > 0) return p.base;
-  }
-  // fallback: 硬编码 REQ_STD
-  return REQ_STD[r.id] || 0;
+  const stdMod = MOD_STD_ALIAS[r.mod || ''];
+  if(!stdMod) return 0;                       // 模块不在标准配置表 → 不统计
+  const g = GRADE_STD_ALIAS[r.grade || ''] || (r.grade || '');
+  // 先按「品级×模块」精确匹配，再退到「通用×模块」（检视/组队在表里登记为通用品级）
+  let entry = STD_CFG.find(e => e.grade === g && e.mod === stdMod)
+           || STD_CFG.find(e => e.grade === '通用' && e.mod === stdMod);
+  if(!entry || !entry.ppl || entry.ppl.includes('核定')) return 0;
+  return parseStdPpl(entry.ppl).base || 0;
 }
 
 /* 动态人力缺口 = 标配 − 实际在岗（≥0）。
-   优先从 STD_CFG 动态表按品级×模块匹配（覆盖全部模块），
-   fallback 到硬编码 REQ_STD（仅少数出场/本体条目）。
-   无任何标配的需求返回 0。 */
+   v6.69：数据源收敛为**唯一权威 STD_CFG**（底部「出场标准工期 & 标配人力」表）。
+   移除 REQ_STD 硬编码兜底 —— 它曾把「本体/3C」按 3 个基地算（标准表实为 1），造成虚高缺口。
+   标准表里没有的模块（联调/通用/饰品/武器特效等）标配=0 → 恒不计缺口，符合团队口径。 */
 function reqGapPpl(r){
-  const std = stdCfgBaseForReq(r);       // 优先：STD_CFG 全表匹配
-  if(std <= 0) {                          // STD_CFG 无匹配 → fallback
-    const fallback = REQ_STD[r && r.id];
-    if(fallback == null) return 0;
-    return Math.max(0, fallback - activeBase(r));
-  }
+  const std = stdCfgBaseForReq(r);
+  if(std <= 0) return 0;                  // 无标准编制的模块：不统计缺口
   return Math.max(0, std - activeBase(r));
 }
 /* ============ 实时 HR 汇总：全部从 members + reqs 计算，不再依赖写死的 hrData ============
@@ -3971,7 +3990,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const regs=sortMem(memObjs.filter(m=>m.corp==='reg'||m.corp==='sub'));
     const bases=sortMem(memObjs.filter(m=>m.corp!=='reg'&&m.corp!=='sub'));
     const olTip = risk.overloaded.length?`<br><span class='g' style='color:#ff8f8f'>⚠ 超载占用</span> ${risk.overloaded.join('、')}（产能已折损）`:'';
-    const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 人力缺口</span> 标配${REQ_STD[r.id]}人 · 在岗${activeBase(r)}人 · 缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
+    const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 人力缺口</span> 标配${stdCfgBaseForReq(r)}人 · 在岗${activeBase(r)}人 · 缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
     const teamTip = `<br><span class='g'>团队</span> 正编${regs.length}人${regs.length?'（'+regs.map(m=>m.name).join('、')+'）':''} · 基地${bases.length}人${bases.length?'（'+bases.map(m=>m.name).join('、')+'）':''}`;
     const tip=`<b>${r.name}</b><br><span class='g'>角色</span> ${r.char||'-'} · <span style='color:${g.col}'>${g.label}级</span> · ${r.mod||''}<br><span class='g'>状态</span> ${stLabel}　<span class='g'>时间进度</span> ${prog}% · 剩余${leftWD}工作日<br><span class='g'>窗口</span> ${fmt(i2d(allS))} → ${fmtEnd(i2d(allE))}${teamTip}<br><span class='g'>风险主因</span> ${risk.cause} → <b>${risk.lvl}风险</b>${gapTip}${olTip}<br><span class='g' style='color:#7da0ff'>单击改整条状态</span>`;
     // 统一人员标签：底色=编制(正编蓝/基地淡白)，橙环=跨队支援，新/临/离=角标。mini=蓝条内小号。隶属带队色圆点已去除（与编制色冲突）
@@ -4008,7 +4027,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
       ? blRow('正',regs)+blRow('基',bases)
       : '<div class="bl-row"><span class="bl-cnt">未排人</span></div>';
     const teamCount = `<span class="team-cnt"><b style="color:#0052d9">正编${regs.length}</b> · <b style="color:#56607a">基地${bases.length}</b></span>`;
-    const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="标配${REQ_STD[r.id]}人，当前在岗基地${activeBase(r)}人，缺${risk.gapPpl}人（已计入风险，加人后即时更新）">缺${risk.gapPpl}人</span>`:'';
+    const gapBadge = risk.gapPpl>0?`<span class="gap-pill" title="标配${stdCfgBaseForReq(r)}人，当前在岗基地${activeBase(r)}人，缺${risk.gapPpl}人（已计入风险，加人后即时更新）">缺${risk.gapPpl}人</span>`:'';
     const MM = modMeta(r.mod);
     const modTag = `<span class="mod-tag" style="color:${modFamC(r.mod)}"><i>${MM.ic}</i>${MM.s}</span>`;
     // ===== 左侧单条品级色带：金/橙/红 按角色品级标注颜色 =====
@@ -4462,9 +4481,14 @@ function buildRoleLines(){
       });
       // 配置人数 = 在岗基地人力（离职/暂缺/支援/正编带队均不占基地编制）
       const cfg = baseSet.size;
-      // 标准配置 = 从 STD_CFG 表动态读取（按品级×模块匹配），fallback 到 REQ_STD
+      // 标准配置 = 从 STD_CFG 表读取（v6.69 起为严格别名匹配，无硬编码兜底）
       let std = 0;
       rl.forEach(r => { std += stdCfgBaseForReq(r); });
+      /* v6.69「只统计标准配置表里有的模块」（用户口径）：
+         该角色线下所有需求的模块都不在 STD_CFG 中（std 恒为 0）→ 整条不参与缺口统计，
+         连暂缺占位也不算缺口。理由：联调/通用/饰品这类模块没有团队标配编制，
+         挂个占位只是排期占位，不代表"要招人"，不该冒出红色缺口徽标。 */
+      const hasStdCfg = rl.some(r => stdCfgBaseForReq(r) > 0);
       // v6.63 缺口口径统一：暂缺占位（tmpSet）与标配缺口（std−cfg）描述的是**同一个缺口**，
       //   「暂缺-基地2」这类占位行本身就是「已识别出要招的人」的具象化，不是额外的新缺口。
       //   旧公式在渲染层写 gap + tmpCount → 同一缺口被算两遍（如荷光者出场 std=3/cfg=0/tmp=4 → 显示"缺7"）。
@@ -4473,7 +4497,7 @@ function buildRoleLines(){
       //     · 占位多于标配缺口（挂了 4 个暂缺但标配只差 3）→ 取 4，尊重实际招聘需求。
       //   本函数产出的 gap 即最终展示值，渲染层（行内徽标 / 模块汇总）一律直接用，不得再二次加工。
       const tmpCount = tmpSet.size;
-      const gap = (status === '已完成') ? 0 : Math.max(0, std - cfg, tmpCount);
+      const gap = (status === '已完成' || !hasStdCfg) ? 0 : Math.max(0, std - cfg, tmpCount);
       // note: 简要说明
       const leadInfo = [...regSet].find(n => {
         const mm = members.find(x=>x.name===n);
@@ -4500,6 +4524,7 @@ function buildRoleLines(){
            本函数所有统计（cfg/std/gap）依然基于全量数据算，勾选开关不会改变任何数字。
            这正是 v6.64 定下的分工：数据层算全量、渲染层决定看什么。 */
         allDone: rl.length > 0 && rl.every(r => reqIsCompleted(r)),
+        hasStd: hasStdCfg,          // v6.69：该模块是否在标准配置表中（否 → 不显示缺口/齐，显示「无标配」）
         note: noteParts.join(' · ') || undefined
       });
     }
@@ -4641,9 +4666,15 @@ function renderHR(){
     const hiddenTag = hiddenCnt > 0
       ? `<span class="mtag" style="background:#f2f4f7;color:#7a8290" title="已完成的角色线被「隐藏已完成」开关折叠，但其缺口/配置仍计入统计">已隐藏 ${hiddenCnt} 条已完成</span>`
       : '';
+    /* v6.69：整个模块都不在标准配置表里（联调/通用/饰品/武器特效等）→ 模块头标「无标配·不统计」，
+       与「已配齐(无缺口)」区分开，避免用户误以为这些模块已经算过且刚好不缺人。 */
+    const modHasStd = m.roles.some(r => r.hasStd);
+    const modGapTag = !modHasStd
+      ? `<span class="mgap" style="color:#9aa2ad" title="该模块不在「出场标准工期 &amp; 标配人力」表中，无团队标配编制 → 不参与缺口统计">无标配 · 不统计</span>`
+      : `<span class="mgap" style="color:${modGap > 0 ? '#d32320' : '#1a8a3c'}">${modGap > 0 ? '缺 ' + modGap + ' 人' : '无缺口'}</span>`;
     html += `<div class="hr-mod">
       <div class="hr-mod-head"><span>${m.mod}</span><span class="mtag">${shownRoles.length} 个角色线</span>${hiddenTag}
-        <span class="mgap" style="color:${modGap > 0 ? '#d32320' : '#1a8a3c'}">${modGap > 0 ? '缺 ' + modGap + ' 人' : '无缺口'}</span></div>`;
+        ${modGapTag}</div>`;
     shownRoles.forEach(r => {
       const g = HR_GRADE[r.grade] || HR_GRADE[''];
       const st = HR_STATUS[r.status] || HR_STATUS[''];
@@ -4689,9 +4720,15 @@ function renderHR(){
       const gapTitle = tmpCount > 0
         ? `标配需 ${r.std} 个基地人力，当前真人 ${r.cfg} 人 + ${tmpCount} 个暂缺占位待招 → 缺 ${totalGap} 人`
         : `标配需 ${r.std} 个基地人力，当前在岗 ${r.cfg} 人 → 缺 ${totalGap} 人`;
-      const cntHTML = totalGap > 0
-        ? `<span class="cfg">配置${r.cfg}人</span><span class="gapb" title="${gapTitle}">缺${totalGap}</span>`
-        : (r.cfg > 0 ? `<span class="cfg">配置${r.cfg}人</span><span class="okb" title="标配需 ${r.std} 人，当前在岗 ${r.cfg} 人，已配齐">齐</span>` : `<span class="cfg">—</span>`);
+      /* v6.69：无标准编制的模块（联调/通用/饰品等）不判缺口也不判"齐"，
+         只如实显示在岗人数 + 灰色「无标配」说明，避免绿色"齐"被误读成"已按标准配满"。 */
+      const cntHTML = !r.hasStd
+        ? (r.cfg > 0
+            ? `<span class="cfg">配置${r.cfg}人</span><span class="okb" style="background:#f2f4f7;color:#8d95a1;border-color:#e3e7ec" title="该模块不在标准配置表中，无标配编制 → 不统计缺口">无标配</span>`
+            : `<span class="cfg">—</span>`)
+        : (totalGap > 0
+            ? `<span class="cfg">配置${r.cfg}人</span><span class="gapb" title="${gapTitle}">缺${totalGap}</span>`
+            : (r.cfg > 0 ? `<span class="cfg">配置${r.cfg}人</span><span class="okb" title="标配需 ${r.std} 人，当前在岗 ${r.cfg} 人，已配齐">齐</span>` : `<span class="cfg">—</span>`));
       html += `<div class="hr-role">
         <span class="gdot" style="background:${g.col}"></span>
         <span class="rname">${r.role}</span>
