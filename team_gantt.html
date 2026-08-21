@@ -1380,7 +1380,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.71 · build 2026-08-21 18:16</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.72 · build 2026-08-21 19:32</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2502,6 +2502,11 @@ function computeHR(){
     const c = m.corp || 'base';
     corpCount[c] = (corpCount[c]||0) + 1;
   });
+  /* v6.72：品级缺口改为**复用 buildRoleLines() 的角色线结果**，不再自己按需求逐条累加。
+     原因：按需求累加与角色线聚合是两套口径 —— 同一角色的多条需求（如荷光者出场+组队）
+     会各自算一次缺口，而角色线是按 模块×角色 聚合后再算，两者数字必然对不上
+     （截图中顶部"橙 缺14"明显高于下方角色线明细之和）。
+     现在统一走角色线：顶部品级卡 = 下方明细的严格汇总，用户对得上账。 */
   reqs.forEach(r=>{
     if(r.kind==='qa') return;                     // 全量测试里程碑不计人力
     (r.segs||[]).forEach(s=>{
@@ -2511,10 +2516,18 @@ function computeHR(){
       makerSet.add(m.id);
     });
     totalCfg += activeBase(r);                     // 实际在岗基地人数
-    const g = reqGapPpl(r);                         // 该需求实时缺口
-    totalGap += g;
-    if(g>0 && gradeGap[r.grade]!==undefined) gradeGap[r.grade]+=g;
   });
+  // 缺口：以角色线为唯一口径（与「人力分配」视图下方明细完全一致）
+  try{
+    (buildRoleLines()||[]).forEach(mo=>{
+      (mo.roles||[]).forEach(rl=>{
+        const g=rl.gap||0;
+        if(g<=0) return;
+        totalGap += g;
+        if(gradeGap[rl.grade]!==undefined) gradeGap[rl.grade]+=g;
+      });
+    });
+  }catch(e){ console.warn('computeHR role-line gap failed',e); }
   /* v6.64 「缺少数」口径修正（与 v6.63 角色线同一个道理）：
      暂缺占位（vacantCount）与标配缺口（totalGap）描述的是**同一批要补的人**——
      「暂缺-基地2」这类占位就是已识别缺口的具象化，不是额外的新缺口。
@@ -4570,15 +4583,23 @@ function buildRoleLines(){
          连暂缺占位也不算缺口。理由：联调/通用/饰品这类模块没有团队标配编制，
          挂个占位只是排期占位，不代表"要招人"，不该冒出红色缺口徽标。 */
       const hasStdCfg = rl.some(r => stdCfgBaseForReq(r) > 0);
-      // v6.63 缺口口径统一：暂缺占位（tmpSet）与标配缺口（std−cfg）描述的是**同一个缺口**，
-      //   「暂缺-基地2」这类占位行本身就是「已识别出要招的人」的具象化，不是额外的新缺口。
-      //   旧公式在渲染层写 gap + tmpCount → 同一缺口被算两遍（如荷光者出场 std=3/cfg=0/tmp=4 → 显示"缺7"）。
-      //   新口径：gap = max(标配缺口, 暂缺占位数)。取 max 而非 min，是为了兼顾两种情形——
-      //     · 占位少于标配缺口（只挂了 1 个暂缺但差 3 人）→ 取标配缺口 3，不低估；
-      //     · 占位多于标配缺口（挂了 4 个暂缺但标配只差 3）→ 取 4，尊重实际招聘需求。
-      //   本函数产出的 gap 即最终展示值，渲染层（行内徽标 / 模块汇总）一律直接用，不得再二次加工。
+      /* ===== 缺口口径（v6.72 定稿）=====
+         gap = max(0, 标配 − 在岗真人)。**暂缺占位不参与运算**，只作为"这个缺口已挂了坑位"的可视化。
+
+         v6.63 曾用 `max(std-cfg, tmpCount)`，v6.72 移除 tmpCount 项，原因是同一批占位成员
+         会被多条角色线共用 → 每条线各算一次 → 重复统计（用户反馈的直接问题）。
+         实测：占位「暂缺 / 暂缺-基地2/3/4」这 4 个成员同时挂在
+           出场|荷光者、出场|斩神橙 两条线上（组队还有更多重叠），
+         于是两条线都显示"缺4"，而实际上要招的是同一批人。
+         「暂缺-基地5~11」同理，同时出现在 女指挥官各模块 与 联调 上。
+
+         为什么不用"先到先得去重"：那样谁被扣取决于遍历顺序，同一批人挂两条线时
+         第二条会莫名少算，口径不可解释。
+         改为只认标配缺口后：缺口 = 团队标准要几个人 − 实际到岗几个真人，
+         与占位挂了几个、挂在几条线上完全无关 → 天然无重复，且可解释、可预期。
+         占位数量仍在行内以红色虚线标签如实展示，供人工判断招聘进度。 */
       const tmpCount = tmpSet.size;
-      const gap = (status === '已完成' || !hasStdCfg) ? 0 : Math.max(0, std - cfg, tmpCount);
+      const gap = (status === '已完成' || !hasStdCfg) ? 0 : Math.max(0, std - cfg);
       // note: 简要说明
       const leadInfo = [...regSet].find(n => {
         const mm = members.find(x=>x.name===n);
