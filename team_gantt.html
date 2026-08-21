@@ -1218,7 +1218,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.56 · build 2026-08-21 12:52</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.57 · build 2026-08-21 13:15</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2881,23 +2881,57 @@ function segOverdueBadge(){ return `<span class="rt-late" data-rank="3" title="�
 
 /* v6.38 超标准工期标注：从 STD_CFG 按 (r.grade, r.mod) 查制作工期（周），与段实际日历天数对比。
    标准工期为空或0时不显示；实际 ≤ 标准 不显示；超出时返回紫红色「📏 超 N周」徽标。
-   周数按日历天/7 粗算（与甘特条日历刻度一致），方便直观对比条长。 */
+   周数按日历天/7 粗算（与甘特条日历刻度一致），方便直观对比条长。
+
+   v6.57 关键修复：原来用严格相等匹配，但两边键名体系根本不同 → 44 个需求 100% 匹配失败、徽标从未出现过。
+     · 品级：STD_CFG 写「金角/橙角/红角」，需求写「金/橙/红」
+     · 模块：STD_CFG 写「检视1p+3p / 3C相关 / 大厅待机 / 红角 MVP」，需求写「检视 / 本体/3C / 大厅 / MVP」
+   改为归一化后匹配：品级去掉「角」字后比较；模块用「归一别名 + 双向包含」兜底。
+   通用级(STD_CFG 的 grade="通用")对任何品级都可作为兜底标准，优先精确品级、其次通用。 */
+const _normGrade = g => String(g||'').replace(/角/g,'').trim();
+/* 模块归一：统一到需求侧的短名，双向兼容 */
+const _MOD_ALIAS = {
+  '检视1p+3p':'检视', '检视1P+3P':'检视', '检视1p':'检视', '检视3p':'检视',
+  '3C相关':'本体/3C', '本体/3C':'本体/3C', '本体&3C':'本体/3C', '3C':'本体/3C',
+  '大厅待机':'大厅', '大厅':'大厅',
+  '红角 MVP':'MVP', '红角MVP':'MVP', 'MVP':'MVP',
+  '入局Cuts':'入局', '入局':'入局',
+  'TPP*3':'TPP', 'TPP':'TPP'
+};
+const _normMod = m => {
+  const raw = String(m||'').trim();
+  if(_MOD_ALIAS[raw]) return _MOD_ALIAS[raw];
+  return raw;
+};
 function stdWeeksForReq(r){
-  const g = r.grade || '';
-  const m = r.mod || '';
-  const entry = STD_CFG.find(e => (e.grade||'') === g && (e.mod||'') === m);
-  if(!entry || !entry.weeks) return 0;
-  const mch = (entry.weeks||'').match(/(\d+(?:\.\d+)?)\s*周/);
-  return mch ? parseFloat(mch[1]) : 0;
+  const g = _normGrade(r.grade), m = _normMod(r.mod);
+  if(!m) return 0;
+  const weeksOf = e => {
+    const mch = String(e.weeks||'').match(/(\d+(?:\.\d+)?)\s*周?/);
+    return mch ? parseFloat(mch[1]) : 0;
+  };
+  // 模块是否视为同一项：归一后相等，或一方包含另一方（如「组队」vs「组队特效」）
+  const modHit = e => {
+    const em = _normMod(e.mod);
+    if(!em) return false;
+    if(em === m) return true;
+    return em.includes(m) || m.includes(em);
+  };
+  // ① 品级精确（归一后）+ 模块命中
+  let entry = STD_CFG.find(e => _normGrade(e.grade) === g && modHit(e));
+  // ② 退而求其次：STD_CFG 里标为「通用」的行，对任何品级都适用
+  if(!entry) entry = STD_CFG.find(e => _normGrade(e.grade) === '通用' && modHit(e));
+  if(!entry) return 0;
+  return weeksOf(entry);
 }
 function segStdOverflowBadge(seg, r){
   const stdWks = stdWeeksForReq(r);
   if(stdWks <= 0) return '';
-  const actualDays = Math.max(0, idx(seg.e) - idx(seg.s) + 1);
+  const actualDays = Math.max(0, idx(seg.e) - idx(seg.s));   // v6.57：内存 e 为排他终点，天数即 e-s（原来多加1）
   const stdDays = stdWks * 7;   // 日历天粗算（与甘特轴对齐）
   if(actualDays <= stdDays) return '';
   const ovrWks = ((actualDays - stdDays) / 7).toFixed(1);
-  return `<span class="rt-ovr" data-rank="2.5" title="该段排期约 ${actualDays} 天（≈${(actualDays/7).toFixed(1)}周），超过 ${stdWks} 周标准工期约 ${ovrWks} 周→ 建议核查或调整排期">📏 超${ovrWks}周</span>`;
+  return `<span class="rt-ovr" data-rank="2.5" title="该段排期约 ${actualDays} 天（≈${(actualDays/7).toFixed(1)}周），超过 ${stdWks} 周标准工期约 ${ovrWks} 周 → 建议核查或调整排期">📏 超${ovrWks}周</span>`;
 }
 
 /* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
