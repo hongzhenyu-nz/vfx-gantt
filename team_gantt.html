@@ -965,6 +965,30 @@
   .add-modal .am-ok:disabled{background:#b7c6dc;cursor:not-allowed;box-shadow:none;}
   .add-modal .warn{color:#d4380d;font-size:11px;font-weight:700;margin-top:-4px;margin-bottom:10px;display:none;}
   .add-modal .warn.show{display:block;}
+  /* ===== v6.70 被强制接管确认弹窗 ===== */
+  .tk-mask{position:fixed;inset:0;background:rgba(30,10,10,.52);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:10050;}
+  .tk-mask.show{display:flex;}
+  .tk-modal{width:452px;max-width:92vw;background:#fff;border-radius:14px;overflow:hidden;
+    box-shadow:0 26px 74px rgba(0,0,0,.40);border:2px solid #f5413f;animation:addpop .16s ease-out;}
+  .tk-modal .tk-h{display:flex;align-items:center;gap:9px;padding:15px 18px;
+    background:linear-gradient(90deg,#fff1f0,#fff7f7);border-bottom:1px solid #ffd4d1;
+    font-size:15px;font-weight:800;color:#a8071a;}
+  .tk-modal .tk-h .ic{width:27px;height:27px;border-radius:8px;display:inline-flex;align-items:center;
+    justify-content:center;background:#f5413f;color:#fff;font-size:16px;flex-shrink:0;}
+  .tk-modal .tk-body{padding:15px 18px 6px;font-size:13px;color:#3a3f4a;line-height:1.65;}
+  .tk-modal .tk-who{background:#fff1f0;border:1px solid #ffccc7;border-radius:9px;padding:10px 12px;margin-bottom:12px;}
+  .tk-modal .tk-who b{color:#a8071a;font-size:14px;}
+  .tk-modal .tk-diff{font-size:12px;color:#5a626e;background:#f6f8fc;border:1px solid #e7ebf2;
+    border-radius:9px;padding:9px 11px;margin-bottom:6px;}
+  .tk-modal .tk-diff b{color:#1d2330;}
+  .tk-modal .tk-foot{display:flex;gap:10px;justify-content:flex-end;padding:10px 18px 17px;}
+  .tk-modal .tk-foot button{font-size:13px;font-weight:700;padding:10px 16px;border-radius:9px;
+    cursor:pointer;border:1.5px solid transparent;}
+  .tk-modal .tk-drop{background:#f1f2f5;color:#5a626e;}
+  .tk-modal .tk-drop:hover{background:#e6e8ec;}
+  .tk-modal .tk-save{background:#0a7d3c;color:#fff;}
+  .tk-modal .tk-save:hover{background:#08682f;box-shadow:0 4px 14px rgba(10,125,60,.34);}
   .bar-task .bar-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* 按需求视图：任务条加高，容纳标题 + 按编制分两行的人名标签 */
   .req-row{min-height:82px;}
@@ -1329,7 +1353,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.69 · build 2026-08-21 16:44</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.70 · build 2026-08-21 17:48</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -1538,6 +1562,21 @@
 <div id="menu"></div>
 <div id="toast"></div>
 <div id="addMask" class="add-mask"><div class="add-modal" id="addModal"></div></div>
+<!-- v6.70 被强制接管确认弹窗：不再静默失锁，由原持有者决定未提交改动的去向 -->
+<div id="tkMask" class="tk-mask">
+  <div class="tk-modal">
+    <div class="tk-h"><span class="ic">!</span>你的编辑权已被强制接管</div>
+    <div class="tk-body">
+      <div class="tk-who"><b id="tkWho">他人</b> 刚刚用强制解锁密码接管了编辑权。</div>
+      <div>你当前有<b id="tkChanged">未提交的改动</b>。请选择如何处理：</div>
+      <div class="tk-diff" id="tkDiff"></div>
+    </div>
+    <div class="tk-foot">
+      <button class="tk-drop" onclick="resolveTakeover(false)">放弃我的改动</button>
+      <button class="tk-save" onclick="resolveTakeover(true)">上传我的改动并解锁</button>
+    </div>
+  </div>
+</div>
 
 <script>
 /* ============ 标准化配置 ============ */
@@ -6658,8 +6697,13 @@ function cloudWho(){const m=members.find(x=>x.id===meId);return m?m.name:'某成
    - 持有者每 30s 心跳续期；超过 90s 无心跳视为失效，可被他人抢占（应对崩溃/断网/直接关页）。
    - 结束编辑 / 关闭页面 = 把最终数据推上去并清空锁，下一个人立刻可编辑。
    - 强制解锁：他人持锁时，输入团队密码可强制接管；被接管者会自动强制上传其最后改动，避免丢工作。 */
-const LOCK_TTL=90*1000;        // 锁有效期(ms)：超过此时长无续期视为失效可被抢占
+const LOCK_TTL=90*1000;        // 锁「新鲜度」阈值(ms)：超过此时长无续期 → UI 标注"可能已离开"（v6.70 起不再等于可免密抢占）
 const LOCK_HEARTBEAT=30*1000;  // 持有者续锁心跳间隔
+/* v6.70 僵尸锁安全阀：正常关页/提交都会清空 editor，但断电/崩溃/强杀进程不会。
+   若不留出口，锁会永久卡死、谁都拿不到编辑权（这是"过期也需密码"带来的新风险）。
+   故设一个远超正常使用的阈值：连续 2 小时无任何心跳 → 判定为僵尸锁，允许免密接管。
+   2 小时足以排除"切后台/午休/开会"等正常离开场景（那些情况仍需密码）。 */
+const LOCK_ZOMBIE=2*60*60*1000;
 const IDLE_AUTO_RELEASE=5*60*1000; // 持锁后无操作多久(ms)自动提交并释放编辑锁（5分钟）
 let idleReleaseT=null;         // 空闲自动释放计时器句柄
 let _idleBound=false;          // 全局活动监听是否已绑定
@@ -6671,7 +6715,18 @@ let lockHeartT=null;           // 心跳定时器句柄
    editor      ← 锁持有者客户端ID（非空且 updated_at 在 TTL 内 = 有人正持锁）
    editor_name ← 持有者姓名
    updated_at  ← 锁心跳/最近活动时间（用于 TTL 判过期） */
-const FORCE_UNLOCK_PIN=TEAM_PIN;  // 强制解锁密码（沿用团队口令；如需单独设置改这里即可）
+/* ============ v6.70 锁安全加固（用户要求）============
+   背景事故：用户编辑期间被他人无声顶掉，且对方顶着用户的名字在改。审计出三个漏洞：
+     ① FORCE_UNLOCK_PIN 沿用 TEAM_PIN='vfx2026'（人人都知道）→ 强制接管形同无门禁；
+     ② 锁过期(>90s无心跳)后可被**无密码**直接抢走 —— 标签页被浏览器挂起/系统休眠就会误触发；
+     ③ 被接管时只弹一条 toast 就静默失锁，原持有者根本来不及反应。
+   v6.70 修复：
+     ① 强制解锁密码独立（FORCE_UNLOCK_PIN 与 TEAM_PIN 解耦）；
+     ② **任何情况接管他人的锁都必须输密码**——移除 acquireLock 里的 updated_at 过期抢占条件，
+        只有「editor 为 null（正常提交/关页释放）」才是真正空闲、可直接申请；
+        锁过期仅作为 UI 提示（标注"可能已离开"），不再是免密通行证；
+     ③ 被接管时弹出模态确认窗，由原持有者选择「上传改动」或「放弃改动」，不再静默。 */
+const FORCE_UNLOCK_PIN='vfx-admin-2026';  // 强制解锁密码（**独立于团队口令**，仅告知管理员/主管）
 let _takeoverGrace=false;         // 强制接管后的短暂宽限窗口：期间接收被踢者的最后改动，避免其工作丢失
 let _takeoverGraceT=null;
 function lockExpiryISO(){return new Date(Date.now()-LOCK_TTL).toISOString();} // 早于此时刻的锁判定为过期
@@ -6686,6 +6741,53 @@ async function forceUploadMySnap(){
     lastSyncJSON=JSON.stringify(snap);
     toast('📤 你的最后改动已强制上传，不会丢失');
   }catch(e){ console.warn('force upload my snap failed',e); }
+}
+
+/* ===== v6.70 被强制接管：弹窗让原持有者决定未提交改动的去向 =====
+   为什么要弹窗：旧版被接管时只 toast 一条 + 自动 forceUploadMySnap()，两个问题——
+     · 用户往往看不到、来不及反应，工作"悄悄"就没了编辑权；
+     · 自动上传会把我的版本盖到接管者刚拉取的数据上，双方都不知情，容易互相覆盖。
+   现在改为显式二选一：上传我的改动（接管者会在 4s 宽限期内接住）/ 放弃我的改动（回滚到编辑起点）。 */
+let _tkPending=false;
+function openTakeoverDialog(byWho){
+  if(_tkPending) return;               // 已弹出，避免心跳重复触发
+  const mask=document.getElementById('tkMask'); if(!mask){
+    // 兜底：DOM 缺失时退回旧行为，至少不丢数据
+    toast('⚠ 编辑权已被「'+byWho+'」接管，正在保存你的最后改动…');
+    forceUploadMySnap(); return;
+  }
+  _tkPending=true;
+  const cur=JSON.stringify(snapshot());
+  const changed = editBaselineJSON && cur!==editBaselineJSON;
+  document.getElementById('tkWho').textContent=byWho;
+  document.getElementById('tkChanged').textContent = changed?'未提交的改动':'尚未改动任何内容';
+  document.getElementById('tkDiff').innerHTML = changed
+    ? '<b>上传我的改动</b>：把你这次的修改推到云端，接管者会立即看到（推荐）。<br><b>放弃我的改动</b>：本地回滚到你开始编辑时的状态，云端保持接管者拉到的版本。'
+    : '你没有任何改动，两个选项效果相同 —— 直接退出编辑即可。';
+  mask.classList.add('show');
+}
+/* 用户在接管弹窗中做出选择：save=true 上传我的改动；false 放弃并回滚 */
+async function resolveTakeover(save){
+  const mask=document.getElementById('tkMask');
+  if(mask) mask.classList.remove('show');
+  _tkPending=false;
+  if(save){
+    await forceUploadMySnap();
+  }else{
+    // 放弃：回滚到本次编辑起点（与「放弃编辑」按钮同一套基线）
+    if(editBaselineJSON){
+      try{
+        applyingRemote=true; applySnap(JSON.parse(editBaselineJSON)); applyingRemote=false;
+        lastSyncJSON=editBaselineJSON;
+        refreshAllUI();
+        toast('已放弃本次改动，本地已回滚到编辑前状态');
+      }catch(e){ console.warn('takeover rollback failed',e); }
+    }else{
+      toast('已退出编辑模式');
+    }
+  }
+  editBaselineJSON='';
+  syncLockUI();
 }
 /* 写操作守门：只读模式下统一拦截所有数据改动（排期/状态/改派/增删/重置/撤销重做/标准表编辑），
    仅提示需先解锁，不改动任何数据。返回 true=可写、false=已拦截。
@@ -6987,27 +7089,38 @@ function cloudPush(immediate){
   if(immediate)doPush(); else cloudPushT=setTimeout(doPush,700);
 }
 
-/* 根据云端行更新本地"谁在编辑"的认知；过期的锁视为无人持有。
-   零SQL锁：holder=row.editor, 心跳时间=row.updated_at, 名字=row.editor_name */
+/* 根据云端行更新本地"谁在编辑"的认知。
+   零SQL锁：holder=row.editor, 心跳时间=row.updated_at, 名字=row.editor_name
+   v6.70 口径变更：**过期的锁不再视为"无人持有"**。
+     原来 `lockHolderCid = fresh?holder:''` 会把超时锁抹成空，于是 cloudUnlock 走"直接申请"分支
+     → 无密码抢走。现在只要 editor 非空就认为"有人占着"，过期只影响提示文案（标注"可能已离开"），
+     接管一律要密码。stale 标记供 UI 区分两种占用状态。 */
+let lockHolderStale=false;      // 当前持有者的锁是否已超时未续期（仅用于提示，不代表可免密抢占）
+let lockHolderZombie=false;     // 是否已达僵尸阈值（2小时无心跳）→ 允许免密接管，防锁死
 function updateLockFromRow(row){
   // 【铁律】离线模式下 lockMine 是本地给的，不要被云端 row 数据踢回去
   if(cloudOffline){ syncLockUI(); return; }
   const holder=row.editor||'';
   const at=row.updated_at?Date.parse(row.updated_at):0;
-  const fresh=holder && at && (Date.now()-at < LOCK_TTL);
-  lockHolderCid = fresh?holder:'';
-  lockHolderName = fresh?(row.editor_name||'某成员'):'';
-  // 若云端显示锁已不在我手里（被强制接管/过期清空），本地立即降级为只读，并把我的最后改动强制上传保住
+  const age=at?(Date.now()-at):Infinity;
+  const fresh=holder && at && (age < LOCK_TTL);
+  lockHolderCid  = holder;                              // 不再因过期抹空
+  lockHolderName = holder?(row.editor_name||'某成员'):'';
+  lockHolderStale= !!holder && !fresh;                  // 有人占但心跳已停
+  lockHolderZombie= !!holder && age >= LOCK_ZOMBIE;     // 超长无心跳 = 僵尸锁
+  // 若云端显示锁已不在我手里（被强制接管）→ 弹窗让我确认如何处理未提交改动（v6.70 不再静默）
   if(lockMine && lockHolderCid!==cloudCid){
     lockMine=false; stopHeart();
-    toast('⚠ 你的编辑权已被「'+(lockHolderName||'他人')+'」强制接管，正在保存你的最后改动…');
-    forceUploadMySnap();   // 被踢者的改动强制上传，不丢工作
+    openTakeoverDialog(lockHolderName||'他人');
   }
   syncLockUI();
 }
 function lockBtnLabel(){
   if(lockMine) return '编辑中·点此提交';
-  if(lockHolderCid && lockHolderCid!==cloudCid) return lockHolderName+' 编辑中';
+  // v6.70：过期锁不再等于"可抢"，但 UI 要如实区分——对方是活跃编辑还是可能已离开
+  if(lockHolderCid && lockHolderCid!==cloudCid){
+    return lockHolderName + (lockHolderStale ? ' 编辑中(可能已离开)' : ' 编辑中');
+  }
   return '申请编辑';
 }
 function startHeart(){
@@ -7021,6 +7134,18 @@ function startHeart(){
   },LOCK_HEARTBEAT);
 }
 function stopHeart(){ if(lockHeartT){clearInterval(lockHeartT);lockHeartT=null;} clearIdle(); }
+/* v6.70：标签页从后台切回时立即补一次心跳。
+   浏览器会节流后台标签的 setInterval（有时拉长到分钟级），导致"人还在、心跳停了"。
+   虽然 v6.70 已改成过期也需密码接管，但补心跳能让状态条不再误显示"可能已离开"。 */
+if(!window._heartVisBound){
+  window._heartVisBound=true;
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible' && lockMine && sb){
+      sb.from(SB_TABLE).update({updated_at:new Date().toISOString()})
+        .eq('id',SB_ROW).eq('editor',cloudCid).then(()=>{},()=>{});
+    }
+  });
+}
 
 /* ===== 空闲自动解锁：持锁后 5 分钟无任何操作，自动把数据上传并释放编辑锁 =====
    releaseLock 本身就是「先推送最终快照到云端、再清空锁」，等价于「自动上传并解锁」。 */
@@ -7104,11 +7229,19 @@ async function acquireLock(force){
   cloudSetStatus('syncing',force?'强制接管中…':'申请编辑中…');
   try{
     const nowISO=new Date().toISOString();
-    // 条件抢占：仅当(无人持锁 OR 锁已过期 OR 本就是我 OR 强制接管)时才能写成功
+    // 条件抢占：仅当(无人持锁 OR 本就是我 OR 强制接管)时才能写成功
+    // v6.70 关键安全修正：**删除了 `updated_at.lt.<过期时刻>` 这个条件**。
+    //   原来锁过期(>90s无心跳)就能被无密码抢走，但"没心跳"≠"人已离开"——
+    //   浏览器把后台标签的定时器节流、笔记本合盖休眠、网络抖动，都会让心跳停摆，
+    //   于是有人在你还在编辑时把锁无声拿走（用户实际遭遇）。
+    //   现在只认 editor.is.null（对方正常提交或关页时才会被置空）= 真正空闲，
+    //   其余情况一律要走「强制接管 + 密码」路径。
     let q=sb.from(SB_TABLE).update({editor:cloudCid,editor_name:cloudWho(),updated_at:nowISO}).eq('id',SB_ROW);
     if(!force){
-      // or 条件：editor 为空 / 锁过期(updated_at < 现在-TTL) / 已经是我
-      q=q.or('editor.is.null,updated_at.lt.'+lockExpiryISO()+',editor.eq.'+cloudCid);
+      // 僵尸锁兜底：2 小时无心跳（断电/崩溃/强杀进程，beacon 没来得及释放）允许免密接管，
+      // 否则锁会永久卡死。正常离开（切后台/午休/开会）远达不到 2 小时，仍需密码。
+      const zombieISO=new Date(Date.now()-LOCK_ZOMBIE).toISOString();
+      q=q.or('editor.is.null,editor.eq.'+cloudCid+',updated_at.lt.'+zombieISO);
     }
     const {data,error}=await q.select('snap,editor,editor_name,updated_at');
     if(error)throw error;
@@ -7248,10 +7381,22 @@ function cloudUnlock(){
     return;
   }
   if(lockHolderCid && lockHolderCid!==cloudCid){
-    // 有人正在编辑：必须输入强制解锁密码才能接管（接管后对方的最后改动会被强制上传保住）
-    const pin=prompt('当前「'+lockHolderName+'」正在编辑，已锁定。\n\n如需强制接管编辑权，请输入强制解锁密码：\n（接管后对方未提交的改动会自动上传保存，不会丢失）');
+    /* v6.70：有人占着锁（**无论心跳是否超时**）都必须输强制解锁密码才能接管。
+       锁超时只是提示"对方可能已离开"，不再是免密通行证 —— 因为浏览器后台节流/
+       休眠/断网都会让心跳停摆，而人其实还在编辑（用户实际遭遇的事故）。
+       唯一例外：僵尸锁（2 小时无心跳，多为断电/崩溃）免密接管，防止锁永久卡死。 */
+    if(lockHolderZombie){
+      if(!confirm('「'+lockHolderName+'」的编辑锁已超过 2 小时无任何心跳，\n判定为异常残留（可能是断电/浏览器崩溃未正常释放）。\n\n确定直接接管编辑权吗？')) return;
+      acquireLock(false);   // 僵尸锁走普通申请路径即可（SQL 条件已放行）
+      return;
+    }
+    const staleNote = lockHolderStale
+      ? '\n\n⚠ 对方心跳已超过 90 秒未更新（可能已离开，也可能只是切到后台/网络不稳，人仍在编辑）。'
+      : '\n\n对方正在活跃编辑中。';
+    const pin=prompt('当前「'+lockHolderName+'」持有编辑权。'+staleNote+
+      '\n\n如需强制接管，请输入【强制解锁密码】：\n（非团队口令。接管后对方会收到确认弹窗，其未提交改动可选择上传保存）');
     if(pin==null) return;                       // 取消＝继续等待
-    if(pin.trim()!==FORCE_UNLOCK_PIN){ toast('❌ 密码不正确，无法强制解锁'); return; }
+    if(pin.trim()!==FORCE_UNLOCK_PIN){ toast('❌ 强制解锁密码不正确，无法接管'); return; }
     acquireLock(true);                          // 密码正确 → 强制接管
     return;
   }
