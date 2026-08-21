@@ -1005,8 +1005,16 @@
   .bar-task.req-bar .prog{inset:0;height:auto;border-radius:inherit;}  /* 需求条进度沿用全高蒙版方案 */
   .bar-task.req-bar .sdot{display:none;}
 
-  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-top:18px;}
-  .panel h3{font-size:14px;font-weight:600;margin-bottom:10px;}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-top:18px;overflow:hidden;display:flex;}
+  .panel-toc{width:78px;flex-shrink:0;background:#f7f8fa;border-right:1px solid var(--line2);padding:14px 6px;display:flex;flex-direction:column;gap:1px;position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto;}
+  .panel-toc::-webkit-scrollbar{width:3px;}
+  .panel-toc::-webkit-scrollbar-thumb{background:#c2c8d0;border-radius:3px;}
+  .panel-toc .ptoc-item{display:block;font-size:11px;color:var(--tx3);text-align:center;padding:6px 4px;border-radius:5px;text-decoration:none;line-height:1.35;cursor:pointer;transition:background .12s,color .12s;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .panel-toc .ptoc-item:hover{background:#e7edf8;color:var(--blue);}
+  .panel-toc .ptoc-item.on{background:#e7edf8;color:var(--blue);font-weight:700;}
+  .panel-toc .ptoc-dot{display:block;width:8px;height:8px;border-radius:50%;margin:0 auto 3px;flex-shrink:0;}
+  .panel-body{flex:1;padding:18px 20px;min-width:0;overflow:hidden;}
+  .panel-body h3{font-size:14px;font-weight:600;margin-bottom:10px;}
   .rules{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
   .rule{border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
   .rule .t{font-weight:600;font-size:13px;margin-bottom:6px;display:flex;align-items:center;gap:6px;}
@@ -1231,13 +1239,15 @@
   @keyframes dynPulse{0%,100%{opacity:1;box-shadow:0 0 0 2px rgba(59,130,246,.25);}50%{opacity:.5;box-shadow:0 0 0 5px rgba(59,130,246,.15);}}
   .hr-makers .empty{font-size:11px;color:var(--tx3);font-style:italic;}
   .hr-note{font-size:11px;color:var(--tx3);margin-left:auto;flex-shrink:0;max-width:200px;text-align:right;}
+  /* v6.61：窄屏隐藏面板侧栏导航，避免挤压内容 */
+  @media(max-width:768px){ .panel-toc{display:none;} .panel-body{padding:14px 12px;} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.61 · build 2026-08-21 14:10</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.61 · build 2026-08-21 14:18</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -1363,26 +1373,35 @@
   </div>
 
   <div class="panel">
+    <nav class="panel-toc" id="panelToc">
+      <a class="ptoc-item" data-target="sec-load" href="#sec-load"><i class="ptoc-dot" style="background:var(--blue)"></i>负载率</a>
+      <a class="ptoc-item" data-target="sec-risk" href="#sec-risk"><i class="ptoc-dot" style="background:var(--amber)"></i>需求风险</a>
+      <a class="ptoc-item" data-target="sec-rank" href="#sec-rank"><i class="ptoc-dot" style="background:var(--red)"></i>风险分档</a>
+      <a class="ptoc-item" data-target="sec-std" href="#sec-std"><i class="ptoc-dot" style="background:#7048e8"></i>标准工期</a>
+      <a class="ptoc-item" data-target="sec-eff" href="#sec-eff"><i class="ptoc-dot" style="background:#0a7d3c"></i>效率系数</a>
+      <a class="ptoc-item" data-target="sec-inv" href="#sec-inv"><i class="ptoc-dot" style="background:#0a7d3c"></i>投入比</a>
+    </nav>
+    <div class="panel-body">
     <h3>标准化评估规则（团队统一口径，自动计算）</h3>
     <div class="rules">
-      <div class="rule">
+      <div class="rule" id="sec-load">
         <div class="t"><i style="background:var(--blue)"></i>工作强度 / 负载率</div>
         <p>负载率 = <code>未来30天 Σ每工作日各需求分摊后投入比 ÷ 可用人天</code>。人均每日标准产能记为 1 人天，<b>跟进型也占精力、计入负载</b>；同一天并行多条需求时各自的分摊后投入比相加，故可能 &gt;100%。<br>
         分档：<b style="color:#1a8a3c">≤85% 正常</b> · <b style="color:#b36b00">85–110% 饱和</b> · <b style="color:#d32320">&gt;110% 超载</b>。</p>
       </div>
-      <div class="rule">
+      <div class="rule" id="sec-risk">
         <div class="t"><i style="background:var(--amber)"></i>需求风险（双维度取高）</div>
         <p><b class="hl-term" style="color:#b36b00" onmousemove="showTermTip(event,'dimA')" onmouseleave="hideTip()">维度A 产能</b>：剩余工作量 vs 投入产能×剩余工作日。<br>
         <b class="hl-term" style="color:#b36b00" onmousemove="showTermTip(event,'dimB')" onmouseleave="hideTip()">维度B 人力结构</b>：该角色管线是否缺人。<br>
         <span class="hl-term" onmousemove="showTermTip(event,'finalRisk')" onmouseleave="hideTip()">两者取较高一档</span>作为最终风险。</p>
       </div>
-      <div class="rule">
+      <div class="rule" id="sec-rank">
         <div class="t"><i style="background:var(--red)"></i>风险分档</div>
         <p><b style="color:#d32320">高</b> = 产能告急，<u>或</u> 管线缺人且已开工。<br>
         <b style="color:#b36b00">中</b> = 产能偏紧，<u>或</u> 管线缺人但尚未开工（后续压力）。<br>
         <b style="color:#1a8a3c">低</b> = 产能充足且管线人力到位。</p>
       </div>
-      <div class="rule" style="grid-column:1/-1;">
+      <div class="rule" id="sec-std" style="grid-column:1/-1;">
         <div class="t"><i style="background:#7048e8"></i>出场标准工期 &amp; 标配人力（按角色品级）
           <button class="eff-lock locked" id="stdLock" title="点击激活/锁定编辑">🔒 已锁定</button>
           <button class="eff-add-tier hide" id="stdAddRow" title="新增一行">＋ 加一行</button>
@@ -1391,7 +1410,7 @@
         <p style="margin-top:8px;">出场（金/橙/红角）按<b>制作工期</b>核定；<b>展示时长</b>指效果在游戏内呈现的时间长度（如出场表演时长），与制作工期含义不同。检视、组队、入局Cuts、TPP、红角 MVP 等模块可按需填写；基地人力配置仍<b>以「人力分配（按模块/缺口）」视图为准</b>逐模块核定。</p>
       </div>
 
-      <div class="rule" style="grid-column:1/-1;">
+      <div class="rule" id="sec-eff" style="grid-column:1/-1;">
         <div class="t"><i style="background:#0a7d3c"></i>效率系数标定（实时驱动产能/风险计算）
           <button class="eff-lock locked" id="effLock" title="点击激活/锁定编辑">🔒 已锁定</button>
           <button class="eff-add-tier hide" id="effAddTier" title="新增一档">＋ 加一档</button>
@@ -1401,7 +1420,7 @@
         <p style="margin-top:8px;color:var(--tx3);">系数以 <b>1.0 = 一名标准基地人力</b> 为基准；&gt;1 比基准强、&lt;1 偏弱。修改系数、人群说明或把成员在档位间调整后，<b>每位成员的效率、负载率与需求风险会立即按新值重算</b>。</p>
       </div>
 
-      <div class="rule" style="grid-column:1/-1;">
+      <div class="rule" id="sec-inv" style="grid-column:1/-1;">
         <div class="t"><i style="background:#0a7d3c"></i>投入比 / 精力分配（消化工作量计算）
           <button class="eff-lock locked" id="invLock" title="点击激活/锁定编辑">🔒 已锁定</button>
           <button class="eff-add-tier hide" id="invAddTier" title="新增一类">＋ 加一类</button>
@@ -1413,6 +1432,7 @@
           <b>举例：</b>某人某天同时跑 1 条全人力 + 1 条完整跟进 → 全人力 1.0/2=<b>0.5</b>、完整跟进 0.6/2=0.3 但触下限保底为 <b>0.4</b>；当天负载 = 0.5+0.4 = <b>0.9</b>。若并行 3 条全人力则各 1.0/3≈<b>0.33</b>。
         </div>
       </div>
+    </div>
     </div>
   </div>
 </div>
@@ -7854,6 +7874,39 @@ function releaseLockBeacon(){
   }catch(_){}
   lockMine=false;
 }
+
+/* v6.61: 面板左侧目录导航 —— 滚动高亮 + 点击跳转 */
+(function(){
+  const toc=document.getElementById('panelToc'); if(!toc) return;
+  const items=toc.querySelectorAll('.ptoc-item');
+  if(!items.length) return;
+  // 点击跳转
+  items.forEach(a=>{
+    a.addEventListener('click',function(e){
+      e.preventDefault();
+      const target=document.getElementById(this.dataset.target);
+      if(target){ target.scrollIntoView({behavior:'smooth',block:'start'}); }
+    });
+  });
+  // 滚动时高亮当前章节（IntersectionObserver）
+  const sections=Array.from(items).map(a=>document.getElementById(a.dataset.target)).filter(Boolean);
+  if(!sections.length) return;
+  const observer=new IntersectionObserver((entries)=>{
+    // 找到最顶部可见的 section
+    let topMost=null; let minTop=Infinity;
+    entries.forEach(en=>{
+      if(en.isIntersecting && en.boundingClientRect.top < minTop){
+        minTop=en.boundingClientRect.top; topMost=en.target;
+      }
+    });
+    if(topMost){
+      items.forEach(i=>i.classList.toggle('on', i.dataset.target===topMost.id));
+    }
+  },{rootMargin:'-60px 0px -60% 0px', threshold:0});
+  sections.forEach(s=>observer.observe(s));
+  // 默认高亮第一个
+  if(items[0]) items[0].classList.add('on');
+})();
 </script>
 </body>
 </html>
