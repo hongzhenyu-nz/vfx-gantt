@@ -989,6 +989,33 @@
   .tk-modal .tk-drop:hover{background:#e6e8ec;}
   .tk-modal .tk-save{background:#0a7d3c;color:#fff;}
   .tk-modal .tk-save:hover{background:#08682f;box-shadow:0 4px 14px rgba(10,125,60,.34);}
+  /* ===== v6.71 首次身份确认弹窗（方案1：引导正确填写，不做强身份校验）===== */
+  .idn-mask{position:fixed;inset:0;background:rgba(12,18,32,.62);backdrop-filter:blur(4px);
+    display:none;align-items:center;justify-content:center;z-index:10080;}
+  .idn-mask.show{display:flex;}
+  .idn-modal{width:466px;max-width:93vw;background:#fff;border-radius:15px;overflow:hidden;
+    box-shadow:0 28px 78px rgba(0,0,0,.42);animation:addpop .18s ease-out;}
+  .idn-modal .idn-h{display:flex;align-items:center;gap:9px;padding:16px 19px;
+    background:linear-gradient(90deg,#eef5ff,#f7faff);border-bottom:1px solid #d6e4fb;
+    font-size:15.5px;font-weight:800;color:#1d4ed8;}
+  .idn-modal .idn-h .ic{width:28px;height:28px;border-radius:9px;display:inline-flex;align-items:center;
+    justify-content:center;background:#1d6fd6;color:#fff;font-size:15px;flex-shrink:0;}
+  .idn-modal .idn-body{padding:16px 19px 8px;font-size:13px;color:#3a3f4a;line-height:1.65;}
+  .idn-modal .idn-tip{background:#f6f8fc;border:1px solid #e7ebf2;border-radius:9px;
+    padding:10px 12px;margin-bottom:14px;font-size:12.5px;color:#5a626e;}
+  .idn-modal .idn-tip b{color:#1d2330;}
+  .idn-modal label.idn-lab{display:block;font-size:11px;font-weight:800;color:#7a828f;
+    margin-bottom:6px;letter-spacing:.4px;}
+  .idn-modal select{width:100%;box-sizing:border-box;font-size:13.5px;padding:10px 11px;
+    border:1.5px solid #dde2ea;border-radius:10px;background:#fff;color:#1d2330;font-weight:600;outline:none;}
+  .idn-modal select:focus{border-color:#1d6fd6;box-shadow:0 0 0 3px rgba(29,111,214,.14);}
+  .idn-modal .idn-warn{font-size:12px;color:#b36b00;background:#fff8e6;border:1px solid #ffe1a8;
+    border-radius:8px;padding:8px 11px;margin-top:12px;line-height:1.55;}
+  .idn-modal .idn-foot{display:flex;gap:10px;justify-content:flex-end;padding:12px 19px 18px;}
+  .idn-modal .idn-foot button{font-size:13.5px;font-weight:700;padding:10px 22px;border-radius:10px;
+    cursor:pointer;border:1.5px solid transparent;background:#1d6fd6;color:#fff;}
+  .idn-modal .idn-foot button:hover{background:#155cc0;box-shadow:0 4px 14px rgba(29,111,214,.36);}
+  .idn-modal .idn-foot button:disabled{background:#b7c6dc;cursor:not-allowed;box-shadow:none;}
   .bar-task .bar-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* 按需求视图：任务条加高，容纳标题 + 按编制分两行的人名标签 */
   .req-row{min-height:82px;}
@@ -1353,7 +1380,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.70 · build 2026-08-21 17:48</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.71 · build 2026-08-21 18:16</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -1562,6 +1589,21 @@
 <div id="menu"></div>
 <div id="toast"></div>
 <div id="addMask" class="add-mask"><div class="add-modal" id="addModal"></div></div>
+<!-- v6.71 首次身份确认弹窗：必须选择本人身份才能使用看板 -->
+<div id="idnMask" class="idn-mask">
+  <div class="idn-modal">
+    <div class="idn-h"><span class="ic">👤</span>请先确认你是谁</div>
+    <div class="idn-body">
+      <div class="idn-tip">看板的<b>编辑记录</b>、<b>变更留痕</b>、<b>编辑权提示</b>都会用这个身份显示给团队其他人。请选择<b>你本人</b>。</div>
+      <label class="idn-lab">我是</label>
+      <select id="idnSel"></select>
+      <div class="idn-warn">⚠ 请勿选择他人姓名。冒用他人身份进行的改动会记录在「变更记录」中，且会误导团队判断谁在编辑。</div>
+    </div>
+    <div class="idn-foot">
+      <button id="idnOk" onclick="confirmIdentity()">确认，开始使用</button>
+    </div>
+  </div>
+</div>
 <!-- v6.70 被强制接管确认弹窗：不再静默失锁，由原持有者决定未提交改动的去向 -->
 <div id="tkMask" class="tk-mask">
   <div class="tk-modal">
@@ -6689,7 +6731,6 @@ const RECONN_DELAYS=[5000,15000,45000,180000,300000];  // 5s/15s/45s/3min/5min
 const PENDING_KEY='gantt_pending_snap';
 try{const s=localStorage.getItem(PENDING_KEY); if(s) cloudPendingPush=JSON.parse(s);}catch(_){}
 function cloudWho(){const m=members.find(x=>x.id===meId);return m?m.name:'某成员';}
-
 /* ===== 编辑锁（同一时刻仅一人可编辑，其他人只读等待） =====
    机制（零SQL）：复用 board_state 已有的 editor/editor_name/updated_at 三列充当分布式互斥锁，无需新增数据库列。
    - 申请编辑 = 一条带条件的原子 UPDATE（仅当锁空闲/已过期/本就是我时才更新成功）→ 天然防并发抢占。
@@ -7374,6 +7415,13 @@ async function refreshLockStatus(){
 function cloudUnlock(){
   if(!cloudReady){ toast('云端尚未连接，稍后再试'); return; }
   if(lockMine){ releaseLock(); return; }
+  /* v6.71：未确认身份前不允许获取编辑权 —— 否则锁上会写「某成员」，
+     团队根本不知道是谁在编辑，等于回到了"匿名可改"的老问题。 */
+  if(typeof needIdentityConfirm==='function' && needIdentityConfirm()){
+    toast('请先确认你的身份，再申请编辑权');
+    openIdentityDialog();
+    return;
+  }
   // 离线/失败状态：点状态条=先重试连接，成功就进入正常申请路径
   if(cloudOffline){
     cloudSetStatus('syncing','重连中…');
@@ -7668,36 +7716,113 @@ window.addEventListener('storage',e=>{
 });
 
 /* ============ “我是谁” ============ */
-let meId=localStorage.getItem('gantt_me')||members[0].id;
+/* v6.71 身份可信度改进（方案1：引导正确填写）。
+   背景：上一轮审计发现身份完全靠自选、零校验，有人顶着别人的名字编辑（用户实际遭遇）。
+   纯静态页无后端，做不到真身份校验（那需要企微 OAuth + 服务端换 token），
+   故采取三项"降低误选与冒用成本"的措施：
+     ① 首次打开必须在模态窗里明确选择本人，不选无法使用（旧版默认取 members[0]=余洪震，
+        导致任何新用户不选身份就顶着余洪震的名字操作）；
+     ② 「暂缺占位」与「已离职」成员从身份候选中剔除（用户被顶那次，对方身份就是"暂缺"）；
+     ③ 切换身份时二次确认并写入变更记录，让冒用留痕、可追溯。 */
+const ME_CONFIRM_KEY='gantt_me_confirmed';
+/* 可选作"我是谁"的成员：排除暂缺占位（非真人）与已离职（不应再操作看板）。
+   兜底：若过滤后为空（极端数据），退回全量，避免用户被卡死无法进入。 */
+function selectableMembers(){
+  const list=members.filter(m=>!isVacantMem(m) && !effLeft(m));
+  return list.length?list:members.slice();
+}
+let meId=localStorage.getItem('gantt_me')||'';
 let focusMode=localStorage.getItem('gantt_focus')||'off';   // off | hl | only
-function buildMeSel(){
-  // ★ 与 formatLeadDisplay() 保持一致：用 leadChars+leadMods 生成配对分行纯文本
-  const fmtOpt = (m) => {
-    const chars = (m.leadChars||'').split(',').filter(Boolean);
-    const mods  = (m.leadMods||'').split(',').filter(Boolean);
-    let detail = m.role || '';
-    if((m.corp==='reg'||m.corp==='sub') && (chars.length||mods.length)){
-      if(chars.length > 0){
-        const pairs = chars.map((c,i)=>{
-          const s=Math.round(i*mods.length/chars.length), e=Math.round((i+1)*mods.length/chars.length);
-          const rm=mods.slice(s,e);
-          return rm.length ? c+'('+rm.join(' ')+')' : c;
-        });
-        detail = pairs.join(' / ');
-      } else if(mods.length){
-        detail = mods.join('/');
-      }
+/* 身份选项文案（顶部下拉与首次确认弹窗共用，保证两处显示一致） */
+function fmtMeOption(m){
+  const chars = (m.leadChars||'').split(',').filter(Boolean);
+  const mods  = (m.leadMods||'').split(',').filter(Boolean);
+  let detail = m.role || '';
+  if((m.corp==='reg'||m.corp==='sub') && (chars.length||mods.length)){
+    if(chars.length > 0){
+      const pairs = chars.map((c,i)=>{
+        const s=Math.round(i*mods.length/chars.length), e=Math.round((i+1)*mods.length/chars.length);
+        const rm=mods.slice(s,e);
+        return rm.length ? c+'('+rm.join(' ')+')' : c;
+      });
+      detail = pairs.join(' / ');
+    } else if(mods.length){
+      detail = mods.join('/');
     }
-    return `${m.name}（${detail || m.role}）`;
-  };
-  const sel=document.getElementById('meSel');
-  sel.innerHTML=members.map(m=>`<option value="${m.id}" ${m.id===meId?'selected':''}>${escAttr(fmtOpt(m))}</option>`).join('');
+  }
+  return `${m.name}（${detail || m.role}）`;
+}
+function buildMeSel(){
+  const sel=document.getElementById('meSel'); if(!sel) return;
+  // v6.71：只列可选身份（排除暂缺占位/已离职）
+  sel.innerHTML=selectableMembers().map(m=>`<option value="${m.id}" ${m.id===meId?'selected':''}>${escAttr(fmtMeOption(m))}</option>`).join('');
   const fs=document.getElementById('focusSel'); if(fs) fs.value=focusMode;
 }
+
+/* v6.71 首次身份确认：未确认过身份时弹出模态窗，必须选择本人才能使用。
+   触发条件：localStorage 里没有确认标记，或存的 meId 已不在可选名单中（如该成员已离职/被删）。 */
+function needIdentityConfirm(){
+  let confirmed=false;
+  try{ confirmed = localStorage.getItem(ME_CONFIRM_KEY)==='1'; }catch(_){}
+  const valid = meId && selectableMembers().some(m=>m.id===meId);
+  return !confirmed || !valid;
+}
+function openIdentityDialog(){
+  const mask=document.getElementById('idnMask'), sel=document.getElementById('idnSel');
+  if(!mask||!sel){
+    // DOM 缺失兜底：至少给个默认身份，不阻塞使用
+    if(!meId) meId=selectableMembers()[0].id;
+    return;
+  }
+  const list=selectableMembers();
+  // 默认不预选任何人，强制用户自己看一眼再选（避免闭眼确认拿到错身份）
+  sel.innerHTML='<option value="" disabled selected>— 请选择你的姓名 —</option>'
+    + list.map(m=>`<option value="${m.id}">${escAttr(fmtMeOption(m))}</option>`).join('');
+  const ok=document.getElementById('idnOk');
+  if(ok){
+    ok.disabled=true;
+    sel.onchange=()=>{ ok.disabled=!sel.value; };
+  }
+  mask.classList.add('show');
+}
+function confirmIdentity(){
+  const sel=document.getElementById('idnSel');
+  if(!sel||!sel.value){ toast('请先选择你的姓名'); return; }
+  meId=sel.value;
+  try{
+    localStorage.setItem('gantt_me',meId);
+    localStorage.setItem(ME_CONFIRM_KEY,'1');
+  }catch(_){}
+  const mask=document.getElementById('idnMask'); if(mask) mask.classList.remove('show');
+  buildMeSel();
+  rerender();
+  toast('✅ 身份已确认：'+memName(meId)+'　（可在顶部「我是谁」处更改）');
+}
 function changeMe(){
-  meId=document.getElementById('meSel').value;
-  localStorage.setItem('gantt_me',meId);
-  toast('已切换身份：'+memName(meId));
+  const sel=document.getElementById('meSel');
+  const next=sel.value;
+  if(next===meId) return;
+  // v6.71：切换身份=改变团队看到的"是谁在改"，故二次确认 + 留痕，让冒用可追溯
+  const from=memName(meId)||'(未设置)', to=memName(next);
+  if(!confirm('确定把身份从「'+from+'」切换为「'+to+'」吗？\n\n'
+    +'· 身份会显示在编辑权提示与变更记录里\n'
+    +'· 本次切换会写入「变更记录」\n'
+    +'· 请勿冒用他人身份，否则会误导团队判断谁在编辑')){
+    sel.value=meId;   // 取消：回滚下拉，避免显示与实际身份不一致
+    return;
+  }
+  const prev=meId;
+  meId=next;
+  try{
+    localStorage.setItem('gantt_me',meId);
+    localStorage.setItem(ME_CONFIRM_KEY,'1');
+  }catch(_){}
+  // 留痕：仅在有写权限时才产生记录（只读模式下切身份不该写云端）
+  if(typeof canWrite==='function' && canWrite()){
+    _logDesc='身份切换：'+from+' → '+to;
+    if(typeof broadcast==='function') broadcast();
+  }
+  toast('已切换身份：'+memName(meId)+(prev?'（原：'+from+'）':''));
   rerender();   // 始终重渲染，保证「我/我的团队」高亮与底部标签同步更新（不再受 focusMode 限制）
 }
 function changeFocus(){
@@ -8209,6 +8334,17 @@ rerender();
 document.body.classList.toggle('ro-mode', !canWrite());
 // 启动云端协作（公开读 / 编辑锁互斥写 / Realtime 实时汇集）
 if(typeof cloudInit==='function'){ cloudInit(); }
+/* v6.71 首次身份确认：延后到云端首拉之后再弹窗。
+   原因：members 在启动时是本地默认值，云端 applySnap 后才是真实团队名单
+   （云端常有新增成员）。若立刻弹窗，用户可能在旧名单里找不到自己。
+   1.2s 足够 cloudInit 完成首次 select；即使云端未连上，本地名单也能用，不阻塞。 */
+setTimeout(()=>{
+  try{
+    if(typeof needIdentityConfirm==='function' && needIdentityConfirm()){
+      openIdentityDialog();
+    }
+  }catch(e){ console.warn('identity dialog failed',e); }
+}, 1200);
 // Supabase Free 计划 7 天无活动会自动 pause 数据库,这里每天 9 点自动 ping 一次防止被休眠
 if(typeof startKeepAlivePing==='function'){ startKeepAlivePing(); }
 // 持锁后 5 分钟无操作自动提交并释放编辑权：一次性绑定全局活动监听
