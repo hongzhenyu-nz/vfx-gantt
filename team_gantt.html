@@ -1218,7 +1218,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.54 · build 2026-08-21 12:01</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.55 · build 2026-08-21 12:20</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -1842,7 +1842,7 @@ function addLt(hostId){
     </div>
     <div class="row2">
       <div class="fld"><label>开始日期</label><input type="date" id="ltStart" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(s0))}"></div>
-      <div class="fld"><label>结束日期</label><input type="date" id="ltEnd" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(e0))}"></div>
+      <div class="fld"><label>结束日期</label><input type="date" id="ltEnd" min="${G_MIN}" max="${G_MAX}" value="${dInput(dEndObj(i2d(e0)))}"></div>
     </div>
     <div class="ctx" style="font-size:12px;color:#646a73">参与联调的制作人默认取本角色全部特效的制作人；建好后可在条上「＋加人 / 改派」调整。</div>
     <div class="warn" id="ltWarn"></div>`;
@@ -1856,10 +1856,11 @@ function confirmAddLt(){
   const warn=document.getElementById('ltWarn');
   const name=(document.getElementById('ltName').value||'').trim()||charShort(host.char)+' 联调';
   const sd=parseInput(document.getElementById('ltStart').value), ed=parseInput(document.getElementById('ltEnd').value);
-  if(!sd||!ed||ed<=sd){ warn.textContent='请选择有效的起止日期（结束晚于开始）'; warn.classList.add('show'); return; }
+  if(!sd||!ed||ed<sd){ warn.textContent='请选择有效的起止日期（结束不早于开始）'; warn.classList.add('show'); return; }
   const est=Math.max(1,parseInt(document.getElementById('ltEst').value,10)||12);
   pushHistory();
-  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
+  /* v6.55 输入框是「含末日」语义（用户选的那天算在内），底层存排他终点 → 读回后 +1 天还原 */
+  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed)+1,DAYS));
   // 参与成员：本角色全部特效里出现过的制作人去重；为空则用宿主第一段成员
   const mems=[]; reqs.filter(r=>r.char===host.char && r.kind==='fx').forEach(r=>r.segs.forEach(sg=>{ if(!mems.includes(sg.m))mems.push(sg.m); }));
   if(!mems.length && host.segs[0]) mems.push(host.segs[0].m);
@@ -1925,7 +1926,7 @@ function openEditLt(ltId){
     </div>
     <div class="row2">
       <div class="fld"><label>开始日期</label><input type="date" id="ltStart" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(s0))}"></div>
-      <div class="fld"><label>结束日期</label><input type="date" id="ltEnd" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(e0))}"></div>
+      <div class="fld"><label>结束日期</label><input type="date" id="ltEnd" min="${G_MIN}" max="${G_MAX}" value="${dInput(dEndObj(i2d(e0)))}"></div>
     </div>
     <div class="warn" id="ltWarn"></div>`;
   renderAddModal('🔗', '改联调', body, true);
@@ -1938,10 +1939,11 @@ function confirmEditLt(){
   const warn=document.getElementById('ltWarn');
   const name=(document.getElementById('ltName').value||'').trim()||lt.name;
   const sd=parseInput(document.getElementById('ltStart').value), ed=parseInput(document.getElementById('ltEnd').value);
-  if(!sd||!ed||ed<=sd){ warn.textContent='请选择有效的起止日期（结束晚于开始）'; warn.classList.add('show'); return; }
+  if(!sd||!ed||ed<sd){ warn.textContent='请选择有效的起止日期（结束不早于开始）'; warn.classList.add('show'); return; }
   const est=Math.max(1,parseInt(document.getElementById('ltEst').value,10)||lt.estimate);
   pushHistory();
-  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
+  /* v6.55 输入框是「含末日」语义 → 读回后 +1 天还原为底层排他终点 */
+  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed)+1,DAYS));
   lt.name=name; lt.estimate=est;
   lt.segs.forEach(sg=>{ sg.s=i2d(ns); sg.e=i2d(ne); });   // 联调全员同窗口（与原始数据一致）
   lt.end=i2d(ne);
@@ -2561,6 +2563,14 @@ function autoSegState(sg){
   return {status:'doing', prog};                                         // 进行中 → 蓝，分界线=今天
 }
 const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
+/* v6.55 结束日期「显示专用」格式化 —— 只影响显示，不动数据与渲染。
+   底层 seg.e 是「排他式」终点（条宽 =(e-s)*DAY_W，实际画到 e-1 那天末尾），
+   但过去直接用 fmt(seg.e) 显示，导致「前条末日」与「后条首日」是同一天（全表 40 对交接都这样），
+   用户读起来像两条日期重叠了一天。此函数统一减 1 天，显示真正的「最后一个在排日」。
+   注意：传入的是 Date 对象（i2d 转换后的），故减 1 天用毫秒运算。 */
+const fmtEnd = d => fmt(new Date(d.getTime()-dayMs));
+/* 同上，供 <input type="date"> 回填用：把排他终点转成含末日的日期对象 */
+const dEndObj = d => new Date(d.getTime()-dayMs);
 function workdays(a,b){let n=0;for(let t=a.getTime();t<b.getTime();t+=dayMs){const w=new Date(t).getDay();if(w!==0&&w!==6)n++;}return n;}
 const memName=id=>{const m=members.find(m=>m.id===id);return m?m.name:id;};
 const memById=id=>members.find(m=>m.id===id);
@@ -3048,7 +3058,7 @@ function capacityLanesHTML(r){
     const capTxt = p.cap>0
       ? `还可消化 <b style='color:#7da0ff'>${r1(p.cap)} 个工作日</b>的活　<span class='g'>(按剩余窗口 ${left} 个工作日 × 效率估算)</span>`
       : `<span class='g'>剩余窗口已结束 · 暂无可消化产能</span>`;
-    const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff} <span class='g'>(条越粗=效率越高)</span>　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmt(s.e)).join('、')}（共 ${investWD} 工作日）<br><span class='g'>精力分配</span> ${invDesc}<br><span class='g'>已消化工作量</span> 折合投入 ${dg.invSum} 工作日 × 效率 ${effv} = <b style='color:#5fd08a'>${digest} 人天</b>　<span class='g'>(条越长=投入越多·越粗=效率越高)</span><br><span class='g'>剩余产能</span> ${capTxt}`;
+    const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff} <span class='g'>(条越粗=效率越高)</span>　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmtEnd(s.e)).join('、')}（共 ${investWD} 工作日）<br><span class='g'>精力分配</span> ${invDesc}<br><span class='g'>已消化工作量</span> 折合投入 ${dg.invSum} 工作日 × 效率 ${effv} = <b style='color:#5fd08a'>${digest} 人天</b>　<span class='g'>(条越长=投入越多·越粗=效率越高)</span><br><span class='g'>剩余产能</span> ${capTxt}`;
     const segBord=cs.bord?`;box-shadow:inset 0 0 0 1px ${cs.bord},0 1px 2px rgba(0,0,0,.18)`:'';   // 淡白条加描边才看得见
     const segH=Math.round(Math.max(6,Math.min(26, 15+(effv-1)*90)));   // 条高随效率：差异拉大(斜率90)——效率越高越粗、越低越细（0.85→6 / 0.95→11 / 1.0→15 / 1.05→20 / 1.10→24px）
     let segs='';
@@ -3599,7 +3609,7 @@ function personRowHTML(m,inArc){
       // 已完成呈现（与「按需求看」统一）：整条需求完成 → seg-done（深绿「✓已完成」居中印章）；
       // 仅本人这段完成 → seg-done-self（浅色「✓本人完成」居中）；其余照常。条内信息随之淡化锁定。
       const doneCls = reqIsDone(r) ? ' seg-done' : (auto.status==='done' ? ' seg-done-self' : '');
-      const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmt(sg.e)}`;
+      const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmtEnd(sg.e)}`;
       /* 横向单行 v4.8：按条子像素宽度决定显示几个信息位（任务名永远显示），按高度选字号档。
          任务名 > 模块 > 人天 > 投入比 优先级递减；窄条从右往左省略，不缩字号硬撑、不换行裁切。 */
       const barWpx = w;                                                     // 本条像素宽度
@@ -3718,7 +3728,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
     const olTip = risk.overloaded.length?`<br><span class='g' style='color:#ff8f8f'>⚠ 超载占用</span> ${risk.overloaded.join('、')}（产能已折损）`:'';
     const gapTip = risk.gapPpl>0?`<br><span class='g' style='color:#ff8f8f'>⚠ 人力缺口</span> 标配${REQ_STD[r.id]}人 · 在岗${activeBase(r)}人 · 缺 ${risk.gapPpl} 人${risk.started?'（已开工，计入高风险）':'（后续压力，计入中风险）'}`:'';
     const teamTip = `<br><span class='g'>团队</span> 正编${regs.length}人${regs.length?'（'+regs.map(m=>m.name).join('、')+'）':''} · 基地${bases.length}人${bases.length?'（'+bases.map(m=>m.name).join('、')+'）':''}`;
-    const tip=`<b>${r.name}</b><br><span class='g'>角色</span> ${r.char||'-'} · <span style='color:${g.col}'>${g.label}级</span> · ${r.mod||''}<br><span class='g'>状态</span> ${stLabel}　<span class='g'>时间进度</span> ${prog}% · 剩余${leftWD}工作日<br><span class='g'>窗口</span> ${fmt(i2d(allS))} → ${fmt(i2d(allE))}${teamTip}<br><span class='g'>风险主因</span> ${risk.cause} → <b>${risk.lvl}风险</b>${gapTip}${olTip}<br><span class='g' style='color:#7da0ff'>单击改整条状态</span>`;
+    const tip=`<b>${r.name}</b><br><span class='g'>角色</span> ${r.char||'-'} · <span style='color:${g.col}'>${g.label}级</span> · ${r.mod||''}<br><span class='g'>状态</span> ${stLabel}　<span class='g'>时间进度</span> ${prog}% · 剩余${leftWD}工作日<br><span class='g'>窗口</span> ${fmt(i2d(allS))} → ${fmtEnd(i2d(allE))}${teamTip}<br><span class='g'>风险主因</span> ${risk.cause} → <b>${risk.lvl}风险</b>${gapTip}${olTip}<br><span class='g' style='color:#7da0ff'>单击改整条状态</span>`;
     // 统一人员标签：底色=编制(正编蓝/基地淡白)，橙环=跨队支援，新/临/离=角标。mini=蓝条内小号。隶属带队色圆点已去除（与编制色冲突）
     const reqLead = reqLeadOf(r);
     const ptag=(m,mini)=>{
@@ -3805,9 +3815,9 @@ function reqRowHTML(r, prevR, nextR, inArc){
           // 联调段被 L2 完全覆盖（split2 拖到 barE，窗口=0）时不渲染联调块与标签
           const ltSeg = (ph.lt2 && ph.lt2.e>ph.lt2.s)?(()=>{const lL=pc(ph.lt2.s),lW=pc(ph.lt2.e)-pc(ph.lt2.s);return {lL,lW};})():null;
           const div2L = ph.split2!=null?pc(ph.split2):null;
-          const dvTip=`L1 一审 → ${fmt(i2d(ph.l1.s))} ~ ${fmt(i2d(ph.split))}　|　L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmt(i2d(ph.l2.e))}（拖拽分割线设定 L1 完成时间）`;
-          const dv2Tip = ph.lt2?`L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmt(i2d(ph.split2))}　|　联调 → ${fmt(i2d(ph.split2))} ~ ${fmt(i2d(ph.lt2.e))}（拖拽分割线设定联调开始时间）`:'';
-          const ltTip = ph.lt?`<b>联调</b>（特效完成后进入）<br><span class='g'>工作量</span> ${ph.lt.est}人天<br><span class='g'>窗口</span> ${fmt(i2d(ph.lt2.s))} → ${fmt(i2d(ph.lt2.e))}`:'';
+          const dvTip=`L1 一审 → ${fmt(i2d(ph.l1.s))} ~ ${fmtEnd(i2d(ph.split))}　|　L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmtEnd(i2d(ph.l2.e))}（拖拽分割线设定 L1 完成时间）`;
+          const dv2Tip = ph.lt2?`L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmtEnd(i2d(ph.split2))}　|　联调 → ${fmt(i2d(ph.split2))} ~ ${fmtEnd(i2d(ph.lt2.e))}（拖拽分割线设定联调开始时间）`:'';
+          const ltTip = ph.lt?`<b>联调</b>（特效完成后进入）<br><span class='g'>工作量</span> ${ph.lt.est}人天<br><span class='g'>窗口</span> ${fmt(i2d(ph.lt2.s))} → ${fmtEnd(i2d(ph.lt2.e))}`:'';
           return `<div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${bx}px;width:${bw}px;border-left-color:${gCol}"
           onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
           <div class="ph ph-l1" style="left:${l1L}%;width:${l1W}%"><span class="ph-lab">L1</span></div>
@@ -4539,8 +4549,8 @@ window.addEventListener('pointermove',e=>{
       // 即时刷新左侧「+联调N人天」（拖动过程中实时联动，不必等松手 rerender）
       updateLtMeta(r.id, ltDays);
       dlabel.textContent=ltDays>0
-        ?`L2 ${fmt(i2d(ph.split))} → ${fmt(i2d(ns))}　|　联调 ${fmt(i2d(ns))} → ${fmt(i2d(ph.barE))}（${ltDays}工作日）`
-        :`L2 ${fmt(i2d(ph.split))} → ${fmt(i2d(ph.barE))}（已覆盖联调）`;
+        ?`L2 ${fmt(i2d(ph.split))} → ${fmtEnd(i2d(ns))}　|　联调 ${fmt(i2d(ns))} → ${fmtEnd(i2d(ph.barE))}（${ltDays}工作日）`
+        :`L2 ${fmt(i2d(ph.split))} → ${fmtEnd(i2d(ph.barE))}（已覆盖联调）`;
     }else{
       // L1/L2 分割：夹在 [s+1, l2.e-1]（不越过联调起点）
       ns=Math.max(ph.s+1,Math.min(ph.l2.e-1,ns));
@@ -4552,7 +4562,7 @@ window.addEventListener('pointermove',e=>{
         l1.style.width=(pcL(ns)-pcL(ph.s))+'%';
         l2.style.left=pcL(ns)+'%';l2.style.width=(pcL(ph.l2.e)-pcL(ns))+'%';
       }
-      dlabel.textContent=`L1 ${fmt(i2d(ph.s))} → ${fmt(i2d(ns))}（${workdays(i2d(ph.s),i2d(ns))}工作日）　|　L2 ${fmt(i2d(ns))} → ${fmt(i2d(ph.l2.e))}`;
+      dlabel.textContent=`L1 ${fmt(i2d(ph.s))} → ${fmtEnd(i2d(ns))}（${workdays(i2d(ph.s),i2d(ns))}工作日）　|　L2 ${fmt(i2d(ns))} → ${fmtEnd(i2d(ph.l2.e))}`;
     }
     dlabel.style.opacity=1;dlabel.style.left=(e.clientX+14)+'px';dlabel.style.top=(e.clientY-32)+'px';
     return;
@@ -4708,7 +4718,7 @@ function showDragLabel(e){
   const {bar,targetMember,dup}=drag;
   const l=parseFloat(bar.style.left),w=parseFloat(bar.style.width);
   const si=Math.round(l/DAY_W),ei=Math.round((l+w)/DAY_W);
-  let txt=fmt(i2d(si))+' → '+fmt(i2d(ei))+'（'+workdays(i2d(si),i2d(ei))+'工作日）';
+  let txt=fmt(i2d(si))+' → '+fmtEnd(i2d(ei))+'（'+workdays(i2d(si),i2d(ei))+'工作日）';
   if(targetMember) txt=(dup?'复制 → ':'改派 → ')+memName(targetMember)+'　'+txt;
   else if(dup) txt='＋复制一份　'+txt;
   dlabel.textContent=txt;
@@ -5461,8 +5471,9 @@ function updateAddPre(){
   const sd=parseInput(sEl.value), ed=parseInput(eEl.value);
   let msg='', bad=false;
   if(!sd||!ed){bad=true;msg='请选择开始与结束日期';}
-  else if(ed<=sd){bad=true;msg='结束日期必须晚于开始日期';}
-  else{pre.textContent=`工期约 ${workdays(sd,ed)} 个工作日（${fmt(sd)} → ${fmt(ed)}）`;}
+  else if(ed<sd){bad=true;msg='结束日期不能早于开始日期';}
+  /* v6.55 输入框为「含末日」语义：用户选的结束日算在工期内 → 计算工作日时需 +1 天 */
+  else{const edIn=new Date(ed.getTime()+dayMs);pre.textContent=`工期约 ${workdays(sd,edIn)} 个工作日（${fmt(sd)} → ${fmt(ed)}）`;}
   if(warn){warn.textContent=msg;warn.classList.toggle('show',!!msg);}
   if(ok)ok.disabled=bad;
   if(bad&&pre)pre.textContent='';
@@ -5475,7 +5486,7 @@ function confirmAdd(){
   const isOpen=op&&op.checked;
   const sEl=document.getElementById('addStart'), eEl=document.getElementById('addEnd');
   const sd=parseInput(sEl.value), ed=parseInput(eEl.value);
-  if(!isOpen && (!sd||!ed||ed<=sd)){updateAddPre();return;}
+  if(!isOpen && (!sd||!ed||ed<sd)){updateAddPre();return;}
   let memId, r;
   if(addCtx.mode==='task'){memId=addCtx.memId;const sel=document.getElementById('addReqSel');r=reqs.find(x=>x.id===sel.value);}
   else{r=reqs.find(x=>x.id===addCtx.reqId);const sel=document.getElementById('addMemSel');memId=sel.value;}
@@ -5489,8 +5500,8 @@ function confirmAdd(){
     const ns=Math.max(0,Math.min(idx(TODAY),DAYS-1));
     seg={m:memId, s:i2d(ns), e:i2d(Math.min(ns+1,DAYS)), prog:0, status:'todo', open:true};
   }else{
-    // 夹到甘特范围内
-    let ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
+    // 夹到甘特范围内。v6.55：输入框是「含末日」语义 → idx(ed)+1 还原为底层排他终点
+    let ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed)+1,DAYS));
     seg={m:memId, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'};
   }
   // 投入比（精力分配）：!=1 时写入 seg.inv；=1(全人力)不写，走自动并行分摊
@@ -6075,10 +6086,11 @@ function confirmNewReq(){
   const warn=document.getElementById('nrWarn');
   if(!name){ warn.textContent='请填写需求名称，或填写角色名与模块以自动合成'; warn.classList.add('show'); return; }
   const sd=parseInput(document.getElementById('nrStart').value), ed=parseInput(document.getElementById('nrEnd').value);
-  if(!sd||!ed||ed<=sd){ warn.textContent='请选择有效的起止日期（结束晚于开始）'; warn.classList.add('show'); return; }
+  if(!sd||!ed||ed<sd){ warn.textContent='请选择有效的起止日期（结束不早于开始）'; warn.classList.add('show'); return; }
   const est=Math.max(1,parseInt(document.getElementById('nrEst').value,10)||20);
   pushHistory();
-  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed),DAYS));
+  /* v6.55 输入框「含末日」→ +1 天还原为底层排他终点 */
+  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed)+1,DAYS));
   const r={
     id:genId('r_'), name,
     char:(document.getElementById('nrChar').value||'').trim()||name,
