@@ -1237,7 +1237,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.59 · build 2026-08-21 13:26</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.60 · build 2026-08-21 14:02</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2699,15 +2699,20 @@ function gradeOptsHTML(cur){
   if(cur && !list.some(d=>d.name===cur)) list=list.concat([{name:cur,col:''}]);  // 兜底：保留旧/自定义品级值
   return list.map(d=>`<option value="${effEsc(d.name)}"${d.name===cur?' selected':''}>${effEsc(d.name)}</option>`).join('');
 }
+/* v6.60：默认值补齐「制作工期」周数并与线上配置对齐（原来检视/组队/入局Cuts/TPP/MVP 的 weeks 为空，
+   云端未加载时超期标注会因无标准而全部不显示）。品级/模块名沿用本表的长名写法，
+   与需求侧短名（金/橙/红、检视、本体/3C…）的差异由 stdWeeksForReq 的归一化匹配吸收。 */
 let STD_CFG = [
-  {grade:'金角', col:'#f6cf3f', mod:'出场', dur:'',  weeks:'8 周',  ppl:'3–4 个基地人力'},
-  {grade:'橙角', col:'#f59e0b', mod:'出场', dur:'',  weeks:'12 周', ppl:'1 正编 + 3 个基地人力'},
-  {grade:'红角', col:'#ef3b39', mod:'出场', dur:'',  weeks:'16 周', ppl:'1 正编 + 3 个基地人力'},
-  {grade:'通用', col:'#3b82f6', mod:'检视', dur:'',  weeks:'',     ppl:'按模块/缺口视图核定'},
-  {grade:'通用', col:'#06b6d4', mod:'组队', dur:'',  weeks:'',     ppl:'按模块/缺口视图核定'},
-  {grade:'通用', col:'#8b5cf6', mod:'入局Cuts', dur:'', weeks:'',  ppl:'按模块/缺口视图核定'},
-  {grade:'通用', col:'#ec4899', mod:'TPP', dur:'',   weeks:'',      ppl:'按模块/缺口视图核定'},
-  {grade:'红角', col:'#ef3b39', mod:'红角 MVP', dur:'', weeks:'',  ppl:'按模块/缺口视图核定'},
+  {grade:'金角', col:'#f6cf3f', mod:'出场', dur:'20s',    weeks:'8 周',  ppl:'3–4 个基地人力'},
+  {grade:'橙角', col:'#f59e0b', mod:'出场', dur:'40s',    weeks:'12 周', ppl:'1 正编 + 3 个基地人力'},
+  {grade:'红角', col:'#ef3b39', mod:'出场', dur:'50s',    weeks:'16 周', ppl:'1 正编 + 3 个基地人力'},
+  {grade:'通用', col:'#3b82f6', mod:'检视1p+3p', dur:'13-20s', weeks:'10 周', ppl:'0.2 正编+1个基地人力'},
+  {grade:'通用', col:'#06b6d4', mod:'组队', dur:'10s',    weeks:'8 周',  ppl:'0.2 正编+1个基地人力'},
+  {grade:'红角', col:'#8b5cf6', mod:'入局Cuts', dur:'20s', weeks:'8 周', ppl:'0.1 正编+ 1 个基地人力'},
+  {grade:'红角', col:'#ec4899', mod:'TPP*3', dur:'15-20s', weeks:'10 周', ppl:'0.5 正编+ 1 个基地人力'},
+  {grade:'红角', col:'#ef3b39', mod:'红角 MVP', dur:'15s', weeks:'8 周', ppl:'0.1 正编+ 1 个基地人力'},
+  {grade:'红角', col:'#ef3b39', mod:'3C相关', dur:'20s',  weeks:'10 周', ppl:'0.5 正编+ 1 个基地人力'},
+  {grade:'红角', col:'#ef3b39', mod:'大厅待机', dur:'10s', weeks:'5 周', ppl:'0.1 正编+ 1 个基地人力'},
 ];
 let stdLocked = true;  // 标准工期表默认锁定，防误操作
 
@@ -2925,8 +2930,11 @@ const _normMod = m => {
 function stdWeeksForReq(r){
   const g = _normGrade(r.grade), m = _normMod(r.mod);
   if(!m) return 0;
+  /* v6.60 严格解析「制作工期」：必须形如「N 周」才认；空值或「15-20s」这类展示时长一律返回 0。
+     原正则 /(\d+(?:\.\d+)?)\s*周?/ 里「周」是可选的 → 会把 "15-20s" 误读成 15 周、"20s" 读成 20 周，
+     导致标准工期被张冠李戴（如 TPP 标准 10 周被读成别的值），超期量算错。 */
   const weeksOf = e => {
-    const mch = String(e.weeks||'').match(/(\d+(?:\.\d+)?)\s*周?/);
+    const mch = String(e.weeks||'').match(/(\d+(?:\.\d+)?)\s*周/);   // 「周」为必需
     return mch ? parseFloat(mch[1]) : 0;
   };
   // 模块是否视为同一项：归一后相等，或一方包含另一方（如「组队」vs「组队特效」）
@@ -2936,10 +2944,13 @@ function stdWeeksForReq(r){
     if(em === m) return true;
     return em.includes(m) || m.includes(em);
   };
+  /* 候选筛选后取「有有效周数」的那条 —— 避免选中一条 weeks 为空的同名配置就直接返回 0，
+     而实际另有一条同模块、带周数的配置可用（STD_CFG 里同 mod 可能存在多行）。 */
+  const pick = list => { for(const e of list){ if(weeksOf(e)>0) return e; } return null; };
   // ① 品级精确（归一后）+ 模块命中
-  let entry = STD_CFG.find(e => _normGrade(e.grade) === g && modHit(e));
+  let entry = pick(STD_CFG.filter(e => _normGrade(e.grade) === g && modHit(e)));
   // ② 退而求其次：STD_CFG 里标为「通用」的行，对任何品级都适用
-  if(!entry) entry = STD_CFG.find(e => _normGrade(e.grade) === '通用' && modHit(e));
+  if(!entry) entry = pick(STD_CFG.filter(e => _normGrade(e.grade) === '通用' && modHit(e)));
   if(!entry) return 0;
   return weeksOf(entry);
 }
