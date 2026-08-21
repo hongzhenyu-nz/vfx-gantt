@@ -785,15 +785,19 @@
      故给 .ovr-tag 单独开 auto 作为 hover 命中区。 */
   /* z-index 0.5 档：压在 .prog(0) 之上、.rt-line 文字(1) 之下 —— 斜纹不会糊住任务名/人天等信息。
      宽度由 JS 给的 left% 决定（left+right:0 组合），故最小可见宽度在 JS 侧用 leftPct 上限 96% 保证。 */
-  .ovr-zone{position:absolute;right:0;top:0;bottom:0;pointer-events:none;z-index:0;
+  .ovr-zone{position:absolute;right:0;top:0;bottom:0;pointer-events:none;z-index:0;overflow:visible;
     background:repeating-linear-gradient(-45deg,rgba(168,85,247,.30) 0,rgba(168,85,247,.30) 5px,rgba(124,58,237,.14) 5px,rgba(124,58,237,.14) 10px);
     box-shadow:inset 2px 0 0 rgba(109,40,217,.9), inset 0 0 0 1px rgba(109,40,217,.35);}
-  /* 超期区右上角小标：只显示周数，紧凑不抢位。z-index 提到文字层之上保证可见（区域本体仍在文字下） */
-  .ovr-zone .ovr-tag{position:absolute;top:1px;right:2px;z-index:2;pointer-events:auto;font-size:8.5px;font-weight:900;line-height:1.35;
+  /* 超期区右上角小标：只显示周数，紧凑不抢位。z-index 提到文字层之上保证可见（区域本体仍在文字下）。
+     v6.59：改为「垂直居中 + 全条型号显示」，不再因矮条隐藏 —— 超期周数是关键信息，任何条高都要看得到。 */
+  .ovr-zone .ovr-tag{position:absolute;top:50%;transform:translateY(-50%);right:2px;z-index:2;pointer-events:auto;
+    font-size:8.5px;font-weight:900;line-height:1.3;
     padding:0 4px;border-radius:3px;white-space:nowrap;color:#fff;background:linear-gradient(135deg,#a855f7,#7c3aed);
     border:1px solid #6d28d9;box-shadow:0 1px 2px rgba(88,28,135,.4);letter-spacing:.2px;}
-  /* 矮条（slim）里不显示文字小标，只保留斜纹区域，避免糊成一团 */
-  .bar-task.slim .ovr-zone .ovr-tag{display:none;}
+  /* v6.59 矮条（slim，并行挤压后条高<34%行高）：缩字号 + 收紧内边距/边框，保证仍能显示而不糊 */
+  .bar-task.slim .ovr-zone .ovr-tag{font-size:7px;padding:0 2.5px;border-radius:2px;border-width:.5px;letter-spacing:0;line-height:1.2;box-shadow:0 0 2px rgba(88,28,135,.5);}
+  /* 极窄超期区（如只超 0.3 周）：小标宽度会超出区域本身 → 靠 .ovr-zone 的 overflow:visible（见上方主定义）
+     允许它向左溢出显示，不被裁掉；父级 .bar-task 的 overflow:hidden 仍兜住不出条。 */
   /* 已完成/封存条上降低饱和，避免抢过「✓已完成」印章 */
   .bar-task.seg-done .ovr-zone,.bar-task.seg-done-self .ovr-zone{opacity:.55;}
   /* 「按人看」任务段=已完成：信息「全部保留显示」（不淡化锁定到看不清、不隐藏徽标、不盖居中印章）。
@@ -1233,7 +1237,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.58 · build 2026-08-21 13:22</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.59 · build 2026-08-21 13:26</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
