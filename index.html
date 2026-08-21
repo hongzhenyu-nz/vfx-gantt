@@ -1247,7 +1247,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.64 · build 2026-08-21 15:28</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.65 · build 2026-08-21 15:38</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -4400,6 +4400,11 @@ function buildRoleLines(){
         sup: [...supSet],
         tmp: [...tmpSet],             // 暂缺占位名单（不计入编制）
         left: [...leftNames],       // 已离职参与者名单（渲染用）
+        /* v6.65：该角色线下的需求是否**全部**已完成/废弃。
+           供渲染层实现「隐藏已完成」——注意这只是给渲染层的一个标记位，
+           本函数所有统计（cfg/std/gap）依然基于全量数据算，勾选开关不会改变任何数字。
+           这正是 v6.64 定下的分工：数据层算全量、渲染层决定看什么。 */
+        allDone: rl.length > 0 && rl.every(r => reqIsCompleted(r)),
         note: noteParts.join(' · ') || undefined
       });
     }
@@ -4527,12 +4532,24 @@ function renderHR(){
   // 各模块 —— 从 reqs 动态聚合角色线（替代写死 hrData，随内容滚动）
   html += `<div class="hr-body">`;
   const roleModules = buildRoleLines();
+  /* v6.65「隐藏已完成」在 HR 视图的正确落点：**渲染层过滤**。
+     buildRoleLines 已按全量数据算完 cfg/std/gap（勾选不影响任何数字），
+     此处仅决定「哪些角色线出现在列表里」。
+     注意 modGap 仍用**全量** roles 累加 —— 模块头的缺口是客观事实，
+     不能因为隐藏了几行就跟着变小（否则又回到 v6.64 之前"开关改统计"的老问题）。 */
+  const hrHideDone = HIDE_DONE[view];
   roleModules.forEach(m => {
-    const modGap = m.roles.reduce((a, r) => a + r.gap, 0);
+    const modGap = m.roles.reduce((a, r) => a + r.gap, 0);   // 全量口径，不受隐藏影响
+    const shownRoles = hrHideDone ? m.roles.filter(r => !r.allDone) : m.roles;
+    const hiddenCnt = m.roles.length - shownRoles.length;
+    if(hrHideDone && shownRoles.length === 0) return;        // 整个模块都完成了：不渲染该模块
+    const hiddenTag = hiddenCnt > 0
+      ? `<span class="mtag" style="background:#f2f4f7;color:#7a8290" title="已完成的角色线被「隐藏已完成」开关折叠，但其缺口/配置仍计入统计">已隐藏 ${hiddenCnt} 条已完成</span>`
+      : '';
     html += `<div class="hr-mod">
-      <div class="hr-mod-head"><span>${m.mod}</span><span class="mtag">${m.roles.length} 个角色线</span>
+      <div class="hr-mod-head"><span>${m.mod}</span><span class="mtag">${shownRoles.length} 个角色线</span>${hiddenTag}
         <span class="mgap" style="color:${modGap > 0 ? '#d32320' : '#1a8a3c'}">${modGap > 0 ? '缺 ' + modGap + ' 人' : '无缺口'}</span></div>`;
-    m.roles.forEach(r => {
+    shownRoles.forEach(r => {
       const g = HR_GRADE[r.grade] || HR_GRADE[''];
       const st = HR_STATUS[r.status] || HR_STATUS[''];
       const isDone = r.status === '已完成';
