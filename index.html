@@ -1006,14 +1006,38 @@
   .bar-task.req-bar .sdot{display:none;}
 
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-top:18px;overflow:hidden;display:flex;}
-  .panel-toc{width:78px;flex-shrink:0;background:#f7f8fa;border-right:1px solid var(--line2);padding:14px 6px;display:flex;flex-direction:column;gap:1px;position:sticky;top:0;align-self:flex-start;max-height:100vh;overflow-y:auto;}
+  /* v6.66 目录加高加醒目：原来 padding 14px + 每项 6px 内边距，整条目录只有 ~200px 高，
+     在 1080p 上占屏不足 20%，用户扫视时容易整体忽略。现在：
+       · 每项内边距 6px→11px、字号 11→12px、圆点 8→9px，单项高度 ~37px→~52px
+       · 加 gap 3px 与顶部标题，整条目录高度提升到 ~400px，视觉存在感翻倍
+       · 宽度 78→92px 容纳更醒目的字号
+       · sticky top 留 8px 呼吸位，避免贴边 */
+  .panel-toc{width:92px;flex-shrink:0;background:#f7f8fa;border-right:1px solid var(--line2);padding:12px 7px 16px;display:flex;flex-direction:column;gap:3px;position:sticky;top:8px;align-self:flex-start;max-height:calc(100vh - 16px);overflow-y:auto;}
   .panel-toc::-webkit-scrollbar{width:3px;}
   .panel-toc::-webkit-scrollbar-thumb{background:#c2c8d0;border-radius:3px;}
-  .panel-toc .ptoc-item{display:block;font-size:11px;color:var(--tx3);text-align:center;padding:6px 4px;border-radius:5px;text-decoration:none;line-height:1.35;cursor:pointer;transition:background .12s,color .12s;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  /* 目录标题：明确告知这里是可点的索引，而非装饰 */
+  .panel-toc .ptoc-title{font-size:10px;font-weight:700;color:#9aa2ad;text-align:center;letter-spacing:.5px;padding:0 0 8px;margin-bottom:4px;border-bottom:1px dashed var(--line2);}
+  .panel-toc .ptoc-item{display:block;font-size:12px;color:var(--tx2);text-align:center;padding:11px 4px;border-radius:6px;text-decoration:none;line-height:1.3;cursor:pointer;transition:background .12s,color .12s;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .panel-toc .ptoc-item:hover{background:#e7edf8;color:var(--blue);}
-  .panel-toc .ptoc-item.on{background:#e7edf8;color:var(--blue);font-weight:700;}
-  .panel-toc .ptoc-dot{display:block;width:8px;height:8px;border-radius:50%;margin:0 auto 3px;flex-shrink:0;}
+  .panel-toc .ptoc-item.on{background:#e7edf8;color:var(--blue);font-weight:700;box-shadow:inset 2px 0 0 var(--blue);}
+  .panel-toc .ptoc-dot{display:block;width:9px;height:9px;border-radius:50%;margin:0 auto 4px;flex-shrink:0;}
   .panel-body{flex:1;padding:18px 20px;min-width:0;overflow:hidden;}
+  /* v6.66 首屏「参考数据」快捷入口条：目录做再高也只在页面底部，用户不滚就永远看不到。
+     故在顶部副标题下方常驻一排胶囊按钮，点击直达底部对应板块，从根上解决可发现性。 */
+  .quick-ref{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:10px 0 4px;padding:9px 12px;background:linear-gradient(90deg,#f0f6ff,#f7f9fc);border:1px solid #d6e4fb;border-radius:9px;}
+  .quick-ref .qr-lab{font-size:11.5px;font-weight:700;color:#2f6ad9;margin-right:2px;white-space:nowrap;}
+  .quick-ref .qr-hint{font-size:11px;color:var(--tx3);margin-left:auto;white-space:nowrap;}
+  .quick-ref .qr-btn{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--tx1);background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 11px;cursor:pointer;text-decoration:none;transition:border-color .12s,box-shadow .12s,transform .08s;}
+  .quick-ref .qr-btn:hover{border-color:var(--blue);color:var(--blue);box-shadow:0 1px 5px rgba(51,112,255,.16);transform:translateY(-1px);}
+  .quick-ref .qr-btn i{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
+  @media(max-width:900px){ .quick-ref .qr-hint{display:none;} }
+  /* v6.66 跳转落地高亮：短暂描边+底色脉冲，指引视线落到目标板块 */
+  .jump-flash{animation:jumpFlash 1.5s ease-out 1;border-radius:8px;}
+  @keyframes jumpFlash{
+    0%{box-shadow:0 0 0 3px rgba(51,112,255,.45);background:rgba(51,112,255,.10);}
+    60%{box-shadow:0 0 0 3px rgba(51,112,255,.22);background:rgba(51,112,255,.05);}
+    100%{box-shadow:0 0 0 0 rgba(51,112,255,0);background:transparent;}
+  }
   .panel-body h3{font-size:14px;font-weight:600;margin-bottom:10px;}
   .rules{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
   .rule{border:1px solid var(--line);border-radius:10px;padding:12px 14px;}
@@ -1240,18 +1264,30 @@
   .hr-makers .empty{font-size:11px;color:var(--tx3);font-style:italic;}
   .hr-note{font-size:11px;color:var(--tx3);margin-left:auto;flex-shrink:0;max-width:200px;text-align:right;}
   /* v6.61：窄屏隐藏面板侧栏导航，避免挤压内容 */
-  @media(max-width:768px){ .panel-toc{display:none;} .panel-body{padding:14px 12px;} }
+  @media(max-width:768px){ .panel-toc{display:none;} .panel-body{padding:14px 12px;} .quick-ref{gap:5px;padding:8px 10px;} .quick-ref .qr-btn{font-size:11px;padding:3px 9px;} }
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.65 · build 2026-08-21 15:38</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.66 · build 2026-08-21 15:48</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
+
+  <!-- v6.66 首屏参考数据快捷入口：解决「用户不知道页面底部还有标准化规则/工期表」的可发现性问题 -->
+  <div class="quick-ref">
+    <span class="qr-lab">📖 团队标准口径</span>
+    <a class="qr-btn" href="#sec-load" onclick="jumpToPanel(event,'sec-load')" title="负载率如何计算、饱和/超载如何分档"><i style="background:var(--blue)"></i>负载率</a>
+    <a class="qr-btn" href="#sec-risk" onclick="jumpToPanel(event,'sec-risk')" title="需求风险的双维度判定规则"><i style="background:var(--amber)"></i>需求风险</a>
+    <a class="qr-btn" href="#sec-rank" onclick="jumpToPanel(event,'sec-rank')" title="风险等级分档阈值"><i style="background:var(--red)"></i>风险分档</a>
+    <a class="qr-btn" href="#sec-std" onclick="jumpToPanel(event,'sec-std')" title="各品级出场标准工期与标配人力"><i style="background:#7048e8"></i>标准工期</a>
+    <a class="qr-btn" href="#sec-eff" onclick="jumpToPanel(event,'sec-eff')" title="不同人力的效率系数标定"><i style="background:#0a7d3c"></i>效率系数</a>
+    <a class="qr-btn" href="#sec-inv" onclick="jumpToPanel(event,'sec-inv')" title="投入比档位与并行分摊规则"><i style="background:#0a7d3c"></i>投入比</a>
+    <span class="qr-hint">↓ 点击直达页面底部详表</span>
+  </div>
 
   <div class="kpis">
     <div class="kpi"><div class="lab">在岗编制人数</div><div class="val" id="kp-mem">—</div></div>
@@ -1374,6 +1410,7 @@
 
   <div class="panel">
     <nav class="panel-toc" id="panelToc">
+      <div class="ptoc-title">参考数据</div>
       <a class="ptoc-item" data-target="sec-load" href="#sec-load"><i class="ptoc-dot" style="background:var(--blue)"></i>负载率</a>
       <a class="ptoc-item" data-target="sec-risk" href="#sec-risk"><i class="ptoc-dot" style="background:var(--amber)"></i>需求风险</a>
       <a class="ptoc-item" data-target="sec-rank" href="#sec-rank"><i class="ptoc-dot" style="background:var(--red)"></i>风险分档</a>
@@ -7946,6 +7983,19 @@ function releaseLockBeacon(){
       body:JSON.stringify({editor:null,editor_name:null})});
   }catch(_){}
   lockMine=false;
+}
+
+/* v6.66 首屏快捷入口跳转：滚到目标板块并短暂高亮，让用户跳过去后立刻知道该看哪一块。
+   与左侧目录共用同一批 section id，行为一致。 */
+function jumpToPanel(ev, secId){
+  if(ev) ev.preventDefault();
+  const el=document.getElementById(secId); if(!el) return;
+  el.scrollIntoView({behavior:'smooth',block:'start'});
+  // 落地闪烁：加类 → 动画结束自动移除（不残留状态）
+  el.classList.remove('jump-flash');
+  void el.offsetWidth;                 // 强制重排，保证连续点同一项也能重放动画
+  el.classList.add('jump-flash');
+  setTimeout(()=>el.classList.remove('jump-flash'), 1600);
 }
 
 /* v6.61: 面板左侧目录导航 —— 滚动高亮 + 点击跳转 */
