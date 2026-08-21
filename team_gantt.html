@@ -1109,6 +1109,8 @@
   .side-nav.collapsed .sn-dot{width:10px;height:10px;}
   /* 空间不足时（窄屏/小窗）直接隐藏，改由首屏 .quick-ref 承担导航 */
   @media(max-width:1200px){ .side-nav{display:none;} }
+  /* v6.74：宽屏侧边导航已承担全部导航职能，面板内目录(.panel-toc)隐藏避免「参考数据」6项重复出现 */
+  @media(min-width:1201px){ .panel-toc{display:none;} }
   /* 宽屏：内容区左侧让出 116px（导航贴内容左缘 + 104px 宽 + 12px 间距）*/
   @media(min-width:1201px){ .wrap{padding-left:116px;} }
   /* 折叠后只占 34px，让位相应收窄到 50px（由 JS 给 body 加 .snav-collapsed 类切换） */
@@ -1327,7 +1329,9 @@
   .hr-grade-bar .gi .gdot{width:12px;height:12px;border-radius:3px;}
   .hr-legend{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:18px;padding:10px 16px;background:#fafbfc;border:1px dashed var(--line);border-radius:10px;font-size:12px;color:var(--tx2);}
   .hr-legend .lg-t{font-weight:700;color:var(--tx);}
-  .hr-legend .lg{display:inline-flex;align-items:center;gap:5px;}
+  .hr-legend .lg{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap;}
+  .hr-legend .lg .mem-tag{display:inline-block;font-size:11.5px;color:var(--tx2);background:#fff;border:1px solid var(--line2);border-radius:5px;padding:2px 7px 2px 6px;margin:1px 0;white-space:normal;line-height:1.45;max-width:320px;overflow:hidden;text-overflow:ellipsis;cursor:default;transition:border-color .12s;}
+  .hr-legend .lg .mem-tag:hover{border-color:var(--blue);color:var(--blue);overflow:visible;white-space:normal;max-width:none;text-overflow:clip;}
   .hr-legend .lg-div{color:var(--line);margin:0 4px;}
 
   .hr-mod{margin-bottom:16px;border:1px solid var(--line);border-radius:12px;overflow:hidden;}
@@ -1380,7 +1384,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.73 · build 2026-08-21 20:36</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.74 · build 2026-08-21 20:48</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2518,15 +2522,23 @@ function computeHR(){
     totalCfg += activeBase(r);                     // 实际在岗基地人数
   });
   // 缺口：以角色线为唯一口径（与「人力分配」视图下方明细完全一致）
+  /* v6.74 品级缺口聚合修正（用户反馈"重复计算"）：
+     v6.72 已解决「暂缺占位被多线各算一次」的问题（不再把 tmpCount 加入 gap），
+     但 gradeGap 仍把同品级各角色线的 gap 累加（如 3 条橙线各缺 3 → 橙待补 9）。
+     实际上同一批基地人力可跨角色线复用（时间分片/并行跟线），各线的缺口描述的是
+     同一拨招聘需求的不同侧面，不应相加。
+     改为取 max：该品级「最吃人」的那条角色线缺几个 → 最多就需要补几个。
+     totalGap 同步改为「各品级 max 之和」（不同品级的人不可互通，故品级间仍求和），
+     保证 totalGap 与 gradeGap 口径严格一致。 */
   try{
     (buildRoleLines()||[]).forEach(mo=>{
       (mo.roles||[]).forEach(rl=>{
         const g=rl.gap||0;
         if(g<=0) return;
-        totalGap += g;
-        if(gradeGap[rl.grade]!==undefined) gradeGap[rl.grade]+=g;
+        if(gradeGap[rl.grade]!==undefined) gradeGap[rl.grade] = Math.max(gradeGap[rl.grade] || 0, g);
       });
     });
+    totalGap = Object.values(gradeGap).reduce((a,b)=>a+b, 0);   // 各品级 max 之和
   }catch(e){ console.warn('computeHR role-line gap failed',e); }
   /* v6.64 「缺少数」口径修正（与 v6.63 角色线同一个道理）：
      暂缺占位（vacantCount）与标配缺口（totalGap）描述的是**同一批要补的人**——
@@ -4754,15 +4766,15 @@ function renderHR(){
     <span class="lg-t">编制与带队：</span>`;
   // 正编/子组
   if(regMems.length){
-    html+=`<span class="lg"><i class="corp-tag" style="background:#e7f0ff;color:#0052d9">正编/子${regMems.length}人</i> ${regMems.map(fmtMem).join(' / ')}</span>`;
+    html+=`<span class="lg"><i class="corp-tag" style="background:#e7f0ff;color:#0052d9">正编/子${regMems.length}人</i> ${regMems.map(m=>`<span class="mem-tag" title="${fmtMem(m)}">${m.name}</span>`).join('')}</span>`;
   }
   // 基地组（逐人列出）
   if(baseMems.length){
-    html+=`<span class="lg"><i class="corp-tag" style="background:#eef1f7;color:#56607a;border:1px solid #c4ccdb">基地${baseMems.length}人</i> ${baseMems.map(fmtMem).join(' / ')}</span>`;
+    html+=`<span class="lg"><i class="corp-tag" style="background:#eef1f7;color:#56607a;border:1px solid #c4ccdb">基地${baseMems.length}人</i> ${baseMems.map(m=>`<span class="mem-tag" title="${fmtMem(m)}">${m.name}</span>`).join('')}</span>`;
   }
   // 外借组
   if(loanMems.length){
-    html+=`<span class="lg"><i class="corp-tag" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">外借${loanMems.length}人</i> ${loanMems.map(fmtMem).join(' / ')}</span>`;
+    html+=`<span class="lg"><i class="corp-tag" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">外借${loanMems.length}人</i> ${loanMems.map(m=>`<span class="mem-tag" title="${fmtMem(m)}">${m.name}</span>`).join('')}</span>`;
   }
   // 动态状态行（仅在有对应成员时显示；外借已在主列表展示，不重复）
   const statusParts = [];
