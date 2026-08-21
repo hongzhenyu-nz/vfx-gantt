@@ -1218,7 +1218,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.53b · build 2026-08-21 11:58</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.54 · build 2026-08-21 12:01</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3411,6 +3411,14 @@ function vacantRowHTML(m,inArc){
     }));
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
+    /* v6.54：占位行原来完全没有空隙计算（gapData.set 只在 personRowHTML 里调用），
+       所以常态下永远不显示空闲标识；而拖拽走 refreshGapsForMember 不区分成员类型 → 又会算出来，
+       造成"常态无、拖拽有"的不一致。此处补上与真人行同源的计算（同一套合并区间 + gapsFromIntervals）。 */
+    {
+      const _ivs=laid.items.map(it=>({s:it.si0,e:it.ei0})).sort((a,b)=>a.s-b.s||a.e-b.e);
+      const _mg=[]; for(const iv of _ivs){ if(_mg.length&&iv.s<=_mg[_mg.length-1].e){_mg[_mg.length-1].e=Math.max(_mg[_mg.length-1].e,iv.e);}else _mg.push({s:iv.s,e:iv.e}); }
+      gapData.set(m.id, gapsFromIntervals(_mg));
+    }
     let rowH = laneCount<=1 ? ROW_BASE : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
     /* v6.47：占位行原来所有条都写死 top:0%;height:100%（铺满整格、零缝隙），并行时条与条紧贴、
        与真人行的固定 5px 缝隙不一致（用户反馈"贴得这么紧"）。现改为与 personRowHTML 完全同一套
@@ -3846,7 +3854,7 @@ function getMemberBusyIntervals(mid, transient){
    v6.43：改为工作日口径 —— days 只数工作日（排除周末/节假日，用 shadeType 判定），
    阈值也按工作日比较。这样「周五结束、下周一开始」那种纯周末间隔不会再被误标成空闲。 */
 function gapsFromIntervals(merged){
-  const gaps=[]; const MIN_WORKDAYS=1;   /* v6.53: 2→1，1天工作日空档也显示标识（窄空隙标签自适应降级） */
+  const gaps=[]; const MIN_WORKDAYS=2;
   for(let i=0;i<merged.length-1;i++){
     const a=merged[i], b=merged[i+1];
     const x0=a.e, x1=b.s;
