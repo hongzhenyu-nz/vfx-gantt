@@ -1247,7 +1247,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.62 · build 2026-08-21 14:35</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.63 · build 2026-08-21 14:46</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -4333,8 +4333,15 @@ function buildRoleLines(){
       // 标准配置 = 从 STD_CFG 表动态读取（按品级×模块匹配），fallback 到 REQ_STD
       let std = 0;
       rl.forEach(r => { std += stdCfgBaseForReq(r); });
-      // 缺口（已完成的需求不再显示缺口）
-      const gap = (status === '已完成') ? 0 : Math.max(0, std - cfg);
+      // v6.63 缺口口径统一：暂缺占位（tmpSet）与标配缺口（std−cfg）描述的是**同一个缺口**，
+      //   「暂缺-基地2」这类占位行本身就是「已识别出要招的人」的具象化，不是额外的新缺口。
+      //   旧公式在渲染层写 gap + tmpCount → 同一缺口被算两遍（如荷光者出场 std=3/cfg=0/tmp=4 → 显示"缺7"）。
+      //   新口径：gap = max(标配缺口, 暂缺占位数)。取 max 而非 min，是为了兼顾两种情形——
+      //     · 占位少于标配缺口（只挂了 1 个暂缺但差 3 人）→ 取标配缺口 3，不低估；
+      //     · 占位多于标配缺口（挂了 4 个暂缺但标配只差 3）→ 取 4，尊重实际招聘需求。
+      //   本函数产出的 gap 即最终展示值，渲染层（行内徽标 / 模块汇总）一律直接用，不得再二次加工。
+      const tmpCount = tmpSet.size;
+      const gap = (status === '已完成') ? 0 : Math.max(0, std - cfg, tmpCount);
       // note: 简要说明
       const leadInfo = [...regSet].find(n => {
         const mm = members.find(x=>x.name===n);
@@ -4526,12 +4533,16 @@ function renderHR(){
         makersHTML += `<span class="mk sup" title="支援(非本管线编制)">${n}·支援</span>`;
       });
       if (!r.regs.length && !r.bases.length && !(r.sup||[]).length && !(r.tmp||[]).length) makersHTML = `<span class="empty">暂无人员</span>`;
-      // 配置/缺口：缺口 = 标配缺口(std−cfg) + 暂缺占位数（两者独立累加）
+      // 配置/缺口：直接用 buildRoleLines 算好的 r.gap（已含暂缺占位口径，见 v6.63 注释），
+      //   渲染层不再二次加工，保证行内徽标与模块汇总(modGap)完全同源。
+      const totalGap = r.gap;
       const tmpCount = (r.tmp || []).length;
-      const totalGap = r.gap + tmpCount;
+      const gapTitle = tmpCount > 0
+        ? `标配需 ${r.std} 个基地人力，当前真人 ${r.cfg} 人 + ${tmpCount} 个暂缺占位待招 → 缺 ${totalGap} 人`
+        : `标配需 ${r.std} 个基地人力，当前在岗 ${r.cfg} 人 → 缺 ${totalGap} 人`;
       const cntHTML = totalGap > 0
-        ? `<span class="cfg">配置${r.cfg}人</span><span class="gapb">缺${totalGap}</span>`
-        : (r.cfg > 0 ? `<span class="cfg">配置${r.cfg}人</span><span class="okb">齐</span>` : `<span class="cfg">—</span>`);
+        ? `<span class="cfg">配置${r.cfg}人</span><span class="gapb" title="${gapTitle}">缺${totalGap}</span>`
+        : (r.cfg > 0 ? `<span class="cfg">配置${r.cfg}人</span><span class="okb" title="标配需 ${r.std} 人，当前在岗 ${r.cfg} 人，已配齐">齐</span>` : `<span class="cfg">—</span>`);
       html += `<div class="hr-role">
         <span class="gdot" style="background:${g.col}"></span>
         <span class="rname">${r.role}</span>
