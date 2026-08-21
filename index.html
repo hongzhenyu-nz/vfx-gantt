@@ -1380,7 +1380,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.72 · build 2026-08-21 19:32</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.73 · build 2026-08-21 20:36</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -4609,6 +4609,18 @@ function buildRoleLines(){
       if(leadInfo) noteParts.push(`${leadInfo}带`);
       if(supSet.size) noteParts.push(`${[...supSet].join('/')}为支援`);
       if(isDone && leftNames.size) noteParts.push(`${[...leftNames].join('/')}已离职`);
+      /* v6.73 人员排序规律化（用户反馈"人员排序能规律一点吗"）。
+         原来各组直接用 Set 的插入顺序 = 遍历 segs 的顺序 → 完全随机，
+         同一批人在不同角色线里顺序还不一样（截图里"暂缺-基地8,9,10,7,6,5,11"乱序）。
+         统一规则：
+           · 暂缺占位按名称里的数字自然序（暂缺 → 暂缺-基地1 → 2 → … → 11），不做字典序（否则 10 会排到 2 前面）；
+           · 真人（正编/基地/支援）按中文姓名拼音序，稳定可预期；
+         分组大顺序仍是 正编 → 基地 → 暂缺 → 支援（不变）。 */
+      const zhSort = arr => arr.slice().sort((a,b)=>String(a).localeCompare(String(b),'zh-Hans-CN'));
+      const vacantSort = arr => arr.slice().sort((a,b)=>{
+        const num = s => { const m=String(s).match(/(\d+)/); return m?parseInt(m[1],10):0; };  // 无数字的「暂缺」排最前
+        return num(a)-num(b) || String(a).localeCompare(String(b),'zh-Hans-CN');
+      });
       roles.push({
         role: roleLabel,
         grade: grade,
@@ -4616,11 +4628,11 @@ function buildRoleLines(){
         cfg: cfg,
         std: std,
         gap: gap,
-        regs: [...regSet],
-        bases: [...baseSet],
-        sup: [...supSet],
-        tmp: [...tmpSet],             // 暂缺占位名单（不计入编制）
-        left: [...leftNames],       // 已离职参与者名单（渲染用）
+        regs: zhSort([...regSet]),
+        bases: zhSort([...baseSet]),
+        sup: zhSort([...supSet]),
+        tmp: vacantSort([...tmpSet]),   // 暂缺占位名单（不计入编制），按编号自然序
+        left: zhSort([...leftNames]),   // 已离职参与者名单（渲染用）
         /* v6.65：该角色线下的需求是否**全部**已完成/废弃。
            供渲染层实现「隐藏已完成」——注意这只是给渲染层的一个标记位，
            本函数所有统计（cfg/std/gap）依然基于全量数据算，勾选开关不会改变任何数字。
@@ -4635,22 +4647,29 @@ function buildRoleLines(){
     roles.sort((a,b) => (gradeOrder[a.grade]??9) - (gradeOrder[b.grade]??9));
     result.push({mod, roles});
   }
+  /* v6.73（用户要求「联调不用列出来」）：只保留**标准配置表里有的模块**。
+     联调/通用/饰品/武器特效等模块没有团队标配编制，v6.69 已让它们不计缺口、
+     标注「无标配·不统计」；但整块列出来仍占版面、干扰阅读 —— 既然不统计，索性不列。
+     判据沿用同一个 hasStd 标记，保证「统计口径」与「是否展示」出自同一处，不会分裂。 */
+  const kept = result.filter(mo => (mo.roles||[]).some(r => r.hasStd));
   // 模块排序: 出场 > 检视 > 组队 > 其他
   const modOrder = {'出场':0,'检视':1,'组队':2};
-  result.sort((a,b) => (modOrder[a.mod]??9) - (modOrder[b.mod]??9));
-  return result;
+  kept.sort((a,b) => (modOrder[a.mod]??9) - (modOrder[b.mod]??9));
+  return kept;
 }
 
 /* ============ 视图3：人力分配（按模块） ============ */
 function renderHR(){
   // ★ 顶部汇总卡：全部改用实时数据（computeHR 从 members+reqs 算），不再读 hrData/HR_CONCLUSION
   const HR = computeHR();
+  /* v6.73：右侧汇总句同步澄清口径 —— 明确写「待补」而非「缺」，
+     并把占位单独用「个」计量，避免与人数混读。 */
   const detailParts=[];
-  if(HR.gradeGap.金>0) detailParts.push(`金角${HR.gradeGap.金}人`);
-  if(HR.gradeGap.橙>0) detailParts.push(`橙角${HR.gradeGap.橙}人`);
-  if(HR.gradeGap.红>0) detailParts.push(`红角${HR.gradeGap.红}人`);
-  if(HR.gradeGap.通用>0) detailParts.push(`通用${HR.gradeGap.通用}人`);
-  if(HR.vacantCount>0) detailParts.push(`暂缺占位${HR.vacantCount}人`);
+  if(HR.gradeGap.金>0) detailParts.push(`金角待补${HR.gradeGap.金}人`);
+  if(HR.gradeGap.橙>0) detailParts.push(`橙角待补${HR.gradeGap.橙}人`);
+  if(HR.gradeGap.红>0) detailParts.push(`红角待补${HR.gradeGap.红}人`);
+  if(HR.gradeGap.通用>0) detailParts.push(`通用待补${HR.gradeGap.通用}人`);
+  if(HR.vacantCount>0) detailParts.push(`已挂占位${HR.vacantCount}个`);
   const detailStr = detailParts.length ? detailParts.join(' / ') : '各线已配齐';
 
   // 补充指标：高峰角色线数 / 高峰负载率 / 高风险需求数（与顶部 KPI 同源）
@@ -4678,10 +4697,13 @@ function renderHR(){
     if(cnt > 0) {
       const col = (HR_GRADE[g]||{}).col || '#646a73';
       const gap = HR.gradeGap[g] || 0;
-      gradeBarHtml += `<div class="gi"><span class="gdot" style="background:${col}"></span>${g} <b>${cnt}人</b>${gap>0 ? `<small style="color:#d32320;margin-left:2px">缺${gap}</small>` : ''}</div>`;
+      /* v6.73（用户反馈"人数统计我看不懂"）：三个数并列一行、单位都写"人"，但维度完全不同 ——
+         「N人」= 该品级在岗真人（人的固有属性）、「缺N」= 该品级角色线标配缺口（按需求算）、
+         「暂缺占位N人」= 已挂的占位行数。故补明确标签 + hover 说明，杜绝误读为同一口径相加。 */
+      gradeBarHtml += `<div class="gi" title="「${g}」品级在岗真人 ${cnt} 人（按成员品级字段统计）${gap>0?`；该品级各角色线标配缺口合计 ${gap} 人（= 标配人力 − 在岗真人，与占位数量无关）`:'；该品级各角色线已按标配配齐'}"><span class="gdot" style="background:${col}"></span>${g}在岗 <b>${cnt}人</b>${gap>0 ? `<small style="color:#d32320;margin-left:3px">待补${gap}</small>` : `<small style="color:#16a34a;margin-left:3px">已齐</small>`}</div>`;
     }
   });
-  if(HR.vacantCount > 0) gradeBarHtml += `<div class="gi"><span class="gdot" style="background:#d32320"></span>暂缺占位 <b style="color:#d32320">${HR.vacantCount}人</b></div>`;
+  if(HR.vacantCount > 0) gradeBarHtml += `<div class="gi" title="已在排期里挂出的「暂缺」占位行共 ${HR.vacantCount} 个（尚未分配真人）。&#10;注意：占位是为上面各品级缺口挂的坑，与「待补」描述同一批待招人员的不同侧面，不要相加。&#10;同一个占位可同时挂在多条角色线上，故占位数与缺口数不必相等。"><span class="gdot" style="background:#d32320"></span>已挂占位 <b style="color:#d32320">${HR.vacantCount}个</b></div>`;
   if(!gradeBarHtml) gradeBarHtml = `<div class="gi" style="color:#16a34a">✅ 各角色线暂无缺口</div>`;
   html+=`<div class="hr-grade-bar">
     ${gradeBarHtml}
