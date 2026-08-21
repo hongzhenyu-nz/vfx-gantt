@@ -593,7 +593,10 @@
   /* 暂缺标签：无隶属/无带队归属的成员，红色醒目胶囊表示缺人 */
   .ltag.vacant{color:#d32320;background:#fef2f2;border:1.5px solid #fca5a5;font-weight:700;letter-spacing:.5px;}
   /* 甘特图时间线区域：缺人成员(无隶属)的空行显示斜纹占位提示 */
-  .vacant-bar{width:100%;height:100%;min-height:28px;background:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;position:relative;gap:4px;padding:0 6px;overflow:hidden;color:#fff;font-weight:700;text-shadow:0 1px 2px rgba(120,10,10,.55),0 0 8px rgba(120,10,0,.2);}
+  /* v6.47：去掉 width/height:100%、min-height:28px、position:relative 三项 —— 它们是旧版
+     「占位条铺满整格」遗留，会与行内 style 的 top/height 百分比定位打架（min-height 更会强行
+     撑高、抹掉 5px 条间缝隙）。现由 .bar-task 基类提供 position:absolute 与行内百分比定位。 */
+  .vacant-bar{background:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px);border-radius:6px;display:flex;align-items:center;justify-content:center;gap:4px;padding:0 6px;overflow:hidden;color:#fff;font-weight:700;text-shadow:0 1px 2px rgba(120,10,10,.55),0 0 8px rgba(120,10,0,.2);}
   /* 缺人角标：在任务条信息右侧显示醒目的红色"🔴缺人"标记 */
   .vacant-bar .vacant-badge{flex-shrink:0;font-size:10px;font-weight:700;color:#fff;background:#dc2626;border-radius:8px;padding:1px 6px;white-space:nowrap;line-height:1.6;}
   /* 缺人条内部元素：全部白字+深阴影，确保在红底斜纹上清晰可读 */
@@ -1202,7 +1205,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.46 · build 2026-08-21 11:16</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.47 · build 2026-08-21 11:22</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3389,11 +3392,31 @@ function vacantRowHTML(m,inArc){
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
     let rowH = laneCount<=1 ? ROW_BASE : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
+    /* v6.47：占位行原来所有条都写死 top:0%;height:100%（铺满整格、零缝隙），并行时条与条紧贴、
+       与真人行的固定 5px 缝隙不一致（用户反馈"贴得这么紧"）。现改为与 personRowHTML 完全同一套
+       「重叠簇均高等分 + 固定像素缝隙」算法：clusterLanesOf 求传递闭包簇 → 簇内等分 → 扣 GAP_PX。 */
+    const GAP_PX=5;                                  // 与真人行同值，保证两种行的条间缝隙视觉一致
+    const clusterLanesOf=(it)=>{
+      const inC=new Set([it]); const stk=[it];
+      while(stk.length){ const cur=stk.pop();
+        for(const b of laid.items){ if(inC.has(b))continue; if(b.si0<cur.ei0 && b.ei0>cur.si0){ inC.add(b); stk.push(b);} } }
+      return [...new Set([...inC].map(b=>b.lane))].sort((a,b)=>a-b);
+    };
     let bars='';
     laid.items.forEach(it=>{
       const {r,sg,si}=it;
       const isOpen=!!sg.open;
       const x=isOpen?0:it.si0*DAY_W, w=isOpen?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
+      // 与真人行同源的纵向定位：本条所在重叠簇内等高等分，条间恒定 GAP_PX 缝隙
+      const overlapLanes=clusterLanesOf(it);
+      const kPar=Math.max(overlapLanes.length,1);
+      const posPar=Math.max(overlapLanes.indexOf(it.lane),0);
+      const segTop=posPar/kPar;
+      const segH=1/kPar;
+      const slotH=segH*rowH;
+      const barHpx=Math.max(2, slotH-GAP_PX);
+      const topPct=(((segTop*rowH)+(GAP_PX/2))/rowH*100).toFixed(3);
+      const hPct=(barHpx/rowH*100).toFixed(3);
       const risk=reqRisk(r);
       const auto=autoSegState(sg);
       const st=STATUS[auto.status||'doing'];
@@ -3401,14 +3424,15 @@ function vacantRowHTML(m,inArc){
       const nShow = Math.max(1, Math.floor(barWpx / 55));
       // 安全获取人天（open段无日期时跳过segDigestOne）
       const pdays = isOpen ? '' : r1(segDigestOne(r,sg,m.id).digest);
-      const lblInner = reqTitleHTML(r,{pdays, nShow, barWpx, barHpx:26});
+      const lblInner = reqTitleHTML(r,{pdays, nShow, barWpx, barHpx});
       const tip=`<b>${r.name}</b><br><span class='g'>占位</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g' style='color:#f87171'>此为缺人占位，分配真人后自动转为正常任务条</span>`;
       // 根据 corp 区分缺正编/缺基地
       const isRegVac = m.corp === 'reg';
       const vacTypeLabel = isRegVac ? '缺正编' : '缺基地';
       const vacTypeIcon = isRegVac ? '🔴' : '🔴';
       const vacBadgeCls = isRegVac ? 'vacant-badge-reg' : 'vacant-badge-base';
-      bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:0%;height:100%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      const slimCls = (barHpx/rowH)<0.34 ? ' slim' : '';   // v6.47 与真人行一致：条纤细时缩小字号
+      bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line">${lblInner}</span><span class="vacant-badge ${vacBadgeCls}" title="${vacTypeLabel}占位">${vacTypeIcon}${vacTypeLabel}</span>
         <div class="prog" style="--p:0"></div>
