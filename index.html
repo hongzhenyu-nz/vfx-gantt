@@ -1021,10 +1021,48 @@
   .panel-toc .ptoc-item:hover{background:#e7edf8;color:var(--blue);}
   .panel-toc .ptoc-item.on{background:#e7edf8;color:var(--blue);font-weight:700;box-shadow:inset 2px 0 0 var(--blue);}
   .panel-toc .ptoc-dot{display:block;width:9px;height:9px;border-radius:50%;margin:0 auto 4px;flex-shrink:0;}
+
+  /* ============ v6.67 全局侧边导航（贴屏幕左缘常驻）============
+     用户诉求：把参考数据目录搬到页面左侧空白处，做成 fixed 悬浮条后**全程可见、不随滚动消失**。
+     ⚠️ 关键约束（实测算过）：.wrap 是 max-width:min(1980px,97vw)，1920px 屏上单侧空白仅 ~29px，
+        远小于导航宽度 72px —— 若只靠"塞进空白"会压住内容 49px。
+        故必须配套给 .wrap 加左侧让位（见 @media(min-width:1201px) 的 .wrap 规则），
+        用 padding-left 把内容推开，导航固定 left:10px，两者互不重叠。 */
+  .side-nav{position:fixed;left:10px;top:50%;transform:translateY(-50%);
+    z-index:60;width:72px;display:flex;flex-direction:column;gap:2px;padding:9px 6px 11px;
+    background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border:1px solid var(--line);
+    border-radius:11px;box-shadow:0 3px 14px rgba(20,30,50,.10);}
+  .side-nav .sn-title{font-size:9.5px;font-weight:700;color:#9aa2ad;text-align:center;letter-spacing:.4px;
+    padding-bottom:7px;margin-bottom:3px;border-bottom:1px dashed var(--line2);line-height:1.3;}
+  .side-nav .sn-item{display:block;font-size:11px;color:var(--tx2);text-align:center;padding:8px 3px;
+    border-radius:6px;text-decoration:none;line-height:1.25;cursor:pointer;font-weight:500;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .12s,color .12s;}
+  .side-nav .sn-item:hover{background:#e7edf8;color:var(--blue);}
+  .side-nav .sn-item.on{background:#e7edf8;color:var(--blue);font-weight:700;box-shadow:inset 2px 0 0 var(--blue);}
+  .side-nav .sn-dot{display:block;width:8px;height:8px;border-radius:50%;margin:0 auto 3px;flex-shrink:0;}
+  /* 折叠态：只留一个竖排把手，避免窄屏或用户不需要时占地方 */
+  .side-nav .sn-toggle{position:absolute;top:-9px;right:-9px;width:19px;height:19px;border-radius:50%;
+    border:1px solid var(--line);background:#fff;color:var(--tx3);font-size:11px;line-height:1;
+    cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;
+    box-shadow:0 1px 4px rgba(20,30,50,.14);}
+  .side-nav .sn-toggle:hover{color:var(--blue);border-color:var(--blue);}
+  .side-nav.collapsed{width:30px;padding:8px 4px;}
+  .side-nav.collapsed .sn-item span,.side-nav.collapsed .sn-title{display:none;}
+  .side-nav.collapsed .sn-item{padding:6px 2px;}
+  .side-nav.collapsed .sn-dot{margin-bottom:0;width:9px;height:9px;}
+  /* 空间不足时（窄屏/小窗）直接隐藏，改由首屏 .quick-ref 承担导航 */
+  @media(max-width:1200px){ .side-nav{display:none;} }
+  /* 宽屏：内容区左侧让出 92px（导航 10px 起 + 72px 宽 + 10px 间距），保证悬浮条绝不压住内容。
+     用 padding 而非 margin，避免影响 .wrap 的 max-width 居中计算与内部 sticky 元素定位。 */
+  @media(min-width:1201px){ .wrap{padding-left:92px;} }
+  /* 折叠后只占 30px，让位相应收窄到 50px（由 JS 给 body 加 .snav-collapsed 类切换） */
+  @media(min-width:1201px){ body.snav-collapsed .wrap{padding-left:50px;} }
   .panel-body{flex:1;padding:18px 20px;min-width:0;overflow:hidden;}
   /* v6.66 首屏「参考数据」快捷入口条：目录做再高也只在页面底部，用户不滚就永远看不到。
      故在顶部副标题下方常驻一排胶囊按钮，点击直达底部对应板块，从根上解决可发现性。 */
   .quick-ref{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin:10px 0 4px;padding:9px 12px;background:linear-gradient(90deg,#f0f6ff,#f7f9fc);border:1px solid #d6e4fb;border-radius:9px;}
+  /* v6.67：宽屏（>1200px）已有屏幕左缘常驻侧边导航，此条隐藏避免重复占位；窄屏侧边导航隐藏时它接管导航职责。 */
+  @media(min-width:1201px){ .quick-ref{display:none;} }
   .quick-ref .qr-lab{font-size:11.5px;font-weight:700;color:#2f6ad9;margin-right:2px;white-space:nowrap;}
   .quick-ref .qr-hint{font-size:11px;color:var(--tx3);margin-left:auto;white-space:nowrap;}
   .quick-ref .qr-btn{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;color:var(--tx1);background:#fff;border:1px solid var(--line);border-radius:20px;padding:4px 11px;cursor:pointer;text-decoration:none;transition:border-color .12s,box-shadow .12s,transform .08s;}
@@ -1268,16 +1306,27 @@
 </style>
 </head>
 <body>
+<!-- v6.67 全局侧边导航：固定在页面容器外侧空白处，全程可见，点击直达底部参考数据板块 -->
+<nav class="side-nav" id="sideNav">
+  <button class="sn-toggle" id="sideNavToggle" onclick="toggleSideNav()" title="折叠 / 展开侧边导航">‹</button>
+  <div class="sn-title">参考<br>数据</div>
+  <a class="sn-item" data-target="sec-load" href="#sec-load" onclick="jumpToPanel(event,'sec-load')" title="负载率：如何计算、饱和/超载分档"><i class="sn-dot" style="background:var(--blue)"></i><span>负载率</span></a>
+  <a class="sn-item" data-target="sec-risk" href="#sec-risk" onclick="jumpToPanel(event,'sec-risk')" title="需求风险：双维度取高判定"><i class="sn-dot" style="background:var(--amber)"></i><span>需求风险</span></a>
+  <a class="sn-item" data-target="sec-rank" href="#sec-rank" onclick="jumpToPanel(event,'sec-rank')" title="风险分档：等级阈值"><i class="sn-dot" style="background:var(--red)"></i><span>风险分档</span></a>
+  <a class="sn-item" data-target="sec-std" href="#sec-std" onclick="jumpToPanel(event,'sec-std')" title="标准工期：各品级出场工期与标配人力"><i class="sn-dot" style="background:#7048e8"></i><span>标准工期</span></a>
+  <a class="sn-item" data-target="sec-eff" href="#sec-eff" onclick="jumpToPanel(event,'sec-eff')" title="效率系数：不同人力的产能标定"><i class="sn-dot" style="background:#0a7d3c"></i><span>效率系数</span></a>
+  <a class="sn-item" data-target="sec-inv" href="#sec-inv" onclick="jumpToPanel(event,'sec-inv')" title="投入比：档位与并行分摊规则"><i class="sn-dot" style="background:#0a7d3c"></i><span>投入比</span></a>
+</nav>
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.66 · build 2026-08-21 15:48</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.67 · build 2026-08-21 16:08</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
 
-  <!-- v6.66 首屏参考数据快捷入口：解决「用户不知道页面底部还有标准化规则/工期表」的可发现性问题 -->
+  <!-- v6.66 首屏参考数据快捷入口；v6.67 起宽屏由左缘侧边导航承担，此条仅在 ≤1200px 窄屏显示（互补不重复） -->
   <div class="quick-ref">
     <span class="qr-lab">📖 团队标准口径</span>
     <a class="qr-btn" href="#sec-load" onclick="jumpToPanel(event,'sec-load')" title="负载率如何计算、饱和/超载如何分档"><i style="background:var(--blue)"></i>负载率</a>
@@ -7998,21 +8047,46 @@ function jumpToPanel(ev, secId){
   setTimeout(()=>el.classList.remove('jump-flash'), 1600);
 }
 
-/* v6.61: 面板左侧目录导航 —— 滚动高亮 + 点击跳转 */
+/* v6.67 侧边导航折叠 / 展开（状态存 localStorage，刷新后保持用户选择）。
+   同步给 body 打 .snav-collapsed 类 —— 内容区左侧让位宽度随之从 92px 收到 50px。 */
+function toggleSideNav(){
+  const nav=document.getElementById('sideNav'); if(!nav) return;
+  const collapsed=nav.classList.toggle('collapsed');
+  document.body.classList.toggle('snav-collapsed', collapsed);
+  const btn=document.getElementById('sideNavToggle');
+  if(btn){ btn.textContent = collapsed ? '›' : '‹'; btn.title = collapsed ? '展开侧边导航' : '折叠侧边导航'; }
+  try{ localStorage.setItem('vfxSideNavCollapsed', collapsed ? '1' : '0'); }catch(_){}
+  // 让位宽度变化会改变可视宽度，通知甘特区重算列宽/滚动位
+  if(typeof rerender==='function'){ setTimeout(()=>{ try{ rerender(); }catch(_){} }, 220); }
+}
+
+/* v6.61/v6.67: 参考数据导航（面板内目录 .ptoc-item + 屏幕左缘侧边导航 .sn-item）
+   —— 两套 DOM 共用同一批 section id 与同一个 IntersectionObserver，滚动高亮完全同步。 */
 (function(){
-  const toc=document.getElementById('panelToc'); if(!toc) return;
-  const items=toc.querySelectorAll('.ptoc-item');
+  const tocItems=document.querySelectorAll('#panelToc .ptoc-item');
+  const navItems=document.querySelectorAll('#sideNav .sn-item');
+  const items=[...tocItems, ...navItems];
   if(!items.length) return;
-  // 点击跳转
-  items.forEach(a=>{
+  // 面板内目录的点击跳转（侧边导航已在 HTML 内联 jumpToPanel，带落地高亮）
+  tocItems.forEach(a=>{
     a.addEventListener('click',function(e){
       e.preventDefault();
-      const target=document.getElementById(this.dataset.target);
-      if(target){ target.scrollIntoView({behavior:'smooth',block:'start'}); }
+      jumpToPanel(e, this.dataset.target);
     });
   });
-  // 滚动时高亮当前章节（IntersectionObserver）
-  const sections=Array.from(items).map(a=>document.getElementById(a.dataset.target)).filter(Boolean);
+  // 恢复侧边导航折叠状态（含 body 让位类，避免刷新后导航是折叠态但内容仍留 92px 空白）
+  try{
+    if(localStorage.getItem('vfxSideNavCollapsed')==='1'){
+      const nav=document.getElementById('sideNav');
+      const btn=document.getElementById('sideNavToggle');
+      if(nav){ nav.classList.add('collapsed'); }
+      document.body.classList.add('snav-collapsed');
+      if(btn){ btn.textContent='›'; btn.title='展开侧边导航'; }
+    }
+  }catch(_){}
+  // 滚动时高亮当前章节（IntersectionObserver），两套导航同时更新
+  const ids=[...new Set(items.map(a=>a.dataset.target))];
+  const sections=ids.map(id=>document.getElementById(id)).filter(Boolean);
   if(!sections.length) return;
   const observer=new IntersectionObserver((entries)=>{
     // 找到最顶部可见的 section
@@ -8027,8 +8101,9 @@ function jumpToPanel(ev, secId){
     }
   },{rootMargin:'-60px 0px -60% 0px', threshold:0});
   sections.forEach(s=>observer.observe(s));
-  // 默认高亮第一个
-  if(items[0]) items[0].classList.add('on');
+  // 默认高亮第一项（两套各自的第一项）
+  if(tocItems[0]) tocItems[0].classList.add('on');
+  if(navItems[0]) navItems[0].classList.add('on');
 })();
 </script>
 </body>
