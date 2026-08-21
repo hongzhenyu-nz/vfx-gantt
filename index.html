@@ -1159,9 +1159,9 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.38 · build 2026-08-20 21:30</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.39 · build 2026-08-21 10:35</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
-    <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃当前所有未保存的修改，退出编辑模式（数据会还原到上次提交的状态）">✕ 放弃编辑</button>
+    <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
   <div class="sub">拖任务条<b style="color:var(--blue)">改期</b> · 上下拖到别人行<b style="color:var(--blue)">改派</b> · 单击任务条<b style="color:var(--blue)">改状态/颜色</b> · 改动在协作标签页间实时同步 &nbsp;|&nbsp; 数据源：企微「甘特看板数据源」 · 基准日 2026-06-22</div>
 
@@ -6094,6 +6094,10 @@ const SB_ROW='vfx-gantt-main';     // 单行存整份排期快照
 const TEAM_PIN='vfx2026';          // 团队写入口令（可改），公开页内属软门禁：防止误改/陌生人随手改
 const PIN_KEY='gantt_write_pin';
 let sb=null, sbChan=null, cloudReady=false, cloudPushT=null, lastSyncJSON='', applyingRemote=false, hasHashSnap=false;
+/* v6.39 「放弃编辑」基线：获取编辑权成功那一刻的数据快照 JSON。
+   关键：持锁期间每次改动都会自动 cloudPush 到云端，所以「放弃编辑」不能靠"从云端重拉"还原
+   （云端已经是改过的数据）。必须用这份进入编辑时的本地基线回滚，并把基线推回云端。 */
+let editBaselineJSON='';
 let cloudCid=localStorage.getItem('gantt_cloud_cid');
 if(!cloudCid){cloudCid='c'+Math.random().toString(36).slice(2,10);localStorage.setItem('gantt_cloud_cid',cloudCid);}
 /* 云端离线兜底：503/网络抖动时不让看板停摆，改写 localStorage，云端恢复自动补同步。
@@ -6577,6 +6581,7 @@ async function acquireLock(force){
         if(e2)throw e2;
         lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho();
         lastSyncJSON=JSON.stringify(snapshot()); startHeart();
+        editBaselineJSON=lastSyncJSON;   // v6.39 记录编辑起点，供「放弃编辑」回滚
         cloudSetStatus('on',lockBtnLabel());
         toast('✅ 已获取编辑权。改动实时保存，编辑完请点「提交」释放');
         return true;
@@ -6602,6 +6607,7 @@ async function acquireLock(force){
       lastSyncJSON=JSON.stringify(snapshot());
     }
     lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho();
+    editBaselineJSON=lastSyncJSON;   // v6.39 记录编辑起点（此时本地已同步到云端最新），供「放弃编辑」回滚
     startHeart();
     syncLockUI();
     toast(force?'✅ 已强制接管编辑权（正在接收对方最后改动并同步）':'✅ 已获取编辑权（已同步至最新）。改动实时保存，编辑完请点「提交」释放');
@@ -6631,32 +6637,58 @@ async function releaseLock(silent){
     }
   }catch(e){ console.warn('release lock failed',e); }
   lockMine=false; lockHolderCid=''; lockHolderName='';
+  editBaselineJSON='';   // v6.39 正常提交后清空基线（改动已确认保存，不再需要回滚点）
   syncLockUI();
   if(!silent) toast('已提交并释放编辑权，其他人现在可以编辑了');
 }
-/* 放弃编辑：不保存当前修改，直接释放锁 + 从云端还原数据 */
+/* 放弃编辑：把数据回滚到「获取编辑权那一刻」的基线，并把基线推回云端，再释放锁。
+   v6.39 根因修复：旧实现是「从云端重拉」，但持锁期间每次改动都被 cloudPush 自动写进云端了，
+   云端存的就是改过的数据 → 重拉回来等于没还原（功能完全失效）。
+   现改为用 editBaselineJSON（进入编辑时的本地快照）回滚，并覆盖推回云端，撤销这段时间的所有自动保存。 */
 async function discardEdit(){
   if(!lockMine) return;
-  if(!confirm('确定放弃所有未保存的修改吗？\n\n数据将还原到上次提交的状态，你的改动不会保存到云端。')) return;
+  if(!editBaselineJSON){
+    toast('⚠ 未找到编辑起点基线，无法安全回滚。请手动改回或刷新页面');
+    return;
+  }
+  // 有没有实际改动？没改动就只是退出编辑模式
+  const curJSON=JSON.stringify(snapshot());
+  const changed=(curJSON!==editBaselineJSON);
+  const msg=changed
+    ? '确定放弃本次编辑的所有改动吗？\n\n数据将回滚到你获取编辑权那一刻的状态，\n本次编辑期间已自动保存到云端的改动也会被一并撤销。'
+    : '本次编辑没有改动，确定退出编辑模式吗？';
+  if(!confirm(msg)) return;
+
+  // 先停心跳并取消待推送，避免回滚过程中被防抖 push 覆盖
   stopHeart();
-  try{
-    // 释放锁（不上传本地快照）
-    await sb.from(SB_TABLE).update({editor:null,editor_name:null,updated_at:new Date().toISOString()}).eq('id',SB_ROW).eq('editor',cloudCid);
-  }catch(e){ console.warn('discard lock failed',e); }
-  lockMine=false; lockHolderCid=''; lockHolderName='';
-  syncLockUI();
-  // 从云端重新拉取数据（还原到上次提交的状态）
-  toast('正在还原数据…');
-  try{
-    const {data}=await sb.from(SB_TABLE).select('snap').eq('id',SB_ROW).maybeSingle();
-    if(data&&data.snap){
-      const obj=(typeof data.snap==='string')?JSON.parse(data.snap):data.snap;
-      applyingRemote=true; applySnap(obj); applyingRemote=false;
-      lastSyncJSON=JSON.stringify(snapshot());
+  clearTimeout(cloudPushT);
+
+  if(changed){
+    toast('正在回滚数据…');
+    try{
+      const base=JSON.parse(editBaselineJSON);
+      // 1) 本地回滚到基线
+      applyingRemote=true; applySnap(base); applyingRemote=false;
+      lastSyncJSON=editBaselineJSON;
       refreshAllUI();
+      // 2) 把基线覆盖推回云端（撤销编辑期间的自动保存），同时释放锁
+      await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:base,editor:null,editor_name:null,updated_at:new Date().toISOString()});
+      save();   // 同步 localStorage，避免旧本地存档回灌
+    }catch(e){
+      console.warn('discard rollback failed',e);
+      toast('⚠ 回滚推送失败，本地已回滚但云端可能仍是改动后的数据');
     }
-  }catch(e){ console.warn('discard reload failed',e); }
-  toast('已放弃编辑，数据已还原');
+  }else{
+    // 无改动：只释放锁
+    try{
+      await sb.from(SB_TABLE).update({editor:null,editor_name:null,updated_at:new Date().toISOString()}).eq('id',SB_ROW).eq('editor',cloudCid);
+    }catch(e){ console.warn('discard lock release failed',e); }
+  }
+
+  lockMine=false; lockHolderCid=''; lockHolderName='';
+  editBaselineJSON='';
+  syncLockUI();
+  toast(changed?'✅ 已放弃编辑，数据已回滚到编辑前状态':'已退出编辑模式');
 }
 /* 仅刷新锁状态（用于抢锁失败后了解是谁占着） */
 async function refreshLockStatus(){
