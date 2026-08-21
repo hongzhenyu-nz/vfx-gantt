@@ -267,17 +267,34 @@
   .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:4;transition:background .12s;}
   .row.head .cell-left{background:#fafbfc;z-index:6;}
   .timeline{position:relative;flex:1;display:flex;align-items:center;}
-  /* v6.28 排期空隙提示：半透琥珀底纹（斜纹），始终显示、半透露日期；
-     置于任务条之下(z-index:0 < 任务条 z-index:1)，不挡交互(pointer-events:none)。
-     设计：圆角胶囊形 + 内缩留白 + 柔和渐变边框，避免"裁切感"。 */
-  .gap-indicator{position:absolute;top:4px;bottom:4px;z-index:0;pointer-events:none;
-    background:repeating-linear-gradient(45deg, rgba(245,158,11,.12) 0 6px, transparent 6px 12px);
-    border-radius:6px;border:1px solid rgba(217,119,6,.25);
-    box-shadow:inset 0 0 8px rgba(245,158,11,.08);
-    display:flex;align-items:center;justify-content:center;}
-  .gap-indicator .gap-lbl{font-size:10px;font-weight:600;color:#b07d00;background:rgba(255,252,245,.92);
-    border:1px solid rgba(217,119,6,.35);border-radius:10px;padding:1px 8px;white-space:nowrap;
-    box-shadow:0 1px 4px rgba(180,120,0,.12);letter-spacing:.5px;}
+  /* v6.46 排期空隙提示（醒目度升级 + 标签自适应降级）：
+     - 更醒目：斜纹加密加深 + 左右两端 3px 实心琥珀"端柱"锚定边界 + 顶部虚线呼吸感，
+       一眼能从密集任务条中辨出空档区域；仍保持半透，日期/周末底纹照样透出。
+     - 标签分 4 档（data-tier，由 buildGapEl 按像素宽度选择），实心琥珀胶囊 + 白字，
+       对比度远高于旧版浅底深字；窄档自动缩字号/减内距，绝不硬裁。
+     - 极窄档(.gap-tiny)无标签，只靠端柱+斜纹示意，hover 整块查完整信息。 */
+  .gap-indicator{position:absolute;top:3px;bottom:3px;z-index:0;pointer-events:none;
+    background:repeating-linear-gradient(45deg, rgba(245,158,11,.20) 0 5px, rgba(255,251,240,.55) 5px 10px);
+    border-radius:5px;border:1px solid rgba(217,119,6,.42);
+    border-top:2px dashed rgba(217,119,6,.55);
+    box-shadow:inset 3px 0 0 #f59e0b, inset -3px 0 0 #f59e0b, inset 0 0 10px rgba(245,158,11,.14);
+    display:flex;align-items:center;justify-content:center;overflow:visible;}
+  /* 标签：实心琥珀渐变 + 白字，强对比，不再是浅底浅字。
+     只有标签本身接收指针事件（供 hover 看完整口径），底纹块保持 pointer-events:none，
+     不影响「点行空白选中行」与任务条拖拽落点判定。 */
+  .gap-indicator .gap-lbl{font-size:10px;font-weight:800;color:#fff;
+    background:linear-gradient(135deg,#f59e0b,#d97706);
+    border:1px solid #b45309;border-radius:9px;padding:1px 8px;white-space:nowrap;
+    box-shadow:0 1px 4px rgba(180,83,9,.35);letter-spacing:.4px;text-shadow:0 1px 1px rgba(120,60,0,.35);
+    pointer-events:auto;cursor:help;}
+  .gap-indicator .gap-lbl[data-tier="2"]{font-size:9.5px;padding:1px 6px;letter-spacing:.2px;}
+  .gap-indicator .gap-lbl[data-tier="3"]{font-size:9px;padding:0 5px;letter-spacing:0;border-radius:7px;}
+  .gap-indicator .gap-lbl[data-tier="4"]{font-size:9px;padding:0 4px;letter-spacing:0;border-radius:6px;font-weight:900;}
+  /* 极窄空档：无标签，端柱加粗补偿可见性；并用 ::after 造一个 8px 透明感应点，
+     让它同样能 hover 出完整口径（否则无标签档位查不到信息）。 */
+  .gap-indicator.gap-tiny{box-shadow:inset 4px 0 0 #f59e0b, inset -4px 0 0 #f59e0b, inset 0 0 8px rgba(245,158,11,.18);}
+  .gap-indicator.gap-tiny::after{content:'';position:absolute;left:0;right:0;top:0;bottom:0;
+    pointer-events:auto;cursor:help;}
   /* 行内「＋加任务/加人」按钮：收纳在左侧信息栏内（不再用 sticky 飘在时间线上、不遮挡任务条）。
      按人看挂在姓名行末尾；按需求看放在成员区下方独立一行。低调浅蓝实心，悬停高亮。 */
   .inl-add{display:inline-flex;align-items:center;gap:2px;flex:0 0 auto;vertical-align:middle;
@@ -1185,7 +1202,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.45 · build 2026-08-21 11:08</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.46 · build 2026-08-21 11:16</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3791,6 +3808,34 @@ function gapsFromIntervals(merged){
   }
   return gaps;
 }
+/* v6.46 空隙块构建（统一入口，injectGapIndicators 与 refreshGapsForMember 共用）。
+   按可用像素宽度做「信息自适应降级」，不再让固定文案被父级硬裁切：
+     ≥84px → 空闲 N 工作日   （完整语义）
+     ≥58px → 空闲 N 天        （去掉"工作"二字，仍可理解）
+     ≥34px → N 天             （只留最关键的数字+单位）
+     ≥20px → N                （极窄：纯数字，配合琥珀条纹底仍可猜出是空档）
+     < 20px → 不放标签         （只保留底纹+边框示意，避免糊成一团）
+   hover title 始终携带完整信息，任何档位都能查到准确口径。 */
+function buildGapEl(g){
+  const wpx=(g.x1-g.x0)*DAY_W;
+  const tip=`空档 ${g.days} 个工作日（共 ${g.calDays} 天，已排除周末/节假日）`;
+  const d=document.createElement('div');
+  d.className='gap-indicator';
+  d.style.left=(g.x0*DAY_W)+'px';
+  d.style.width=wpx+'px';
+  d.title=tip;                     // 整块可查完整信息（含无标签的极窄档）
+  let txt=null, tier='';
+  if(wpx>=84){ txt=`空闲 ${g.days} 工作日`; tier='1'; }
+  else if(wpx>=58){ txt=`空闲 ${g.days} 天`; tier='2'; }
+  else if(wpx>=34){ txt=`${g.days} 天`; tier='3'; }
+  else if(wpx>=20){ txt=`${g.days}`; tier='4'; }
+  if(txt!==null){
+    d.innerHTML=`<span class="gap-lbl" data-tier="${tier}" title="${tip}">${txt}</span>`;
+  }else{
+    d.classList.add('gap-tiny');   // 极窄：无标签，靠底纹+左右端点强化示意
+  }
+  return d;
+}
 /* paint 后调用：把 gapData 中的空隙注入对应行的 .timeline（半透琥珀底纹）。
    先清旧再注入，出错只影响该块，绝不拖垮整页。 */
 function injectGapIndicators(){
@@ -3802,14 +3847,7 @@ function injectGapIndicators(){
     if(!gaps||!gaps.length) return;
     const tl=row.querySelector('.timeline');
     if(!tl) return;
-    gaps.forEach(g=>{
-      const d=document.createElement('div');
-      d.className='gap-indicator';
-      d.style.left=(g.x0*DAY_W)+'px';
-      d.style.width=((g.x1-g.x0)*DAY_W)+'px';
-      d.innerHTML=`<span class="gap-lbl" title="该空档含 ${g.days} 个工作日（共 ${g.calDays} 天，已排除周末/节假日）">空闲 ${g.days} 工作日</span>`;
-      tl.appendChild(d);
-    });
+    gaps.forEach(g=>tl.appendChild(buildGapEl(g)));
   });
 }
 /* 拖拽过程中实时重算某人空隙（transient 覆盖被拖段的瞬时天索引），只动该行 DOM。 */
@@ -3822,14 +3860,7 @@ function refreshGapsForMember(mid, transient){
   const tl=row.querySelector('.timeline');
   if(!tl) return;
   tl.querySelectorAll('.gap-indicator').forEach(el=>el.remove());
-  gaps.forEach(g=>{
-    const d=document.createElement('div');
-    d.className='gap-indicator';
-    d.style.left=(g.x0*DAY_W)+'px';
-    d.style.width=((g.x1-g.x0)*DAY_W)+'px';
-    d.innerHTML=`<span class="gap-lbl" title="该空档含 ${g.days} 个工作日（共 ${g.calDays} 天，已排除周末/节假日）">空闲 ${g.days} 工作日</span>`;
-    tl.appendChild(d);
-  });
+  gaps.forEach(g=>tl.appendChild(buildGapEl(g)));
 }
 
 function paint(rows){
