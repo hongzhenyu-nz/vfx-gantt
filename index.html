@@ -1247,7 +1247,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.63 · build 2026-08-21 14:46</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.64 · build 2026-08-21 15:28</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -1351,8 +1351,8 @@
       <span class="org-unit">后自动收纳</span>
       <label class="org-chk"><input type="checkbox" id="archiveOn" checked onchange="changeArchiveOn(this.checked)">启用</label>
     </span>
-    <span class="org-group" title="隐藏已完成/已废弃的需求（仅对当前视图生效，各视图独立记忆）">
-      <label class="org-chk"><input type="checkbox" id="hideDoneOn" onchange="changeHideDone(this.checked)">🙈 隐藏已完成 <small class="page-hint">（仅当前页）</small></label>
+    <span class="org-group" title="隐藏已完成/已废弃的需求，仅改变当前视图「看到什么」，各视图独立记忆。&#10;注意：这是纯观看过滤 —— 缺口、配置人数、负载率、空闲标识等统计一律基于全量数据，勾选与否结果完全一致（v6.64 起）。">
+      <label class="org-chk"><input type="checkbox" id="hideDoneOn" onchange="changeHideDone(this.checked)">🙈 隐藏已完成 <small class="page-hint">（仅影响显示）</small></label>
     </span>
     <span class="spacer"></span>
     <span class="org-hint" id="orgHint"></span>
@@ -1678,7 +1678,7 @@ function changeHideDone(on){
   HIDE_DONE[view]=!!on;
   const el=document.getElementById('hideDoneOn'); if(el)el.checked=!!on;
   save();broadcast();rerender();
-  toast(on?'已隐藏已完成需求（仅当前视图）':'已显示全部需求（含已完成）');
+  toast(on?'已隐藏已完成需求（仅影响显示，统计不变）':'已显示全部需求（含已完成）');
 }
 /* 切换视图时，将复选框同步为该视图的独立状态 */
 function syncHideDoneCheckbox(){
@@ -2171,10 +2171,12 @@ const REQ_STD = {
   'QS_cc':4, 'HK_cc':4, 'CY_cc':4,                          // 金角出场：4 基地
   'NV_bt':3, 'NV_cc':3,                                     // 红角本体/出场：3 基地（MVP/入局/TPP/大厅/检视/组队默认标配0，需要可在此补）
 };
-/* 某需求当前「实际在岗基地制作人数」：去重；正编带队不占基地名额、跨队支援不抵消编制、离职不计 */
+/* 某需求当前「实际在岗基地制作人数」：去重；正编带队不占基地名额、跨队支援不抵消编制、离职不计。
+   v6.64：补 segHasDuration 过滤 —— 零时长段在「按人看」不渲染，这里也不能凭它算人（三视图同源）。 */
 function activeBase(r){
   const seen=new Set();
   (r&&r.segs||[]).forEach(s=>{
+    if(!segHasDuration(s)) return;      // 零时长段：不是真实排期，不计
     const m=memById(s.m); if(!m) return;
     if(m.corp==='reg') return;          // 正编带队：统筹/带教，不占基地标配
     if(effLeft(m)) return;              // 已离职（离职日已到）：不计；未来离职日仍在岗计入
@@ -2262,6 +2264,28 @@ function reqGapPpl(r){
    - 等级缺口：按需求 grade 分组汇总 reqGapPpl
 */
 function isVacantMem(m){ return m && /暂缺/.test(m.name||''); }
+/* ============ v6.64 全视图统一口径（单一数据事实）============
+   背景：HR 角色线、按人看、按需求看曾各自内联筛选条件，导致同一份数据在三个视图算出不同结果
+   （零时长段有的算有的不算、离职成员有的留有的删、HIDE_DONE 直接参与统计）。
+   原则：**筛选条件收敛为下列公共函数，任何视图不得再内联自己的判定。**
+
+   segHasDuration(s)：任务段是否「有有效时长」——open 段(无明确时间)视为有效（铺满整行占位），
+     普通段要求 e−s > 0。这是「这条排期是否真实存在」的唯一判定，
+     渲染(personRowHTML/vacantRowHTML)与统计(buildRoleLines)必须同用。
+
+   memCountsAsStaff(m)：该成员是否计入「在岗人力编制」——离职日已到 / 暂缺占位 均不计。
+     注意与「是否出现在名单里」区分：离职者仍要在名单里显示(带已离标注)，只是不占编制数。 */
+function segHasDuration(s){
+  if(!s) return false;
+  if(s.open) return true;              // 无明确时间段：铺满整行，视为有效占位
+  return idx(s.e) - idx(s.s) > 0;      // 普通段：须有正时长
+}
+function memCountsAsStaff(m){
+  if(!m) return false;
+  if(effLeft(m)) return false;         // 离职日已到：不占在岗编制
+  if(isVacantMem(m)) return false;     // 暂缺占位：不占编制（缺口另行统计）
+  return true;
+}
 function computeHR(){
   // 在岗成员（排除已到离职日的人）
   const activeMems = members.filter(m=>!effLeft(m));
@@ -2286,6 +2310,7 @@ function computeHR(){
   reqs.forEach(r=>{
     if(r.kind==='qa') return;                     // 全量测试里程碑不计人力
     (r.segs||[]).forEach(s=>{
+      if(!segHasDuration(s)) return;              // v6.64：零时长段不算真实排期（与按人看同源）
       const m=memById(s.m);
       if(!m||effLeft(m)||isVacantMem(m)) return;
       makerSet.add(m.id);
@@ -2295,13 +2320,18 @@ function computeHR(){
     totalGap += g;
     if(g>0 && gradeGap[r.grade]!==undefined) gradeGap[r.grade]+=g;
   });
+  /* v6.64 「缺少数」口径修正（与 v6.63 角色线同一个道理）：
+     暂缺占位（vacantCount）与标配缺口（totalGap）描述的是**同一批要补的人**——
+     「暂缺-基地2」这类占位就是已识别缺口的具象化，不是额外的新缺口。
+     旧式 totalGap + vacantCount 把同一个人算两遍，故改为取 max。 */
+  const lack = Math.max(totalGap, vacantCount);
   return {
     base,
     makers: makerSet.size,
     totalCfg,
     totalGap,                                       // 标配口径缺口（不含暂缺）
     vacantCount,
-    lack: totalGap + vacantCount,                   // 缺少数 = 标配缺口 + 暂缺占位
+    lack,                                           // 缺少数 = max(标配缺口, 暂缺占位) —— 同一批人不重复计
     gradeGap,
     gradeCount,                                     // 品级→在岗实人数 {金:N, 橙:N, 红:N}
     corpCount,                                     // 编制→在岗人数 {reg:N, sub:N, base:N, loan:N}
@@ -3372,9 +3402,12 @@ function loadHeatmapHTML(){
      v6.48 前的 bug：这里遍历 activeMembers 重新调 getMemberBusyIntervals 计算，
      而行内块用的是 paint 期间存进 gapData 的结果 —— 两者成员集合与过滤口径不同：
        · 成员集合：activeMembers 排除占位成员，但占位行同样会渲染空隙块 → 色带漏掉占位行的空档
-       · HIDE_DONE：getMemberBusyIntervals 内部按 HIDE_DONE[view] 过滤已完成需求，
+       · HIDE_DONE：旧版 getMemberBusyIntervals 内部按 HIDE_DONE[view] 过滤已完成需求，
          但色带在 view 非 person 时口径又不同 → 空隙宽窄不一致
-     v6.49 改为**直接复用 gapData**（就是行内块渲染用的那份数据），从数据层保证像素级对齐。 */
+     v6.49 改为**直接复用 gapData**（就是行内块渲染用的那份数据），从数据层保证像素级对齐。
+     v6.64 补充：getMemberBusyIntervals 已彻底移除 HIDE_DONE 依赖（改为全量数据），
+       且 personRowHTML / vacantRowHTML 也统一改调该函数写 gapData
+       → 「行内块 = 色带标记 = 拖拽刷新」三者从此走同一条计算路径，勾选开关不再影响空隙。 */
   let gapMarks = '';
   try{
     const allGaps = [];
@@ -3530,22 +3563,19 @@ function vacantRowHTML(m,inArc){
     const items=[];
     reqs.forEach(r=>r.segs.forEach((s,si)=>{
       if(s.m!==m.id)return;
-      if(HIDE_DONE[view] && reqIsCompleted(r)) return;
+      if(!segHasDuration(s)) return;                     // v6.64 统一时长判定
+      if(HIDE_DONE[view] && reqIsCompleted(r)) return;   // 纯观看过滤（不影响下方空隙计算）
       let si0=idx(s.s),ei0=idx(s.e);
       if(s.open){ si0=0; ei0=DAYS; }
-      else if(ei0-si0<=0) return;
       items.push({r,sg:s,si,si0,ei0});
     }));
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
     /* v6.54：占位行原来完全没有空隙计算（gapData.set 只在 personRowHTML 里调用），
        所以常态下永远不显示空闲标识；而拖拽走 refreshGapsForMember 不区分成员类型 → 又会算出来，
-       造成"常态无、拖拽有"的不一致。此处补上与真人行同源的计算（同一套合并区间 + gapsFromIntervals）。 */
-    {
-      const _ivs=laid.items.map(it=>({s:it.si0,e:it.ei0})).sort((a,b)=>a.s-b.s||a.e-b.e);
-      const _mg=[]; for(const iv of _ivs){ if(_mg.length&&iv.s<=_mg[_mg.length-1].e){_mg[_mg.length-1].e=Math.max(_mg[_mg.length-1].e,iv.e);}else _mg.push({s:iv.s,e:iv.e}); }
-      gapData.set(m.id, gapsFromIntervals(_mg));
-    }
+       造成"常态无、拖拽有"的不一致。此处补上与真人行同源的计算。
+       v6.64：改为直接调 getMemberBusyIntervals（全量数据、不读 HIDE_DONE），与真人行完全同一条路径。 */
+    gapData.set(m.id, gapsFromIntervals(getMemberBusyIntervals(m.id)));
     let rowH = laneCount<=1 ? ROW_BASE : Math.max(ROW_BASE, PADV*2 + laneCount*BAR_MIN + (laneCount-1)*LANE_GAP);
     /* v6.47：占位行原来所有条都写死 top:0%;height:100%（铺满整格、零缝隙），并行时条与条紧贴、
        与真人行的固定 5px 缝隙不一致（用户反馈"贴得这么紧"）。现改为与 personRowHTML 完全同一套
@@ -3655,22 +3685,22 @@ function personRowHTML(m,inArc){
     const items=[];
     reqs.forEach(r=>r.segs.forEach((s,si)=>{
       if(s.m!==m.id)return;
-      if(HIDE_DONE[view] && reqIsCompleted(r)) return;   // 隐藏已完成需求：其人任务段不渲染
+      if(!segHasDuration(s)) return;                     // v6.64 统一时长判定
+      if(HIDE_DONE[view] && reqIsCompleted(r)) return;   // 纯观看过滤：不渲染此条（不影响下方空隙/负载计算）
       let si0=idx(s.s),ei0=idx(s.e);
       if(s.open){ si0=0; ei0=DAYS; }              // 无明确时间(open)段铺满整行，按整行占位
-      else if(ei0-si0<=0) return;                  // 普通段需有正时长
       items.push({r,sg:s,si,si0,ei0});
     }));
     // 跨队「支援」改为标注在对应任务条上（见 bars 渲染的 .sup-mk），不再挂在姓名旁。
     // 分配泳道（用天索引判重叠）；open 段已在上方归一化为整行 [0,DAYS) 占位，故此处直接用 si0/ei0。
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
     const laneCount=Math.max(laid.lanes,1);
-    // v6.26：计算此人排期「内部空隙」（合并重叠段后，相邻任务块间 ≥3 天的空闲），缓存供渲染后注入半透琥珀提示
-    {
-      const _ivs=laid.items.map(it=>({s:it.si0,e:it.ei0})).sort((a,b)=>a.s-b.s||a.e-b.e);
-      const _mg=[]; for(const iv of _ivs){ if(_mg.length&&iv.s<=_mg[_mg.length-1].e){_mg[_mg.length-1].e=Math.max(_mg[_mg.length-1].e,iv.e);}else _mg.push({s:iv.s,e:iv.e}); }
-      gapData.set(m.id, gapsFromIntervals(_mg));
-    }
+    // v6.26：计算此人排期「内部空隙」（合并重叠段后，相邻任务块间 ≥MIN_WORKDAYS 天的空闲）
+    // v6.64 关键修正：原来从 laid.items 推导——而 items 已被 HIDE_DONE 过滤，
+    //   勾上「隐藏已完成」后已完成需求占的档期会被当成空闲，空闲标识凭空变多、与真实排期不符。
+    //   改为直接调用 getMemberBusyIntervals(全量数据、不读 HIDE_DONE)，与拖拽时的
+    //   refreshGapsForMember 完全同源，保证「静态渲染 = 拖拽刷新 = 真实占用」三者一致。
+    gapData.set(m.id, gapsFromIntervals(getMemberBusyIntervals(m.id)));
     /* 「时间重叠传递闭包」内的 distinct lane 列表：用于均高等分定位。
        关键修复——只看「直接重叠」会在链式重叠(A↔B↔C 但 A、C 不重叠)时算出不一致的分母，
        导致同簇内的条槽位错位、互相压盖(同一垂直位糊成一团)。改用传递闭包后，同一重叠簇内
@@ -3774,6 +3804,8 @@ function personRowHTML(m,inArc){
 function renderReq(){
   // 可见需求（联调附属不单独成行）；按分组方式归类，已完结超期的收纳进归档区。
   const vis=reqs.filter(r=>!r.attached);
+  // v6.64：此处 HIDE_DONE 仅决定「这一行要不要出现在列表里」，属纯观看过滤，
+  //   不参与任何统计/缺口/风险计算（那些一律基于全量 reqs），故保留。
   const hideDone=HIDE_DONE[view];
   const live=vis.filter(r=>!reqArchived(r) && !(hideDone && reqIsCompleted(r)));
   const archived=vis.filter(r=>reqArchived(r) && !(hideDone && reqIsCompleted(r)));
@@ -3961,10 +3993,12 @@ function getMemberBusyIntervals(mid, transient){
   const ivs=[];
   reqs.forEach(r=>r.segs.forEach((s,si)=>{
     if(s.m!==mid) return;
-    if(HIDE_DONE[view] && reqIsCompleted(r)) return;
+    // v6.64：**不再读 HIDE_DONE** —— 「隐藏已完成」是观看过滤，不是数据事实。
+    //   一个人在已完成需求上占用的档期，客观上就是占了；若因勾选开关把它当空闲，
+    //   空闲标识/负载色带会凭空多出一段，与真实排期不符。
+    if(!segHasDuration(s)) return;          // 与全局同源的时长判定
     let si0=idx(s.s), ei0=idx(s.e);
     if(s.open){ si0=0; ei0=DAYS; }
-    else if(ei0-si0<=0) return;
     if(transient && transient.reqId===r.id && transient.seg===si){ si0=transient.si0; ei0=transient.ei0; }
     ivs.push({s:si0,e:ei0});
   }));
@@ -4256,7 +4290,9 @@ function fitBarLabels(){
 */
 function buildRoleLines(){
   // 只取特效类需求(kind=fx)，排除 qa/lt/联调 等
-  const fxReqs = reqs.filter(r => r.kind === 'fx' && !(HIDE_DONE[view] && reqIsCompleted(r)));
+  // v6.64：**不再读 HIDE_DONE** —— 「隐藏已完成」只影响观看内容，不影响统计口径。
+  //   否则勾一下开关，缺口/配置人数就跟着变，三视图数据互相错乱。
+  const fxReqs = reqs.filter(r => r.kind === 'fx');
   // 按模组分
   const modGroups = {};
   fxReqs.forEach(r => {
@@ -4288,6 +4324,7 @@ function buildRoleLines(){
       let hasDoing=false, hasTodo=false, hasDone=false;
       rl.forEach(r => {
         (r.segs||[]).forEach(sg => {
+          if(!segHasDuration(sg)) return;   // v6.64：零时长段不参与状态聚合（与人员口径一致）
           const auto = autoSegState(sg);
           const st = auto.status;
           if(st==='doing'||st==='review'||st==='blocked') hasDoing=true;
@@ -4304,31 +4341,31 @@ function buildRoleLines(){
       else if(hasTodo) status = '将要启动';
       else if(hasDone && !hasTodo && !hasDoing) status = '已完成';
       // 收集人员: 从 segs 提取（正编/基地分开）
-      // ★ 已完成的需求保留所有历史参与者（含离职），目的是记录"当时用了多少人完成"
+      // v6.64 口径与「按人看」完全对齐：
+      //   ① 零时长段(segHasDuration=false)一律跳过 —— 按人看不渲染这种条，HR 也不能凭它算人；
+      //   ② 离职成员**始终保留在名单**（渲染层用 mk-left 打「已离」标注），不再因需求未完成就剔除
+      //      —— 按人看会把离职者收进归档区仍可见，HR 直接删人会造成两视图人不一样；
+      //   ③ 离职者只是「不占在岗编制」(memCountsAsStaff=false)，故计入 leftNames 但不进 regSet/baseSet。
       const isDone = status === '已完成';
-      const regSet = new Set();       // 正编
-      const baseSet = new Set();      // 基地
-      const supSet = new Set();       // 支援
-      const tmpSet = new Set();       // 暂缺占位（不计入编制）
-      const leftNames = new Set();    // 已离职参与者名单（用于渲染"离职"标注）
+      const regSet = new Set();       // 正编（在岗，占编制）
+      const baseSet = new Set();      // 基地（在岗，占编制）
+      const supSet = new Set();       // 支援（不占本管线编制）
+      const tmpSet = new Set();       // 暂缺占位（不占编制，代表缺口）
+      const leftNames = new Set();    // 已离职参与者（仍显示，不占编制）
       rl.forEach(r => {
         (r.segs||[]).forEach(s => {
+          if(!segHasDuration(s)) return;        // ① 与按人看同源：零时长段不算
           const m = memById(s.m); if(!m) return;
-          // 已完成：不跳过离职者，照常收集但记录到 leftNames
-          if(isDone && (leftLong(m) || effLeft(m))) { leftNames.add(m.name); }
-          else {
-            // 未完成：跳过离职者 + 暂缺占位（均不计入编制）
-            if(leftLong(m)) return;             // 离职满1月: 隐藏
-            if(effLeft(m)) return;              // 已离职: 不显示（优先于支援判断）
-            if(isVacantMem(m)) { tmpSet.add(m.name); return; }  // 暂缺: 单独收集，不占编制
-          }
+          if(leftLong(m) && !isDone) return;    // 离职超期且需求未完成：与按人看归档收纳一致，隐藏
+          if(effLeft(m)){ leftNames.add(m.name); return; }   // ② 离职：进名单、不占编制
+          if(isVacantMem(m)){ tmpSet.add(m.name); return; }  // 暂缺占位：单独收集
           // 与按人看/按需求看同源：动态判定支援
           if(isSupportInReq(m, r)){ supSet.add(m.name); return; }
           if(m.corp === 'reg') regSet.add(m.name);
           else baseSet.add(m.name);
         });
       });
-      // 配置人数：已完成=全部参与者（含离职，记录历史编制）；未完成=仅在岗基地
+      // 配置人数 = 在岗基地人力（离职/暂缺/支援/正编带队均不占基地编制）
       const cfg = baseSet.size;
       // 标准配置 = 从 STD_CFG 表动态读取（按品级×模块匹配），fallback 到 REQ_STD
       let std = 0;
