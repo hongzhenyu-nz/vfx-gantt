@@ -214,24 +214,27 @@
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);}
   /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色
      布局与 .row 一致：左侧 sticky 冻结 + 右侧 timeline 固定像素宽，杜绝出框/裁剪 */
-  .load-heatmap{display:flex;align-items:center;border-bottom:1px solid var(--line2);background:var(--panel);position:relative;z-index:4;height:28px;flex-shrink:0;}
+  .load-heatmap{display:flex;align-items:center;border-bottom:1px solid var(--line2);background:var(--panel);position:relative;z-index:4;height:32px;flex-shrink:0;}   /* v6.45 28→32px：底部多留 4px 作为空隙下划线的专属轨道，色段本体不被侵占 */
   .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;align-items:center;padding:8px 14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:0;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;position:sticky;left:0;background:var(--panel);z-index:4;}
   .load-heatmap .load-track{position:relative;height:100%;flex-shrink:0;min-width:0;overflow:visible;}
   /* 周粒度色段 —— 简洁纯色，不出框 */
-  .load-heatmap .load-seg{position:absolute;top:3px;bottom:3px;border-radius:3px;transition:background .2s;cursor:pointer;}
+  .load-heatmap .load-seg{position:absolute;top:3px;bottom:7px;border-radius:3px;transition:background .2s;cursor:pointer;}   /* v6.45 bottom 3→7px：让出底部 4px 下划线轨道，色段自身厚度维持 22px 不变 */
   .load-heatmap .load-seg:hover{opacity:.8;z-index:2;}
   /* 空闲周：斜纹警示 + 橙色边框 */
   .load-heatmap .load-seg.idle-wk{background-image:repeating-linear-gradient(-45deg,transparent,transparent 3px,rgba(255,255,255,.35) 3px,rgba(255,255,255,.35) 6px) !important;box-shadow:inset 0 0 0 1.5px rgba(245,158,11,.65),0 1px 3px rgba(0,0,0,.1);}
   .load-heatmap .load-legend-idle{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:#b45309;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:10px;padding:2px 10px;white-space:nowrap;z-index:6;animation:idlePulse 2s ease-in-out infinite;pointer-events:none;box-shadow:0 2px 8px rgba(245,158,11,.25);}
-  /* v6.43 排期空隙标记（第三版重做）：叠在负载色带上，精准对齐下方行内琥珀空隙块。
-     v6.40 高不透明斜纹糊住底色 → v6.41 只描边但仍显脏乱 → v6.43 改为「底部实心指示条」：
-     - 不覆盖色段主体，只在色带下缘压一条 4px 实心琥珀条（像下划线），底层绿/黄/红完全不受影响
-     - left/width 与下方 .gap-indicator 同源（均为 x0*DAY_W），形成连贯竖直对位
-     - 去掉全部斜纹噪点，仅保留极淡上半渐隐，整体干净利落 */
-  .load-heatmap .load-gap-mark{position:absolute;top:0;bottom:0;z-index:3;cursor:pointer;
-    background:linear-gradient(180deg, rgba(217,119,6,.10) 0%, rgba(217,119,6,.03) 60%, transparent 60%);
-    border-bottom:4px solid #d97706;box-shadow:inset 0 1px 0 rgba(217,119,6,.40);}
-  .load-heatmap .load-gap-mark:hover{background:linear-gradient(180deg, rgba(217,119,6,.22) 0%, rgba(217,119,6,.09) 60%, transparent 60%);border-bottom-color:#b45309;z-index:5;}
+  /* v6.45 排期空隙标记（第四版）：彻底不碰色段本体，在色带底部新增的专属轨道里画一根细下划线。
+     演进：v6.40 斜纹糊底色 → v6.41 上下描边脏乱 → v6.43 全高覆盖(top:0;bottom:0) 把绿色段整段"挖开"
+     留出难看的缺口、且 4px 底边框戳出色带外（用户反馈红框处不美观）。
+     v6.45 方案：色带 height 28→32px、色段 bottom 3→7px（自身厚度 22px 不变），
+     底部腾出 4px 专属轨道；下划线定位 bottom:1px;height:4px 落在该轨道内，
+     色段主体 100% 完整无任何缺口。圆角实心琥珀 + 外发光，hover 时轻微加粗下沉。 */
+  .load-heatmap .load-gap-mark{position:absolute;bottom:1px;height:4px;z-index:5;cursor:pointer;
+    background:#d97706;border-radius:2px;box-shadow:0 0 5px rgba(217,119,6,.6);
+    transition:height .12s,background .12s,bottom .12s;}
+  .load-heatmap .load-gap-mark:hover{bottom:0;height:6px;background:#b45309;box-shadow:0 0 7px rgba(180,83,9,.8);}
+  /* 命中区：向上扩 3px（止步于色段下缘，不抢 .load-seg 的 hover tip），向下扩 1px 到色带底。 */
+  .load-heatmap .load-gap-mark::before{content:'';position:absolute;left:0;right:0;top:-3px;bottom:-1px;background:transparent;}
   @keyframes idlePulse{0%,100%{opacity:1;}50%{opacity:.5;}}
   .row.row-target{background:#eaf1ff;}
   .row.row-target .cell-left{background:#eaf1ff;box-shadow:inset 4px 0 0 var(--blue);}
@@ -1182,7 +1185,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.44 · build 2026-08-21 11:04</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.45 · build 2026-08-21 11:08</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
