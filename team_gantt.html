@@ -223,6 +223,13 @@
   /* 空闲周：斜纹警示 + 橙色边框 */
   .load-heatmap .load-seg.idle-wk{background-image:repeating-linear-gradient(-45deg,transparent,transparent 3px,rgba(255,255,255,.35) 3px,rgba(255,255,255,.35) 6px) !important;box-shadow:inset 0 0 0 1.5px rgba(245,158,11,.65),0 1px 3px rgba(0,0,0,.1);}
   .load-heatmap .load-legend-idle{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:#b45309;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:10px;padding:2px 10px;white-space:nowrap;z-index:6;animation:idlePulse 2s ease-in-out infinite;pointer-events:none;box-shadow:0 2px 8px rgba(245,158,11,.25);}
+  /* v6.40 排期空隙标记：叠在负载色带上，标出「有人排期有空档」的日期区间。
+     用琥珀虚线上下边框 + 半透斜纹，既醒目又不盖掉底层负载颜色（仍能看出该周是绿/黄/红）。 */
+  .load-heatmap .load-gap-mark{position:absolute;top:0;bottom:0;z-index:3;cursor:pointer;
+    background:repeating-linear-gradient(45deg, rgba(217,119,6,.30) 0 4px, rgba(255,255,255,.35) 4px 8px);
+    border-top:2px solid #d97706;border-bottom:2px solid #d97706;
+    box-shadow:inset 0 0 0 1px rgba(217,119,6,.35);}
+  .load-heatmap .load-gap-mark:hover{background:repeating-linear-gradient(45deg, rgba(217,119,6,.45) 0 4px, rgba(255,255,255,.25) 4px 8px);z-index:5;}
   @keyframes idlePulse{0%,100%{opacity:1;}50%{opacity:.5;}}
   .row.row-target{background:#eaf1ff;}
   .row.row-target .cell-left{background:#eaf1ff;box-shadow:inset 4px 0 0 var(--blue);}
@@ -1159,7 +1166,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.39 · build 2026-08-21 10:35</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.40 · build 2026-08-21 10:42</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3181,9 +3188,43 @@ function loadHeatmapHTML(){
     ? `<span class="load-legend-idle">⚠ ${idleMembers.map(m=>m.name).join('、')} 空闲</span>`
     : '';
 
+  /* 8. v6.40 排期空隙标记：把「按人看」各行的内部空隙（≥3天）汇总投影到色带上。
+     复用 getMemberBusyIntervals + gapsFromIntervals（与行内琥珀底纹同源，保证口径一致）。
+     多人空隙重叠的日期区间做并集合并，避免叠一堆半透块糊成一片。 */
+  let gapMarks = '';
+  try{
+    const allGaps = [];
+    activeMembers.forEach(m => {
+      const merged = getMemberBusyIntervals(m.id);
+      gapsFromIntervals(merged).forEach(g => allGaps.push({s:g.x0, e:g.x1, name:m.name, days:g.days}));
+    });
+    if(allGaps.length){
+      // 按起点排序后合并重叠区间，并记录涉及的人
+      allGaps.sort((a,b)=>a.s-b.s||a.e-b.e);
+      const unions = [];
+      allGaps.forEach(g => {
+        const last = unions[unions.length-1];
+        if(last && g.s <= last.e){
+          last.e = Math.max(last.e, g.e);
+          if(!last.who.includes(g.name)) last.who.push(g.name);
+        }else{
+          unions.push({s:g.s, e:g.e, who:[g.name]});
+        }
+      });
+      gapMarks = unions.map(u => {
+        const leftPx = u.s * DAY_W;
+        const widthPx = (u.e - u.s) * DAY_W;
+        const days = u.e - u.s;
+        const tip = `⏳ 排期空隙 ${days} 天　${u.who.join('、')} 此期间有空档`;
+        return `<div class="load-gap-mark" style="left:${leftPx}px;width:${widthPx}px"
+          onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()"></div>`;
+      }).join('');
+    }
+  }catch(e){ console.warn('[load-heatmap gap marks]', e); gapMarks=''; }
+
   return `<div class="load-heatmap" id="loadHeatmap">
     <div class="load-label">📊 负载</div>
-    <div class="load-track" style="width:${DAYS*DAY_W}px">${bars}</div>
+    <div class="load-track" style="width:${DAYS*DAY_W}px">${bars}${gapMarks}</div>
     ${legend}
   </div>`;
 }
