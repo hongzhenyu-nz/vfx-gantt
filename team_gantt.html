@@ -1022,40 +1022,45 @@
   .panel-toc .ptoc-item.on{background:#e7edf8;color:var(--blue);font-weight:700;box-shadow:inset 2px 0 0 var(--blue);}
   .panel-toc .ptoc-dot{display:block;width:9px;height:9px;border-radius:50%;margin:0 auto 4px;flex-shrink:0;}
 
-  /* ============ v6.67 全局侧边导航（贴屏幕左缘常驻）============
-     用户诉求：把参考数据目录搬到页面左侧空白处，做成 fixed 悬浮条后**全程可见、不随滚动消失**。
-     ⚠️ 关键约束（实测算过）：.wrap 是 max-width:min(1980px,97vw)，1920px 屏上单侧空白仅 ~29px，
-        远小于导航宽度 72px —— 若只靠"塞进空白"会压住内容 49px。
-        故必须配套给 .wrap 加左侧让位（见 @media(min-width:1201px) 的 .wrap 规则），
-        用 padding-left 把内容推开，导航固定 left:10px，两者互不重叠。 */
-  .side-nav{position:fixed;left:10px;top:50%;transform:translateY(-50%);
-    z-index:60;width:72px;display:flex;flex-direction:column;gap:2px;padding:9px 6px 11px;
-    background:rgba(255,255,255,.94);backdrop-filter:blur(6px);border:1px solid var(--line);
-    border-radius:11px;box-shadow:0 3px 14px rgba(20,30,50,.10);}
-  .side-nav .sn-title{font-size:9.5px;font-weight:700;color:#9aa2ad;text-align:center;letter-spacing:.4px;
-    padding-bottom:7px;margin-bottom:3px;border-bottom:1px dashed var(--line2);line-height:1.3;}
-  .side-nav .sn-item{display:block;font-size:11px;color:var(--tx2);text-align:center;padding:8px 3px;
-    border-radius:6px;text-decoration:none;line-height:1.25;cursor:pointer;font-weight:500;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:background .12s,color .12s;}
+  /* ============ v6.68 全局侧边导航（贴内容区左侧常驻）============
+     v6.67 的问题（用户反馈）：① left:10px 贴死屏幕边缘，离内容太远、视线要横跨大片空白；
+       ② 标签太小（11px/72px 宽）不够醒目；③ 只有底部面板锚点，**当前视图区自己没有锚点**，
+       导致看甘特图时目录高亮对不上（观察者永远落在"负载率"上）。
+     v6.68 改法：
+       · 定位改用 max() —— 宽屏贴到内容区左缘外侧（不再贴屏幕边），窄屏兜底 8px；
+       · 宽度 72→104px、字号 11→12.5px、单项 padding 8→10px，整体明显加大；
+       · 拆成两组：【视图区】页面顶部/甘特图/参考数据 + 【参考数据】6 个板块，分组标题区隔；
+       · 甘特图区 .board 补 id="sec-gantt"，KPI 区补 id="sec-top"，纳入同一套滚动高亮。 */
+  .side-nav{position:fixed;left:max(8px,calc((100vw - min(1980px,97vw))/2 - 4px));top:50%;transform:translateY(-50%);
+    z-index:60;width:104px;display:flex;flex-direction:column;gap:2px;padding:11px 8px 13px;
+    background:rgba(255,255,255,.95);backdrop-filter:blur(7px);border:1px solid var(--line);
+    border-radius:12px;box-shadow:0 4px 16px rgba(20,30,50,.12);}
+  .side-nav .sn-title{font-size:10px;font-weight:700;color:#8d95a1;text-align:center;letter-spacing:.6px;
+    padding-bottom:7px;margin-bottom:4px;border-bottom:1px dashed var(--line2);line-height:1.3;}
+  /* 第二组标题：与上一组留出间距，视觉上分区 */
+  .side-nav .sn-title.grp2{margin-top:9px;padding-top:8px;border-top:1px dashed var(--line2);border-bottom:none;padding-bottom:4px;}
+  .side-nav .sn-item{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tx2);padding:10px 8px;
+    border-radius:7px;text-decoration:none;line-height:1.25;cursor:pointer;font-weight:600;
+    white-space:nowrap;overflow:hidden;transition:background .12s,color .12s;}
+  .side-nav .sn-item span{overflow:hidden;text-overflow:ellipsis;}
   .side-nav .sn-item:hover{background:#e7edf8;color:var(--blue);}
-  .side-nav .sn-item.on{background:#e7edf8;color:var(--blue);font-weight:700;box-shadow:inset 2px 0 0 var(--blue);}
-  .side-nav .sn-dot{display:block;width:8px;height:8px;border-radius:50%;margin:0 auto 3px;flex-shrink:0;}
-  /* 折叠态：只留一个竖排把手，避免窄屏或用户不需要时占地方 */
-  .side-nav .sn-toggle{position:absolute;top:-9px;right:-9px;width:19px;height:19px;border-radius:50%;
-    border:1px solid var(--line);background:#fff;color:var(--tx3);font-size:11px;line-height:1;
+  .side-nav .sn-item.on{background:#e2ebfb;color:var(--blue);font-weight:800;box-shadow:inset 3px 0 0 var(--blue);}
+  .side-nav .sn-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  /* 折叠态：只留圆点竖列 */
+  .side-nav .sn-toggle{position:absolute;top:-10px;right:-10px;width:21px;height:21px;border-radius:50%;
+    border:1px solid var(--line);background:#fff;color:var(--tx3);font-size:12px;line-height:1;
     cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;
-    box-shadow:0 1px 4px rgba(20,30,50,.14);}
+    box-shadow:0 1px 5px rgba(20,30,50,.16);}
   .side-nav .sn-toggle:hover{color:var(--blue);border-color:var(--blue);}
-  .side-nav.collapsed{width:30px;padding:8px 4px;}
+  .side-nav.collapsed{width:34px;padding:9px 5px;}
   .side-nav.collapsed .sn-item span,.side-nav.collapsed .sn-title{display:none;}
-  .side-nav.collapsed .sn-item{padding:6px 2px;}
-  .side-nav.collapsed .sn-dot{margin-bottom:0;width:9px;height:9px;}
+  .side-nav.collapsed .sn-item{padding:7px 2px;justify-content:center;}
+  .side-nav.collapsed .sn-dot{width:10px;height:10px;}
   /* 空间不足时（窄屏/小窗）直接隐藏，改由首屏 .quick-ref 承担导航 */
   @media(max-width:1200px){ .side-nav{display:none;} }
-  /* 宽屏：内容区左侧让出 92px（导航 10px 起 + 72px 宽 + 10px 间距），保证悬浮条绝不压住内容。
-     用 padding 而非 margin，避免影响 .wrap 的 max-width 居中计算与内部 sticky 元素定位。 */
-  @media(min-width:1201px){ .wrap{padding-left:92px;} }
-  /* 折叠后只占 30px，让位相应收窄到 50px（由 JS 给 body 加 .snav-collapsed 类切换） */
+  /* 宽屏：内容区左侧让出 116px（导航贴内容左缘 + 104px 宽 + 12px 间距）*/
+  @media(min-width:1201px){ .wrap{padding-left:116px;} }
+  /* 折叠后只占 34px，让位相应收窄到 50px（由 JS 给 body 加 .snav-collapsed 类切换） */
   @media(min-width:1201px){ body.snav-collapsed .wrap{padding-left:50px;} }
   .panel-body{flex:1;padding:18px 20px;min-width:0;overflow:hidden;}
   /* v6.66 首屏「参考数据」快捷入口条：目录做再高也只在页面底部，用户不滚就永远看不到。
@@ -1306,10 +1311,14 @@
 </style>
 </head>
 <body>
-<!-- v6.67 全局侧边导航：固定在页面容器外侧空白处，全程可见，点击直达底部参考数据板块 -->
+<!-- v6.68 全局侧边导航：分【视图区】+【参考数据】两组，贴内容区左缘常驻。
+     视图区锚点让目录能正确对齐当前所在位置（v6.67 只有底部面板锚点，看甘特图时高亮永远对不上）。 -->
 <nav class="side-nav" id="sideNav">
   <button class="sn-toggle" id="sideNavToggle" onclick="toggleSideNav()" title="折叠 / 展开侧边导航">‹</button>
-  <div class="sn-title">参考<br>数据</div>
+  <div class="sn-title">视图区</div>
+  <a class="sn-item" data-target="sec-top" href="#sec-top" onclick="jumpToPanel(event,'sec-top')" title="回到顶部：核心指标与视图切换"><i class="sn-dot" style="background:#5b6b82"></i><span>顶部指标</span></a>
+  <a class="sn-item" data-target="sec-gantt" href="#sec-gantt" onclick="jumpToPanel(event,'sec-gantt')" title="甘特图主区：当前视图的排期内容"><i class="sn-dot" style="background:var(--blue)"></i><span id="snGanttLabel">甘特图</span></a>
+  <div class="sn-title grp2">参考数据</div>
   <a class="sn-item" data-target="sec-load" href="#sec-load" onclick="jumpToPanel(event,'sec-load')" title="负载率：如何计算、饱和/超载分档"><i class="sn-dot" style="background:var(--blue)"></i><span>负载率</span></a>
   <a class="sn-item" data-target="sec-risk" href="#sec-risk" onclick="jumpToPanel(event,'sec-risk')" title="需求风险：双维度取高判定"><i class="sn-dot" style="background:var(--amber)"></i><span>需求风险</span></a>
   <a class="sn-item" data-target="sec-rank" href="#sec-rank" onclick="jumpToPanel(event,'sec-rank')" title="风险分档：等级阈值"><i class="sn-dot" style="background:var(--red)"></i><span>风险分档</span></a>
@@ -1320,7 +1329,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.67 · build 2026-08-21 16:08</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.68 · build 2026-08-21 16:32</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -1338,7 +1347,7 @@
     <span class="qr-hint">↓ 点击直达页面底部详表</span>
   </div>
 
-  <div class="kpis">
+  <div class="kpis" id="sec-top">
     <div class="kpi"><div class="lab">在岗编制人数</div><div class="val" id="kp-mem">—</div></div>
     <div class="kpi"><div class="lab">高峰并行角色数量</div><div class="val" id="kp-maker">—</div></div>
     <div class="kpi"><div class="lab">高峰负载率</div><div class="val w" id="kp-cfg">—</div></div>
@@ -1449,7 +1458,7 @@
     <div class="legend" id="legend"></div>
   </div>
 
-  <div class="board">
+  <div class="board" id="sec-gantt">
     <div class="scroll" id="scroll">
       <div class="grid" id="grid"></div>
     </div>
@@ -7889,7 +7898,15 @@ function rerender(){
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
 }
-function setView(v,btn){view=v;document.getElementById('viewTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();updateGroupSelUI();syncHideDoneCheckbox();rerender();}
+function setView(v,btn){view=v;document.getElementById('viewTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();updateGroupSelUI();syncHideDoneCheckbox();syncSideNavViewLabel();rerender();}
+/* v6.68：侧边导航「视图区」那一项跟随当前视图改名，让用户一眼确认目录指向的就是眼前这个视图。 */
+function syncSideNavViewLabel(){
+  const el=document.getElementById('snGanttLabel'); if(!el) return;
+  const map={person:'按人看', req:'按需求看', hr:'人力分配'};
+  el.textContent = map[view] || '甘特图';
+  const a=el.closest('.sn-item');
+  if(a) a.title = '甘特图主区 · 当前：' + (map[view]||'甘特图');
+}
 function updateHint(){
   const h=document.getElementById('hintBar'); if(!h)return;
   if(view==='req'){
@@ -8084,26 +8101,42 @@ function toggleSideNav(){
       if(btn){ btn.textContent='›'; btn.title='展开侧边导航'; }
     }
   }catch(_){}
-  // 滚动时高亮当前章节（IntersectionObserver），两套导航同时更新
+  // 视图标签初始化（刷新后保持与当前 view 一致）
+  if(typeof syncSideNavViewLabel==='function'){ syncSideNavViewLabel(); }
+
+  /* v6.68 滚动高亮改用「滚动位置直接判定」，替代 IntersectionObserver。
+     换掉的原因：IO 的 rootMargin:'-60px 0 -60% 0' 只留下屏幕上部 40% 作为判定带，
+     而 .board（甘特图区）高度常达 600~900px，远超判定带 → 它整块 intersecting 的时机
+     与底部小板块混在一起，导致看甘特图时高亮仍落在"负载率"上（用户反馈"对不上"）。
+     新方案：取各锚点相对文档顶的位置，选出「最后一个已滚过判定线的锚点」，
+     判定线设在视口上方 30% 处。这对区块高度完全不敏感，任意高度都准。 */
   const ids=[...new Set(items.map(a=>a.dataset.target))];
-  const sections=ids.map(id=>document.getElementById(id)).filter(Boolean);
+  /* ⚠️ 必须按**文档顺序**排序：判定逻辑是"取最后一个已滚过判定线的锚点"，
+     若数组顺序与页面实际顺序不一致（本例导航里视图区在前、面板锚点在后，
+     但 tocItems 先于 navItems 被收集，会让 sec-load 排在 sec-top 之前），结果就会错乱。
+     用 compareDocumentPosition 保证与页面真实先后一致。 */
+  const sections=ids.map(id=>document.getElementById(id)).filter(Boolean)
+    .sort((a,b)=> (a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1);
   if(!sections.length) return;
-  const observer=new IntersectionObserver((entries)=>{
-    // 找到最顶部可见的 section
-    let topMost=null; let minTop=Infinity;
-    entries.forEach(en=>{
-      if(en.isIntersecting && en.boundingClientRect.top < minTop){
-        minTop=en.boundingClientRect.top; topMost=en.target;
-      }
+  let rafPending=false;
+  function updateActive(){
+    rafPending=false;
+    const line=window.scrollY + window.innerHeight*0.30;   // 判定线：视口上方 30%
+    let cur=sections[0];
+    sections.forEach(s=>{
+      const top=s.getBoundingClientRect().top + window.scrollY;
+      if(top <= line) cur=s;                                // 已滚过判定线 → 更新为它
     });
-    if(topMost){
-      items.forEach(i=>i.classList.toggle('on', i.dataset.target===topMost.id));
+    // 滚到文档底部时强制高亮最后一项（否则末尾短板块永远选不中）
+    if(window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4){
+      cur = sections[sections.length-1];
     }
-  },{rootMargin:'-60px 0px -60% 0px', threshold:0});
-  sections.forEach(s=>observer.observe(s));
-  // 默认高亮第一项（两套各自的第一项）
-  if(tocItems[0]) tocItems[0].classList.add('on');
-  if(navItems[0]) navItems[0].classList.add('on');
+    if(cur) items.forEach(i=>i.classList.toggle('on', i.dataset.target===cur.id));
+  }
+  function onScroll(){ if(!rafPending){ rafPending=true; requestAnimationFrame(updateActive); } }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll, {passive:true});
+  updateActive();
 })();
 </script>
 </body>
