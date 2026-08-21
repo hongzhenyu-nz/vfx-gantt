@@ -1218,7 +1218,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.55 · build 2026-08-21 12:20</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.56 · build 2026-08-21 12:52</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2563,6 +2563,21 @@ function autoSegState(sg){
   return {status:'doing', prog};                                         // 进行中 → 蓝，分界线=今天
 }
 const fmt = d => (d.getMonth()+1)+'/'+d.getDate();
+/* ============================================================
+   v6.56 「含末日存储」口径迁移 —— 只在 I/O 边界转换
+   ------------------------------------------------------------
+   · 云端/localStorage 存的 e 是「含末日」（最后一个在排日），符合人的读法，前后段日期不重叠。
+   · 运行时内存里的 e 仍是「排他式」终点（e = 最后一天 + 1），所有渲染/重叠判定/循环
+     （for d=s; d<e）/工期统计等 20+ 处逻辑保持原样，零改动、零风险。
+   · 边界转换：读入 +1（含末日 → 排他），写出 -1（排他 → 含末日）。
+   · SNAP_VER 用于识别旧快照（无此字段 = 旧的排他式存储 → 读入时不做 +1，一次性自然升级）。
+   ============================================================ */
+const SNAP_VER = 2;                       // 2 = 含末日存储；缺失/1 = 旧的排他式存储
+let _snapVerIn = SNAP_VER;                // 当前已加载快照的版本，供 applySnap 内部判断
+/* 读入：把存储值转成内存用的排他终点 */
+const eIn  = (v, ver) => (ver>=2 ? v+1 : v);
+/* 写出：把内存的排他终点转成存储用的含末日 */
+const eOut = v => v-1;
 /* v6.55 结束日期「显示专用」格式化 —— 只影响显示，不动数据与渲染。
    底层 seg.e 是「排他式」终点（条宽 =(e-s)*DAY_W，实际画到 e-1 那天末尾），
    但过去直接用 fmt(seg.e) 显示，导致「前条末日」与「后条首日」是同一天（全表 40 对交接都这样），
@@ -6158,13 +6173,19 @@ function coreSnapshot(){
     estRecalc:estRecalc,
     estRecalcVer:estRecalcVer,
     groupMode:{person:GROUP_MODE.person,req:GROUP_MODE.req},
+    snapVer:SNAP_VER,                                    // v6.56 标记本快照为「含末日存储」
     // 需求：除原有 end/done/split 外，序列化全部字段，使「新增需求」持久化
-    reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',state:r.state||'active',estimate:r.estimate,end:idx(r.end),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),
-      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:idx(s.e),prog:s.prog,status:s.status,support:!!s.support,open:!!s.open,...(s.inv!=null?{inv:s.inv}:{})}))}))
+    // v6.56：end / seg.e 写出时 -1，由内存的排他终点转为存储的含末日（open 段无实义窗口，同样转换以保持可逆）
+    reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',state:r.state||'active',estimate:r.estimate,end:eOut(idx(r.end)),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),
+      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:eOut(idx(s.e)),prog:s.prog,status:s.status,support:!!s.support,open:!!s.open,...(s.inv!=null?{inv:s.inv}:{})}))}))
   };
 }
 function applySnap(snap){
   if(!snap)return;
+  /* v6.56 口径识别：snapVer>=2 的快照存的是「含末日」，读入需 +1 还原成内存用的排他终点；
+     旧快照（无 snapVer）本就是排他式，原样读入 → 首次保存时自动升级为新格式，无需手工迁移。 */
+  const _ver = Number(snap.snapVer||1);
+  _snapVerIn = _ver;
   // 合并对方带来的变更记录（去重、按时间排序），使留痕在全团队一致
   if(Array.isArray(snap._log)) mergeLog(snap._log);
   // 成员：按 id 更新现有；找不到则视为「新增成员」push 进数组（保证新建成员跨刷新/分享/云端不丢）
@@ -6238,12 +6259,13 @@ function applySnap(snap){
     let r=reqs.find(x=>x.id===rs.id);
     if(!r && rs.name){
       // 新增需求：按快照重建（含 segs），push 进数组
-      r={id:rs.id,name:rs.name,char:rs.char||'',mod:rs.mod||'',grade:rs.grade||'',line:rs.line||'-',kind:rs.kind||'fx',state:rs.state||'active',estimate:rs.estimate||1,done:rs.done||0,end:i2d(rs.end||idx(TODAY)),segs:[]};
+      r={id:rs.id,name:rs.name,char:rs.char||'',mod:rs.mod||'',grade:rs.grade||'',line:rs.line||'-',kind:rs.kind||'fx',state:rs.state||'active',estimate:rs.estimate||1,done:rs.done||0,end:i2d(rs.end!=null?eIn(rs.end,_ver):idx(TODAY)),segs:[]};
       reqs.push(r);
     }
     if(!r)return;
     if(rs.state!==undefined){ if(rs.state&&rs.state!=='active')r.state=rs.state; else delete r.state; }
-    r.end=i2d(rs.end); if(rs.done!==undefined)r.done=rs.done;
+    if(rs.end!=null) r.end=i2d(eIn(rs.end,_ver));
+    if(rs.done!==undefined)r.done=rs.done;
     if(rs.estimate!==undefined)r.estimate=rs.estimate;
     if(rs.name!=null)r.name=rs.name;
     if(rs.char!=null)r.char=rs.char;
@@ -6253,7 +6275,7 @@ function applySnap(snap){
     if(rs.split2!==undefined) r.split2=(rs.split2==null?undefined:rs.split2); // L2/联调 分割点（绝对日索引）
     // 全量重建 segs（不再按下标合并）：保证「新增/删除人员段」在刷新、分享链接、跨标签同步后都不丢失
     if(Array.isArray(rs.segs)){
-      r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(ss.e),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;if(ss.open)o.open=true;if(ss.inv!=null)o.inv=ss.inv;return o;});
+      r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(eIn(ss.e,_ver)),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;if(ss.open)o.open=true;if(ss.inv!=null)o.inv=ss.inv;return o;});
     }
   });
   // 同步归档/分组控件 UI
