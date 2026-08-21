@@ -1218,7 +1218,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.52 · build 2026-08-21 11:48</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.53 · build 2026-08-21 11:52</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3846,7 +3846,7 @@ function getMemberBusyIntervals(mid, transient){
    v6.43：改为工作日口径 —— days 只数工作日（排除周末/节假日，用 shadeType 判定），
    阈值也按工作日比较。这样「周五结束、下周一开始」那种纯周末间隔不会再被误标成空闲。 */
 function gapsFromIntervals(merged){
-  const gaps=[]; const MIN_WORKDAYS=2;
+  const gaps=[]; const MIN_WORKDAYS=1;   /* v6.53: 2→1，1天工作日空档也显示标识（窄空隙标签自适应降级） */
   for(let i=0;i<merged.length-1;i++){
     const a=merged[i], b=merged[i+1];
     const x0=a.e, x1=b.s;
