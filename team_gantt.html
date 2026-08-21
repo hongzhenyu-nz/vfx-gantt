@@ -1210,7 +1210,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.48 · build 2026-08-21 11:28</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.49 · build 2026-08-21 11:36</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3232,15 +3232,21 @@ function loadHeatmapHTML(){
     ? `<span class="load-legend-idle">⚠ ${idleMembers.map(m=>m.name).join('、')} 空闲</span>`
     : '';
 
-  /* 8. v6.40 排期空隙标记：把「按人看」各行的内部空隙（≥3天）汇总投影到色带上。
-     复用 getMemberBusyIntervals + gapsFromIntervals（与行内琥珀底纹同源，保证口径一致）。
-     多人空隙重叠的日期区间做并集合并，避免叠一堆半透块糊成一片。 */
+  /* 8. v6.49 排期空隙标记：把「按人看」各行的内部空隙投影到色带上。
+     **必须与行内 .gap-indicator 完全同源**，否则边界对不上（用户反馈"专属轨道没与空闲区域边界对齐"）。
+     v6.48 前的 bug：这里遍历 activeMembers 重新调 getMemberBusyIntervals 计算，
+     而行内块用的是 paint 期间存进 gapData 的结果 —— 两者成员集合与过滤口径不同：
+       · 成员集合：activeMembers 排除占位成员，但占位行同样会渲染空隙块 → 色带漏掉占位行的空档
+       · HIDE_DONE：getMemberBusyIntervals 内部按 HIDE_DONE[view] 过滤已完成需求，
+         但色带在 view 非 person 时口径又不同 → 空隙宽窄不一致
+     v6.49 改为**直接复用 gapData**（就是行内块渲染用的那份数据），从数据层保证像素级对齐。 */
   let gapMarks = '';
   try{
     const allGaps = [];
-    activeMembers.forEach(m => {
-      const merged = getMemberBusyIntervals(m.id);
-      gapsFromIntervals(merged).forEach(g => allGaps.push({s:g.x0, e:g.x1, name:m.name, days:g.days}));
+    gapData.forEach((gaps, mid) => {
+      const mem = members.find(x=>x.id===mid);
+      if(!mem || isVacantMem(mem)) return;   // 占位坑位不参与（缺人本就没排满，标"空闲"无意义）
+      (gaps||[]).forEach(g => allGaps.push({s:g.x0, e:g.x1, name:mem.name, days:g.days}));
     });
     if(allGaps.length){
       // 按起点排序后合并重叠区间，并记录涉及的人
@@ -3337,6 +3343,7 @@ function assignLanes(items){               // items: [{s,e,...}]，s/e 为天索
 
 /* ============ 视图1：按人 ============ */
 function renderPerson(){
+  gapData.clear();   // v6.49：每次重渲染前清空，避免已删除/已改派成员的旧空隙残留污染色带标记
   // 先筛出可见成员。离职者一律保留（交给归档逻辑收纳进底部归档区，可展开），
   // 仅在「关闭自动归档」时才用 leftLong 做 31 天硬隐藏，避免列表无限堆积。
   const visible=members.filter(m=>{
@@ -3887,17 +3894,51 @@ function injectGapIndicators(){
     gaps.forEach(g=>tl.appendChild(buildGapEl(g)));
   });
 }
-/* 拖拽过程中实时重算某人空隙（transient 覆盖被拖段的瞬时天索引），只动该行 DOM。 */
+/* 拖拽过程中实时重算某人空隙（transient 覆盖被拖段的瞬时天索引），只动该行 DOM。
+   v6.49：同时刷新色带上的下划线标记，保证拖拽过程中两者边界始终一致（不再一个动一个不动）。 */
 function refreshGapsForMember(mid, transient){
   const merged=getMemberBusyIntervals(mid, transient);
   const gaps=gapsFromIntervals(merged);
   gapData.set(mid, gaps);
   const row=document.querySelector(`#grid .row[data-mem="${mid}"]`);
-  if(!row) return;
-  const tl=row.querySelector('.timeline');
-  if(!tl) return;
-  tl.querySelectorAll('.gap-indicator').forEach(el=>el.remove());
-  gaps.forEach(g=>tl.appendChild(buildGapEl(g)));
+  if(row){
+    const tl=row.querySelector('.timeline');
+    if(tl){
+      tl.querySelectorAll('.gap-indicator').forEach(el=>el.remove());
+      gaps.forEach(g=>tl.appendChild(buildGapEl(g)));
+    }
+  }
+  try{ refreshBandGapMarks(); }catch(_){}   // 色带下划线同步重算（出错不影响拖拽）
+}
+/* 由当前 gapData 重算色带下划线（与 loadHeatmapHTML 第 8 步同一算法），只替换 .load-gap-mark 节点。
+   抽出来供拖拽实时调用，避免整页 rerender。 */
+function refreshBandGapMarks(){
+  const track=document.querySelector('#loadHeatmap .load-track');
+  if(!track) return;
+  track.querySelectorAll('.load-gap-mark').forEach(el=>el.remove());
+  const allGaps=[];
+  gapData.forEach((gaps, mid)=>{
+    const mem=members.find(x=>x.id===mid);
+    if(!mem || isVacantMem(mem)) return;
+    (gaps||[]).forEach(g=>allGaps.push({s:g.x0, e:g.x1, name:mem.name}));
+  });
+  if(!allGaps.length) return;
+  allGaps.sort((a,b)=>a.s-b.s||a.e-b.e);
+  const unions=[];
+  allGaps.forEach(g=>{
+    const last=unions[unions.length-1];
+    if(last && g.s<=last.e){ last.e=Math.max(last.e,g.e); if(!last.who.includes(g.name)) last.who.push(g.name); }
+    else unions.push({s:g.s, e:g.e, who:[g.name]});
+  });
+  unions.forEach(u=>{
+    let wd=0; for(let d=u.s; d<u.e; d++){ if(shadeType(d)===null) wd++; }
+    const d=document.createElement('div');
+    d.className='load-gap-mark';
+    d.style.left=(u.s*DAY_W)+'px';
+    d.style.width=((u.e-u.s)*DAY_W)+'px';
+    d.title=`⏳ 排期空隙 ${wd} 个工作日（共 ${u.e-u.s} 天，已排除周末/节假日）　${u.who.join('、')} 此期间有空档`;
+    track.appendChild(d);
+  });
 }
 
 function paint(rows){
