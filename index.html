@@ -214,9 +214,9 @@
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);}
   /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色
      布局与 .row 一致：左侧 sticky 冻结 + 右侧 timeline 固定像素宽，杜绝出框/裁剪 */
-  .load-heatmap{display:flex;align-items:center;border-bottom:1px solid var(--line2);background:var(--panel);position:relative;z-index:4;height:32px;flex-shrink:0;overflow:hidden;}   /* v6.51 加 overflow:hidden 约束色带空隙标记不溢出到下方行 */
-  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;align-items:center;padding:8px 14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:0;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;position:sticky;left:0;background:var(--panel);z-index:4;}
-  .load-heatmap .load-track{position:relative;height:100%;flex-shrink:0;min-width:0;overflow:visible;}
+  .load-heatmap{display:flex;align-items:center;border-bottom:1px solid var(--line2);background:var(--panel);position:relative;z-index:4;height:32px;flex-shrink:0;}   /* v6.53b 撤销 v6.51 的 overflow:hidden —— 它会让 .load-label 的 position:sticky 失效（sticky 在 overflow:hidden 祖先内不生效），导致左侧「📊负载」标签消失、色带铺进名栏 */
+  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;align-items:center;padding:8px 14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:0;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;position:sticky;left:0;background:var(--panel);z-index:7;}   /* v6.53b z-index 4→7：必须高于 .load-gap-mark，否则横向滚动时空隙标记会画到冻结名栏之上 */
+  .load-heatmap .load-track{position:relative;height:100%;flex-shrink:0;min-width:0;overflow:hidden;}   /* v6.53b 约束移到 track 层：既能裁掉空隙标记的垂直溢出，又不影响 .load-label 的 sticky */
   /* 周粒度色段 —— 简洁纯色，不出框 */
   .load-heatmap .load-seg{position:absolute;top:3px;bottom:7px;border-radius:3px;transition:background .2s;cursor:pointer;}   /* v6.45 bottom 3→7px：让出底部 4px 下划线轨道，色段自身厚度维持 22px 不变 */
   .load-heatmap .load-seg:hover{opacity:.8;z-index:2;}
@@ -1218,7 +1218,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.53 · build 2026-08-21 11:52</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.53b · build 2026-08-21 11:58</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
