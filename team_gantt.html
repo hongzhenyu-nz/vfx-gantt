@@ -1446,7 +1446,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.92 · build 2026-08-24 18:48</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.92 · build 2026-08-24 19:05</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -4108,7 +4108,7 @@ function personRowHTML(m,inArc){
     const focusCls = focusMode==='hl' ? (fr==='self'?' me-self':fr==='team'?' me-team':' dim') : (fr==='self'?' me-self':fr==='team'?' me-team':'');
     const isBase = m.corp === 'base';
     const isLoan=isExtLoan(m);
-    return `<div class="row${isLeft?' is-left':''}${isLoan?' is-loan':''}${isBase && !isLeft?' is-base':''}${inArc?' in-archived:''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
+    return `<div class="row${isLeft?' is-left':''}${isLoan?' is-loan':''}${isBase && !isLeft?' is-base':''}${inArc?' in-archived':''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
       <div class="cell-left">
         <div class="emp-badge ${m.corp}" title="${m.corp==='reg'?'正编（带队）':m.corp==='sub'?'子公司':'基地'}">
           <span class="el">${m.corp==='reg'?'正编':m.corp==='sub'?'子':'基地'}</span>
