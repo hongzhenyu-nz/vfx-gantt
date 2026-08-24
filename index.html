@@ -353,6 +353,17 @@
      属历史死代码；其 width:var(--day-w) 与新的 translateX(-50%) 居中逻辑也不兼容。 */
   /* v6.86：同 .vline，跨日界居中，避免整根线偏向一侧吞掉相邻灰带边缘 */
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;transform:translateX(-50%);}
+  /* v7.07 今天红线标注：线顶挂一枚「今天 M/D」红色胶囊，让这条红线的含义自解释。
+     父容器 .todayline 的 top:0 已是日期轴下缘（外层壳 top:82px），故用负 top 上浮贴住日期轴；
+     overflow:visible 让胶囊能溢出 2px 宽的线体；pointer-events:none 承自父级，绝不挡拖拽与点击。 */
+  .todayline::before{content:attr(data-today);position:absolute;top:-19px;left:1px;transform:translateX(-50%);
+    z-index:4;white-space:nowrap;font-size:10.5px;font-weight:800;letter-spacing:.2px;line-height:1;
+    color:#fff;background:var(--red);padding:3px 7px 3px 6px;border-radius:5px;
+    box-shadow:0 1px 4px rgba(239,59,57,.45);opacity:.96;}
+  /* 胶囊下方一个小三角，指向红线，视觉上「标签属于这条线」 */
+  .todayline::after{content:'';position:absolute;top:-6px;left:1px;transform:translateX(-50%);
+    z-index:4;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
+    border-top:5px solid var(--red);opacity:.96;}
 
   /* v6.85 品级色条改为「叠加不占位」：原用 border-left:3px，但 box-sizing:border-box 下
      边框会挤占内容宽度，使条内按 (i-si0)*DAY_W 定位的休息日块 .rest 整体右移 3px，
@@ -1449,7 +1460,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.06 · build 2026-08-24 23:20</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.07 · build 2026-08-24 23:36</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3735,7 +3746,7 @@ function headerHTML(){
   return `<div class="row head">
     <div class="cell-left">${headLabel}</div>
     <div class="timeline" style="width:${DAYS*DAY_W}px">${months}${weeks}</div></div>`
-   + `__VLINES__${shades}${vlines}<div class="todayline" style="left:${tx}px"></div>`;
+   + `__VLINES__${shades}${vlines}<div class="todayline" data-today="今天 ${fmt(TODAY)}" style="left:${tx}px"></div>`;
 }
 
 /* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
