@@ -1413,7 +1413,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.80 · build 2026-08-24 13:16</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.80b · build 2026-08-24 14:22</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -8584,28 +8584,29 @@ function rerender(){
      → 行与行之间条纹错位。渲染后统一校准 background-position，以 #grid 顶为共同原点。 */
   requestAnimationFrame(()=>alignStripeBackgrounds());
 }
-/* v6.80 斜纹底纹跨行对齐
-   问题：.row.req-paused .timeline / .row.req-done .timeline 等规则在各自行上
-   独立绘制 repeating-linear-gradient，每行从自身(0,0)起 → 条纹在行间错位（"歪了"）。
-   修复：以 #grid 为共同原点，把每行 timeline 的 background-position Y 轴偏移设为
-   其 offsetTop 的负值，使所有行的条纹如同画在同一张连续画布上。 */
+/* v6.80 斜纹底纹跨行对齐（v6.80b 修正：v6.80a 只对齐 .timeline 但实际歪的是条内 .rest 等元素）
+   问题根源（v5.7 起）：.bar-task .prog .rest（周末/节假日暗块）各自从(0,0)绘 45° 斜纹
+   → 每个块的条纹起点不同 → 行与行之间斜纹错位（"歪了"）
+   同理影响：.row.req-paused/done .timeline、.bar-task.k-qa、.vacant-bar 等。
+   修复：以 #grid 为共同原点，把所有斜纹元素的 background-position 校准到同一坐标系。 */
 function alignStripeBackgrounds(){
   const grid=document.getElementById('grid'); if(!grid) return;
-  const gTop=grid.offsetTop;
-  // 匹配所有带 repeating-linear-gradient 斜纹背景的 timeline 元素
-  document.querySelectorAll('#grid > .row .timeline').forEach(tl=>{
-    const cs=getComputedStyle(tl);
+  const gridRect=grid.getBoundingClientRect();
+  // 遍历 grid 内所有可能带斜纹背景的元素
+  grid.querySelectorAll('[style*="background"], .rest, .timeline, .bar-task, .vacant-bar, .load-seg').forEach(el=>{
+    const cs=getComputedStyle(el);
     const bg=cs.backgroundImage;
     if(!bg || !bg.includes('repeating-linear-gradient')) return;
-    // 只处理有角度的斜纹（45deg/-45deg/135deg），不处理 90deg 竖线
-    if(!bg.match(/\d+deg/)) return;
-    const angle=bg.match(/([\-]?\d+)deg/)[1];
-    if(angle==='90'||angle==='0'||angle==='180') return;  // 竖/横纹不需要跨行对齐
-    // 以 grid 顶为原点：该 timeline 在 grid 内的 Y 偏移 → background-position 取反
-    const rect=tl.getBoundingClientRect();
-    const gridRect=grid.getBoundingClientRect();
+    // 只处理有角度的斜纹（45deg/-45deg/135deg 等），跳过 90deg 竖线 / 0/180 横线
+    const m=bg.match(/([\-]?\d+)deg/);
+    if(!m) return;
+    const angle=m[1];
+    if(angle==='90'||angle==='0'||angle==='180'||angle==='270') return;
+    // 计算该元素相对于 grid 顶部的 Y 偏移
+    const rect=el.getBoundingClientRect();
     const y=Math.round(rect.top-gridRect.top);
-    tl.style.backgroundPosition='0 '+(-y)+'px';
+    // 对 45°/-45deg/135° 等斜纹：Y 轴偏移量 = -y 使所有元素共享以 grid 顶为原点的坐标系
+    el.style.backgroundPosition='0 '+(-y)+'px';
   });
 }
 function setView(v,btn){view=v;document.getElementById('viewTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();updateGroupSelUI();syncHideDoneCheckbox();syncSideNavViewLabel();rerender();}
