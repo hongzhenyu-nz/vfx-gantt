@@ -338,14 +338,21 @@
   .day-head.we{background:#fafbfc;color:#c0c4cc;}
   .day-head.today{color:var(--blue);font-weight:600;}
 
-  .vline{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);}
+  /* v6.86 周/月分隔线改为「跨界居中」：原本整根 1px 线画在日界右侧（left:i*DAY_W），
+     恰好压在双休灰带 .daycol.we 的右边缘上，与灰带融为一体 → 灰带视觉右缘外扩约 0.77px，
+     使条内双休暗块显得「左边多、右边少、整体偏左」（A/B 实测：隐藏 .vline 后偏差 0.769px → 0.001px）。
+     改为 transform:translateX(-50%) 让线体跨日界居中，两侧各占 0.5px，
+     不再单侧吞掉灰带边缘，灰带左右边界即与条内暗块严格一致。 */
+  .vline{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);transform:translateX(-50%);}
   /* 节假日/双休灰列：贯穿全高、置于最底层，任务条与竖线覆盖其上；pointer-events:none 不挡交互 */
   .daycol{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0;}
   .daycol.we{background:rgba(120,130,145,.10);}                 /* 双休：浅灰 */
   .daycol.hol{background:rgba(224,90,90,.10);}                  /* 法定节假日：淡红灰，与双休区分 */
   .vline.mono{background:#dfe2e6;width:1px;}
-  .vline.we{background:#fafbfc;width:var(--day-w);}
-  .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
+  /* v6.86 移除 .vline.we —— 全文无任何代码生成该类（vlines 只产出 .vline 与 .vline.mono），
+     属历史死代码；其 width:var(--day-w) 与新的 translateX(-50%) 居中逻辑也不兼容。 */
+  /* v6.86：同 .vline，跨日界居中，避免整根线偏向一侧吞掉相邻灰带边缘 */
+  .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;transform:translateX(-50%);}
 
   /* v6.85 品级色条改为「叠加不占位」：原用 border-left:3px，但 box-sizing:border-box 下
      边框会挤占内容宽度，使条内按 (i-si0)*DAY_W 定位的休息日块 .rest 整体右移 3px，
@@ -1434,7 +1441,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.85 · build 2026-08-24 15:52</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.86 · build 2026-08-24 16:20</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
