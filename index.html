@@ -1413,7 +1413,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.79 · build 2026-08-24 11:56</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.80 · build 2026-08-24 13:16</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -8580,6 +8580,33 @@ function rerender(){
   if(typeof buildMeSel==='function') buildMeSel();        // 刷新「我是谁」下拉（成员/角色可能已变）
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
+  /* v6.80 斜纹底纹跨行对齐：各行的 .timeline 各自从(0,0)起绘 repeating-linear-gradient
+     → 行与行之间条纹错位。渲染后统一校准 background-position，以 #grid 顶为共同原点。 */
+  requestAnimationFrame(()=>alignStripeBackgrounds());
+}
+/* v6.80 斜纹底纹跨行对齐
+   问题：.row.req-paused .timeline / .row.req-done .timeline 等规则在各自行上
+   独立绘制 repeating-linear-gradient，每行从自身(0,0)起 → 条纹在行间错位（"歪了"）。
+   修复：以 #grid 为共同原点，把每行 timeline 的 background-position Y 轴偏移设为
+   其 offsetTop 的负值，使所有行的条纹如同画在同一张连续画布上。 */
+function alignStripeBackgrounds(){
+  const grid=document.getElementById('grid'); if(!grid) return;
+  const gTop=grid.offsetTop;
+  // 匹配所有带 repeating-linear-gradient 斜纹背景的 timeline 元素
+  document.querySelectorAll('#grid > .row .timeline').forEach(tl=>{
+    const cs=getComputedStyle(tl);
+    const bg=cs.backgroundImage;
+    if(!bg || !bg.includes('repeating-linear-gradient')) return;
+    // 只处理有角度的斜纹（45deg/-45deg/135deg），不处理 90deg 竖线
+    if(!bg.match(/\d+deg/)) return;
+    const angle=bg.match(/([\-]?\d+)deg/)[1];
+    if(angle==='90'||angle==='0'||angle==='180') return;  // 竖/横纹不需要跨行对齐
+    // 以 grid 顶为原点：该 timeline 在 grid 内的 Y 偏移 → background-position 取反
+    const rect=tl.getBoundingClientRect();
+    const gridRect=grid.getBoundingClientRect();
+    const y=Math.round(rect.top-gridRect.top);
+    tl.style.backgroundPosition='0 '+(-y)+'px';
+  });
 }
 function setView(v,btn){view=v;document.getElementById('viewTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();updateGroupSelUI();syncHideDoneCheckbox();syncSideNavViewLabel();rerender();}
 /* v6.68：侧边导航「视图区」那一项跟随当前视图改名，让用户一眼确认目录指向的就是眼前这个视图。 */
