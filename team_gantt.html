@@ -218,8 +218,12 @@
 
   .row{display:flex;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;min-height:var(--row-h);position:relative;transition:background .15s;}
   /* v6.78 回退 v6.77 斑马纹（nth-of-type 交替底色导致日期行/表头渲染异常，日期标签消失） */
-  /* 悬停高亮：鼠标所在行更醒目 */
-  #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):hover{background:#f0f4ff!important;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4, inset 0 1px 0 rgba(29,111,214,.12)!important;}
+  /* 悬停高亮：鼠标所在行更醒目。
+     v6.82 关键：必须用**半透明** rgba，不能用不透明色值。
+     日期底纹 .daycol（周末/节假日灰列）画在一个全局绝对定位层上，该层在 DOM 中排在 .row 之前
+     → 行的背景会盖在它上面。若 hover 用不透明色（旧版 #f0f4ff），周末底纹整行消失。
+     改为 rgba(51,112,255,.07) 后，蓝色高亮与底纹叠加显示，底纹始终可见。 */
+  #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):hover{background:rgba(51,112,255,.07)!important;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4, inset 0 1px 0 rgba(29,111,214,.12)!important;}
   .row:last-child{box-shadow:none;}
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:5;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;}
   /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色
@@ -359,14 +363,16 @@
     background-image:
       repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),
       linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(255,255,255,.50) calc(var(--p,0)*1%) 100%);}
-  /* v5.7 休息日暗块：周末/节假日在条内叠一层竖纹暗块，表达「这天停工·不算人天产出」。
-     竖纹(90°)不随行偏移错位——周末列 X 位置全局固定→各行列纹相位一致→天然跨行完美对齐。
-     left 从条起始整天边界起算(k*DAY_W)自动对齐。 */
+  /* v5.7 休息日暗块：周末/节假日在条内叠一层 45° 斜纹暗块，表达「这天停工·不算人天产出」。
+     left 从条起始整天边界起算(k*DAY_W)自动对齐日期列。
+     v6.82 跨行对齐：45° 斜纹相位只取决于 (x − y) 这一个标量，故用 background-position 平移
+     (−dx, −dy)（dx/dy = 该块相对 #grid 的偏移）即可数学精确地把所有块对齐到同一全局坐标系。
+     由 alignStripes() 在渲染后统一注入（v6.80b 只减 dy 漏了 dx，故当时仍歪）。 */
   .bar-task .prog .rest{position:absolute;top:0;bottom:0;z-index:1;pointer-events:none;
     background-color:rgba(15,23,42,.13);
-    background-image:repeating-linear-gradient(90deg,rgba(15,23,42,.10) 0 2.5px,rgba(15,23,42,0) 2.5px 6px);}
+    background-image:repeating-linear-gradient(45deg,rgba(15,23,42,.10) 0 2.5px,rgba(15,23,42,0) 2.5px 6px);}
   .bar-task .prog .rest.hol{background-color:rgba(120,20,20,.17);
-    background-image:repeating-linear-gradient(90deg,rgba(80,10,10,.13) 0 2.5px,rgba(80,10,10,0) 2.5px 6px);}  /* 节假日：偏红的竖纹，比双休更醒目 */
+    background-image:repeating-linear-gradient(45deg,rgba(80,10,10,.13) 0 2.5px,rgba(80,10,10,0) 2.5px 6px);}  /* 节假日：偏红的斜纹，比双休更醒目 */
   /* 进度分界竖线：标记当前「已完成/未完成」交界位置 */
   .bar-task .prog::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--p,0)*1%);width:2px;z-index:2;
     background:rgba(255,255,255,.92);box-shadow:1px 0 0 rgba(0,0,0,.06);}
@@ -393,7 +399,7 @@
      用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
   .bar-task.open{
     background-color:transparent;
-    background-image:repeating-linear-gradient(90deg,rgba(180,160,140,.10) 0 8px,transparent 8px 16px);
+    background-image:repeating-linear-gradient(45deg,rgba(180,160,140,.10) 0 8px,transparent 8px 16px);
     -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
             mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
     border-left:none!important;opacity:1;box-shadow:none!important;}
@@ -709,7 +715,7 @@
   .rstate-tag.dropped{color:#fff;background:#9097a0;border-color:#7d838c;box-shadow:0 1px 3px rgba(0,0,0,.18);}
   body.ro-mode .rstate-tag.active{display:none;}   /* 只读模式隐藏正常态的设置入口（暂停/废弃徽标仍展示供识别） */
   /* 暂停需求：整行加黄色条纹底纹 + 状态标签醒目，但保留统计 */
-  .row.req-paused .timeline{background-image:repeating-linear-gradient(90deg,rgba(224,140,0,.07) 0 8px,transparent 8px 16px);}
+  .row.req-paused .timeline{background-image:repeating-linear-gradient(45deg,rgba(224,140,0,.07) 0 8px,transparent 8px 16px);}
   .row.req-paused .bar-task.req-bar{filter:saturate(.6);}
   .row.req-paused .bar-task.req-bar::after{content:'暂停中';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(224,140,0,.92);color:#fff;font-size:11px;font-weight:800;letter-spacing:1px;padding:2px 10px;border-radius:6px;z-index:6;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25);}
   /* 废弃需求：整行删除线灰化 */
@@ -729,7 +735,7 @@
   .row.req-done .bar-task.req-bar .bl-lane-lab{opacity:.62;}           /* 子条上的人名/消化标签淡化 */
   .row.req-done .bar-task.req-bar .bl-add{display:none;}               /* 锁死：隐藏"加人"按钮 */
   .row.req-done .bar-task.req-bar::after{content:'✓ 已完成';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(78,203,160,.97);color:#fff;font-size:15px;font-weight:800;letter-spacing:2px;padding:5px 18px;border-radius:8px;z-index:3;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.28);opacity:1;}
-  .row.req-done .timeline{background-image:repeating-linear-gradient(90deg,rgba(78,203,160,.05) 0 8px,transparent 8px 16px);}
+  .row.req-done .timeline{background-image:repeating-linear-gradient(45deg,rgba(78,203,160,.05) 0 8px,transparent 8px 16px);}
   .req .char-nm{font-weight:700;}
   /* 模块类型标签：图标+短名+主题色，强化区分同角色不同模块 */
   .mod-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;background:#f0f2f6;border:1px solid #dfe3ea;vertical-align:middle;line-height:1.5;}
@@ -1415,7 +1421,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.81 · build 2026-08-24 14:32</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.82 · build 2026-08-24 14:42</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -4400,8 +4406,45 @@ function paint(rows){
   updateKPIs();
   if(typeof reapplySelection==='function') reapplySelection();
   injectGapIndicators();   // v6.26：渲染后注入排期空隙提示（半透琥珀，始终显示）
+  alignStripes();          // v6.82：把所有 45° 斜纹块对齐到全局坐标系（消除跨行错位）
   // v5.0：渲染后按真实像素实测降级标签（横排隐藏低优先徽标 → 缩字号 → 竖排 → 省略号）
   requestAnimationFrame(fitBarLabels);
+}
+/* ============ v6.82 45° 斜纹跨行对齐（根治「日期底纹歪了」）============
+   问题：repeating-linear-gradient 以每个元素自身 padding-box 左上角为原点平铺。
+   条内休息日暗块 .rest 有各自的 (left, top)，故各块斜纹起始相位不同 → 跨行/跨条看起来"歪"。
+
+   数学依据（为什么单个 background-position 就够）：
+   45° 斜纹的条纹沿垂直于 (1,-1)/√2 方向重复，某点 (x,y) 落在哪根条纹上只取决于
+   标量 u = (x − y)（乘常数后取模周期）。若某块在全局坐标里的偏移是 (dx, dy)，
+   则其局部点 (x,y) 对应全局 (x+dx, y+dy)，全局相位 u' = (x+dx) − (y+dy) = u + (dx − dy)。
+   把 background-position 设为 (−dx, −dy) 即令 u'' = u + (dx−dy) − (dx−dy) = u，
+   与全局坐标系完全同相 → 所有块的斜纹严丝合缝连成一整张画布。
+
+   v6.80b 失败原因：只设了 Y 偏移（'0 -Ypx'），漏掉 X。而 .rest 的 dx 各不相同
+   （left = (i−si0)*DAY_W），缺 X 补偿 → 残留 (dx mod 周期) 的错位，所以"还是歪的"。
+
+   注：本函数只改 background-position，不动 background-image / 颜色 / 尺寸，
+   故视觉质感与 v5.7 原版完全一致，只是相位对齐。 */
+function alignStripes(){
+  const grid=document.getElementById('grid'); if(!grid) return;
+  const gRect=grid.getBoundingClientRect();
+  // 所有可能带 45° 斜纹的元素：条内休息日块 + 行级状态斜纹 + 无限延长条 + QA条 + 占位条 + 空隙提示
+  const els=grid.querySelectorAll('.rest, .timeline, .bar-task, .vacant-bar, .gap-indicator');
+  els.forEach(el=>{
+    const bg=getComputedStyle(el).backgroundImage;
+    if(!bg || bg.indexOf('repeating-linear-gradient')<0) return;
+    // 只处理斜向条纹；0/90/180/270 是横/竖纹，本身不受行偏移影响，无需（也不应）改动
+    const m=bg.match(/(-?\d+(?:\.\d+)?)deg/);
+    if(!m) return;
+    const a=((parseFloat(m[1])%180)+180)%180;      // 归一到 [0,180)
+    if(a<1 || Math.abs(a-90)<1 || a>179) return;   // 近似横/竖纹 → 跳过
+    const r=el.getBoundingClientRect();
+    // 相对 #grid 的偏移。用 Math.round 消除亚像素抖动，避免不同块因 .5px 差异错开一档
+    const dx=Math.round(r.left-gRect.left);
+    const dy=Math.round(r.top -gRect.top );
+    el.style.backgroundPosition=(-dx)+'px '+(-dy)+'px';
+  });
 }
 /* ============ v5.0 标签实测降级（唯一可靠的自适应）============
    对每根任务条的 .rt-line 逐个测量：内容宽 > 可用宽 时，按 data-rank 从大到小(优先级从低到高)
