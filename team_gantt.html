@@ -478,8 +478,8 @@
   .emp-badge.reg .el{color:#0052d9;}
   .emp-badge.sub{background:#e7edff;border-color:#b4cefc;}
   .emp-badge.sub .el{color:#0052d9;}
-  .emp-badge.base{background:#eef1f7;border-color:#c4ccdb;}
-  .emp-badge.base .el{color:#56607a;}
+  .emp-badge.base{background:#e8d5c4;border-color:#c9a184;}   /* v6.96 基地=暖褐，与离职冷淡蓝白对立 */
+  .emp-badge.base .el{color:#7a5540;}
   .emp-badge.sup{background:#cffafe;border-color:#67e8f9;}
   .emp-badge.sup .el{color:#0e7490;}
   .emp-badge .ed{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 .5px rgba(0,0,0,.06);}
@@ -608,15 +608,15 @@
   /* 长期外借支援其他管线（编制仍在、不隶属角色线）：紫罗兰醒目徽标 + 同色胶囊 */
   .hr-flag.loan{color:#fff;background:#7c3aed;border-color:#6d28d9;font-size:9.5px;padding:1px 7px;box-shadow:0 1px 3px rgba(124,58,237,.35);letter-spacing:.3px;}
   .ltag.loan{color:#6d28d9;background:#f3e8ff;border:1px solid #d8b4fe;font-weight:700;}
-  /* 基地成员：淡冷蓝调（.14），与正编白底一眼区分 */
-  .row.is-base{background:rgba(70,100,180,.14);}
-  .row.is-base .cell-left{background:#eef1f8;}
-  .row.is-base .cell-left::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:rgba(70,100,180,.55);border-radius:3px 0 0 3px;}
-  /* 已离职：暖灰+琥珀左边框，与基地冷蓝调形成冷暖对比，一眼看出此人已离场 */
-  .row.is-left{background:rgba(180,150,140,.10);}   /* 暖灰（非中性灰），与基地冷蓝明确区分 */
-  .row.is-left .cell-left{background:#f5f2ef;}   /* 暖白底（非冷灰），与基地 #f5f7fb 冷白区分 */
-  .row.is-left .cell-left::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:rgba(245,158,11,.45);border-radius:3px 0 0 3px;}  /* 琥珀色左边框 = 离职标识 */
-  .row.is-left .who .nm{color:#9aa1ab;text-decoration:line-through;text-decoration-color:#bcc2cb;}
+  /* v6.96 基地成员：暖褐调，与离职冷淡蓝白对立（与按需求看视图色彩语义一致） */
+  .row.is-base{background:rgba(180,130,90,.13);}
+  .row.is-base .cell-left{background:#f7efe6;}
+  .row.is-base .cell-left::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:rgba(160,110,70,.55);border-radius:3px 0 0 3px;}
+  /* v6.96 已离职：冷调淡蓝白 + 划除线，与基地暖褐形成冷暖对比 */
+  .row.is-left{background:rgba(120,140,180,.13);}
+  .row.is-left .cell-left{background:#eef1f8;}
+  .row.is-left .cell-left::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:rgba(110,130,170,.55);border-radius:3px 0 0 3px;}
+  .row.is-left .who .nm{color:#6b7385;text-decoration:line-through;text-decoration-color:#8a94a8;text-decoration-thickness:2px;}
   .row.is-left .gdot-grade{filter:grayscale(1);opacity:.5;}
   .row.is-left .tags .ptag,.row.is-left .tags .mtag2,.row.is-left .tags .ltag{filter:grayscale(1);opacity:.6;}
   .row.is-left .emp-badge{filter:grayscale(1);opacity:.72;}
@@ -933,7 +933,7 @@
      这些底色本身已是半透 rgba，日期/周末底纹照样透出。 */
   .row.me-self.row-sel{background:rgba(255,239,204,.32);}
   .row.vacant-row.row-sel{background:rgba(255,240,220,.30);}
-  .row.is-left.row-sel{background:rgba(150,158,170,.14);}
+  .row.is-left.row-sel{background:rgba(120,140,180,.13);}
   .row.is-loan.row-sel{background:rgba(200,180,250,.20);}
   /* 剪贴板浮条 */
   #clipchip{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#1d2330;color:#fff;border-radius:10px;padding:8px 14px;font-size:12px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.32);display:none;align-items:center;gap:10px;z-index:9998;}
@@ -1446,7 +1446,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.95 · build 2026-08-24 19:44</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.96 · build 2026-08-24 19:54</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2008,18 +2008,17 @@ function isExtLoan(m){
    注：基地用淡白底，需深字 txt + 描边 bord 才能在深色需求条上可见(纯白条/白字会看不见)；正编/子公司为实色底配白字。 */
 function corpStyle(m){
   if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借',txt:'#fff',bord:'',tex:'',outline:''};
-  // 已离职：暖褐色系（非灰！）+ 45°斜纹划掉感 + 虚线描边 —— 与基地的冷淡白形成冷暖对比，一眼可辨
-  // 与「按人看」视图的离职琥珀色标识（.row.is-left 琥珀左边框）保持同一语义色系
-  if(effLeft(m)) return {key:'gone',label:'已离职',col:'#e8d5c4',short:'离',txt:'#7a5540',bord:'#c9a184',
-    tex:'repeating-linear-gradient(45deg,rgba(140,90,55,.42) 0 3px,transparent 3px 7px)', outline:'dashed'};
+  // 已离职：冷调淡蓝白 + 无纹理 + 虚线描边 + 贯穿划除线（strike）—— 一条线把人划掉，语义最直接
+  if(effLeft(m)) return {key:'gone',label:'已离职',col:'#e6ecf6',short:'离',txt:'#6b7385',bord:'#a9b8d0',
+    tex:'', outline:'dashed', strike:'#8a94a8'};
   // 正编：实心深蓝 + 实线描边（最"实"）
-  if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#0052d9',short:'正',txt:'#fff',bord:'',tex:'',outline:'solid'};
+  if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#0052d9',short:'正',txt:'#fff',bord:'',tex:'',outline:'solid',strike:''};
   // 子公司：与正编同色系但略浅 + 细竖纹 —— 相近而不零区分
   if(m&&m.corp==='sub') return {key:'sub',label:'子公司',col:'#2b6fe3',short:'子',txt:'#fff',bord:'',
-    tex:'repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 1.5px,transparent 1.5px 6px)', outline:'solid'};
-  // 基地（在职）：冷调淡蓝白 + 细竖纹 + 实线描边 —— 与离职的暖褐/斜纹/虚线冷暖对立
-  return {key:'base',label:'基地',col:'#e6ecf6',short:'基',txt:'#4a5670',bord:'#a9b8d0',
-    tex:'repeating-linear-gradient(90deg,rgba(74,86,112,.22) 0 1.5px,transparent 1.5px 7px)', outline:'solid'};
+    tex:'repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 1.5px,transparent 1.5px 6px)', outline:'solid', strike:''};
+  // 基地（在职）：暖褐底 + 细竖纹 + 实线描边 —— 与离职的冷淡蓝白冷暖对立
+  return {key:'base',label:'基地',col:'#e8d5c4',short:'基',txt:'#7a5540',bord:'#c9a184',
+    tex:'repeating-linear-gradient(90deg,rgba(140,90,55,.24) 0 1.5px,transparent 1.5px 7px)', outline:'solid', strike:''};
 }
 
 /* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
@@ -3553,7 +3552,12 @@ function capacityLanesHTML(r){
           : `;box-shadow:inset 0 0 0 1px ${bordCol},0 1px 2px rgba(0,0,0,.18)`)
       : '';
     // 纹理层叠在底色之上（background 多层：纹理在前、纯色在后）
-    const segBg = cs.tex ? `background:${cs.tex},${col}` : `background:${col}`;
+    // 离职：用 linear-gradient 在条体垂直中线画一条 2px 贯穿划除线（把人「划掉」），不用斜纹
+    const strikeLayer = cs.strike
+      ? `linear-gradient(to bottom,transparent calc(50% - 1px),${cs.strike} calc(50% - 1px),${cs.strike} calc(50% + 1px),transparent calc(50% + 1px))`
+      : '';
+    const bgLayers = [strikeLayer, cs.tex].filter(Boolean).join(',');
+    const segBg = bgLayers ? `background:${bgLayers},${col}` : `background:${col}`;
     const segH=Math.round(Math.max(6,Math.min(26, 15+(effv-1)*90)));   // 条高随效率：差异拉大(斜率90)——效率越高越粗、越低越细（0.85→6 / 0.95→11 / 1.0→15 / 1.05→20 / 1.10→24px）
     let segs='';
     psegs.forEach(s=>{
@@ -3565,9 +3569,12 @@ function capacityLanesHTML(r){
       ? `border:1px dashed ${cs.bord};box-sizing:border-box`
       : `box-shadow:inset 0 0 0 1px ${cs.bord||'rgba(255,255,255,.35)'}`;
     const corpBadge=`<i class="bl-corp" style="background:${col};color:${cs.txt};${badgeBord}">${cs.short}</i>`;   // 编制徽标：正/子/基/离/借
+    const nameHTML = cs.strike
+      ? `<span style="text-decoration:line-through;text-decoration-color:${cs.strike};text-decoration-thickness:2px;opacity:.85">${p.name}</span>`
+      : p.name;
     const capLab = digest>0?`<b>消化${digest}天</b>`:'';                            // 消化N天 = 该人在本需求已投入工作日 × 效率（不依赖剩余窗口，有档期即有值）
     const invLab = segInvBadge(psegs[0]);                                            // 投入比状态徽标（全人力/跟进），取首段口径
-    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${p.name}${capLab}${invLab}</span></div>`;
+    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${nameHTML}${capLab}${invLab}</span></div>`;
   });
   if(!nRows) return null;
   const H=nRows*(CLANE_H+CLANE_GAP)+2;
