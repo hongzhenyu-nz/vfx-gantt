@@ -1441,7 +1441,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.86 · build 2026-08-24 16:20</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.87 · build 2026-08-24 17:15</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -1895,6 +1895,32 @@ function reqGroupKey(r){
 /* 分组顺序：corp 用固定优先级，其余按出现顺序。 */
 const CORP_GROUP_ORDER=['corp:reg','corp:base','corp:loan'];
 function groupSortVal(key){ const i=CORP_GROUP_ORDER.indexOf(key); return i<0?99:i; }
+
+/* 按人视图成员排序规则（v6.87 引入，彻底解决新成员恒排末尾的顽疾）：
+   1. 人员状态：在职/正常在前，离职·已归档沉底
+   2. 编制：正编(reg) → 子公司(sub) → 基地(base) → 外借(loan)
+   3. 隶属带队：同一 leadOf 相邻（同导师团队聚合）
+   4. 品级强度：红>金>橙>常规（能力强在前）
+   5. 支援关系：本队在前，跨队支援在后
+   6. 姓名：拼音 A→Z
+   7. 兜底：原始录入顺序（保证稳定排序，不抖动） */
+const CORP_PRI={reg:0,sub:1,base:2,loan:99};
+const GRADE_RANK={'红':3,'金':2,'橙':1,'':0};
+function personSortCompare(a,b){
+  const la=(effLeft(a)||memArchived(a))?1:0, lb=(effLeft(b)||memArchived(b))?1:0;
+  if(la!==lb) return la-lb;                                   // 1. 离职沉底
+  const d=(CORP_PRI[a.corp]??99)-(CORP_PRI[b.corp]??99);
+  if(d) return d;                                             // 2. 编制
+  const lda=leadOf(a)||'~', ldb=leadOf(b)||'~';
+  if(lda!==ldb) return lda.localeCompare(ldb,'zh-Hans-CN');   // 3. 隶属相邻
+  const ga=GRADE_RANK[a.grade]||0, gb=GRADE_RANK[b.grade]||0;
+  if(ga!==gb) return gb-ga;                                   // 4. 品级强在前
+  const sa=a.support?1:0, sb=b.support?1:0;
+  if(sa!==sb) return sa-sb;                                   // 5. 本队前/支援后
+  const pn=(a.name||'').localeCompare(b.name||'','zh-Hans-CN');
+  if(pn) return pn;                                           // 6. 姓名拼音
+  return members.indexOf(a)-members.indexOf(b);               // 7. 原始顺序兜底
+}
 
 /* 分组方式下拉选项（随视图变化） */
 const GROUP_OPTS={
@@ -3819,9 +3845,8 @@ function renderPerson(){
   const live=visible.filter(m=>!memArchived(m));
   const archived=visible.filter(m=>memArchived(m));
   const mode=GROUP_MODE.person;
-  // 基础排序（所有模式通用）：正编(reg) → 子公司(sub) → 基地(base) → 外借(loan)
-  const corpPri={reg:0,sub:1,base:2,loan:99};
-  live.sort((a,b)=>(corpPri[a.corp]??99)-(corpPri[b.corp]??99));
+  // 基础排序（所有模式通用）：状态 → 编制 → 隶属 → 品级 → 支援 → 拼音（v6.87 统一规则）
+  live.sort((a,b)=>personSortCompare(a,b));
   let rows='';
   if(mode==='none' || view!=='person'){
     live.forEach(m=>{ rows+=personRowHTML(m); });
@@ -3836,9 +3861,8 @@ function renderPerson(){
     order.sort((a,b)=> groupSortVal(a)-groupSortVal(b) || groups[a].g.label.localeCompare(groups[b].g.label,'zh-Hans-CN'));
     order.forEach(k=>{
       const {g,arr}=groups[k];
-      // 组内排序：正编(reg) → 子公司(sub) → 基地(base) → 外借(loan)，同编制按原始顺序
-      const corpPri={reg:0,sub:1,base:2,loan:99};
-      arr.sort((a,b)=>(corpPri[a.corp]??99)-(corpPri[b.corp]??99));
+      // 组内排序：状态 → 编制 → 隶属 → 品级 → 支援 → 拼音（同 personSortCompare 规则）
+      arr.sort((a,b)=>personSortCompare(a,b));
       rows+=groupHeaderHTML(g,arr.length,false,'');
       if(!collapsed[k]) arr.forEach(m=>{ rows+=personRowHTML(m); });
     });
