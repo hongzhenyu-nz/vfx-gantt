@@ -1441,7 +1441,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.88 · build 2026-08-24 17:40</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.89 · build 2026-08-24 18:02</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -1716,7 +1716,7 @@ const STATUS = {
   doing:  {label:'进行中', cls:'b-blue',  col:'#4d80ff'},
   review: {label:'待处理', cls:'b-amber', col:'#e08c00'},
   done:   {label:'已完成', cls:'b-done', col:'#4ecba0'},
-  blocked:{label:'卡住',   cls:'b-red',   col:'#f5413f'},
+  blocked:{label:'阻塞',   cls:'b-red',   col:'#f5413f'},
   overdue:{label:'逾期未完', cls:'b-amber', col:'#f59e0b'},  // v5.9 排期到期但未人工确认完成：橙色提醒
 };
 const STATUS_ORDER=['todo','doing','review','done','blocked'];
