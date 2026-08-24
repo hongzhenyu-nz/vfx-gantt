@@ -352,8 +352,8 @@
   /* v6.86 移除 .vline.we —— 全文无任何代码生成该类（vlines 只产出 .vline 与 .vline.mono），
      属历史死代码；其 width:var(--day-w) 与新的 translateX(-50%) 居中逻辑也不兼容。 */
   /* v6.86：同 .vline，跨日界居中，避免整根线偏向一侧吞掉相邻灰带边缘 */
-  .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;transform:translateX(-50%);}
-  /* v7.07 今天红线标注：线顶挂一枚「今天 M/D」红色胶囊，让这条红线的含义自解释。
+  .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:9;transform:translateX(-50%);}
+  /* v7.08 今天红线标注：线顶挂一枚「今天 M/D」红色胶囊，让这条红线的含义自解释。
      父容器 .todayline 的 top:0 已是日期轴下缘（外层壳 top:82px），故用负 top 上浮贴住日期轴；
      overflow:visible 让胶囊能溢出 2px 宽的线体；pointer-events:none 承自父级，绝不挡拖拽与点击。 */
   .todayline::before{content:attr(data-today);position:absolute;top:-19px;left:1px;transform:translateX(-50%);
@@ -1460,7 +1460,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.07 · build 2026-08-24 23:36</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.08 · build 2026-08-24 23:55</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
