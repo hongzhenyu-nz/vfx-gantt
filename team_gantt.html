@@ -359,12 +359,14 @@
     background-image:
       repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),
       linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(255,255,255,.50) calc(var(--p,0)*1%) 100%);}
-  /* v5.7 休息日暗块：周末/节假日在条内叠一层斜纹暗块，表达「这天停工·不算人天产出」。left 从条起始整天边界起算(k*DAY_W)自动对齐。 */
+  /* v5.7 休息日暗块：周末/节假日在条内叠一层竖纹暗块，表达「这天停工·不算人天产出」。
+     竖纹(90°)不随行偏移错位——周末列 X 位置全局固定→各行列纹相位一致→天然跨行完美对齐。
+     left 从条起始整天边界起算(k*DAY_W)自动对齐。 */
   .bar-task .prog .rest{position:absolute;top:0;bottom:0;z-index:1;pointer-events:none;
     background-color:rgba(15,23,42,.13);
-    background-image:repeating-linear-gradient(45deg,rgba(15,23,42,.10) 0 2.5px,rgba(15,23,42,0) 2.5px 6px);}
+    background-image:repeating-linear-gradient(90deg,rgba(15,23,42,.10) 0 2.5px,rgba(15,23,42,0) 2.5px 6px);}
   .bar-task .prog .rest.hol{background-color:rgba(120,20,20,.17);
-    background-image:repeating-linear-gradient(45deg,rgba(80,10,10,.13) 0 2.5px,rgba(80,10,10,0) 2.5px 6px);}  /* 节假日：偏红的斜纹，比双休更醒目 */
+    background-image:repeating-linear-gradient(90deg,rgba(80,10,10,.13) 0 2.5px,rgba(80,10,10,0) 2.5px 6px);}  /* 节假日：偏红的竖纹，比双休更醒目 */
   /* 进度分界竖线：标记当前「已完成/未完成」交界位置 */
   .bar-task .prog::after{content:'';position:absolute;top:0;bottom:0;left:calc(var(--p,0)*1%);width:2px;z-index:2;
     background:rgba(255,255,255,.92);box-shadow:1px 0 0 rgba(0,0,0,.06);}
@@ -391,7 +393,7 @@
      用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
   .bar-task.open{
     background-color:transparent;
-    background-image:repeating-linear-gradient(45deg,rgba(180,160,140,.10) 0 8px,transparent 8px 16px);
+    background-image:repeating-linear-gradient(90deg,rgba(180,160,140,.10) 0 8px,transparent 8px 16px);
     -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
             mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
     border-left:none!important;opacity:1;box-shadow:none!important;}
@@ -707,7 +709,7 @@
   .rstate-tag.dropped{color:#fff;background:#9097a0;border-color:#7d838c;box-shadow:0 1px 3px rgba(0,0,0,.18);}
   body.ro-mode .rstate-tag.active{display:none;}   /* 只读模式隐藏正常态的设置入口（暂停/废弃徽标仍展示供识别） */
   /* 暂停需求：整行加黄色条纹底纹 + 状态标签醒目，但保留统计 */
-  .row.req-paused .timeline{background-image:repeating-linear-gradient(45deg,rgba(224,140,0,.07) 0 8px,transparent 8px 16px);}
+  .row.req-paused .timeline{background-image:repeating-linear-gradient(90deg,rgba(224,140,0,.07) 0 8px,transparent 8px 16px);}
   .row.req-paused .bar-task.req-bar{filter:saturate(.6);}
   .row.req-paused .bar-task.req-bar::after{content:'暂停中';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(224,140,0,.92);color:#fff;font-size:11px;font-weight:800;letter-spacing:1px;padding:2px 10px;border-radius:6px;z-index:6;pointer-events:none;box-shadow:0 2px 8px rgba(0,0,0,.25);}
   /* 废弃需求：整行删除线灰化 */
@@ -727,7 +729,7 @@
   .row.req-done .bar-task.req-bar .bl-lane-lab{opacity:.62;}           /* 子条上的人名/消化标签淡化 */
   .row.req-done .bar-task.req-bar .bl-add{display:none;}               /* 锁死：隐藏"加人"按钮 */
   .row.req-done .bar-task.req-bar::after{content:'✓ 已完成';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(78,203,160,.97);color:#fff;font-size:15px;font-weight:800;letter-spacing:2px;padding:5px 18px;border-radius:8px;z-index:3;pointer-events:none;box-shadow:0 2px 10px rgba(0,0,0,.28);opacity:1;}
-  .row.req-done .timeline{background-image:repeating-linear-gradient(45deg,rgba(78,203,160,.05) 0 8px,transparent 8px 16px);}
+  .row.req-done .timeline{background-image:repeating-linear-gradient(90deg,rgba(78,203,160,.05) 0 8px,transparent 8px 16px);}
   .req .char-nm{font-weight:700;}
   /* 模块类型标签：图标+短名+主题色，强化区分同角色不同模块 */
   .mod-tag{display:inline-flex;align-items:center;gap:3px;font-size:10px;font-weight:700;border-radius:5px;padding:1px 7px;background:#f0f2f6;border:1px solid #dfe3ea;vertical-align:middle;line-height:1.5;}
@@ -1413,7 +1415,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.80b · build 2026-08-24 14:22</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.81 · build 2026-08-24 14:32</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -8580,34 +8582,6 @@ function rerender(){
   if(typeof buildMeSel==='function') buildMeSel();        // 刷新「我是谁」下拉（成员/角色可能已变）
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
-  /* v6.80 斜纹底纹跨行对齐：各行的 .timeline 各自从(0,0)起绘 repeating-linear-gradient
-     → 行与行之间条纹错位。渲染后统一校准 background-position，以 #grid 顶为共同原点。 */
-  requestAnimationFrame(()=>alignStripeBackgrounds());
-}
-/* v6.80 斜纹底纹跨行对齐（v6.80b 修正：v6.80a 只对齐 .timeline 但实际歪的是条内 .rest 等元素）
-   问题根源（v5.7 起）：.bar-task .prog .rest（周末/节假日暗块）各自从(0,0)绘 45° 斜纹
-   → 每个块的条纹起点不同 → 行与行之间斜纹错位（"歪了"）
-   同理影响：.row.req-paused/done .timeline、.bar-task.k-qa、.vacant-bar 等。
-   修复：以 #grid 为共同原点，把所有斜纹元素的 background-position 校准到同一坐标系。 */
-function alignStripeBackgrounds(){
-  const grid=document.getElementById('grid'); if(!grid) return;
-  const gridRect=grid.getBoundingClientRect();
-  // 遍历 grid 内所有可能带斜纹背景的元素
-  grid.querySelectorAll('[style*="background"], .rest, .timeline, .bar-task, .vacant-bar, .load-seg').forEach(el=>{
-    const cs=getComputedStyle(el);
-    const bg=cs.backgroundImage;
-    if(!bg || !bg.includes('repeating-linear-gradient')) return;
-    // 只处理有角度的斜纹（45deg/-45deg/135deg 等），跳过 90deg 竖线 / 0/180 横线
-    const m=bg.match(/([\-]?\d+)deg/);
-    if(!m) return;
-    const angle=m[1];
-    if(angle==='90'||angle==='0'||angle==='180'||angle==='270') return;
-    // 计算该元素相对于 grid 顶部的 Y 偏移
-    const rect=el.getBoundingClientRect();
-    const y=Math.round(rect.top-gridRect.top);
-    // 对 45°/-45deg/135° 等斜纹：Y 轴偏移量 = -y 使所有元素共享以 grid 顶为原点的坐标系
-    el.style.backgroundPosition='0 '+(-y)+'px';
-  });
 }
 function setView(v,btn){view=v;document.getElementById('viewTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();updateGroupSelUI();syncHideDoneCheckbox();syncSideNavViewLabel();rerender();}
 /* v6.68：侧边导航「视图区」那一项跟随当前视图改名，让用户一眼确认目录指向的就是眼前这个视图。 */
