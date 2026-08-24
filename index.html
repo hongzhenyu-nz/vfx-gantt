@@ -1441,7 +1441,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.89 · build 2026-08-24 18:02</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.90 · build 2026-08-24 18:32</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2100,22 +2100,17 @@ const reqs = [
   {id:'lt_gaf25', name:'比安卡 联调', char:'比安卡', mod:'联调', grade:'橙', line:'L2', kind:'lt', state:'active', estimate:12, end:DT(2026,9,18), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,31), e:DT(2026,9,18), prog:0, status:'todo'}, {m:'psq', s:DT(2026,7,29), e:DT(2026,8,30), prog:0, status:'todo'}]}
 ];
 
-/* ============ 需求预处理：删除全量测试(qa) + 联调(lt)降为本体附属(不单独成行) ============ */
-/* 联调重挂关系（attached / children）。删除联调、云同步、撤销后都重跑一次，使关系始终与现存 lt 需求一致。 */
+/* ============ 需求预处理：删除全量测试(qa)；v6.90 起联调(lt)改为「独立需求行」 ============ */
+/* 不再把联调降为本体附属。relinkLt 仅清空历史数据可能残留的 attached/children，使所有需求独立成行。 */
 function relinkLt(){
-  reqs.forEach(r=>{ if(r.children) r.children=[]; });   // 清空旧关系，按现存 lt 重建
-  reqs.filter(r=>r.kind==='lt').forEach(lt=>{
-    const host = reqs.find(r=>r.char===lt.char && r.kind==='fx' && /_cc$/.test(r.id))
-              || reqs.find(r=>r.char===lt.char && r.kind==='fx');
-    if(host){ lt.attached=host.id; (host.children=host.children||[]).push(lt.id); }
-    else { delete lt.attached; }
-  });
+  // v6.90：联调独立成行，废弃 attached/children 附属机制。
+  // 清空旧关系即可——下游渲染统一按「全部需求均独立」处理。
+  reqs.forEach(r=>{ if(r.children) r.children=[]; if(r.attached) delete r.attached; });
 }
 (function prepReqs(){
   // 1) 删除全部"全量测试"需求 —— 不再以独立需求存在
   for(let i=reqs.length-1;i>=0;i--){ if(reqs[i].kind==='qa') reqs.splice(i,1); }
-  // 2) 联调 = 同角色"本体需求"的附属(出场_cc 优先，否则该角色首个特效需求)。
-  //    仍保留在 reqs 中(负载/拖拽/复制等交互不变)，仅标记 attached：渲染时不单独成行，挂在本体条之后一起显示。
+  // 2) 联调 = 独立需求行（v6.90 起）。relinkLt 仅清空历史残留的附属关系，不再建立新挂接。
   relinkLt();
 })();
 /* 删除某需求的联调（物理删除其全部 lt 子需求 + 解绑），用于「该任务没有联调时间」。可撤销、可云同步。 */
@@ -2142,7 +2137,7 @@ function ltHostOf(charName){
 }
 /* ＋添加联调：为某角色（以宿主需求 hostId 定位）新建一条 kind:'lt' 联调需求，
    默认成员=宿主参与的全部制作人，默认窗口=宿主结束次工作日起 N 个工作日（N 由人天估算）。
-   建好后 relinkLt 自动把它挂到本角色本体之后；两视图同步可见。 */
+   建好后作为独立需求行出现在本角色分组内；两视图同步可见。 */
 function addLt(hostId){
   if(!requireWrite()){hideMenu();return;}
   const host=reqs.find(r=>r.id===hostId); if(!host){hideMenu();return;}
@@ -2155,7 +2150,7 @@ function addLt(hostId){
   const s0=Math.min(maxE+1,DAYS-1);
   const e0=Math.min(s0+18,DAYS);   // 约 12~13 工作日
   const body=`
-    <div class="ctx" style="background:#f3efff;border-color:#d8c9f5;color:#5b3fa0">为角色 <b>${effEsc(charShort(host.char))}</b> 添加一条<b>联调</b>。联调会自动接续在本体特效之后，并挂到本角色，<b>按需求看</b>条尾、<b>按人看</b>该角色相关成员行都会同步出现。</div>
+    <div class="ctx" style="background:#f3efff;border-color:#d8c9f5;color:#5b3fa0">为角色 <b>${effEsc(charShort(host.char))}</b> 添加一条<b>联调</b>。联调会作为<b>独立需求行</b>出现在本角色分组内，<b>按需求看</b>单独成行、<b>按人看</b>该角色相关成员行都会同步出现。</div>
     <div class="row2">
       <div class="fld"><label>联调名称</label><input type="text" id="ltName" value="${escAttr(charShort(host.char)+' 联调')}"></div>
       <div class="fld"><label>工作量（人天）</label><input type="number" id="ltEst" value="12" min="1" step="1"></div>
@@ -2194,8 +2189,8 @@ function confirmAddLt(){
   _logDesc='为「'+charShort(host.char)+'」添加联调（'+est+'人天）';
   save();broadcast();closeAdd();
   rerender();
-  revealEntity('req', host.id);
-  toast('已添加联调：'+name+'（'+est+'人天 · 已挂到本角色）');
+  revealEntity('req', lt.id);
+  toast('已添加联调：'+name+'（'+est+'人天 · 独立需求行）');
 }
 /* 快捷联调：一键为角色打上联调标签（不弹表单，自动计算默认值）。
    已有联调 → 提示已存在；没有 → 自动创建（窗口=本体最晚结束次日起 ~ 约12工作日，成员=本体全部制作人）。 */
@@ -2228,7 +2223,7 @@ function quickLt(hostId){
   save();broadcast();
   rerender();
   revealEntity('req', lt.id);
-  toast('✓ 已添加联调：'+lt.name+'（自动接续本体之后）');
+  toast('✓ 已添加联调：'+lt.name+'（独立需求行）');
 }
 /* 改联调（完整编辑模式）：弹面板修改联调工作量（人天）、名称、起止时间。
    一般场景用 quickLt() 即可；仅在需要微调名称/日期时才走此路径。 */
@@ -2271,7 +2266,7 @@ function confirmEditLt(){
   _logDesc='修改「'+charShort(lt.char)+'」联调（'+est+'人天）';
   save();broadcast();closeAdd();
   rerender();
-  revealEntity('req', (lt.attached||lt.id));
+  revealEntity('req', lt.id);
   toast('联调已更新：'+name+'（'+est+'人天）');
 }
 let ltCtx=null;   // {mode:'add',hostId} | {mode:'edit',ltId}
@@ -2771,11 +2766,18 @@ function pickSizeTier(barHpx){ return barHpx<24 ? 2 : 1; }
 /* ============ 按需求看：条内三阶段模型 L1 / L2 / 联调 ============
    - 特效本体区间 [s,e]：取该需求所有 segs 的最早开始~最晚结束。
    - L1(一审) + L2(二审) 平分本体区间，分界由 r.split（绝对日索引）决定，默认五五开。
-   - 联调段 = 该需求 attached 子需求(联调)的区间，紧接特效之后并入同一条；无子需求则只有 L1|L2。
+   - 联调段 = 旧「附属」模式下、该需求 attached 子需求(联调)的区间。v6.90 起联调改为独立需求行，不再并入本体条（此分支保留兼容历史数据）。
    返回 {s,e,split,lt,barS,barE,l1,l2}；坐标均为「日索引」。 */
 function getPhases(r){
   const s=Math.min(...r.segs.map(x=>idx(x.s)));
   const e=Math.max(...r.segs.map(x=>idx(x.e)));
+  // v6.90：联调现为独立需求行，整条即「联调」，不再分 L1/L2、不挂靠本体特效。
+  if(r.kind==='lt'){
+    return {s,e,split:e,split2:null,lt:null,
+      barS:s, barE:e,
+      l1:{s,e:s}, l2:{s:e,e},     // L1/L2 宽度置 0，不渲染，整条由联调块占满
+      lt2:{s,e}, isLt:true};      // 联调段占满整条
+  }
   const addons=(r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
   let lt=null;
   if(addons.length){
@@ -4123,8 +4125,8 @@ function personRowHTML(m,inArc){
 
 /* ============ 视图2：按需求 ============ */
 function renderReq(){
-  // 可见需求（联调附属不单独成行）；按分组方式归类，已完结超期的收纳进归档区。
-  const vis=reqs.filter(r=>!r.attached);
+  // 可见需求（联调已改为独立需求行，全部需求均参与渲染）；按分组方式归类，已完结超期的收纳进归档区。
+  const vis=reqs;
   // v6.64：此处 HIDE_DONE 仅决定「这一行要不要出现在列表里」，属纯观看过滤，
   //   不参与任何统计/缺口/风险计算（那些一律基于全量 reqs），故保留。
   const hideDone=HIDE_DONE[view];
@@ -4157,8 +4159,6 @@ function renderReq(){
 }
 function reqRowHTML(r, prevR, nextR, inArc){
     const risk=reqRisk(r);
-    // 本需求的联调附属(可能多条)
-    const addons=(r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
     // 整条需求无明确时间：当其全部任务段都标记 open（时间待定）时，需求条也铺满整行延长
     const reqOpen = r.segs.length>0 && r.segs.every(s=>s.open);
     const allS=Math.min(...r.segs.map(s=>idx(s.s)));
@@ -4259,7 +4259,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
           <div class="nm">${reqTitleHTML(r)}${reqStateTag(r)}</div>
           <div class="who-groups">${chips}${addPersonRow}</div>
           <div class="meta">进度${prog}% · <span class="left-d">剩${leftWD}工作日</span></div>
-          <div class="meta meta-team">${teamCount}${addons.length?` · <span id="lt-meta-${r.id}" style="color:#7c3aed">${(()=>{const lw=reqOpen?0:(()=>{const p=getPhases(r);return (p.lt2&&p.lt2.e>p.lt2.s)?workdays(i2d(p.lt2.s),i2d(p.lt2.e)):0;})();return lw>0?`+联调${lw}工作日`:'<span style=\"color:#a7adb8\">联调已并入L2</span>';})()}</span>`:''}</div>
+          <div class="meta meta-team">${teamCount}</div>
         </div>
         <span class="req-badges">${gapBadge}<span class="badge ${risk.cls}">${risk.lvl}风险</span></span>
       </div>
@@ -4284,16 +4284,16 @@ function reqRowHTML(r, prevR, nextR, inArc){
           const l2L=pc(ph.l2.s),l2W=pc(ph.l2.e)-pc(ph.l2.s);
           const divL=pc(ph.split);
           // 联调段被 L2 完全覆盖（split2 拖到 barE，窗口=0）时不渲染联调块与标签
-          const ltSeg = (ph.lt2 && ph.lt2.e>ph.lt2.s)?(()=>{const lL=pc(ph.lt2.s),lW=pc(ph.lt2.e)-pc(ph.lt2.s);return {lL,lW};})():null;
+          const ltSeg = ph.isLt ? {lL:0,lW:100} : (ph.lt2 && ph.lt2.e>ph.lt2.s) ? (()=>{const lL=pc(ph.lt2.s),lW=pc(ph.lt2.e)-pc(ph.lt2.s);return {lL,lW};})() : null;
           const div2L = ph.split2!=null?pc(ph.split2):null;
           const dvTip=`L1 一审 → ${fmt(i2d(ph.l1.s))} ~ ${fmtEnd(i2d(ph.split))}　|　L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmtEnd(i2d(ph.l2.e))}（拖拽分割线设定 L1 完成时间）`;
           const dv2Tip = ph.lt2?`L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmtEnd(i2d(ph.split2))}　|　联调 → ${fmt(i2d(ph.split2))} ~ ${fmtEnd(i2d(ph.lt2.e))}（拖拽分割线设定联调开始时间）`:'';
-          const ltTip = ph.lt?`<b>联调</b>（特效完成后进入）<br><span class='g'>工作量</span> ${ph.lt.est}人天<br><span class='g'>窗口</span> ${fmt(i2d(ph.lt2.s))} → ${fmtEnd(i2d(ph.lt2.e))}`:'';
+          const ltTip = ph.isLt ? `<b>联调</b>（独立需求）<br><span class='g'>窗口</span> ${fmt(i2d(ph.lt2.s))} → ${fmtEnd(i2d(ph.lt2.e))}` : (ph.lt?`<b>联调</b>（特效完成后进入）<br><span class='g'>工作量</span> ${ph.lt.est}人天<br><span class='g'>窗口</span> ${fmt(i2d(ph.lt2.s))} → ${fmtEnd(i2d(ph.lt2.e))}`:'');
           return `<div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${bx}px;width:${bw}px;--gcol:${gCol}"
           onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
           <div class="ph ph-l1" style="left:${l1L}%;width:${l1W}%"><span class="ph-lab">L1</span></div>
           <div class="ph ph-l2" style="left:${l2L}%;width:${l2W}%"><span class="ph-lab">L2</span></div>
-          ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span><i class="lt-del" title="删除联调（该任务无联调时间）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();deleteLt('${r.id}')">✕</i></div>`:''}
+          ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span>${ph.isLt?'':`<i class="lt-del" title="删除联调（该任务无联调时间）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();deleteLt('${r.id}')">✕</i>`}</div>`:''}
           <div class="prog" style="--p:${prog}">${restBlocksHTML(ph.barS,ph.barE)}</div>
           <i class="sdot"></i>
           <div class="bl-top"><span class="rt-line">${reqTitleHTML(r)}</span><span class="bl-pct">${prog}%</span></div>
