@@ -421,7 +421,7 @@
   .bar-task.dup-src::after{content:'＋';position:absolute;top:-9px;right:-7px;width:18px;height:18px;line-height:17px;text-align:center;font-size:13px;font-weight:800;color:#fff;background:#3370ff;border:1.5px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.3);z-index:31;}
   .bar-task.flash{animation:barflash .9s ease;}
   @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}100%{box-shadow:0 1px 3px rgba(0,0,0,.20),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}}
-  .b-blue{background:#4d80ff;} .b-green{background:#1fae5a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#7d92b3;}
+  .b-blue{background:#4d80ff;} .b-green{background:#1fae5a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#7d92b3;} .b-purple{background:#7c3aed;}
   .b-done{background:#4ecba0;}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分 */
   /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
      用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
@@ -1460,7 +1460,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.08 · build 2026-08-24 23:55</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.09 · build 2026-08-25 00:01</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3525,6 +3525,8 @@ function barCls(r,seg,m){
   } else if(aggStatus(r)==='done'){
     return 'b-done'+k;                                // 整条需求所有段都完成 → 绿（即便生命周期未手动置 done）
   }
+  /* v7.09：联调模块用独立紫色条体（#7c3aed），与常规模块的蓝/灰状态色区分 */
+  if(r.mod === '联调') return 'b-purple'+k;
   if(colorMode==='status'){
     return (seg ? STATUS[seg.status||'doing'].cls : STATUS[aggStatus(r)].cls)+k;
   }
