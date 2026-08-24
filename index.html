@@ -1421,7 +1421,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.83 · build 2026-08-24 15:05</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.84 · build 2026-08-24 15:28</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -4455,8 +4455,14 @@ function alignStripes(){
        rgba(...) / linear-gradient(...) 里的逗号误当分隔符。 */
     const layers=splitTopLevel(bg);
     const r=el.getBoundingClientRect();
-    const dx=Math.round(r.left-gRect.left);
-    const dy=Math.round(r.top -gRect.top );
+    /* ★ v6.84 真凶修复：绝对不能对偏移量取整。
+       行高不是整数（实测 24.7656px / 128.9844px 等），故各块 dy 天然带小数
+       （153.7656 / 183.5469 / 213.3281 ...）。v6.83 用 Math.round 想"防亚像素抖动"，
+       反而把相位碾出最多 0.5px 误差——而斜纹周期只有 6px，0.5px ≈ 8% 相位漂移，
+       实测各行相位散成 5 个不同值，肉眼就是"歪"。
+       必须保留完整小数精度：相位对齐要求的是精确同相，不是整数像素对齐。 */
+    const dx=r.left-gRect.left;
+    const dy=r.top -gRect.top;
     const sizes=[], poss=[];
     let touched=false;
     layers.forEach(L=>{
@@ -4474,8 +4480,13 @@ function alignStripes(){
       const rad=aRaw*Math.PI/180;
       const sx=P/Math.abs(Math.sin(rad));
       const sy=P/Math.abs(Math.cos(rad));
+      /* 保留 4 位小数：既避免超长浮点串，又把量化误差压到 1e-4 px（周期的 0.002%），
+         远低于肉眼与渲染精度阈值。切勿改成整数——见上方 v6.84 真凶说明。
+         位移用 (dx mod sx) / (dy mod sy) 归约到一个瓦片内：相位等价（平移整数瓦片不改相位），
+         但避免出现 -11000px 这类巨大值带来的浮点精度损失。 */
+      const px=-(dx%sx), py=-(dy%sy);
       sizes.push(sx.toFixed(4)+'px '+sy.toFixed(4)+'px');
-      poss.push((-dx)+'px '+(-dy)+'px');
+      poss.push(px.toFixed(4)+'px '+py.toFixed(4)+'px');
       touched=true;
     });
     if(!touched){
