@@ -1,0 +1,1 @@
+{"name": "vfx-gantt-wecom-auth", "version": "1.0.0", "description": "VFX Gantt 企微 OAuth 身份认证云函数", "main": "function.js", "scripts": {"start": "node function.js", "test": "node test-local.js"}, "dependencies": {}, "engines": {"node": ">=18"}}

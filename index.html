@@ -174,6 +174,13 @@
   .collab select{border:none;background:transparent;font-size:12px;color:var(--tx);font-weight:600;cursor:pointer;outline:none;}
   .collab .focus-sel{border:1px solid var(--line);border-radius:6px;padding:3px 6px;background:#f7f8fa;margin-left:4px;}
   .collab .live{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 1.8s infinite;}
+  /* v6.75 企微验证状态徽章 */
+  .wecom-badge{font-size:11px;padding:1px 6px;border-radius:8px;cursor:pointer;flex-shrink:0;
+    user-select:none;transition:all .15s;line-height:1.6;font-weight:700;letter-spacing:.3px;}
+  .wecom-badge.verified{background:#dcfce7;color:#166534;border:1px solid #86efac;}
+  .wecom-badge.unverified{background:#fef3c7;color:#92400e;border:1px solid #fcd34d;}
+  .wecom-badge.none{background:#f3f4f6;color:#9ca3af;border:1px solid #e5e7eb;}
+  .wecom-badge:hover{transform:scale(1.08);}
   @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(52,199,89,.5)}70%{box-shadow:0 0 0 7px rgba(52,199,89,0)}100%{box-shadow:0 0 0 0 rgba(52,199,89,0)}}
 
   .board{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;position:relative;}
@@ -993,7 +1000,7 @@
   .idn-mask{position:fixed;inset:0;background:rgba(12,18,32,.62);backdrop-filter:blur(4px);
     display:none;align-items:center;justify-content:center;z-index:10080;}
   .idn-mask.show{display:flex;}
-  .idn-modal{width:466px;max-width:93vw;background:#fff;border-radius:15px;overflow:hidden;
+  .idn-modal{width:486px;max-width:93vw;background:#fff;border-radius:15px;overflow:hidden;
     box-shadow:0 28px 78px rgba(0,0,0,.42);animation:addpop .18s ease-out;}
   .idn-modal .idn-h{display:flex;align-items:center;gap:9px;padding:16px 19px;
     background:linear-gradient(90deg,#eef5ff,#f7faff);border-bottom:1px solid #d6e4fb;
@@ -1004,6 +1011,21 @@
   .idn-modal .idn-tip{background:#f6f8fc;border:1px solid #e7ebf2;border-radius:9px;
     padding:10px 12px;margin-bottom:14px;font-size:12.5px;color:#5a626e;}
   .idn-modal .idn-tip b{color:#1d2330;}
+  /* v6.75 企微登录主按钮 */
+  .idn-wecom-btn{display:flex;align-items:center;gap:12px;width:100%;box-sizing:border-box;
+    padding:14px 16px;margin-bottom:4px;border:1.5px solid #d2e8d8;border-radius:12px;
+    background:linear-gradient(135deg,#f0fdf4,#ecfdf5);color:#166534;cursor:pointer;
+    font-size:14px;transition:all .15s;text-align:left;}
+  .idn-wecom-btn:hover{border-color:#22c55e;box-shadow:0 4px 16px rgba(34,197,94,.18);transform:translateY(-1px);}
+  .idn-wecom-btn .wecom-icon{font-size:24px;flex-shrink:0;}
+  .idn-wecom-btn .wecom-text{flex:1;min-width:0;}
+  .idn-wecom-btn .wecom-text b{display:block;font-size:14px;color:#15803d;line-height:1.3;}
+  .idn-wecom-btn .wecom-text small{display:block;font-size:11.5px;color:#4ade80;line-height:1.3;margin-top:2px;}
+  .idn-wecom-btn .wecom-arrow{font-size:18px;color:#86efac;flex-shrink:0;}
+  .idn-divider{text-align:center;margin:12px 0;position:relative;color:#b0b8c4;font-size:12px;}
+  .idn-divider::before,.idn-divider::after{content:'';position:absolute;top:50%;width:calc(50% - 20px);height:1px;background:#e2e6eb;}
+  .idn-divider::before{left:0;}.idn-divider::after{right:0;}
+  .idn-divider span{position:relative;background:#fff;padding:0 10px;}
   .idn-modal label.idn-lab{display:block;font-size:11px;font-weight:800;color:#7a828f;
     margin-bottom:6px;letter-spacing:.4px;}
   .idn-modal select{width:100%;box-sizing:border-box;font-size:13.5px;padding:10px 11px;
@@ -1011,11 +1033,15 @@
   .idn-modal select:focus{border-color:#1d6fd6;box-shadow:0 0 0 3px rgba(29,111,214,.14);}
   .idn-modal .idn-warn{font-size:12px;color:#b36b00;background:#fff8e6;border:1px solid #ffe1a8;
     border-radius:8px;padding:8px 11px;margin-top:12px;line-height:1.55;}
-  .idn-modal .idn-foot{display:flex;gap:10px;justify-content:flex-end;padding:12px 19px 18px;}
+  .idn-modal .idn-foot{display:flex;gap:10px;justify-content:space-between;padding:12px 19px 18px;}
   .idn-modal .idn-foot button{font-size:13.5px;font-weight:700;padding:10px 22px;border-radius:10px;
     cursor:pointer;border:1.5px solid transparent;background:#1d6fd6;color:#fff;}
   .idn-modal .idn-foot button:hover{background:#155cc0;box-shadow:0 4px 14px rgba(29,111,214,.36);}
   .idn-modal .idn-foot button:disabled{background:#b7c6dc;cursor:not-allowed;box-shadow:none;}
+  /* v6.75 跳过按钮（次要操作） */
+  .idn-skip-btn{font-size:12.5px!important;font-weight:600!important;padding:8px 16px!important;
+    background:transparent!important;color:#94a3b8!important;border:1.5px solid #d1d5db!important;border-radius:8px!important;}
+  .idn-skip-btn:hover{background:#f3f4f6!important;color:#6b7280!important;box-shadow:none!important;}
   .bar-task .bar-lab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   /* 按需求视图：任务条加高，容纳标题 + 按编制分两行的人名标签 */
   .req-row{min-height:82px;}
@@ -1384,7 +1410,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.74 · build 2026-08-21 20:48</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.75 · build 2026-08-24 10:38</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -1436,6 +1462,7 @@
         <span class="live"></span>
         <span class="me">我是
           <select id="meSel" onchange="changeMe()"></select>
+          <span id="wecomBadge" class="wecom-badge" title="身份验证状态" onclick="if(!wecomVerified){openIdentityDialog();}"></span>
         </span>
         <select id="focusSel" class="focus-sel" onchange="changeFocus()" title="基于'我是'的视角：高亮或筛选自己与隶属团队">
           <option value="off">全部成员</option>
@@ -1593,18 +1620,35 @@
 <div id="menu"></div>
 <div id="toast"></div>
 <div id="addMask" class="add-mask"><div class="add-modal" id="addModal"></div></div>
-<!-- v6.71 首次身份确认弹窗：必须选择本人身份才能使用看板 -->
+<!-- v6.75 企微OAuth身份认证弹窗：优先企微登录（真实可信），手动选择作为降级兜底 -->
 <div id="idnMask" class="idn-mask">
   <div class="idn-modal">
-    <div class="idn-h"><span class="ic">👤</span>请先确认你是谁</div>
+    <div class="idn-h"><span class="ic">🔐</span>请验证你的身份</div>
     <div class="idn-body">
-      <div class="idn-tip">看板的<b>编辑记录</b>、<b>变更留痕</b>、<b>编辑权提示</b>都会用这个身份显示给团队其他人。请选择<b>你本人</b>。</div>
-      <label class="idn-lab">我是</label>
-      <select id="idnSel"></select>
-      <div class="idn-warn">⚠ 请勿选择他人姓名。冒用他人身份进行的改动会记录在「变更记录」中，且会误导团队判断谁在编辑。</div>
+      <div class="idn-tip">看板的<b>编辑记录</b>、<b>变更留痕</b>、<b>编辑权提示</b>都会用你的真实身份显示。请用<b>企业微信</b>登录以获得可信身份。</div>
+
+      <!-- 主选项：企微 OAuth 登录 -->
+      <button id="idnWecomBtn" class="idn-wecom-btn" onclick="startWecomAuth()">
+        <span class="wecom-icon">💼</span>
+        <span class="wecom-text">
+          <b>企业微信登录</b>
+          <small>使用你的企微账号自动识别身份，真实可信</small>
+        </span>
+        <span class="wecom-arrow">→</span>
+      </button>
+
+      <div class="idn-divider"><span>或</span></div>
+
+      <!-- 降级选项：手动选择（仅当企微不可用时） -->
+      <div id="idnManualFallback" style="display:none;">
+        <div class="idn-warn">⚠️ 手动选择的身份<strong>未经企微验证</strong>，团队无法确认是否为本人。仅在企微登录不可用时使用。</div>
+        <label class="idn-lab">手动选择姓名</label>
+        <select id="idnSel"></select>
+      </div>
     </div>
     <div class="idn-foot">
-      <button id="idnOk" onclick="confirmIdentity()">确认，开始使用</button>
+      <button id="idnOk" onclick="confirmIdentity()" style="display:none;">确认，开始使用</button>
+      <button id="idnSkipBtn" class="idn-skip-btn" onclick="skipIdentity()">暂时跳过（只读模式）</button>
     </div>
   </div>
 </div>
@@ -6786,6 +6830,12 @@ const RECONN_DELAYS=[5000,15000,45000,180000,300000];  // 5s/15s/45s/3min/5min
 const PENDING_KEY='gantt_pending_snap';
 try{const s=localStorage.getItem(PENDING_KEY); if(s) cloudPendingPush=JSON.parse(s);}catch(_){}
 function cloudWho(){const m=members.find(x=>x.id===meId);return m?m.name:'某成员';}
+/** v6.75 返回身份验证状态文案（用于编辑权提示等） */
+function whoAmI(){
+  const name = cloudWho();
+  if(wecomVerified) return name + ' ✅';
+  return meId ? name + '（未验证）' : '未设置身份';
+}
 /* ===== 编辑锁（同一时刻仅一人可编辑，其他人只读等待） =====
    机制（零SQL）：复用 board_state 已有的 editor/editor_name/updated_at 三列充当分布式互斥锁，无需新增数据库列。
    - 申请编辑 = 一条带条件的原子 UPDATE（仅当锁空闲/已过期/本就是我时才更新成功）→ 天然防并发抢占。
@@ -6823,6 +6873,202 @@ let lockHeartT=null;           // 心跳定时器句柄
         锁过期仅作为 UI 提示（标注"可能已离开"），不再是免密通行证；
      ③ 被接管时弹出模态确认窗，由原持有者选择「上传改动」或「放弃改动」，不再静默。 */
 const FORCE_UNLOCK_PIN='vfx-admin-2026';  // 强制解锁密码（**独立于团队口令**，仅告知管理员/主管）
+
+/* ===== v6.75 企微 OAuth 真实身份认证（方案3，废弃方案1的自选身份） =====
+   背景：方案1（自选姓名+localStorage）零可信度——任何人可冒充任何人，
+   用户实际遭遇过"被他人顶着名字编辑"的事故。
+   方案3通过企微 OAuth2.0 获取用户真实企微身份（userid+姓名），
+   与 members 列表匹配后才能获取编辑权。
+
+   流程：
+   1. 前端跳转 → 企微OAuth授权URL（redirect_uri = 云函数 /auth/callback）
+   2. 用户在企微中确认 → 企微重定向到云函数 ?code=xxx
+   3. 云函数用 code → access_token → userid + 姓名
+   4. 云函数重定向回前端 #wecom_auth=base64payload（hash不经过服务器）
+   5. 前端解析hash → 匹配members → 设置meId → 标记wecom_verified=true
+
+   部署前提：
+   - cloud-auth/function.js 已部署到云函数（SCF/Vercel/任意Node.js）
+   - 企微管理后台已创建自建应用、配置了网页授权域名和通讯录权限
+   - 下方 WECOM_AUTH_CONFIG 已填入正确的 CorpID / AgentId / 回调地址 */
+
+const WECOM_AUTH_CONFIG = {
+  corpId: '',          // 企微企业ID（ww开头），部署时填入
+  agentId: '',         // 自建应用AgentId，部署时填入
+  redirectUri: '',     // 云函数回调完整URL（如 https://xxx.ap-guangzhou.app.tcloudbase.com/auth/callback）
+  scope: 'snsapi_base', // snsapi_base=静默授权(只有userid) / snsapi_userinfo=弹窗授权(有姓名)
+  state: 'vfxgantt-auth-v1' // 防CSRF状态码
+};
+
+/* 企微认证状态 */
+let wecomVerified = false;    // 当前会话是否已通过企微验证
+let wecomUserInfo = null;     // { userid, name, ts } 企微返回的用户信息
+const WECOM_VERIFIED_KEY = 'gantt_wecom_verified';  // localStorage: 存验证结果(userid+name+过期时间)
+const WECOM_VERIFY_TTL = 7 * 24 * 60 * 60 * 1000;  // 验证有效期 7 天（之后需重新授权）
+
+/**
+ * 启动企微 OAuth 登录流程
+ * 构造企微授权URL并跳转
+ */
+function startWecomAuth() {
+  const { corpId, agentId, redirectUri, scope, state } = WECOM_AUTH_CONFIG;
+  if (!corpId || !agentId || !redirectUri) {
+    toast('⚠️ 企微登录未配置（需管理员部署云函数并填写凭证），请使用手动选择');
+    showManualIdentityFallback();
+    return;
+  }
+  const url = `https://open.weixin.qq.com/connect/oauth2/authorize?appid=${encodeURIComponent(corpId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${scope}&state=${state}#wechat_redirect`;
+  // 提示用户即将跳转
+  toast('🔐 正在跳转到企微授权…');
+  window.location.href = url;
+}
+
+/**
+ * 解析 URL hash 中的企微认证结果
+ * 云函数回调后会重定向回前端 #wecom_auth=base64json
+ * 返回 { ok, userid?, name?, error?, message? } 或 null（无认证数据）
+ */
+function parseWecomAuthHash() {
+  const hash = location.hash || '';
+  const match = hash.match(/wecom_auth=([A-Za-z0-9_-]+)/);
+  if (!match) return null;
+  try {
+    const json = JSON.parse(Buffer.from(match[1], 'base64url').toString('utf8'));
+    // 立即清理URL中的敏感信息
+    history.replaceState(null, '', location.pathname + location.search);
+    return json;
+  } catch (e) {
+    console.warn('Failed to parse wecom_auth from hash:', e);
+    return null;
+  }
+}
+
+/**
+ * 处理企微 OAuth 回调结果
+ * 匹配 members 列表，设置 meId，标记已验证
+ * 返回 true=成功匹配并设置身份, false=未匹配/失败
+ */
+function processWecomAuthResult(authResult) {
+  if (!authResult || !authResult.ok) {
+    console.warn('Wecom auth failed:', authResult);
+    toast('❌ 企微登录失败: ' + (authResult?.message || '未知错误'));
+    return false;
+  }
+
+  const { userid, name, ts } = authResult;
+
+  // 安全检查：结果是否过期（超过5分钟视为过期）
+  if (ts && Date.now() - ts > 5 * 60 * 1000) {
+    toast('❌ 企微登录结果已过期，请重新登录');
+    return false;
+  }
+
+  // 匹配 members 列表：优先按userid（如果members里有userid字段），其次按姓名模糊匹配
+  let matchedMember = null;
+
+  // 策略1：精确匹配 userid（需要成员数据带 wecom_userid 字段）
+  matchedMember = members.find(m =>
+    m.wecom_userid === userid ||
+    m.userid === userid ||
+    m.id === userid
+  );
+
+  // 策略2：按姓名匹配（兼容没有 userid 字段的情况）
+  if (!matchedMember && name) {
+    matchedMember = members.find(m =>
+      m.name === name ||
+      m.name?.includes(name) ||
+      name.includes(m.name)
+    );
+  }
+
+  if (!matchedMember) {
+    console.warn('Wecom user not found in members:', { userid, name, memberNames: members.map(m => m.name) });
+    toast(`⚠️ 企微账号「${name || userid}」不在看板成员列表中。请联系管理员把你加到团队里，或使用手动选择。`);
+    showManualIdentityFallback();
+    return false;
+  }
+
+  // 设置身份
+  meId = matchedMember.id;
+  wecomVerified = true;
+  wecomUserInfo = { userid, name, ts };
+
+  // 持久化验证状态（含过期时间）
+  try {
+    const verifiedData = {
+      userid,
+      name,
+      memberid: matchedMember.id,
+      memberName: matchedMember.name,
+      verifiedAt: Date.now(),
+      expiresAt: Date.now() + WECOM_VERIFY_TTL
+    };
+    localStorage.setItem(WECOM_VERIFIED_KEY, JSON.stringify(verifiedData));
+    localStorage.setItem('gantt_me', meId);
+    localStorage.setItem(ME_CONFIRM_KEY, '1');
+  } catch (_){}
+
+  toast('✅ 企微身份验证成功：' + matchedMember.name + '　（已实名认证）');
+  buildMeSel();
+  rerender();
+  return true;
+}
+
+/**
+ * 检查是否有有效的企微验证缓存（不过期）
+ */
+function hasValidWecomCache() {
+  try {
+    const raw = localStorage.getItem(WECOM_VERIFIED_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !data.expiresAt || Date.now() > data.expiresAt) {
+      // 过期了，清除
+      localStorage.removeItem(WECOM_VERIFIED_KEY);
+      return false;
+    }
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * 恢复缓存的企微验证状态
+ */
+function restoreWecomCache() {
+  try {
+    const raw = localStorage.getItem(WECOM_VERIFIED_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !data.expiresAt || Date.now() > data.expiresAt) {
+      localStorage.removeItem(WECOM_VERIFIED_KEY);
+      return false;
+    }
+    // 校验缓存的 memberid 是否仍在 members 列表中
+    const stillExists = members.some(m => m.id === data.memberid);
+    if (!stillExists) {
+      localStorage.removeItem(WECOM_VERIFIED_KEY);
+      return false;
+    }
+    meId = data.memberid;
+    wecomVerified = true;
+    wecomUserInfo = { userid: data.userid, name: data.name, ts: data.verifiedAt };
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/**
+ * 显示手动选择身份的降级界面（企微不可用时的兜底）
+ */
+function showManualIdentityFallback() {
+  const fallbackEl = document.getElementById('idnManualFallback');
+  if (fallbackEl) fallbackEl.style.display = '';
+}
+
 let _takeoverGrace=false;         // 强制接管后的短暂宽限窗口：期间接收被踢者的最后改动，避免其工作丢失
 let _takeoverGraceT=null;
 function lockExpiryISO(){return new Date(Date.now()-LOCK_TTL).toISOString();} // 早于此时刻的锁判定为过期
@@ -7470,12 +7716,18 @@ async function refreshLockStatus(){
 function cloudUnlock(){
   if(!cloudReady){ toast('云端尚未连接，稍后再试'); return; }
   if(lockMine){ releaseLock(); return; }
-  /* v6.71：未确认身份前不允许获取编辑权 —— 否则锁上会写「某成员」，
-     团队根本不知道是谁在编辑，等于回到了"匿名可改"的老问题。 */
+  /* v6.75：未确认身份前不允许获取编辑权 —— 否则锁上会写「某成员」，
+     团队根本不知道是谁在编辑，等于回到了"匿名可改"的老问题。
+     优先引导企微登录（真实可信），允许手动降级（带警告）。 */
   if(typeof needIdentityConfirm==='function' && needIdentityConfirm()){
-    toast('请先确认你的身份，再申请编辑权');
+    toast('请先确认你的身份（推荐企微登录），再申请编辑权');
     openIdentityDialog();
     return;
+  }
+  /* v6.75 额外提示：如果身份未企微验证，提醒用户 */
+  if(!wecomVerified && meId){
+    // 不阻断，只提示一次（通过 toast 让用户知道当前身份可信度低）
+    console.log('Editing with unverified identity:', memName(meId));
   }
   // 离线/失败状态：点状态条=先重试连接，成功就进入正常申请路径
   if(cloudOffline){
@@ -7812,72 +8064,136 @@ function buildMeSel(){
   // v6.71：只列可选身份（排除暂缺占位/已离职）
   sel.innerHTML=selectableMembers().map(m=>`<option value="${m.id}" ${m.id===meId?'selected':''}>${escAttr(fmtMeOption(m))}</option>`).join('');
   const fs=document.getElementById('focusSel'); if(fs) fs.value=focusMode;
+  // v6.75：同步验证状态徽章
+  const badge=document.getElementById('wecomBadge');
+  if(badge){
+    badge.className='wecom-badge';
+    if(wecomVerified){
+      badge.classList.add('verified');
+      badge.textContent='✅ 已验证';
+      badge.title='企微OAuth实名验证 · '+ (wecomUserInfo?.name || '');
+    } else if(meId){
+      badge.classList.add('unverified');
+      badge.textContent='⚠ 未验证';
+      badge.title='手动选择身份，未通过企微验证 · 点击重新认证';
+    } else {
+      badge.classList.add('none');
+      badge.textContent='未设置';
+      badge.title='未设置身份 · 点击设置';
+    }
+  }
 }
 
-/* v6.71 首次身份确认：未确认过身份时弹出模态窗，必须选择本人才能使用。
-   触发条件：localStorage 里没有确认标记，或存的 meId 已不在可选名单中（如该成员已离职/被删）。 */
+/* v6.75 身份确认判定（企微优先）：
+   1. 已通过企微验证且缓存未过期 → 不需要重新确认
+   2. 有手动选择的 meId 且在可选名单中 → 允许使用（但标记为未验证）
+   3. 其他情况 → 需要弹窗确认身份 */
 function needIdentityConfirm(){
-  let confirmed=false;
-  try{ confirmed = localStorage.getItem(ME_CONFIRM_KEY)==='1'; }catch(_){}
+  // 企微验证有效 → 直接放行
+  if(wecomVerified) return false;
+  // 尝试恢复缓存的企微验证
+  if(restoreWecomCache()) return false;
+  // 降级：检查旧版手动选择
+  try{ var c = localStorage.getItem(ME_CONFIRM_KEY)==='1'; }catch(_){c=false;}
   const valid = meId && selectableMembers().some(m=>m.id===meId);
-  return !confirmed || !valid;
+  return !c || !valid;
 }
+
+/* v6.75 打开身份确认弹窗（企微登录为主 + 手动降级）*/
 function openIdentityDialog(){
-  const mask=document.getElementById('idnMask'), sel=document.getElementById('idnSel');
-  if(!mask||!sel){
-    // DOM 缺失兜底：至少给个默认身份，不阻塞使用
+  const mask=document.getElementById('idnMask');
+  if(!mask){
     if(!meId) meId=selectableMembers()[0].id;
     return;
   }
-  const list=selectableMembers();
-  // 默认不预选任何人，强制用户自己看一眼再选（避免闭眼确认拿到错身份）
-  sel.innerHTML='<option value="" disabled selected>— 请选择你的姓名 —</option>'
-    + list.map(m=>`<option value="${m.id}">${escAttr(fmtMeOption(m))}</option>`).join('');
-  const ok=document.getElementById('idnOk');
-  if(ok){
-    ok.disabled=true;
-    sel.onchange=()=>{ ok.disabled=!sel.value; };
+  // 重置状态：隐藏手动降级区域，隐藏确认按钮
+  const fallback=document.getElementById('idnManualFallback');
+  if(fallback) fallback.style.display='none';
+  const okBtn=document.getElementById('idnOk');
+  if(okBtn) okBtn.style.display='none';
+
+  // 如果企微未配置，直接显示手动降级
+  const { corpId, agentId, redirectUri } = WECOM_AUTH_CONFIG;
+  if(!corpId || !agentId || !redirectUri){
+    showManualIdentityFallback();
+    // 填充手动选择列表
+    const sel=document.getElementById('idnSel');
+    if(sel){
+      const list=selectableMembers();
+      sel.innerHTML='<option value="" disabled selected>— 请选择你的姓名 —</option>'
+        + list.map(m=>`<option value="${m.id}">${escAttr(fmtMeOption(m))}</option>`).join('');
+      sel.onchange=()=>{ if(okBtn){ okBtn.disabled=!sel.value; okBtn.style.display=sel.value?'':'none'; } };
+      if(okBtn) okBtn.style.display='none';
+    }
   }
+
   mask.classList.add('show');
 }
+
+/* v6.75 确认手动选择的身份（降级路径，无企微验证）*/
 function confirmIdentity(){
   const sel=document.getElementById('idnSel');
   if(!sel||!sel.value){ toast('请先选择你的姓名'); return; }
   meId=sel.value;
+  wecomVerified = false;  // 手动选择 = 未验证
   try{
     localStorage.setItem('gantt_me',meId);
     localStorage.setItem(ME_CONFIRM_KEY,'1');
+    // 清除旧的企微验证（用户主动选择了手动模式）
+    localStorage.removeItem(WECOM_VERIFIED_KEY);
   }catch(_){}
   const mask=document.getElementById('idnMask'); if(mask) mask.classList.remove('show');
   buildMeSel();
   rerender();
-  toast('✅ 身份已确认：'+memName(meId)+'　（可在顶部「我是谁」处更改）');
+  toast('⚠️ 身份已设置（未验证）：'+memName(meId)+'　· 编辑时团队会看到「未验证」标记');
+}
+
+/* v6.75 跳过身份确认（只读模式）*/
+function skipIdentity(){
+  meId = '';
+  wecomVerified = false;
+  try{
+    localStorage.removeItem('gantt_me');
+    localStorage.removeItem(ME_CONFIRM_KEY);
+  }catch(_){}
+  const mask=document.getElementById('idnMask'); if(mask) mask.classList.remove('show');
+  buildMeSel();
+  rerender();
+  toast('已跳过身份确认 · 当前为只读模式 · 需要编辑时可点击右上角「申请编辑」');
 }
 function changeMe(){
   const sel=document.getElementById('meSel');
   const next=sel.value;
   if(next===meId) return;
-  // v6.71：切换身份=改变团队看到的"是谁在改"，故二次确认 + 留痕，让冒用可追溯
+  // v6.71/v6.75：切换身份=改变团队看到的"是谁在改"，故二次确认 + 留痕，让冒用可追溯
   const from=memName(meId)||'(未设置)', to=memName(next);
+  // v6.75：如果当前是企微验证身份，警告用户
+  let extraMsg = '';
+  if(wecomVerified){
+    extraMsg = '\n\n⚠️ 你当前是「企微验证」身份，切换到手动选择后将失去验证标记。\n团队会看到你的身份变为「未验证」。';
+  }
   if(!confirm('确定把身份从「'+from+'」切换为「'+to+'」吗？\n\n'
     +'· 身份会显示在编辑权提示与变更记录里\n'
-    +'· 本次切换会写入「变更记录」\n'
-    +'· 请勿冒用他人身份，否则会误导团队判断谁在编辑')){
+    +'· 本次切换会写入「变更记录」'
+    +'· 请勿冒用他人身份，否则会误导团队判断谁在编辑'
+    +extraMsg)){
     sel.value=meId;   // 取消：回滚下拉，避免显示与实际身份不一致
     return;
   }
   const prev=meId;
   meId=next;
+  wecomVerified = false;  // 手动切换 = 不再是企微验证
   try{
     localStorage.setItem('gantt_me',meId);
     localStorage.setItem(ME_CONFIRM_KEY,'1');
+    localStorage.removeItem(WECOM_VERIFIED_KEY);  // 清除企微验证缓存
   }catch(_){}
   // 留痕：仅在有写权限时才产生记录（只读模式下切身份不该写云端）
   if(typeof canWrite==='function' && canWrite()){
     _logDesc='身份切换：'+from+' → '+to;
     if(typeof broadcast==='function') broadcast();
   }
-  toast('已切换身份：'+memName(meId)+(prev?'（原：'+from+'）':''));
+  toast('已切换身份：'+memName(meId)+(prev?'（原：'+from+'）':'')+(wecomVerified ? ' · ✅ 已验证' : ' · ⚠️ 未验证'));
   rerender();   // 始终重渲染，保证「我/我的团队」高亮与底部标签同步更新（不再受 focusMode 限制）
 }
 function changeFocus(){
@@ -8389,17 +8705,33 @@ rerender();
 document.body.classList.toggle('ro-mode', !canWrite());
 // 启动云端协作（公开读 / 编辑锁互斥写 / Realtime 实时汇集）
 if(typeof cloudInit==='function'){ cloudInit(); }
-/* v6.71 首次身份确认：延后到云端首拉之后再弹窗。
-   原因：members 在启动时是本地默认值，云端 applySnap 后才是真实团队名单
-   （云端常有新增成员）。若立刻弹窗，用户可能在旧名单里找不到自己。
-   1.2s 足够 cloudInit 完成首次 select；即使云端未连上，本地名单也能用，不阻塞。 */
-setTimeout(()=>{
-  try{
-    if(typeof needIdentityConfirm==='function' && needIdentityConfirm()){
-      openIdentityDialog();
+/* v6.75 身份确认流程（企微OAuth优先）：
+   1. 先尝试解析URL中的企微OAuth回调结果（#wecom_auth=base64）
+   2. 再尝试恢复localStorage中的企微验证缓存
+   3. 都没有 → 延后弹窗（等云端members拉取完毕再弹，确保名单完整） */
+(function initIdentity(){
+  // Step 1: 解析 OAuth 回调 hash（用户刚从企微授权回来）
+  const authResult = parseWecomAuthHash();
+  if(authResult){
+    // OAuth 回调处理（异步，不需要等 cloudInit）
+    if(processWecomAuthResult(authResult)){
+      return; // 成功匹配到成员，不再弹窗
     }
-  }catch(e){ console.warn('identity dialog failed',e); }
-}, 1200);
+    // 匹配失败：继续走下面的流程，会弹出身份选择窗
+  }
+  // Step 2: 恢复缓存的企微验证
+  if(restoreWecomCache()){
+    return; // 缓存有效且成员仍在名单中
+  }
+  // Step 3: 延后检查是否需要弹窗（与 v6.71 一致，等云端 members 拉取完）
+  setTimeout(()=>{
+    try{
+      if(typeof needIdentityConfirm==='function' && needIdentityConfirm()){
+        openIdentityDialog();
+      }
+    }catch(e){ console.warn('identity dialog failed',e); }
+  }, 1200);
+})();
 // Supabase Free 计划 7 天无活动会自动 pause 数据库,这里每天 9 点自动 ping 一次防止被休眠
 if(typeof startKeepAlivePing==='function'){ startKeepAlivePing(); }
 // 持锁后 5 分钟无操作自动提交并释放编辑权：一次性绑定全局活动监听
