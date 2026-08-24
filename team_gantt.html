@@ -216,7 +216,12 @@
   .grid{position:relative;min-width:max-content;user-select:none;-webkit-user-select:none;}
   .scroll{user-select:none;-webkit-user-select:none;}
 
-  .row{display:flex;border-bottom:1px solid var(--line2);min-height:var(--row-h);position:relative;transition:background .12s;}
+  .row{display:flex;border-bottom:1px solid #d8dfe9;min-height:var(--row-h);position:relative;transition:background .15s;}
+  /* v6.77 斑马纹：成员行交替底色，让每行边界清晰可辨（解决多人并行条挤在一起分不清谁是谁的问题） */
+  #grid > .row:nth-of-type(odd):not(.head):not(.load-heatmap):not(.vacant-row){background:#fafbfd;}
+  #grid > .row:nth-of-type(even):not(.head):not(.load-heatmap):not(.vacant-row){background:#fff;}
+  /* 悬停高亮：鼠标所在行更醒目 */
+  #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):hover{background:#f0f4ff!important;box-shadow:inset 0 1px 0 rgba(29,111,214,.08);}
   .row:last-child{border-bottom:none;}
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line);}
   /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色
@@ -1410,7 +1415,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.76 · build 2026-08-24 11:30</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.77 · build 2026-08-24 11:36</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -4062,7 +4067,7 @@ function personRowHTML(m,inArc){
         <div class="load"><div class="pct" style="color:${L.col}">${L.pct}% ${L.cls}</div>
           <div class="bar-l${L.pct>110?' over':''}"><i style="width:${Math.min(L.pct,100)}%;background:${L.col}"></i></div></div>
       </div>
-      <div class="timeline" style="width:${DAYS*DAY_W}px">${bars}</div>
+      <div class="timeline" style="width:${DAYS*DAY_W}px;border-left:3px solid ${(G||HR_GRADE['']).col}">${bars}</div>
     </div>`;
 }
 
