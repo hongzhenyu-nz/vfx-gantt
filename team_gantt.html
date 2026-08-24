@@ -1446,7 +1446,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.93 · build 2026-08-24 19:13</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.94 · build 2026-08-24 19:22</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2007,10 +2007,18 @@ function isExtLoan(m){
    供「一人一行甘特」的条色与标签编制徽标统一取色——即甘特按"编制"上色，而非"隶属带队"。short 为标签徽标单字。
    注：基地用淡白底，需深字 txt + 描边 bord 才能在深色需求条上可见(纯白条/白字会看不见)；正编/子公司为实色底配白字。 */
 function corpStyle(m){
-  if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借',txt:'#fff',bord:''};
-  if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#0052d9',short:'正',txt:'#fff',bord:''};
-  if(m&&m.corp==='sub') return {key:'sub',label:'子公司',col:'#0052d9',short:'子',txt:'#fff',bord:''};
-  return {key:'base',label:'基地',col:'#eef1f7',short:'基',txt:'#56607a',bord:'#c4ccdb'};
+  if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借',txt:'#fff',bord:'',tex:'',outline:''};
+  // 已离职：无论原编制，一律「灰底 + 45°斜纹划掉感 + 虚线描边」——形状差异，不靠颜色深浅
+  if(effLeft(m)) return {key:'gone',label:'已离职',col:'#c9ccd4',short:'离',txt:'#5a606c',bord:'#9aa0ad',
+    tex:'repeating-linear-gradient(45deg,rgba(90,96,108,.38) 0 3px,transparent 3px 7px)', outline:'dashed'};
+  // 正编：实心深蓝 + 实线描边（最"实"）
+  if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#0052d9',short:'正',txt:'#fff',bord:'',tex:'',outline:'solid'};
+  // 子公司：与正编同色系但略浅 + 细竖纹 —— 相近而不零区分
+  if(m&&m.corp==='sub') return {key:'sub',label:'子公司',col:'#2b6fe3',short:'子',txt:'#fff',bord:'',
+    tex:'repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 1.5px,transparent 1.5px 6px)', outline:'solid'};
+  // 基地（在职）：淡白底 + 细点阵纹 + 实线描边 —— 与离职的斜纹/虚线明确分开
+  return {key:'base',label:'基地',col:'#eef1f7',short:'基',txt:'#56607a',bord:'#c4ccdb',
+    tex:'repeating-linear-gradient(90deg,rgba(86,96,122,.20) 0 1.5px,transparent 1.5px 7px)', outline:'solid'};
 }
 
 /* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
@@ -3536,15 +3544,26 @@ function capacityLanesHTML(r){
       ? `还可消化 <b style='color:#7da0ff'>${r1(p.cap)} 个工作日</b>的活　<span class='g'>(按剩余窗口 ${left} 个工作日 × 效率估算)</span>`
       : `<span class='g'>剩余窗口已结束 · 暂无可消化产能</span>`;
     const tip=`<b>${p.name}</b> · <span style='color:${col}'>${cs.label}</span>${lead?` · 隶属${lead}`:''}<br><span class='g'>效率系数</span> ${p.eff} <span class='g'>(条越粗=效率越高)</span>　<span class='g'>当前负载</span> ${p.load}%${p.of<1?`（超载折损 ×${p.of.toFixed(2)}）`:''}<br><span class='g'>本需求投入</span> ${psegs.map(s=>fmt(s.s)+'~'+fmtEnd(s.e)).join('、')}（共 ${investWD} 工作日）<br><span class='g'>精力分配</span> ${invDesc}<br><span class='g'>已消化工作量</span> 折合投入 ${dg.invSum} 工作日 × 效率 ${effv} = <b style='color:#5fd08a'>${digest} 人天</b>　<span class='g'>(条越长=投入越多·越粗=效率越高)</span><br><span class='g'>剩余产能</span> ${capTxt}`;
-    const segBord=cs.bord?`;box-shadow:inset 0 0 0 1px ${cs.bord},0 1px 2px rgba(0,0,0,.18)`:'';   // 淡白条加描边才看得见
+    // 编制视觉三维度：底色(col) + 纹理(tex) + 描边样式(outline)。离职用虚线描边，其余实线。
+    const bordCol = cs.bord || '';
+    const segBord = bordCol
+      ? (cs.outline==='dashed'
+          ? `;border:1px dashed ${bordCol};box-sizing:border-box;box-shadow:0 1px 2px rgba(0,0,0,.18)`
+          : `;box-shadow:inset 0 0 0 1px ${bordCol},0 1px 2px rgba(0,0,0,.18)`)
+      : '';
+    // 纹理层叠在底色之上（background 多层：纹理在前、纯色在后）
+    const segBg = cs.tex ? `background:${cs.tex},${col}` : `background:${col}`;
     const segH=Math.round(Math.max(6,Math.min(26, 15+(effv-1)*90)));   // 条高随效率：差异拉大(斜率90)——效率越高越粗、越低越细（0.85→6 / 0.95→11 / 1.0→15 / 1.05→20 / 1.10→24px）
     let segs='';
     psegs.forEach(s=>{
       const l=pc(idx(s.s)), w=Math.max(pc(idx(s.e))-l,0.6);
-      segs+=`<i class="bl-seg" style="left:${l}%;width:${w}%;height:${segH}px;background:${col}${segBord}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
+      segs+=`<i class="bl-seg" style="left:${l}%;width:${w}%;height:${segH}px;${segBg}${segBord}" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()"></i>`;
     });
     const labL=pc(idx(psegs[0].s));
-    const corpBadge=`<i class="bl-corp" style="background:${col};color:${cs.txt};box-shadow:inset 0 0 0 1px ${cs.bord||'rgba(255,255,255,.35)'}">${cs.short}</i>`;   // 编制徽标：正/基/借
+    const badgeBord = cs.outline==='dashed'
+      ? `border:1px dashed ${cs.bord};box-sizing:border-box`
+      : `box-shadow:inset 0 0 0 1px ${cs.bord||'rgba(255,255,255,.35)'}`;
+    const corpBadge=`<i class="bl-corp" style="background:${col};color:${cs.txt};${badgeBord}">${cs.short}</i>`;   // 编制徽标：正/子/基/离/借
     const capLab = digest>0?`<b>消化${digest}天</b>`:'';                            // 消化N天 = 该人在本需求已投入工作日 × 效率（不依赖剩余窗口，有档期即有值）
     const invLab = segInvBadge(psegs[0]);                                            // 投入比状态徽标（全人力/跟进），取首段口径
     lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${p.name}${capLab}${invLab}</span></div>`;
