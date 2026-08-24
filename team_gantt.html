@@ -1446,7 +1446,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.05 · build 2026-08-24 21:42</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.06 · build 2026-08-24 23:20</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2077,16 +2077,13 @@ const reqs = [
   {id:'BK_lt', name:'比安卡 联调', char:'比安卡·寻 X 奈芙', mod:'联调', grade:'橙', line:'L2', kind:'fx', state:'done', estimate:13, end:DT(2026,8,16), split:null, split2:null, done:0, segs:[{m:'hsy', s:DT(2026,7,29), e:DT(2026,8,16), prog:1, status:'done'}, {m:'ljj', s:DT(2026,7,7), e:DT(2026,7,16), prog:1, status:'done', support:true}]},
   {id:'QS_cc', name:'七十 出场特效', char:'七十·芒星之迹 X 茉莉', mod:'出场', grade:'金', line:'J', kind:'fx', state:'done', estimate:79, end:DT(2026,6,23), split:null, split2:null, done:65, segs:[{m:'yhz', s:DT(2026,5,20), e:DT(2026,6,23), prog:1, status:'done', inv:0.6}, {m:'yh', s:DT(2026,5,20), e:DT(2026,6,20), prog:1, status:'done'}, {m:'psq', s:DT(2026,5,27), e:DT(2026,6,23), prog:1, status:'done'}, {m:'lzs', s:DT(2026,5,13), e:DT(2026,6,20), prog:1, status:'done'}, {m:'zc', s:DT(2026,5,27), e:DT(2026,6,20), prog:1, status:'done'}, {m:'zyq', s:DT(2026,5,11), e:DT(2026,6,18), prog:0, status:'todo', support:true}]},
   {id:'HK_cc', name:'红蔻 出场特效', char:'红蔻', mod:'出场', grade:'金', line:'J', kind:'fx', state:'active', estimate:112, end:DT(2026,9,25), split:null, split2:null, done:0, segs:[{m:'lzs', s:DT(2026,6,29), e:DT(2026,9,7), prog:0, status:'todo'}, {m:'yhz', s:DT(2026,6,29), e:DT(2026,9,25), prog:0, status:'todo', inv:0.6}, {m:'zyq', s:DT(2026,6,29), e:DT(2026,9,7), prog:0, status:'todo', support:true}, {m:'yh', s:DT(2026,6,29), e:DT(2026,9,7), prog:0, status:'todo'}, {m:'zjh', s:DT(2026,6,29), e:DT(2026,9,7), prog:0, status:'todo'}, {m:'m_ovsy7', s:DT(2026,7,16), e:DT(2026,9,7), prog:0, status:'todo'}, {m:'m_s1wmk', s:DT(2026,7,8), e:DT(2026,9,7), prog:0, status:'todo'}]},
-  {id:'HK_lt', name:'红蔻 联调', char:'红蔻', mod:'联调', grade:'金', line:'J', kind:'fx', state:'active', estimate:10, end:DT(2026,9,11), split:null, split2:null, done:0, segs:[]},
   {id:'CY_cc', name:'Cyndi 出场特效', char:'Cyndi', mod:'出场', grade:'金', line:'J', kind:'fx', state:'active', estimate:68, end:DT(2026,10,23), split:null, split2:null, done:0, segs:[{m:'yh', s:DT(2026,9,7), e:DT(2026,10,23), prog:0, status:'todo'}, {m:'m_ovsy7', s:DT(2026,9,7), e:DT(2026,10,23), prog:0, status:'todo'}, {m:'zjh', s:DT(2026,9,7), e:DT(2026,10,23), prog:0, status:'todo'}]},
   {id:'CY_lt', name:'Cyndi 联调', char:'Cyndi', mod:'联调', grade:'金', line:'J', kind:'fx', state:'active', estimate:14, end:DT(2026,11,13), split:null, split2:null, done:0, segs:[{m:'yh', s:DT(2026,10,26), e:DT(2026,11,13), prog:0, status:'todo'}]},
   {id:'WP_sup', name:'武器特效 支援', char:'武器（支援）', mod:'武器特效', grade:'', line:'-', kind:'fx', state:'active', estimate:30, end:DT(2026,8,31), split:null, split2:null, done:12, segs:[{m:'jx', s:DT(2026,5,1), e:DT(2026,8,31), prog:0.4, status:'doing', support:true, open:true}]},
   {id:'BL_cc', name:'白老板 出场特效', char:'白老板', mod:'出场', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:114, end:DT(2026,10,14), split:null, split2:null, done:0, segs:[{m:'xxy', s:DT(2026,7,20), e:DT(2026,10,14), prog:0, status:'todo', support:true}, {m:'ygh', s:DT(2026,8,4), e:DT(2026,10,14), prog:0, status:'todo'}, {m:'hsy', s:DT(2026,8,4), e:DT(2026,10,14), prog:0, status:'todo', support:true}, {m:'m_ck8mo', s:DT(2026,8,4), e:DT(2026,10,14), prog:0, status:'todo'}]},
   {id:'BL_cs', name:'白老板 检视组队特效', char:'白老板', mod:'检视', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:34, end:DT(2026,9,11), split:101, split2:null, done:0, segs:[{m:'cyh', s:DT(2026,7,1), e:DT(2026,9,11), prog:0, status:'doing'}, {m:'cc', s:DT(2026,7,1), e:DT(2026,8,15), prog:0, status:'doing', inv:0.3}, {m:'cc', s:DT(2026,8,17), e:DT(2026,9,11), prog:0, status:'todo', inv:0.6}]},
-  {id:'BL_lt', name:'白老板 联调', char:'白老板', mod:'联调', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:14, end:DT(2026,9,25), split:null, split2:null, done:0, segs:[]},
   {id:'HG_cc', name:'荷光者 出场特效', char:'荷光者', mod:'出场', grade:'橙', line:'L1', kind:'fx', state:'active', estimate:136, end:DT(2026,12,10), split:null, split2:null, done:0, segs:[{m:'m_3xqr1', s:DT(2026,9,7), e:DT(2026,12,10), prog:0, status:'todo', support:true}, {m:'m_t7pqf', s:DT(2026,9,7), e:DT(2026,12,10), prog:0, status:'todo'}, {m:'m_7hk9c', s:DT(2026,9,7), e:DT(2026,12,10), prog:0, status:'todo'}]},
   {id:'HG_cs', name:'荷光者 检视组队特效', char:'荷光者', mod:'检视', grade:'橙', line:'L1', kind:'fx', state:'active', estimate:43, end:DT(2026,11,12), split:144, split2:null, done:0, segs:[{m:'zbw', s:DT(2026,8,24), e:DT(2026,11,7), prog:0, status:'todo'}, {m:'cc', s:DT(2026,8,21), e:DT(2026,11,12), prog:0, status:'todo', inv:0.3}]},
-  {id:'HG_lt', name:'荷光者 整体效果联调', char:'荷光者', mod:'联调', grade:'橙', line:'L1', kind:'fx', state:'active', estimate:18, end:DT(2027,1,15), split:null, split2:null, done:0, segs:[{m:'m_3xqr1', s:DT(2026,12,14), e:DT(2027,1,15), prog:0, status:'todo'}]},
   {id:'AF_cc', name:'阿尔法 出场特效', char:'阿尔法', mod:'出场', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:17, end:DT(2027,2,20), split:null, split2:null, done:0, segs:[{m:'hsy', s:DT(2026,11,11), e:DT(2027,2,20), prog:0, status:'todo'}, {m:'xxy', s:DT(2026,11,11), e:DT(2027,2,20), prog:0, status:'todo', inv:0.6}, {m:'ygh', s:DT(2026,11,11), e:DT(2027,2,20), prog:0, status:'todo'}, {m:'m_ck8mo', s:DT(2026,11,11), e:DT(2027,2,20), prog:0, status:'todo'}]},
   {id:'AF_cs', name:'阿尔法 检视组队特效', char:'阿尔法', mod:'检视', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:33, end:DT(2026,12,13), split:null, split2:null, done:0, segs:[{m:'cyh', s:DT(2026,10,14), e:DT(2026,12,13), prog:0, status:'todo'}]},
   {id:'AF_lt', name:'阿尔法 联调', char:'阿尔法', mod:'联调', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:7, end:DT(2027,3,13), split:null, split2:null, done:0, segs:[{m:'hsy', s:DT(2027,2,23), e:DT(2027,3,13), prog:0, status:'todo'}, {m:'ygh', s:DT(2027,2,23), e:DT(2027,3,13), prog:0, status:'todo'}, {m:'xxy', s:DT(2027,2,23), e:DT(2027,3,13), prog:0, status:'todo'}, {m:'m_ck8mo', s:DT(2027,2,23), e:DT(2027,3,13), prog:0, status:'todo'}]},
@@ -2098,7 +2095,6 @@ const reqs = [
   {id:'NV_dt', name:'女指挥官 大厅特效', char:'女指挥官（S5.1）', mod:'大厅', grade:'红', line:'R', kind:'fx', state:'active', estimate:10, end:DT(2026,12,5), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,8,19), e:DT(2026,12,5), prog:0, status:'todo', inv:0.3}, {m:'cyh', s:DT(2026,9,21), e:DT(2026,10,14), prog:0, status:'todo', support:true, inv:0.3}]},
   {id:'NV_cs', name:'女指挥官 检视特效', char:'女指挥官（S5.1）', mod:'检视', grade:'红', line:'R', kind:'fx', state:'active', estimate:9, end:DT(2026,12,14), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,21), e:DT(2026,12,14), prog:0, status:'todo', inv:0.3}]},
   {id:'NV_zd', name:'女指挥官 组队特效', char:'女指挥官（S5.1）', mod:'组队', grade:'红', line:'R', kind:'fx', state:'active', estimate:9, end:DT(2026,12,14), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,21), e:DT(2026,12,14), prog:0, status:'todo', inv:0.3}]},
-  {id:'NV_lt', name:'女指挥官 整体效果联调', char:'女指挥官（S5.1）', mod:'联调', grade:'红', line:'R', kind:'fx', state:'active', estimate:65, end:DT(2027,1,15), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,11,26), e:DT(2027,1,15), prog:0, status:'todo'}]},
   {id:'r_2i3iv', name:'幽魂骑士bug修复', char:'幽魂骑士', mod:'入局Cuts', grade:'红', line:'R', kind:'fx', state:'active', estimate:20, end:DT(2026,6,17), split:null, split2:null, done:0, segs:[{m:'xxy', s:DT(2026,5,18), e:DT(2026,6,17), prog:1, status:'done', inv:0.6}]},
   {id:'r_r17wv', name:'产假', char:'产假', mod:'通用', grade:'橙', line:'-', kind:'fx', state:'active', estimate:18, end:DT(2026,7,10), split:null, split2:null, done:0, segs:[{m:'xxy', s:DT(2026,6,29), e:DT(2026,7,10), prog:1, status:'done', support:true}]},
   {id:'r_o4g0p', name:'荷光者 组队', char:'荷光者', mod:'组队', grade:'橙', line:'L1', kind:'fx', state:'active', estimate:26, end:DT(2026,11,11), split:144, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,21), e:DT(2026,11,11), prog:0, status:'todo'}, {m:'m_5eibi', s:DT(2026,9,7), e:DT(2026,11,7), prog:0, status:'todo', support:true}]},
@@ -2106,11 +2102,10 @@ const reqs = [
   {id:'r_tvz0u', name:'休假 出场', char:'休假', mod:'出场', grade:'橙', line:'-', kind:'fx', state:'done', estimate:3, end:DT(2026,6,25), split:null, split2:null, done:3, segs:[{m:'yh', s:DT(2026,6,22), e:DT(2026,6,25), prog:1, status:'done'}]},
   {id:'r_ja61d', name:'S4.1饰品需求*6', char:'S4.1饰品需求*6', mod:'饰品', grade:'金', line:'-', kind:'fx', state:'done', estimate:3, end:DT(2026,7,10), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,6,25), e:DT(2026,7,10), prog:1, status:'done', inv:0.3}, {m:'ljj', s:DT(2026,6,25), e:DT(2026,7,7), prog:1, status:'done'}]},
   {id:'r_n1r76', name:'露西亚bug修复', char:'露西亚bug修复', mod:'通用', grade:'橙', line:'L1', kind:'fx', state:'done', estimate:20, end:DT(2026,7,20), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,7,8), e:DT(2026,7,20), prog:1, status:'done'}]},
-  {id:'r_1rbi5', name:'性能&bug修复', char:'比安卡', mod:'联调', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:20, end:DT(2026,8,30), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,7,30), e:DT(2026,8,19), prog:1, status:'done'}, {m:'cc', s:DT(2026,7,30), e:DT(2026,8,30), prog:1, status:'doing', support:true}, {m:'zbw', s:DT(2026,8,3), e:DT(2026,8,14), prog:1, status:'done', support:true}, {m:'ll', s:DT(2026,7,29), e:DT(2026,8,14), prog:1, status:'done'}, {m:'zjj', s:DT(2026,7,29), e:DT(2026,8,14), prog:1, status:'done'}]},
+  {id:'r_1rbi5', name:'性能&bug修复', char:'比安卡', mod:'联调', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:32, end:DT(2026,8,30), split:null, split2:null, done:0, segs:[{m:'yhz', s:DT(2026,7,30), e:DT(2026,8,19), prog:1, status:'done'}, {m:'cc', s:DT(2026,7,30), e:DT(2026,8,30), prog:1, status:'doing', support:true}, {m:'zbw', s:DT(2026,8,3), e:DT(2026,8,14), prog:1, status:'done', support:true}, {m:'ll', s:DT(2026,7,29), e:DT(2026,8,14), prog:1, status:'done'}, {m:'zjj', s:DT(2026,7,29), e:DT(2026,8,14), prog:1, status:'done'}]},
   {id:'r_ghct5', name:'阿尔法', char:'阿尔法', mod:'组队', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:20, end:DT(2027,1,9), split:null, split2:null, done:0, segs:[{m:'ljj', s:DT(2026,10,14), e:DT(2026,12,6), prog:0, status:'todo'}, {m:'xxy', s:DT(2026,10,14), e:DT(2027,1,9), prog:0, status:'todo', support:true, inv:0.3}]},
   {id:'r_5xu2m', name:'白老板', char:'白老板', mod:'联调', grade:'橙', line:'L1', kind:'fx', state:'active', estimate:20, end:DT(2026,11,11), split:null, split2:null, done:0, segs:[{m:'ljj', s:DT(2026,9,5), e:DT(2026,10,10), prog:0, status:'todo'}, {m:'cc', s:DT(2026,8,14), e:DT(2026,9,23), prog:0, status:'todo', inv:0.3}, {m:'ygh', s:DT(2026,10,14), e:DT(2026,11,11), prog:0, status:'todo', support:true}, {m:'hsy', s:DT(2026,10,14), e:DT(2026,11,11), prog:0, status:'todo', support:true}, {m:'m_ck8mo', s:DT(2026,10,14), e:DT(2026,11,11), prog:0, status:'todo', support:true}]},
-  {id:'r_eeozh', name:'荷光者', char:'荷光者', mod:'通用', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:20, end:DT(2026,12,19), split:null, split2:null, done:0, segs:[{m:'m_5eibi', s:DT(2026,11,9), e:DT(2026,12,19), prog:0, status:'todo'}]},
-  {id:'lt_gaf25', name:'比安卡 联调', char:'比安卡', mod:'联调', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:12, end:DT(2026,9,18), split:null, split2:null, done:0, segs:[{m:'cc', s:DT(2026,8,31), e:DT(2026,9,18), prog:0, status:'todo'}, {m:'psq', s:DT(2026,7,29), e:DT(2026,8,30), prog:0, status:'todo'}]}
+  {id:'r_eeozh', name:'荷光者', char:'荷光者', mod:'联调', grade:'橙', line:'L2', kind:'fx', state:'active', estimate:38, end:DT(2026,12,19), split:null, split2:null, done:0, segs:[{m:'m_5eibi', s:DT(2026,11,9), e:DT(2026,12,19), prog:0, status:'todo'}]},
 ];
 
 /* ============ 需求预处理：删除全量测试(qa)；v6.90 起联调(lt)改为「独立需求行」 ============ */
@@ -2126,22 +2121,6 @@ function relinkLt(){
   // 2) 联调 = 独立需求行（v6.90 起）。relinkLt 仅清空历史残留的附属关系，不再建立新挂接。
   relinkLt();
 })();
-/* 删除某需求的联调（物理删除其全部 lt 子需求 + 解绑），用于「该任务没有联调时间」。可撤销、可云同步。 */
-function deleteLt(hostId){
-  if(!requireWrite())return;
-  const host=reqs.find(r=>r.id===hostId); if(!host)return;
-  const kids=(host.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
-  if(!kids.length){ toast('该需求没有联调'); return; }
-  const names=kids.map(k=>k.name).join('、');
-  if(!confirm(`确定删除「${host.name}」的联调（${ names }）吗？\n删除后该需求只保留 L1 / L2，可用 Ctrl+Z 撤销。`)) return;
-  pushHistory();
-  const delIds=new Set(kids.map(k=>k.id));
-  for(let i=reqs.length-1;i>=0;i--){ if(delIds.has(reqs[i].id)) reqs.splice(i,1); }
-  relinkLt();
-  _logDesc='删除「'+host.name+'」的联调';
-  save();broadcast();rerender();
-  toast('已删除联调，可 Ctrl+Z 撤销');
-}
 /* v7.05 联调「特殊类型」彻底取消：联调不再是独立 kind，而是普通特效需求 + mod='联调'。
    ---------------------------------------------------------------------------
    历史包袱：v6.90 之前联调是 kind:'lt' 并被 relinkLt() 挂成本体附属；v6.90 解除了附属关系，
@@ -2170,141 +2149,10 @@ function ltHostOf(charName){
       || reqs.find(r=>r.char===charName && r.kind==='fx' && !isLtReq(r))
       || reqs.find(r=>r.char===charName && r.kind!=='lt' && r.kind!=='qa');
 }
-/* ＋添加联调：为某角色（以宿主需求 hostId 定位）新建一条普通特效需求（kind:'fx' + mod:'联调'），
-   默认成员=宿主参与的全部制作人，默认窗口=宿主结束次工作日起 N 个工作日（N 由人天估算）。
-   建好后作为独立需求行出现在本角色分组内；两视图同步可见。 */
-function addLt(hostId){
-  if(!requireWrite()){hideMenu();return;}
-  const host=reqs.find(r=>r.id===hostId); if(!host){hideMenu();return;}
-  if(hasLtFor(host.char)){ hideMenu(); toast('本角色已有联调需求'); return; }
-  hideMenu();
-  ltCtx={mode:'add', hostId};
-  // 默认起点：本角色全部特效需求里最晚结束的次日；默认人天=12；默认窗口=人天工作日跨度
-  const sibs=reqs.filter(r=>r.char===host.char && r.kind==='fx');
-  let maxE=idx(host.end); sibs.forEach(s=>{ s.segs.forEach(sg=>{ if(idx(sg.e)>maxE)maxE=idx(sg.e); }); });
-  const s0=Math.min(maxE+1,DAYS-1);
-  const e0=Math.min(s0+18,DAYS);   // 约 12~13 工作日
-  const body=`
-    <div class="ctx" style="background:#f3efff;border-color:#d8c9f5;color:#5b3fa0">为角色 <b>${effEsc(charShort(host.char))}</b> 添加一条<b>联调</b>。联调会作为<b>独立需求行</b>出现在本角色分组内，<b>按需求看</b>单独成行、<b>按人看</b>该角色相关成员行都会同步出现。</div>
-    <div class="row2">
-      <div class="fld"><label>联调名称</label><input type="text" id="ltName" value="${escAttr(charShort(host.char)+' 联调')}"></div>
-      <div class="fld"><label>工作量（人天）</label><input type="number" id="ltEst" value="12" min="1" step="1"></div>
-    </div>
-    <div class="row2">
-      <div class="fld"><label>开始日期</label><input type="date" id="ltStart" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(s0))}"></div>
-      <div class="fld"><label>结束日期</label><input type="date" id="ltEnd" min="${G_MIN}" max="${G_MAX}" value="${dInput(dEndObj(i2d(e0)))}"></div>
-    </div>
-    <div class="ctx" style="font-size:12px;color:#646a73">参与联调的制作人默认取本角色全部特效的制作人；建好后可在条上「＋加人 / 改派」调整。</div>
-    <div class="warn" id="ltWarn"></div>`;
-  renderAddModal('🔗', '添加联调', body, true);
-  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmAddLt()');
-}
-function confirmAddLt(){
-  if(!ltCtx||ltCtx.mode!=='add')return;
-  if(!requireWrite())return;
-  const host=reqs.find(r=>r.id===ltCtx.hostId); if(!host){closeAdd();return;}
-  const warn=document.getElementById('ltWarn');
-  const name=(document.getElementById('ltName').value||'').trim()||charShort(host.char)+' 联调';
-  const sd=parseInput(document.getElementById('ltStart').value), ed=parseInput(document.getElementById('ltEnd').value);
-  if(!sd||!ed||ed<sd){ warn.textContent='请选择有效的起止日期（结束不早于开始）'; warn.classList.add('show'); return; }
-  const est=Math.max(1,parseInt(document.getElementById('ltEst').value,10)||12);
-  pushHistory();
-  /* v6.55 输入框是「含末日」语义（用户选的那天算在内），底层存排他终点 → 读回后 +1 天还原 */
-  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed)+1,DAYS));
-  // 参与成员：本角色全部特效里出现过的制作人去重；为空则用宿主第一段成员
-  const mems=[]; reqs.filter(r=>r.char===host.char && r.kind==='fx').forEach(r=>r.segs.forEach(sg=>{ if(!mems.includes(sg.m))mems.push(sg.m); }));
-  if(!mems.length && host.segs[0]) mems.push(host.segs[0].m);
-  const lt={
-    id:genId('lt_'), name, char:host.char, mod:'联调',
-    grade:host.grade||'', line:host.line||'-', kind:'fx', estimate:est, done:0, end:i2d(ne),
-    segs:mems.map(m=>({m, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'}))
-  };
-  reqs.push(lt);
-  relinkLt();
-  _logDesc='为「'+charShort(host.char)+'」添加联调（'+est+'人天）';
-  save();broadcast();closeAdd();
-  rerender();
-  revealEntity('req', lt.id);
-  toast('已添加联调：'+name+'（'+est+'人天 · 独立需求行）');
-}
-/* 快捷联调：一键为角色打上联调标签（不弹表单，自动计算默认值）。
-   已有联调 → 提示已存在；没有 → 自动创建（窗口=本体最晚结束次日起 ~ 约12工作日，成员=本体全部制作人）。 */
-function quickLt(hostId){
-  if(!requireWrite()){hideMenu();return;}
-  const host=reqs.find(r=>r.id===hostId); if(!host){hideMenu();return;}
-  hideMenu();
-  const existing=reqs.find(z=>isLtReq(z) && charKey(z.char)===charKey(host.char));
-  if(existing){
-    revealEntity('req', existing.id);
-    toast('本角色已有联调：'+existing.name+'（'+existing.estimate+'人天）');
-    return;
-  }
-  pushHistory();
-  // 自动默认值：起点=该角色所有特效段最晚结束的次日；窗口≈12工作日；成员=本体全部制作人去重
-  const sibs=reqs.filter(r=>r.char===host.char && r.kind==='fx');
-  let maxE=idx(host.end); sibs.forEach(s=>{ s.segs.forEach(sg=>{ if(idx(sg.e)>maxE)maxE=idx(sg.e); }); });
-  const ns=Math.min(maxE+1,DAYS-1), ne=Math.min(ns+18,DAYS);
-  const mems=[]; sibs.forEach(r=>r.segs.forEach(sg=>{ if(!mems.includes(sg.m))mems.push(sg.m); }));
-  if(!mems.length && host.segs[0]) mems.push(host.segs[0].m);
-  const est=12;
-  const lt={
-    id:genId('lt_'), name:charShort(host.char)+' 联调', char:host.char, mod:'联调',
-    grade:host.grade||'', line:host.line||'-', kind:'fx', estimate:est, done:0, end:i2d(ne),
-    segs:mems.map(m=>({m, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'}))
-  };
-  reqs.push(lt);
-  relinkLt();
-  _logDesc='为「'+charShort(host.char)+'」快捷添加联调（'+est+'人天）';
-  save();broadcast();
-  rerender();
-  revealEntity('req', lt.id);
-  toast('✓ 已添加联调：'+lt.name+'（独立需求行）');
-}
-/* 改联调（完整编辑模式）：弹面板修改联调工作量（人天）、名称、起止时间。
-   一般场景用 quickLt() 即可；仅在需要微调名称/日期时才走此路径。 */
-function openEditLt(ltId){
-  if(!requireWrite()){hideMenu();return;}
-  const lt=reqs.find(r=>r.id===ltId && isLtReq(r)); if(!lt){hideMenu();return;}
-  hideMenu();
-  ltCtx={mode:'edit', ltId};
-  const s0=Math.min(...lt.segs.map(x=>idx(x.s))), e0=Math.max(...lt.segs.map(x=>idx(x.e)));
-  const body=`
-    <div class="ctx" style="background:#f3efff;border-color:#d8c9f5;color:#5b3fa0">修改 <b>${effEsc(charShort(lt.char))}</b> 的<b>联调</b>。改动后<b>按需求看</b>条尾联调段与<b>按人看</b>该联调任务条同步更新（共用同一份数据）。</div>
-    <div class="row2">
-      <div class="fld"><label>联调名称</label><input type="text" id="ltName" value="${escAttr(lt.name)}"></div>
-      <div class="fld"><label>工作量（人天）</label><input type="number" id="ltEst" value="${lt.estimate}" min="1" step="1"></div>
-    </div>
-    <div class="row2">
-      <div class="fld"><label>开始日期</label><input type="date" id="ltStart" min="${G_MIN}" max="${G_MAX}" value="${dInput(i2d(s0))}"></div>
-      <div class="fld"><label>结束日期</label><input type="date" id="ltEnd" min="${G_MIN}" max="${G_MAX}" value="${dInput(dEndObj(i2d(e0)))}"></div>
-    </div>
-    <div class="warn" id="ltWarn"></div>`;
-  renderAddModal('🔗', '改联调', body, true);
-  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmEditLt()');
-}
-function confirmEditLt(){
-  if(!ltCtx||ltCtx.mode!=='edit')return;
-  if(!requireWrite())return;
-  const lt=reqs.find(r=>r.id===ltCtx.ltId && isLtReq(r)); if(!lt){closeAdd();return;}
-  const warn=document.getElementById('ltWarn');
-  const name=(document.getElementById('ltName').value||'').trim()||lt.name;
-  const sd=parseInput(document.getElementById('ltStart').value), ed=parseInput(document.getElementById('ltEnd').value);
-  if(!sd||!ed||ed<sd){ warn.textContent='请选择有效的起止日期（结束不早于开始）'; warn.classList.add('show'); return; }
-  const est=Math.max(1,parseInt(document.getElementById('ltEst').value,10)||lt.estimate);
-  pushHistory();
-  /* v6.55 输入框是「含末日」语义 → 读回后 +1 天还原为底层排他终点 */
-  const ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed)+1,DAYS));
-  lt.name=name; lt.estimate=est;
-  lt.segs.forEach(sg=>{ sg.s=i2d(ns); sg.e=i2d(ne); });   // 联调全员同窗口（与原始数据一致）
-  lt.end=i2d(ne);
-  relinkLt();
-  _logDesc='修改「'+charShort(lt.char)+'」联调（'+est+'人天）';
-  save();broadcast();closeAdd();
-  rerender();
-  revealEntity('req', lt.id);
-  toast('联调已更新：'+name+'（'+est+'人天）');
-}
-let ltCtx=null;   // {mode:'add',hostId} | {mode:'edit',ltId}
+/* v7.06：联调专属函数（addLt/quickLt/openEditLt/confirmEditLt/confirmAddLt/deleteLt）已全部移除。
+   联调现在就是普通需求 —— 用「＋新需求」建、模块选「联调」即可，不再有独立入口与绑定工序。
+   ltCtx 保留为 null 占位，避免历史残留引用报错。 */
+let ltCtx=null;
 
 /* ============ 修改需求信息 / 删除需求（需求级生命周期操作） ============ */
 let erCtx=null;   // {reqId} —— 正在编辑信息的需求
@@ -2715,13 +2563,16 @@ const MOD_META = {
   '全量测试':         {ic:'🐞', c:'#2b2f36', s:'全量测试'},
 };
 const modMeta = mod => MOD_META[mod] || {ic:'✦', c:'#646a73', s:mod||'其他'};
-/* 模块「色族」：把 10+ 种零散主题色归并到 4 个业务大类色族，标签只用色族色着字，统一底色，去杂乱。
-   出场系(暖橙) · 互动展示系(紫) · 本体系(绿) · 中性/支援系(灰蓝)。 */
+/* 模块「色族」：把 10+ 种零散主题色归并到业务大类色族，标签只用色族色着字，统一底色，去杂乱。
+   出场系(暖橙) · 互动展示系(蓝紫) · 本体系(绿) · 中性/支援系(灰蓝) · 联调(独立深紫)。
+   v7.06：联调从「中性灰蓝」独立出来，专用深紫 #7c3aed —— 联调是贯穿所有模块的**需求类型**
+   （每个模块都可能需要联调），不与出场/检视等具体模块并列，故给它专属色以便一眼区分。 */
 const MOD_FAM = {
-  '出场':'#e8590c','出场/MVP/入局':'#e8590c','MVP':'#e8590c','入局':'#e8590c',
+  '出场':'#e8590c','出场/MVP/入局':'#e8590c','MVP':'#e8590c','入局':'#e8590c','入局Cuts':'#e8590c',
   'TPP':'#7048e8','大厅':'#7048e8','检视':'#7048e8','组队':'#7048e8','检视/组队':'#7048e8','TPP/大厅/检视组队':'#7048e8',
   '本体/3C':'#2f9e44',
-  '武器特效':'#5c7080','通用':'#5c7080','联调':'#5c7080','全量测试':'#5c7080',
+  '联调':'#7c3aed',
+  '武器特效':'#5c7080','通用':'#5c7080','饰品':'#5c7080','全量测试':'#5c7080',
 };
 const modFamC = mod => MOD_FAM[mod] || '#5c7080';
 /* 单击菜单里可快捷切换的模块类型（联调已纳入普通模块，与出场/检视/通用等并列）。 */
@@ -4363,7 +4214,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
           onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
           <div class="ph ph-l1" style="left:${l1L}%;width:${l1W}%"><span class="ph-lab">L1</span></div>
           <div class="ph ph-l2" style="left:${l2L}%;width:${l2W}%"><span class="ph-lab">L2</span></div>
-          ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span>${ph.isLt?'':`<i class="lt-del" title="删除联调（该任务无联调时间）" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();deleteLt('${r.id}')">✕</i>`}</div>`:''}
+          ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span></div>`:''}
           <div class="prog" style="--p:${prog}">${restBlocksHTML(ph.barS,ph.barE)}</div>
           <i class="sdot"></i>
           <div class="bl-top"><span class="rt-line">${reqTitleHTML(r)}</span><span class="bl-pct">${prog}%</span></div>
@@ -5599,14 +5450,14 @@ function openStatusMenu(bar,x,y){
   items+=`<div class="msep"></div>`;
     items+=`<div class="mi danger" onclick="deleteSeg()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>删除任务（${memName(sg.m)}）</div>`;
   }
-  // 需求级操作：修改信息 / 删除（联调走各自流程）
+  // 需求级操作：修改信息 / 删除
   {
     const _r = reqs.find(z=>z.id===menuCtx.reqId);
     if(_r){
       items+=`<div class="msep"></div>`;
       items+=`<div class="mtitle">需求操作</div>`;
       items+=`<div class="mi" style="color:#185fa5;font-weight:600" onclick="hideMenu();openEditReq('${_r.id}')"><i style="background:#2563eb"></i>修改需求信息</div>`;
-      items+=`<div class="mi danger" onclick="hideMenu();deleteReq('${_r.id}')"><i style="background:#b04632"></i>删除需求（连同其联调）</div>`;
+      items+=`<div class="mi danger" onclick="hideMenu();deleteReq('${_r.id}')"><i style="background:#b04632"></i>删除需求</div>`;
     }
   }
   menu.innerHTML=items;
