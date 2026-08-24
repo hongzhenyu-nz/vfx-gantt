@@ -478,8 +478,8 @@
   .emp-badge.reg .el{color:#0052d9;}
   .emp-badge.sub{background:#e7edff;border-color:#b4cefc;}
   .emp-badge.sub .el{color:#0052d9;}
-  .emp-badge.base{background:#e8d5c4;border-color:#c9a184;}   /* v6.96 基地=暖褐，与离职冷淡蓝白对立 */
-  .emp-badge.base .el{color:#7a5540;}
+  .emp-badge.base{background:#e8e4f0;border-color:#c4bdd8;}
+  .emp-badge.base .el{color:#5a5470;}
   .emp-badge.sup{background:#cffafe;border-color:#67e8f9;}
   .emp-badge.sup .el{color:#0e7490;}
   .emp-badge .ed{position:absolute;right:-3px;bottom:-3px;width:11px;height:11px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 .5px rgba(0,0,0,.06);}
@@ -608,13 +608,13 @@
   /* 长期外借支援其他管线（编制仍在、不隶属角色线）：紫罗兰醒目徽标 + 同色胶囊 */
   .hr-flag.loan{color:#fff;background:#7c3aed;border-color:#6d28d9;font-size:9.5px;padding:1px 7px;box-shadow:0 1px 3px rgba(124,58,237,.35);letter-spacing:.3px;}
   .ltag.loan{color:#6d28d9;background:#f3e8ff;border:1px solid #d8b4fe;font-weight:700;}
-  /* v6.96 基地成员：暖褐调，与离职冷淡蓝白对立（与按需求看视图色彩语义一致） */
-  .row.is-base{background:rgba(180,130,90,.13);}
-  .row.is-base .cell-left{background:#f7efe6;}
-  .row.is-base .cell-left::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:rgba(160,110,70,.55);border-radius:3px 0 0 3px;}
-  /* v6.96 已离职：冷调淡蓝白 + 划除线，与基地暖褐形成冷暖对比 */
-  .row.is-left{background:rgba(120,140,180,.13);}
-  .row.is-left .cell-left{background:#eef1f8;}
+  /* 基地成员：淡冷蓝调（.14），与正编白底一眼区分 —— 按人看视图保持冷色系 */
+  .row.is-base{background:rgba(70,100,180,.14);}
+  .row.is-base .cell-left{background:#eef1f8;}
+  .row.is-base .cell-left::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:rgba(70,100,180,.55);border-radius:3px 0 0 3px;}
+  /* 已离职：冷淡蓝白 + 划除线 —— 与基地冷蓝同系但更浅+划除语义区分 */
+  .row.is-left{background:rgba(150,158,170,.14);}
+  .row.is-left .cell-left{background:#f0f1f3;}
   .row.is-left .cell-left::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:rgba(110,130,170,.55);border-radius:3px 0 0 3px;}
   .row.is-left .who .nm{color:#6b7385;text-decoration:line-through;text-decoration-color:#8a94a8;text-decoration-thickness:2px;}
   .row.is-left .gdot-grade{filter:grayscale(1);opacity:.5;}
@@ -1446,7 +1446,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.97 · build 2026-08-24 20:02</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.98 · build 2026-08-24 20:04</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2016,9 +2016,9 @@ function corpStyle(m){
   // 子公司：与正编同色系但略浅 + 细竖纹 —— 相近而不零区分
   if(m&&m.corp==='sub') return {key:'sub',label:'子公司',col:'#2b6fe3',short:'子',txt:'#fff',bord:'',
     tex:'repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 1.5px,transparent 1.5px 6px)', outline:'solid', strike:''};
-  // 基地（在职）：暖褐底 + 细竖纹 + 实线描边 —— 与离职的冷淡蓝白冷暖对立
-  return {key:'base',label:'基地',col:'#e8d5c4',short:'基',txt:'#7a5540',bord:'#c9a184',
-    tex:'repeating-linear-gradient(90deg,rgba(140,90,55,.24) 0 1.5px,transparent 1.5px 7px)', outline:'solid', strike:''};
+  // 基地（在职）：淡薰衣草紫灰 + 细竖纹 + 实线描边 —— 干净、不与任何现有色系冲突
+  return {key:'base',label:'基地',col:'#e8e4f0',short:'基',txt:'#5a5470',bord:'#c4bdd8',
+    tex:'repeating-linear-gradient(90deg,rgba(90,84,112,.18) 0 1.5px,transparent 1.5px 7px)', outline:'solid', strike:''};
 }
 
 /* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
