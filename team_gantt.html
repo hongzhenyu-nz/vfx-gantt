@@ -352,17 +352,24 @@
   /* v6.86 移除 .vline.we —— 全文无任何代码生成该类（vlines 只产出 .vline 与 .vline.mono），
      属历史死代码；其 width:var(--day-w) 与新的 translateX(-50%) 居中逻辑也不兼容。 */
   /* v6.86：同 .vline，跨日界居中，避免整根线偏向一侧吞掉相邻灰带边缘 */
-  .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:9;transform:translateX(-50%);}
-  /* v7.10：今天红线日期标签——独立 DOM 元素挂到 #sec-gantt(board) 上，
-     用 bottom:100% 浮在视图框顶部上方，不受 .scroll(overflow:auto) 裁切。
-     旧版 ::before 伪元素因 todayline 在 #grid→#scroll 内部，负 top 被溢出隐藏。 */
-  .today-label{position:absolute;bottom:100%;transform:translateX(-50%);
-    z-index:99;white-space:nowrap;font-size:10.5px;font-weight:800;letter-spacing:.2px;line-height:1;
-    color:#fff;background:var(--red);padding:3px 8px;border-radius:5px;
-    box-shadow:0 2px 6px rgba(239,59,57,.35);pointer-events:none;margin-bottom:4px;}
+  /* v7.11：今天红线视觉优化——渐变+微光提升可读性(opacity .55→.72)，pointer-events:none 不挡交互。
+     层级诊断：本线 z-index:9 高于背景/任务条(1)/名栏(4)/表头(5)，低于拖拽参考线(8)，层级无误；
+     “红线层级错误”的真身在胶囊(见 .today-label)，非本线数字。 */
+  .todayline{position:absolute;top:0;bottom:0;width:2px;background:linear-gradient(180deg,var(--red),#ff8a86);opacity:.72;z-index:9;transform:translateX(-50%);box-shadow:0 0 6px rgba(239,59,57,.5);pointer-events:none;}
+  /* v7.10 起：日期标签改为独立 DOM 挂到 #sec-gantt(board) 上（旧版 ::before 因在 #scroll 内被溢出隐藏）。
+     v7.11 修正：初版用 bottom:100% 浮到框外，却被 .board 的 overflow:hidden 裁掉——见下方 v7.11 说明。 */
+  /* v7.11：日期胶囊定位修正——旧版 bottom:100% 把胶囊浮到 #sec-gantt(.board) 框外，
+     而 .board 有 overflow:hidden，浮出框外的胶囊被整段裁切→完全不可见（即“红线层级错误”的真身：
+     非 z-index 数字错，是祖先 overflow:hidden 切掉了框外元素）。
+     改为在可见区内定位：top 贴近时间轴顶部(红线上端)，arrow 朝下指向红线；z-index:99 压在表头/任务条之上，
+     overflow:hidden 不再裁切。同时升级样式(渐变+圆角+微光)，与红线更协调。 */
+  .today-label{position:absolute;top:84px;transform:translateX(-50%);
+    z-index:99;white-space:nowrap;font-size:11px;font-weight:800;letter-spacing:.3px;line-height:1;
+    color:#fff;background:linear-gradient(135deg,#ff615c,#ef3b39);padding:4px 10px;border-radius:7px;
+    box-shadow:0 3px 10px rgba(239,59,57,.45);pointer-events:none;}
   .today-label::after{content:'';position:absolute;left:50%;top:100%;transform:translateX(-50%);
     width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
-    border-top:6px solid var(--red);}
+    border-top:6px solid #ef3b39;}
 
   /* v6.85 品级色条改为「叠加不占位」：原用 border-left:3px，但 box-sizing:border-box 下
      边框会挤占内容宽度，使条内按 (i-si0)*DAY_W 定位的休息日块 .rest 整体右移 3px，
@@ -1459,7 +1466,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.10 · build 2026-08-25 00:18</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.11 · build 2026-08-25 01:10</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
