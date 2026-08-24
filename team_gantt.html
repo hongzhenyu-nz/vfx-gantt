@@ -1446,7 +1446,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.04 · build 2026-08-24 21:16</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.05 · build 2026-08-24 21:42</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2142,10 +2142,32 @@ function deleteLt(hostId){
   save();broadcast();rerender();
   toast('已删除联调，可 Ctrl+Z 撤销');
 }
+/* v7.05 联调「特殊类型」彻底取消：联调不再是独立 kind，而是普通特效需求 + mod='联调'。
+   ---------------------------------------------------------------------------
+   历史包袱：v6.90 之前联调是 kind:'lt' 并被 relinkLt() 挂成本体附属；v6.90 解除了附属关系，
+   但 kind:'lt' 本身留着 → getPhases 仍给它 isLt:true、整条铺满紫色 .ph-lt，
+   于是「同一个角色两条联调，一蓝一紫」这种视觉分裂长期存在。v7.05 收口：
+   · 数据侧：9 条 kind:'lt' 全部迁移为 kind:'fx' + mod:'联调'（不删数据、不动排期）。
+   · 代码侧：保留 kind==='lt' 的兼容分支（协作者可能还持有旧快照），但不再新建 lt。
+   · 判定统一走 isLtReq()：既认旧的 kind==='lt'，也认新的 mod==='联调'。
+   ---------------------------------------------------------------------------
+   归一化角色名：防重复校验此前用 `r.char===host.char` 精确比对，而云端存在
+   「比安卡」/「比安卡·寻 X 奈芙」、「女指挥官」/「女指挥官（S5.1）」这类同角色不同写法，
+   导致校验被绕过、能重复建联调（lt_gaf25 就是这么来的）。改为取分隔符前的主名比对。 */
+function charKey(c){
+  return String(c||'').trim().split(/[·（(XＸx×\s]/)[0].trim().toLowerCase();
+}
+/* 是否属于「联调」需求：兼容旧 kind='lt' 与新 mod='联调' 两种表达 */
+function isLtReq(r){ return !!r && (r.kind==='lt' || r.mod==='联调'); }
+/* 该角色是否已存在联调需求（按归一化主名比对，跨 char 写法生效） */
+function hasLtFor(charName){
+  const k=charKey(charName);
+  return reqs.some(r=>isLtReq(r) && charKey(r.char)===k);
+}
 /* 找某角色的「本体宿主需求」（出场_cc 优先，否则该角色首个特效需求）。与 relinkLt 的挂载规则保持一致。 */
 function ltHostOf(charName){
   return reqs.find(r=>r.char===charName && r.kind==='fx' && /_cc$/.test(r.id))
-      || reqs.find(r=>r.char===charName && r.kind==='fx')
+      || reqs.find(r=>r.char===charName && r.kind==='fx' && !isLtReq(r))
       || reqs.find(r=>r.char===charName && r.kind!=='lt' && r.kind!=='qa');
 }
 /* ＋添加联调：为某角色（以宿主需求 hostId 定位）新建一条 kind:'lt' 联调需求，
@@ -2154,7 +2176,7 @@ function ltHostOf(charName){
 function addLt(hostId){
   if(!requireWrite()){hideMenu();return;}
   const host=reqs.find(r=>r.id===hostId); if(!host){hideMenu();return;}
-  if(reqs.some(r=>r.kind==='lt' && r.char===host.char)){ hideMenu(); toast('本角色已有联调，请用「改联调」'); return; }
+  if(hasLtFor(host.char)){ hideMenu(); toast('本角色已有联调需求'); return; }
   hideMenu();
   ltCtx={mode:'add', hostId};
   // 默认起点：本角色全部特效需求里最晚结束的次日；默认人天=12；默认窗口=人天工作日跨度
@@ -2194,7 +2216,7 @@ function confirmAddLt(){
   if(!mems.length && host.segs[0]) mems.push(host.segs[0].m);
   const lt={
     id:genId('lt_'), name, char:host.char, mod:'联调',
-    grade:host.grade||'', line:host.line||'-', kind:'lt', estimate:est, done:0, end:i2d(ne),
+    grade:host.grade||'', line:host.line||'-', kind:'fx', estimate:est, done:0, end:i2d(ne),
     segs:mems.map(m=>({m, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'}))
   };
   reqs.push(lt);
@@ -2211,7 +2233,7 @@ function quickLt(hostId){
   if(!requireWrite()){hideMenu();return;}
   const host=reqs.find(r=>r.id===hostId); if(!host){hideMenu();return;}
   hideMenu();
-  const existing=reqs.find(z=>z.kind==='lt' && z.char===host.char);
+  const existing=reqs.find(z=>isLtReq(z) && charKey(z.char)===charKey(host.char));
   if(existing){
     revealEntity('req', existing.id);
     toast('本角色已有联调：'+existing.name+'（'+existing.estimate+'人天）');
@@ -2227,7 +2249,7 @@ function quickLt(hostId){
   const est=12;
   const lt={
     id:genId('lt_'), name:charShort(host.char)+' 联调', char:host.char, mod:'联调',
-    grade:host.grade||'', line:host.line||'-', kind:'lt', estimate:est, done:0, end:i2d(ne),
+    grade:host.grade||'', line:host.line||'-', kind:'fx', estimate:est, done:0, end:i2d(ne),
     segs:mems.map(m=>({m, s:i2d(ns), e:i2d(ne), prog:0, status:'todo'}))
   };
   reqs.push(lt);
@@ -2242,7 +2264,7 @@ function quickLt(hostId){
    一般场景用 quickLt() 即可；仅在需要微调名称/日期时才走此路径。 */
 function openEditLt(ltId){
   if(!requireWrite()){hideMenu();return;}
-  const lt=reqs.find(r=>r.id===ltId && r.kind==='lt'); if(!lt){hideMenu();return;}
+  const lt=reqs.find(r=>r.id===ltId && isLtReq(r)); if(!lt){hideMenu();return;}
   hideMenu();
   ltCtx={mode:'edit', ltId};
   const s0=Math.min(...lt.segs.map(x=>idx(x.s))), e0=Math.max(...lt.segs.map(x=>idx(x.e)));
@@ -2263,7 +2285,7 @@ function openEditLt(ltId){
 function confirmEditLt(){
   if(!ltCtx||ltCtx.mode!=='edit')return;
   if(!requireWrite())return;
-  const lt=reqs.find(r=>r.id===ltCtx.ltId && r.kind==='lt'); if(!lt){closeAdd();return;}
+  const lt=reqs.find(r=>r.id===ltCtx.ltId && isLtReq(r)); if(!lt){closeAdd();return;}
   const warn=document.getElementById('ltWarn');
   const name=(document.getElementById('ltName').value||'').trim()||lt.name;
   const sd=parseInput(document.getElementById('ltStart').value), ed=parseInput(document.getElementById('ltEnd').value);
@@ -2349,8 +2371,8 @@ function confirmEditReq(){
 function deleteReq(reqId){
   if(!requireWrite())return;
   const r=reqs.find(z=>z.id===reqId); if(!r)return;
-  const isLt = r.kind==='lt';
-  const nm = isLt ? (charShort(r.char)+' 联调') : r.name;
+  const isLt = isLtReq(r);
+  const nm = r.name || (isLt ? charShort(r.char)+' 联调' : '');
   const extra = (!isLt && r.children && r.children.length) ? `\n\n该需求还挂着 ${r.children.length} 条联调，删除后联调也会一并移除。` : '';
   if(!confirm(`确定删除需求「${nm}」吗？\n删除后该需求及其所有任务条将永久移除，可用 Ctrl+Z 撤销。${extra}`)) return;
   pushHistory();
@@ -2784,7 +2806,9 @@ function pickSizeTier(barHpx){ return barHpx<24 ? 2 : 1; }
 function getPhases(r){
   const s=Math.min(...r.segs.map(x=>idx(x.s)));
   const e=Math.max(...r.segs.map(x=>idx(x.e)));
-  // v6.90：联调现为独立需求行，整条即「联调」，不再分 L1/L2、不挂靠本体特效。
+  // v7.05：联调不再是特殊类型 —— kind:'lt' 已在数据层迁移为 kind:'fx' + mod:'联调'，
+  //   转为与普通特效需求完全一致的 L1/L2 分段渲染，不再整条铺满紫色 .ph-lt。
+  //   此分支仅为兼容协作者手上尚未刷新的旧快照（仍带 kind:'lt'）而保留。
   if(r.kind==='lt'){
     return {s,e,split:e,split2:null,lt:null,
       barS:s, barE:e,
