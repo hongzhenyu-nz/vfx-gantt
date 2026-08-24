@@ -1446,7 +1446,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.03 · build 2026-08-24 20:38</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.04 · build 2026-08-24 21:16</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3122,10 +3122,21 @@ let INV_TIERS = [
 ];
 let invLocked = true;  // 投入比表默认锁定，防误操作
 
+/* v7.04 单一事实源修正：段状态一律走 autoSegState（按今天日期自动推进），
+   与「按人看」每根子条完全同源。此前本函数直读 s.status 存储字段，导致同一需求
+   在两视图状态打架 —— 典型症状：排期开始日已到（子条按人看已变蓝），但需求条仍显示
+   灰色「未开始」（线上实测 48 条活跃需求中 13 条不一致，全为 todo↔doing）。
+   优先级：缺失 > 全部完成 > 逾期 > 进行中/待处理 > 未开始。
+   注意 autoSegState 会产出存储态没有的 'overdue'，必须显式接住，否则会掉进 else→todo。
+   'done'(全段完成) 必须排在 'overdue' 之前 —— 否则整条已完成、但某段排期末日已过又没点完成的需求
+   （如「七十 出场特效」5/6 段 done、reqState 已 done）会被判成「逾期未完」，
+   与条体 b-done 的青绿视觉自相矛盾。 */
 function aggStatus(r){
-  const ss=r.segs.map(s=>s.status||'doing');
+  const ss=r.segs.map(s=>autoSegState(s).status);
   if(ss.includes('blocked'))return 'blocked';
   if(ss.length&&ss.every(s=>s==='done'))return 'done';
+  if(reqState(r)==='done')return 'done';
+  if(ss.includes('overdue'))return 'overdue';
   if(ss.includes('doing')||ss.includes('review'))return 'doing';
   return 'todo';
 }
