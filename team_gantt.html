@@ -347,7 +347,14 @@
   .vline.we{background:#fafbfc;width:var(--day-w);}
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:3;}
 
-  .bar-task{position:absolute;z-index:1;height:32px;top:6px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;border-left:3px solid rgba(0,0,0,.24);}
+  /* v6.85 品级色条改为「叠加不占位」：原用 border-left:3px，但 box-sizing:border-box 下
+     边框会挤占内容宽度，使条内按 (i-si0)*DAY_W 定位的休息日块 .rest 整体右移 3px，
+     与全局日期底纹 .daycol 错位（实测 1961/1961 块偏差恒为 3.00px）。
+     改用 inset box-shadow：视觉完全等效（左缘 3px 品级色竖条），但不参与盒模型、
+     不占面积、不改变内容坐标原点 → 条内栅格与日期底纹天然同源。
+     注意：本条 box-shadow 已含外阴影与 --wash 蒙版层，故品级色须**追加**在列表末尾，
+     且各处覆盖 box-shadow 的规则（hover/选中/拖拽）需保留该层，否则色条会消失。 */
+  .bar-task{position:absolute;z-index:1;height:32px;top:6px;border-radius:5px;display:flex;align-items:center;padding:0 8px;font-size:11px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;cursor:grab;box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82)),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24));user-select:none;touch-action:none;transition:box-shadow .12s,top .15s,height .15s;}
   /* z-index:1 封住任务条自身的层叠上下文，使条内「✓已完成」大浮标(::after z-index:4)等永远压在 sticky 左侧成员栏 .cell-left(z-index:4) 之下，横向滚动时不再穿透覆盖左栏。拖拽态(.dragging z-index:30)另行抬高。 */
   .bar-task,.bar-addon{text-shadow:0 1px 2px rgba(0,0,0,.28);}
   .bar-task.slim{font-size:10px;}   /* 多任务并行变窄时缩小字号 */
@@ -359,7 +366,9 @@
      多背景分两层（上→下）：①按天竖线(全条淡线，逐日推进感) ②未完成段白蒙版(硬边到 --p%，浅色空槽)。 */
   /* v5.7 对齐修正：.bar-task 有 border-left:3px，若 .prog 用 inset:0 会从「边框内侧」起算 → 按天格线整体右移 3px、与日期轴错位。
      改为 left:-3px 让 .prog 左缘顶到条的边框外缘（= 整天边界 si0*DAY_W），格线/休息日块自动对齐日期列。宽度用 right:-1px 覆盖到条右外缘。 */
-  .bar-task .prog{position:absolute;top:0;bottom:0;left:-3px;right:-1px;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
+  /* v6.85：品级色条改为 inset box-shadow 后 .bar-task 已无 border-left，
+     故 .prog 不再需要 -3px 反向补偿，直接 inset:0 即与条外缘（=整天边界）对齐。 */
+  .bar-task .prog{position:absolute;top:0;bottom:0;left:0;right:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
     background-image:
       repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),
       linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(255,255,255,.50) calc(var(--p,0)*1%) 100%);}
@@ -387,12 +396,13 @@
   .bar-task .sup-mk{position:absolute;right:3px;top:2px;z-index:2;font-size:8.5px;font-weight:800;line-height:1;
     color:#fff;background:#f59e0b;border-radius:4px;padding:1px 4px;box-shadow:0 1px 2px rgba(0,0,0,.3);pointer-events:none;
     text-shadow:none;letter-spacing:.5px;}
-  .bar-task.dragging{cursor:grabbing;opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32);z-index:30;}
+  /* v6.85：这些状态会整体替换 box-shadow，必须**追加** inset 品级色层，否则色条消失 */
+  .bar-task.dragging{cursor:grabbing;opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24));z-index:30;}
   /* Shift 拖拽复制：拖动中的源条加复制标识（虚线描边 + 右上角 ＋ 角标） */
   .bar-task.dup-src{outline:2px dashed rgba(255,255,255,.9);outline-offset:-3px;}
   .bar-task.dup-src::after{content:'＋';position:absolute;top:-9px;right:-7px;width:18px;height:18px;line-height:17px;text-align:center;font-size:13px;font-weight:800;color:#fff;background:#3370ff;border:1.5px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.3);z-index:31;}
   .bar-task.flash{animation:barflash .9s ease;}
-  @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6)}100%{box-shadow:0 1px 3px rgba(0,0,0,.20)}}
+  @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}100%{box-shadow:0 1px 3px rgba(0,0,0,.20),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}}
   .b-blue{background:#4d80ff;} .b-green{background:#1fae5a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#7d92b3;}
   .b-done{background:#4ecba0;}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分 */
   /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
@@ -412,12 +422,13 @@
   .grip.gl{left:0;border-radius:6px 0 0 6px;}
   .grip.gr{right:0;border-radius:0 6px 6px 0;}
   .bar-task:hover .grip{background:rgba(255,255,255,.35);}
-  /* 联调：纯色覆盖+虚线边，区别于纯特效条（斜纹语言保留给"未完成"，联调自身不再用斜纹） */
-  .bar-task.k-lt{background-image:none;border-left-style:dashed;border-left-color:rgba(255,255,255,.7);}
+  /* 联调：纯色覆盖+虚线边，区别于纯特效条（斜纹语言保留给"未完成"，联调自身不再用斜纹）
+     v6.85：色条改 inset shadow 后无法做"虚线"，改用双色分段 inset 模拟断续感（仍不占位）。 */
+  .bar-task.k-lt{background-image:none;--gcol:rgba(255,255,255,.7);}
   /* 条内已由模块徽标(🔗 联调)标识联调身份，去掉右端浮动副标，避免「联调」重复出现 */
   .bar-task.k-lt::after{content:none;}
   /* 全量测试：黑色里程碑图标（不计负载），菱形条 */
-  .bar-task.k-qa{background:#2b2f36 !important;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.10) 0 4px,transparent 4px 8px) !important;border-left:3px solid #000;color:#e8eaed;}
+  .bar-task.k-qa{background:#2b2f36 !important;background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.10) 0 4px,transparent 4px 8px) !important;--gcol:#000;color:#e8eaed;}
   .bar-task.k-qa .prog{display:none;}
   .bar-task.k-qa .sdot{background:#ffd23f;}
   .bar-task.k-qa::after{content:'🐞测试';position:absolute;right:6px;top:50%;transform:translateY(-50%);font-size:9px;opacity:.9;z-index:2;}
@@ -619,8 +630,8 @@
      特异度高于单类 .vacant-bar，把占位条赖以成色的红色斜纹 repeating-linear-gradient 整个擦掉 → 只剩白底。
      占位身份（缺人）应优先于需求类型（联调/测试）表达，故用 3 类选择器重新夺回斜纹，
      并保留联调自身的虚线左边框语义。同理处理 k-qa（全量测试，其规则带 !important）。 */
-  .bar-task.vacant-bar.k-lt{background-image:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px);border-left-style:dashed;border-left-color:rgba(255,255,255,.85);}
-  .bar-task.vacant-bar.k-qa{background:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px)!important;color:#fff;border-left:3px dashed rgba(255,255,255,.85)!important;}
+  .bar-task.vacant-bar.k-lt{background-image:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px);--gcol:rgba(255,255,255,.85);}
+  .bar-task.vacant-bar.k-qa{background:repeating-linear-gradient(-45deg,#f87171 0px,#f87171 6px,#fca5a5 6px,#fca5a5 12px)!important;color:#fff;--gcol:rgba(255,255,255,.85);}
   /* 占位条右侧已有「缺正编/缺基地」徽标，k-qa 的 🐞测试 浮标会与之撞位 → 占位条上不显示 */
   .bar-task.vacant-bar.k-qa::after{content:none;}
   /* 缺人角标：在任务条信息右侧显示醒目的红色"🔴缺人"标记 */
@@ -893,7 +904,7 @@
   .req-row.chip-target .cell-left{background:#fff3e0;box-shadow:inset 4px 0 0 #f08c00!important;}
   .req-row.chip-target .cell-left::after{content:'拖到此需求改派';position:absolute;right:10px;top:8px;background:#f08c00;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;z-index:3;}
   /* 任务条选中（复制/剪切目标） */
-  .bar-task.sel{outline:2.5px solid #1d6fd6;outline-offset:1px;box-shadow:0 0 0 3px rgba(29,111,214,.22),0 2px 8px rgba(0,0,0,.28)!important;z-index:3;}  /* 高于相邻普通条、但低于左侧冻结信息栏(z4)，避免选中时左缘盖住人员栏(出框) */
+  .bar-task.sel{outline:2.5px solid #1d6fd6;outline-offset:1px;box-shadow:0 0 0 3px rgba(29,111,214,.22),0 2px 8px rgba(0,0,0,.28),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))!important;z-index:3;}  /* 高于相邻普通条、但低于左侧冻结信息栏(z4)，避免选中时左缘盖住人员栏(出框)。v6.85 追加 inset 品级色层，避免选中时色条消失 */
   .bar-task.cut-mark{opacity:.45;filter:grayscale(.5);}
   /* 粘贴目标行高亮 */
   .row.paste-target .cell-left{background:#e7f7ee;box-shadow:inset 4px 0 0 #1fae5a;}
@@ -1072,7 +1083,9 @@
   .req-row .who-groups,.req-row .meta{padding-right:0;}  /* 人员/汇总行用满整宽，标签可横排排满再换行 */
   /* 自适应高度：用 top+bottom 让主蓝条纵向撑满整行（行高由左侧信息栏决定），消除下方空白；
      内容(标题+两行人名标签)垂直居中，行越高上下留白越多但条体始终填满红框区域。 */
-  .bar-task.req-bar{top:10%;bottom:10%;height:auto;flex-direction:column;align-items:flex-start;justify-content:center;padding:6px 10px;border-radius:7px;gap:3px;border-left-width:5px;}
+  /* v6.85：原 border-left-width:5px（加宽色条）改为 inset shadow，同样不占位。 */
+  .bar-task.req-bar{top:10%;bottom:10%;height:auto;flex-direction:column;align-items:flex-start;justify-content:center;padding:6px 10px;border-radius:7px;gap:3px;
+    box-shadow:0 1px 3px rgba(0,0,0,.20),inset 0 0 0 9999px rgba(255,255,255,calc(var(--wash) * 0.82)),inset 5px 0 0 0 var(--gcol,rgba(0,0,0,.24));}
   /* 联调附属条：与主任务条一致地纵向撑满整行，二者等高，文字垂直居中 */
   .req-row .bar-addon{top:10%;bottom:10%;height:auto;border-radius:7px;font-size:11px;padding:0 12px;display:flex;align-items:center;}
   .bar-task.req-bar .bl-top{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;z-index:1;}
@@ -1421,7 +1434,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.84 · build 2026-08-24 15:28</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.85 · build 2026-08-24 15:52</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -3894,7 +3907,7 @@ function vacantRowHTML(m,inArc){
       const vacTypeIcon = isRegVac ? '🔴' : '🔴';
       const vacBadgeCls = isRegVac ? 'vacant-badge-reg' : 'vacant-badge-base';
       const slimCls = (barHpx/rowH)<0.34 ? ' slim' : '';   // v6.47 与真人行一致：条纤细时缩小字号
-      bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;--gcol:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line">${lblInner}</span><span class="vacant-badge ${vacBadgeCls}" title="${vacTypeLabel}占位">${vacTypeIcon}${vacTypeLabel}</span>
         <div class="prog" style="--p:0"></div>
@@ -4045,7 +4058,7 @@ function personRowHTML(m,inArc){
       const floatCls = canFloat ? (barHpx>=34?' done-float':' done-float sm') : '';
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
-      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;border-left-color:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;--gcol:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)&&(m.corp!=='reg'&&m.corp!=='sub')?segOverdueBadge():''}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
@@ -4073,7 +4086,7 @@ function personRowHTML(m,inArc){
         <div class="load"><div class="pct" style="color:${L.col}">${L.pct}% ${L.cls}</div>
           <div class="bar-l${L.pct>110?' over':''}"><i style="width:${Math.min(L.pct,100)}%;background:${L.col}"></i></div></div>
       </div>
-      <div class="timeline" style="width:${DAYS*DAY_W}px;border-left:3px solid ${(G||HR_GRADE['']).col}">${bars}</div>
+      <div class="timeline" style="width:${DAYS*DAY_W}px;box-shadow:inset 3px 0 0 0 ${(G||HR_GRADE['']).col}">${bars}</div>
     </div>`;
 }
 
@@ -4245,7 +4258,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
           const dvTip=`L1 一审 → ${fmt(i2d(ph.l1.s))} ~ ${fmtEnd(i2d(ph.split))}　|　L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmtEnd(i2d(ph.l2.e))}（拖拽分割线设定 L1 完成时间）`;
           const dv2Tip = ph.lt2?`L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmtEnd(i2d(ph.split2))}　|　联调 → ${fmt(i2d(ph.split2))} ~ ${fmtEnd(i2d(ph.lt2.e))}（拖拽分割线设定联调开始时间）`:'';
           const ltTip = ph.lt?`<b>联调</b>（特效完成后进入）<br><span class='g'>工作量</span> ${ph.lt.est}人天<br><span class='g'>窗口</span> ${fmt(i2d(ph.lt2.s))} → ${fmtEnd(i2d(ph.lt2.e))}`:'';
-          return `<div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${bx}px;width:${bw}px;border-left-color:${gCol}"
+          return `<div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${bx}px;width:${bw}px;--gcol:${gCol}"
           onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
           <div class="ph ph-l1" style="left:${l1L}%;width:${l1W}%"><span class="ph-lab">L1</span></div>
           <div class="ph ph-l2" style="left:${l2L}%;width:${l2W}%"><span class="ph-lab">L2</span></div>
