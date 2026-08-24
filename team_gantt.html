@@ -353,17 +353,16 @@
      属历史死代码；其 width:var(--day-w) 与新的 translateX(-50%) 居中逻辑也不兼容。 */
   /* v6.86：同 .vline，跨日界居中，避免整根线偏向一侧吞掉相邻灰带边缘 */
   .todayline{position:absolute;top:0;bottom:0;width:2px;background:var(--red);opacity:.55;z-index:9;transform:translateX(-50%);}
-  /* v7.08 今天红线标注：线顶挂一枚「今天 M/D」红色胶囊，让这条红线的含义自解释。
-     父容器 .todayline 的 top:0 已是日期轴下缘（外层壳 top:82px），故用负 top 上浮贴住日期轴；
-     overflow:visible 让胶囊能溢出 2px 宽的线体；pointer-events:none 承自父级，绝不挡拖拽与点击。 */
-  .todayline::before{content:attr(data-today);position:absolute;top:-19px;left:1px;transform:translateX(-50%);
-    z-index:4;white-space:nowrap;font-size:10.5px;font-weight:800;letter-spacing:.2px;line-height:1;
-    color:#fff;background:var(--red);padding:3px 7px 3px 6px;border-radius:5px;
-    box-shadow:0 1px 4px rgba(239,59,57,.45);opacity:.96;}
-  /* 胶囊下方一个小三角，指向红线，视觉上「标签属于这条线」 */
-  .todayline::after{content:'';position:absolute;top:-6px;left:1px;transform:translateX(-50%);
-    z-index:4;width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;
-    border-top:5px solid var(--red);opacity:.96;}
+  /* v7.10：今天红线日期标签——独立 DOM 元素挂到 #sec-gantt(board) 上，
+     用 bottom:100% 浮在视图框顶部上方，不受 .scroll(overflow:auto) 裁切。
+     旧版 ::before 伪元素因 todayline 在 #grid→#scroll 内部，负 top 被溢出隐藏。 */
+  .today-label{position:absolute;bottom:100%;transform:translateX(-50%);
+    z-index:99;white-space:nowrap;font-size:10.5px;font-weight:800;letter-spacing:.2px;line-height:1;
+    color:#fff;background:var(--red);padding:3px 8px;border-radius:5px;
+    box-shadow:0 2px 6px rgba(239,59,57,.35);pointer-events:none;margin-bottom:4px;}
+  .today-label::after{content:'';position:absolute;left:50%;top:100%;transform:translateX(-50%);
+    width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
+    border-top:6px solid var(--red);}
 
   /* v6.85 品级色条改为「叠加不占位」：原用 border-left:3px，但 box-sizing:border-box 下
      边框会挤占内容宽度，使条内按 (i-si0)*DAY_W 定位的休息日块 .rest 整体右移 3px，
@@ -1460,7 +1459,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.09 · build 2026-08-25 00:08</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.10 · build 2026-08-25 00:18</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -4390,6 +4389,21 @@ function paint(rows){
   alignStripes();          // v6.83：把所有 45° 斜纹块对齐到全局坐标系（固定瓦片+双轴补偿）
   // v5.0：渲染后按真实像素实测降级标签（横排隐藏低优先徽标 → 缩字号 → 竖排 → 省略号）
   requestAnimationFrame(fitBarLabels);
+  /* v7.10：今天红线日期标签——独立 DOM 挂到 #sec-gantt(board) 顶部上方，
+     不受 .scroll overflow 裁切。每次 paint 重渲染时先移除旧标签再新建。 */
+  (function(){
+    const board = document.getElementById('sec-gantt');
+    let lbl = board.querySelector('.today-label');
+    if (lbl) lbl.remove();
+    const tl = document.querySelector('.todayline');
+    if (!tl) return;
+    const tx = parseFloat(tl.style.left);
+    lbl = document.createElement('div');
+    lbl.className = 'today-label';
+    lbl.textContent = tl.getAttribute('data-today') || '';
+    lbl.style.left = 'calc(var(--left-w) + ' + tx + 'px)';
+    board.appendChild(lbl);
+  })();
 }
 /* ============ v6.83 45° 斜纹跨行对齐（真正根治「日期底纹歪了」）============
    现象：条内休息日暗块 .rest 的 45° 斜纹在不同行/不同条之间接不上，看起来"歪"。
