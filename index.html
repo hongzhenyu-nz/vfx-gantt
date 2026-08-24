@@ -365,9 +365,9 @@
       linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(255,255,255,.50) calc(var(--p,0)*1%) 100%);}
   /* v5.7 休息日暗块：周末/节假日在条内叠一层 45° 斜纹暗块，表达「这天停工·不算人天产出」。
      left 从条起始整天边界起算(k*DAY_W)自动对齐日期列。
-     v6.82 跨行对齐：45° 斜纹相位只取决于 (x − y) 这一个标量，故用 background-position 平移
-     (−dx, −dy)（dx/dy = 该块相对 #grid 的偏移）即可数学精确地把所有块对齐到同一全局坐标系。
-     由 alignStripes() 在渲染后统一注入（v6.80b 只减 dy 漏了 dx，故当时仍歪）。 */
+     v6.83 跨行对齐：由 alignStripes() 固定 background-size 为「一个条纹周期」的瓦片
+     （45° 时 = P·√2），并设 background-position=(−dx,−dy)，使相位只由全局坐标决定。
+     v6.82 只设 position 未固定 size → 渐变线过元素中心、瓦片=元素尺寸，中心项随条高变化，故仍歪。 */
   .bar-task .prog .rest{position:absolute;top:0;bottom:0;z-index:1;pointer-events:none;
     background-color:rgba(15,23,42,.13);
     background-image:repeating-linear-gradient(45deg,rgba(15,23,42,.10) 0 2.5px,rgba(15,23,42,0) 2.5px 6px);}
@@ -1421,7 +1421,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.82 · build 2026-08-24 14:42</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.83 · build 2026-08-24 15:05</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -4406,45 +4406,127 @@ function paint(rows){
   updateKPIs();
   if(typeof reapplySelection==='function') reapplySelection();
   injectGapIndicators();   // v6.26：渲染后注入排期空隙提示（半透琥珀，始终显示）
-  alignStripes();          // v6.82：把所有 45° 斜纹块对齐到全局坐标系（消除跨行错位）
+  alignStripes();          // v6.83：把所有 45° 斜纹块对齐到全局坐标系（固定瓦片+双轴补偿）
   // v5.0：渲染后按真实像素实测降级标签（横排隐藏低优先徽标 → 缩字号 → 竖排 → 省略号）
   requestAnimationFrame(fitBarLabels);
 }
-/* ============ v6.82 45° 斜纹跨行对齐（根治「日期底纹歪了」）============
-   问题：repeating-linear-gradient 以每个元素自身 padding-box 左上角为原点平铺。
-   条内休息日暗块 .rest 有各自的 (left, top)，故各块斜纹起始相位不同 → 跨行/跨条看起来"歪"。
+/* ============ v6.83 45° 斜纹跨行对齐（真正根治「日期底纹歪了」）============
+   现象：条内休息日暗块 .rest 的 45° 斜纹在不同行/不同条之间接不上，看起来"歪"。
 
-   数学依据（为什么单个 background-position 就够）：
-   45° 斜纹的条纹沿垂直于 (1,-1)/√2 方向重复，某点 (x,y) 落在哪根条纹上只取决于
-   标量 u = (x − y)（乘常数后取模周期）。若某块在全局坐标里的偏移是 (dx, dy)，
-   则其局部点 (x,y) 对应全局 (x+dx, y+dy)，全局相位 u' = (x+dx) − (y+dy) = u + (dx − dy)。
-   把 background-position 设为 (−dx, −dy) 即令 u'' = u + (dx−dy) − (dx−dy) = u，
-   与全局坐标系完全同相 → 所有块的斜纹严丝合缝连成一整张画布。
+   ★ v6.82 为什么仍然歪 —— 我上一版的数学漏了两项 CSS 规范行为：
 
-   v6.80b 失败原因：只设了 Y 偏移（'0 -Ypx'），漏掉 X。而 .rest 的 dx 各不相同
-   （left = (i−si0)*DAY_W），缺 X 补偿 → 残留 (dx mod 周期) 的错位，所以"还是歪的"。
+   ① 渐变线穿过【背景定位区的中心】，不是左上角（CSS Images 规范）。
+      故相位里含一项 −(W·sinA − H·cosA)/2，它随【元素自身宽高】变化。
+      .rest 各块宽度都是 DAY_W，但高度=各自条高（不同条高度不同），
+      → 该项不是常数，仅靠 (−dx,−dy) 补不掉。
+   ② 渐变的 background-size 默认 = 背景定位区尺寸，且 background-repeat 默认 repeat。
+      即"把整幅渐变缩成元素大小的一张瓦片再平铺"。用 background-position 平移
+      非整数个瓦片时，元素内会出现瓦片接缝（相位在边界突跳）。
 
-   注：本函数只改 background-position，不动 background-image / 颜色 / 尺寸，
-   故视觉质感与 v5.7 原版完全一致，只是相位对齐。 */
+   ★ 正解：把 background-size 固定为【恰好一个条纹周期】的瓦片，让瓦片尺寸与元素尺寸解耦。
+      对周期 P、角度 A：瓦片 Sx = P/|sinA|，Sy = P/|cosA|（45° 时 Sx=Sy=P·√2）。
+      此时：
+        · 中心项变成常数（只依赖 Sx,Sy，与元素宽高无关）→ 各元素同相基准一致；
+        · 平移任意整数倍瓦片相位不变 → 无接缝；
+        · 相位只由全局坐标 (X,Y) 的 (X−Y) 决定 → 天然跨行跨条严丝合缝。
+      再配合 background-position = (−dx,−dy)（dx,dy = 元素相对 #grid 的偏移），
+      所有斜纹块就像画在同一张连续画布上。（已用数值验证：位置/尺寸迥异的三个元素，
+      在 X−Y 相同处相位完全一致；平移一个瓦片相位不变。）
+
+   注：只改 background-size / background-position，不动 background-image、颜色、图案尺寸，
+   故视觉质感与 v5.7 原版一致，只是相位对齐。 */
 function alignStripes(){
   const grid=document.getElementById('grid'); if(!grid) return;
   const gRect=grid.getBoundingClientRect();
   // 所有可能带 45° 斜纹的元素：条内休息日块 + 行级状态斜纹 + 无限延长条 + QA条 + 占位条 + 空隙提示
   const els=grid.querySelectorAll('.rest, .timeline, .bar-task, .vacant-bar, .gap-indicator');
   els.forEach(el=>{
-    const bg=getComputedStyle(el).backgroundImage;
-    if(!bg || bg.indexOf('repeating-linear-gradient')<0) return;
-    // 只处理斜向条纹；0/90/180/270 是横/竖纹，本身不受行偏移影响，无需（也不应）改动
-    const m=bg.match(/(-?\d+(?:\.\d+)?)deg/);
-    if(!m) return;
-    const a=((parseFloat(m[1])%180)+180)%180;      // 归一到 [0,180)
-    if(a<1 || Math.abs(a-90)<1 || a>179) return;   // 近似横/竖纹 → 跳过
+    const cs=getComputedStyle(el);
+    const bg=cs.backgroundImage;
+    if(!bg || bg.indexOf('repeating-linear-gradient')<0){
+      // 之前对齐过、现在已无斜纹（如状态类被移除）→ 清掉残留内联样式，避免污染
+      if(el.style.backgroundSize||el.style.backgroundPosition){
+        el.style.backgroundSize=''; el.style.backgroundPosition='';
+      }
+      return;
+    }
+    /* 逐图层解析。多背景时（如 .bar-task.open 只有一层、.prog 有两层）必须按层给出
+       size/position 列表，否则会错位到别的图层上。用括号深度切分，避免把
+       rgba(...) / linear-gradient(...) 里的逗号误当分隔符。 */
+    const layers=splitTopLevel(bg);
     const r=el.getBoundingClientRect();
-    // 相对 #grid 的偏移。用 Math.round 消除亚像素抖动，避免不同块因 .5px 差异错开一档
     const dx=Math.round(r.left-gRect.left);
     const dy=Math.round(r.top -gRect.top );
-    el.style.backgroundPosition=(-dx)+'px '+(-dy)+'px';
+    const sizes=[], poss=[];
+    let touched=false;
+    layers.forEach(L=>{
+      const isRep=L.indexOf('repeating-linear-gradient')>=0;
+      const m=isRep?L.match(/(-?\d+(?:\.\d+)?)deg/):null;
+      // 该层不是斜向重复渐变 → 保持默认（auto / 0 0），不干扰
+      if(!m){ sizes.push('auto'); poss.push('0 0'); return; }
+      const aRaw=parseFloat(m[1]);
+      const a=((aRaw%180)+180)%180;                 // 归一到 [0,180)
+      if(a<1 || Math.abs(a-90)<1 || a>179){          // 近似横纹/竖纹：不受行偏移影响，跳过
+        sizes.push('auto'); poss.push('0 0'); return;
+      }
+      const P=stripePeriod(L);                       // 从色标里取出一个完整周期长度(px)
+      if(!(P>0)){ sizes.push('auto'); poss.push('0 0'); return; }
+      const rad=aRaw*Math.PI/180;
+      const sx=P/Math.abs(Math.sin(rad));
+      const sy=P/Math.abs(Math.cos(rad));
+      sizes.push(sx.toFixed(4)+'px '+sy.toFixed(4)+'px');
+      poss.push((-dx)+'px '+(-dy)+'px');
+      touched=true;
+    });
+    if(!touched){
+      if(el.style.backgroundSize||el.style.backgroundPosition){
+        el.style.backgroundSize=''; el.style.backgroundPosition='';
+      }
+      return;
+    }
+    el.style.backgroundSize=sizes.join(', ');
+    el.style.backgroundPosition=poss.join(', ');
   });
+}
+/* 按顶层逗号切分多背景图层：只在括号深度为 0 处断开，
+   这样 rgba(15,23,42,.10) 里的逗号不会被误判为图层分隔符。 */
+function splitTopLevel(s){
+  const out=[]; let depth=0, cur='';
+  for(let i=0;i<s.length;i++){
+    const ch=s[i];
+    if(ch==='(') depth++;
+    else if(ch===')') depth--;
+    if(ch===',' && depth===0){ out.push(cur.trim()); cur=''; continue; }
+    cur+=ch;
+  }
+  if(cur.trim()) out.push(cur.trim());
+  return out;
+}
+/* 求 repeating-linear-gradient 的一个条纹周期(px)。
+   规范：repeating 的周期 = 最后一个色标位置 − 第一个色标位置。
+   例 (45deg, A 0 2.5px, B 2.5px 6px) → 取到的最大位置 6px 即周期。
+   注意只在【顶层色标】里找长度，避免把函数内部数字当位置。 */
+function stripePeriod(layer){
+  const i=layer.indexOf('(');
+  const body=i>=0?layer.slice(i+1, layer.lastIndexOf(')')):layer;
+  const parts=splitTopLevel(body);
+  let maxPx=0, minPx=Infinity, seen=false;
+  parts.forEach(p=>{
+    // 去掉颜色函数，避免 rgba(...) 内数字干扰；再抓所有 px 长度
+    const cleaned=p.replace(/[a-z-]*\([^()]*\)/gi,' ');
+    const ms=cleaned.match(/(-?\d+(?:\.\d+)?)px/g);
+    if(!ms) return;
+    ms.forEach(t=>{
+      const v=parseFloat(t);
+      if(!isFinite(v)) return;
+      seen=true;
+      if(v>maxPx) maxPx=v;
+      if(v<minPx) minPx=v;
+    });
+  });
+  if(!seen) return 0;
+  const per=maxPx-(isFinite(minPx)?Math.min(minPx,0):0);
+  return per>0?per:maxPx;
 }
 /* ============ v5.0 标签实测降级（唯一可靠的自适应）============
    对每根任务条的 .rt-line 逐个测量：内容宽 > 可用宽 时，按 data-rank 从大到小(优先级从低到高)
