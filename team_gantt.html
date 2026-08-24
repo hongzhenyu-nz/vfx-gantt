@@ -1446,7 +1446,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.96 · build 2026-08-24 19:54</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.97 · build 2026-08-24 20:02</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2010,7 +2010,7 @@ function corpStyle(m){
   if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借',txt:'#fff',bord:'',tex:'',outline:''};
   // 已离职：冷调淡蓝白 + 无纹理 + 虚线描边 + 贯穿划除线（strike）—— 一条线把人划掉，语义最直接
   if(effLeft(m)) return {key:'gone',label:'已离职',col:'#e6ecf6',short:'离',txt:'#6b7385',bord:'#a9b8d0',
-    tex:'', outline:'dashed', strike:'#8a94a8'};
+    tex:'', outline:'dashed', strike:'#33415c'};
   // 正编：实心深蓝 + 实线描边（最"实"）
   if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#0052d9',short:'正',txt:'#fff',bord:'',tex:'',outline:'solid',strike:''};
   // 子公司：与正编同色系但略浅 + 细竖纹 —— 相近而不零区分
@@ -3554,7 +3554,7 @@ function capacityLanesHTML(r){
     // 纹理层叠在底色之上（background 多层：纹理在前、纯色在后）
     // 离职：用 linear-gradient 在条体垂直中线画一条 2px 贯穿划除线（把人「划掉」），不用斜纹
     const strikeLayer = cs.strike
-      ? `linear-gradient(to bottom,transparent calc(50% - 1px),${cs.strike} calc(50% - 1px),${cs.strike} calc(50% + 1px),transparent calc(50% + 1px))`
+      ? `linear-gradient(to bottom,transparent calc(50% - .75px),${cs.strike} calc(50% - .75px),${cs.strike} calc(50% + .75px),transparent calc(50% + .75px))`
       : '';
     const bgLayers = [strikeLayer, cs.tex].filter(Boolean).join(',');
     const segBg = bgLayers ? `background:${bgLayers},${col}` : `background:${col}`;
@@ -3570,7 +3570,7 @@ function capacityLanesHTML(r){
       : `box-shadow:inset 0 0 0 1px ${cs.bord||'rgba(255,255,255,.35)'}`;
     const corpBadge=`<i class="bl-corp" style="background:${col};color:${cs.txt};${badgeBord}">${cs.short}</i>`;   // 编制徽标：正/子/基/离/借
     const nameHTML = cs.strike
-      ? `<span style="text-decoration:line-through;text-decoration-color:${cs.strike};text-decoration-thickness:2px;opacity:.85">${p.name}</span>`
+      ? `<span style="text-decoration:line-through;text-decoration-color:${cs.strike};text-decoration-thickness:2.5px">${p.name}</span>`
       : p.name;
     const capLab = digest>0?`<b>消化${digest}天</b>`:'';                            // 消化N天 = 该人在本需求已投入工作日 × 效率（不依赖剩余窗口，有档期即有值）
     const invLab = segInvBadge(psegs[0]);                                            // 投入比状态徽标（全人力/跟进），取首段口径
