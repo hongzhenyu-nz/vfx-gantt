@@ -1446,7 +1446,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.94 · build 2026-08-24 19:22</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v6.95 · build 2026-08-24 19:44</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -2008,17 +2008,18 @@ function isExtLoan(m){
    注：基地用淡白底，需深字 txt + 描边 bord 才能在深色需求条上可见(纯白条/白字会看不见)；正编/子公司为实色底配白字。 */
 function corpStyle(m){
   if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借',txt:'#fff',bord:'',tex:'',outline:''};
-  // 已离职：无论原编制，一律「灰底 + 45°斜纹划掉感 + 虚线描边」——形状差异，不靠颜色深浅
-  if(effLeft(m)) return {key:'gone',label:'已离职',col:'#c9ccd4',short:'离',txt:'#5a606c',bord:'#9aa0ad',
-    tex:'repeating-linear-gradient(45deg,rgba(90,96,108,.38) 0 3px,transparent 3px 7px)', outline:'dashed'};
+  // 已离职：暖褐色系（非灰！）+ 45°斜纹划掉感 + 虚线描边 —— 与基地的冷淡白形成冷暖对比，一眼可辨
+  // 与「按人看」视图的离职琥珀色标识（.row.is-left 琥珀左边框）保持同一语义色系
+  if(effLeft(m)) return {key:'gone',label:'已离职',col:'#e8d5c4',short:'离',txt:'#7a5540',bord:'#c9a184',
+    tex:'repeating-linear-gradient(45deg,rgba(140,90,55,.42) 0 3px,transparent 3px 7px)', outline:'dashed'};
   // 正编：实心深蓝 + 实线描边（最"实"）
   if(m&&m.corp==='reg') return {key:'reg',label:'正编带队',col:'#0052d9',short:'正',txt:'#fff',bord:'',tex:'',outline:'solid'};
   // 子公司：与正编同色系但略浅 + 细竖纹 —— 相近而不零区分
   if(m&&m.corp==='sub') return {key:'sub',label:'子公司',col:'#2b6fe3',short:'子',txt:'#fff',bord:'',
     tex:'repeating-linear-gradient(90deg,rgba(255,255,255,.28) 0 1.5px,transparent 1.5px 6px)', outline:'solid'};
-  // 基地（在职）：淡白底 + 细点阵纹 + 实线描边 —— 与离职的斜纹/虚线明确分开
-  return {key:'base',label:'基地',col:'#eef1f7',short:'基',txt:'#56607a',bord:'#c4ccdb',
-    tex:'repeating-linear-gradient(90deg,rgba(86,96,122,.20) 0 1.5px,transparent 1.5px 7px)', outline:'solid'};
+  // 基地（在职）：冷调淡蓝白 + 细竖纹 + 实线描边 —— 与离职的暖褐/斜纹/虚线冷暖对立
+  return {key:'base',label:'基地',col:'#e6ecf6',short:'基',txt:'#4a5670',bord:'#a9b8d0',
+    tex:'repeating-linear-gradient(90deg,rgba(74,86,112,.22) 0 1.5px,transparent 1.5px 7px)', outline:'solid'};
 }
 
 /* ============ 数据（真实：出场动画特效相关制作人 + 橙角出场特效排期） ============ */
