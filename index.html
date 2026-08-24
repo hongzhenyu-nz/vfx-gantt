@@ -791,8 +791,11 @@
   /* v5.4 两行堆叠：窄但够高的条(单行放不下任务名+徽标)，改为纵向两行——任务名居中一行、模块居中补第二行，充分利用纵向空间 */
   .bar-task .rt-line[data-stack="1"]{flex-direction:column;flex-wrap:nowrap;justify-content:center;align-items:center;gap:2px;}
   .bar-task .rt-line[data-stack="1"] .rt-nm{overflow:visible;text-overflow:clip;max-width:100%;text-align:center;}
-  /* 条内模块/人天/投入比小徽标：浅底深字、单行紧凑、绝不换行、绝不被压缩变形 */
-  .bar-task .rt-line .rt-mod{color:#475067!important;background:rgba(255,255,255,.92)!important;border:1px solid rgba(255,255,255,.55)!important;box-shadow:0 1px 2px rgba(0,0,0,.14);font-size:10.5px;font-weight:700;padding:1px 6px;line-height:1.35;border-radius:4px;margin:0;flex:0 0 auto;white-space:nowrap;}
+  /* 条内模块/人天/投入比小徽标：浅底深字、单行紧凑、绝不换行、绝不被压缩变形。
+     v7.06：模块名色改用 CSS 变量 --mod-c（由 JS 按 modFamC 内联写入），默认回退中性深灰。
+     这样「联调」等有专属色族的模块能在条内徽标上显出自己的颜色（联调=深紫 #7c3aed），
+     一眼区分「需求类型(联调)」与「具体模块(出场/检视/组队…)」。 */
+  .bar-task .rt-line .rt-mod{color:var(--mod-c,#475067)!important;background:rgba(255,255,255,.92)!important;border:1px solid rgba(255,255,255,.55)!important;box-shadow:0 1px 2px rgba(0,0,0,.14);font-size:10.5px;font-weight:700;padding:1px 6px;line-height:1.35;border-radius:4px;margin:0;flex:0 0 auto;white-space:nowrap;}
   .bar-task .rt-line .rt-mod .rt-mi{font-size:10.5px;line-height:1;margin-right:2px;}
   .bar-task .rt-line .rt-md{color:#475067!important;background:rgba(255,255,255,.88)!important;border:1px solid rgba(255,255,255,.5)!important;box-shadow:0 1px 2px rgba(0,0,0,.14);font-size:10.5px;font-weight:800;padding:1px 6px;line-height:1.35;border-radius:4px;margin:0;flex:0 0 auto;white-space:nowrap;}
   .bar-task .rt-line .rt-md small{font-size:8.5px;opacity:.72;margin-left:1px;font-weight:700;}
@@ -2617,7 +2620,7 @@ function reqTitleHTML(r, opt){
   const nm=`<span class="rt-nm" data-rank="1">${short}</span>`;
   const fc=modFamC(r.mod);   // 色族色：只用 4 个大类色着字/描边，底色统一
   // v5.0：始终输出全部信息位（模块 rank2 / 人天 rank3），实际显示几个交给渲染后的实测降级 fitBarLabels()。
-  const mt=`<span class="rt-mod" data-rank="2" style="color:${fc}"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`;
+  const mt=`<span class="rt-mod" data-rank="2" style="color:${fc};--mod-c:${fc}"><i class="rt-mi" style="filter:none">${MM.ic}</i>${MM.s}</span>`;
   // 人天徽标：
   //  · 「按人看」每条任务条传 opt.pdays = 该成员在本需求的个人投入(Σ投入比×效率)，显示个人量；
   //  · 「按需求看」不传 opt.pdays，显示整条需求总工作量 r.estimate。
