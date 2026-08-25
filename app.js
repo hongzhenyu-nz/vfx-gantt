@@ -1935,12 +1935,8 @@ function loadHeatmapHTML(){
     wkStats.push({ratioPct, parallel, leftPx, widthPx, counted: workdays > 0});
   });
 
-  /* v7.14 色段下沿微标注：仅当段宽 ≥36px 时渲染，窄段放不下会挤成乱码。
-     pointer-events:none（见 CSS）保证不抢 .load-seg 的 hover tip。 */
-  const segNotes = wkStats
-    .filter(w => w.widthPx >= 36)
-    .map(w => `<div class="load-seg-note" style="left:${w.leftPx}px;width:${w.widthPx}px">${Math.round(w.parallel)}人·${w.ratioPct}%</div>`)
-    .join('');
+  /* v7.20：移除色段底部的「人数·占比」逐周微标注。
+     颜色与悬停提示已完整表达负载；把数值逐格铺开会使热力带变成难以扫读的数据墙。 */
 
   // v7.14 左侧标签聚合数：峰值取最大周利用率，均值按计入周求算术平均
   const counted = wkStats.filter(w => w.counted);
@@ -2002,10 +1998,9 @@ function loadHeatmapHTML(){
   const labelTip = `在岗 ${totalActive} 人　按自然周聚合　峰值周利用率 ${peakPct}%　全周期均值 ${avgPct}%　利用率 = 分配人天 ÷ (在岗人数 × 工作日)`;
   return `<div class="load-heatmap" id="loadHeatmap">
     <div class="load-label" onmousemove="showTip(event,\`${labelTip}\`)" onmouseleave="hideTip()">
-      <div class="ll-main">📊 团队负载<span class="ll-cnt">${totalActive}人</span></div>
-      <div class="ll-sub"><span class="ll-peak">峰 ${peakPct}%</span><span class="ll-avg">均 ${avgPct}%</span></div>
+      <div class="ll-main">📊 团队负载</div>
     </div>
-    <div class="load-track" style="width:${DAYS*DAY_W}px">${bars}${segNotes}${gapMarks}</div>
+    <div class="load-track" style="width:${DAYS*DAY_W}px">${bars}${gapMarks}</div>
     ${legend}
   </div>`;
 }
@@ -2777,7 +2772,7 @@ function paint(rows){
   const [vlines,todayLine]=rest.split('__TODAY__');   // v7.12：红线独立成层，见 headerHTML 注释
   const loadBar = loadHeatmapHTML();
   document.getElementById('grid').innerHTML =
-    head + `<div style="position:absolute;left:var(--left-w);top:94px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
+    head + `<div style="position:absolute;left:var(--left-w);top:86px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
     // 红线专属贯穿层：top:0 从表头顶端起笔，与表头上方的胶囊箭头首尾相接
     + `<div class="today-layer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:8">${todayLine}</div>`
     + loadBar

@@ -233,7 +233,7 @@
             z-index 4→6（必须高于普通行 .cell-left 的 4，否则冻结后会被后续行覆盖；仍低于 .row.head 的 7）；
             height 32→44px，底部新增 12px 标注轨道放「人数·占比」微标签，
             色段与空隙标记的绝对位置保持像素不变（见下方各自注释）。 */
-  .load-heatmap{display:flex;align-items:center;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;background:var(--panel);position:sticky;top:54px;z-index:6;height:44px;flex-shrink:0;}   /* v6.53b 撤销 v6.51 的 overflow:hidden —— 它会让 .load-label 的 position:sticky 失效（sticky 在 overflow:hidden 祖先内不生效），导致左侧「📊负载」标签消失、色带铺进名栏 */
+  .load-heatmap{display:flex;align-items:center;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;background:var(--panel);position:sticky;top:54px;z-index:6;height:32px;flex-shrink:0;}   /* v6.53b 撤销 v6.51 的 overflow:hidden —— 它会让 .load-label 的 position:sticky 失效（sticky 在 overflow:hidden 祖先内不生效），导致左侧「📊负载」标签消失、色带铺进名栏 */
   /* v7.14 左侧标签配平：原先只有「📊 负载」四字，与右侧整条大色带视觉重量严重失衡。
      改为两行——主行带团队人数，副行给峰值/均值聚合数，让左侧文字承载信息量、与色带对读。 */
   .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:1px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:0;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;position:sticky;left:0;background:var(--panel);z-index:9;}   /* v7.18 z-index 7→9：必须高于 today-layer(8)，否则红线滚动到「今天」落在冻结栏后方时会穿透盖在「团队负载」峰值/均值文字上 */
@@ -244,7 +244,7 @@
   .load-heatmap .load-label .ll-avg{color:#0f6e56;}
   .load-heatmap .load-track{position:relative;height:100%;flex-shrink:0;min-width:0;overflow:hidden;}   /* v6.53b 约束移到 track 层：既能裁掉空隙标记的垂直溢出，又不影响 .load-label 的 sticky */
   /* 周粒度色段 —— 简洁纯色，不出框 */
-  .load-heatmap .load-seg{position:absolute;top:3px;bottom:19px;border-radius:3px;transition:background .2s;cursor:pointer;}   /* v6.45 让出底部 4px 下划线轨道，色段自身厚度维持 22px 不变；v7.14 行高 32→44 后 bottom 7→19，色段绝对位置(y 3..25)与厚度 22px 全部保持像素不变 */
+  .load-heatmap .load-seg{position:absolute;top:3px;bottom:7px;border-radius:3px;transition:background .2s;cursor:pointer;}   /* v6.45 让出底部 4px 下划线轨道，色段自身厚度维持 22px 不变；v7.14 行高 32→44 后 bottom 7→19，色段绝对位置(y 3..25)与厚度 22px 全部保持像素不变 */
   .load-heatmap .load-seg:hover{opacity:.8;z-index:2;}
   /* v7.14 色段下沿微标注：把「颜色」翻译成「几个人 / 百分之几」，让色带自解释。
      仅在段宽 ≥36px 时渲染（窄段放不下会挤成乱码），pointer-events:none 不抢色段的 hover tip。 */
@@ -260,10 +260,10 @@
      色段主体 100% 完整无任何缺口。圆角实心琥珀 + 外发光，hover 时轻微加粗下沉。
      v7.14：行高 32→44、底部再让出 12px 标注轨道，故 bottom 1→13px、hover bottom 0→12px，
             标记相对色段下缘的位置(y 27..31)与 v6.45 完全一致。 */
-  .load-heatmap .load-gap-mark{position:absolute;bottom:13px;height:4px;z-index:5;cursor:pointer;
+  .load-heatmap .load-gap-mark{position:absolute;bottom:1px;height:4px;z-index:5;cursor:pointer;
     background:#d97706;border-radius:2px;box-shadow:0 0 5px rgba(217,119,6,.6);
     transition:height .12s,background .12s,bottom .12s;}
-  .load-heatmap .load-gap-mark:hover{bottom:12px;height:6px;background:#b45309;box-shadow:0 0 7px rgba(180,83,9,.8);}
+  .load-heatmap .load-gap-mark:hover{bottom:0;height:6px;background:#b45309;box-shadow:0 0 7px rgba(180,83,9,.8);}
   /* 命中区：向上扩 3px（止步于色段下缘，不抢 .load-seg 的 hover tip），向下扩 1px 到色带底。 */
   .load-heatmap .load-gap-mark::before{content:'';position:absolute;left:0;right:0;top:-3px;bottom:-1px;background:transparent;}
   @keyframes idlePulse{0%,100%{opacity:1;}50%{opacity:.5;}}
@@ -278,14 +278,14 @@
   @keyframes newrowglow{0%{background:#efe6ff;box-shadow:inset 0 0 0 2px #a87bf5,0 0 0 0 rgba(124,58,237,.5);}18%{background:#efe6ff;}100%{background:transparent;box-shadow:inset 0 0 0 0 rgba(124,58,237,0),0 0 0 0 rgba(124,58,237,0);}}
   @keyframes newbadge{0%{opacity:0;transform:translateY(-4px) scale(.9);}10%{opacity:1;transform:none;}80%{opacity:1;}100%{opacity:0;}}
   /* 拖拽落点：全高竖向参考线（标记将要落到的起止日期列） */
-  .drop-guide{position:absolute;top:94px;bottom:0;width:0;border-left:2px dashed var(--blue);z-index:8;pointer-events:none;display:none;}   /* v7.14 82→94px：表头 54 + 热力带 44（带高 32→44） */
+  .drop-guide{position:absolute;top:86px;bottom:0;width:0;border-left:2px dashed var(--blue);z-index:8;pointer-events:none;display:none;}   /* v7.14 82→94px：表头 54 + 热力带 44（带高 32→44） */
   .drop-guide.show{display:block;}
   .drop-guide.gend{border-left-color:#9dbcff;border-left-style:dotted;}
   /* v6.11: ★真凶修复——原值 `rgba(51,112,.07)` 少写一个通道（rgba 需4参数，只给了3个），
      浏览器解析为 rgb(51,112,0)=深绿且完全不透明 → 拖拽时出现贯穿整页的深绿色垂直带。
      这就是 v6.02~v6.10 追查十轮的「绿块」真身：不是文本选区、不是系统强调色、不是外部软件，
      而是本文件一个 CSS 拼写错误。正确值应为主题蓝半透明 rgba(51,112,255,.07)。 */
-  .drop-band{position:absolute;top:94px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}   /* v7.14 82→94px：表头 54 + 热力带 44（带高 32→44） */
+  .drop-band{position:absolute;top:86px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}   /* v7.14 82→94px：表头 54 + 热力带 44（带高 32→44） */
   .drop-band.show{display:block;}
   /* 视角高亮：选中的"我"本人 + 隶属于我的人员行
      v6.44：整行背景一律用半透 rgba，让时间轴的日期/周末底纹透出来；
@@ -298,6 +298,10 @@
   .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:9;transition:background .12s;}
   .row.head .cell-left{background:#fafbfc;z-index:9;}
   .timeline{position:relative;flex:1;display:flex;align-items:center;}
+  /* v7.20：冻结名栏右缘给出连续的蓝色锚线，并向时间轴延伸一小段淡色导轨。
+     不改变任务条颜色或数据，只让眼睛能一眼把左侧名字和同一水平行的时间条连起来。 */
+  #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):not(.row-target):not(.chip-target) .cell-left::after{content:'';position:absolute;right:0;top:0;bottom:0;width:3px;background:rgba(29,111,214,.32);pointer-events:none;}
+  #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row) .timeline::before{content:'';position:absolute;left:0;top:0;bottom:0;width:42px;background:linear-gradient(90deg,rgba(29,111,214,.09),rgba(29,111,214,0));pointer-events:none;z-index:0;}
   /* v6.46 排期空隙提示（醒目度升级 + 标签自适应降级）：
      - 更醒目：斜纹加密加深 + 左右两端 3px 实心琥珀"端柱"锚定边界 + 顶部虚线呼吸感，
        一眼能从密集任务条中辨出空档区域；仍保持半透，日期/周末底纹照样透出。
@@ -748,6 +752,12 @@
   .bar-task.vacant-bar.k-qa::after{content:none;}
   /* 缺人角标：在任务条信息右侧显示醒目的红色"🔴缺人"标记 */
   .vacant-bar .vacant-badge{flex-shrink:0;font-size:10px;font-weight:700;color:#fff;background:#dc2626;border-radius:8px;padding:1px 6px;white-space:nowrap;line-height:1.6;}
+  /* v7.20：缺人占位同时逾期时，将条高锁为 44px 并分成右上/右下两轨。
+     54px 的人员行可完整容纳这两枚状态标签，避免它们在原 32px 条高里再次压叠。 */
+  .vacant-bar:has(.rt-late){height:44px!important;top:5px!important;align-items:flex-start;}
+  .vacant-bar:has(.rt-late) .vacant-badge{position:absolute;right:4px;top:3px;z-index:4;line-height:1.35;}
+  .vacant-bar:has(.rt-late) .rt-line{padding-right:68px;}
+  .vacant-bar:has(.rt-late) .rt-late{position:absolute;right:4px;bottom:3px;z-index:4;}
   /* 缺人条内部元素：全部白字+深阴影，确保在红底斜纹上清晰可读 */
   .vacant-bar .rt-nm{color:#fff!important;text-shadow:0 1px 2px rgba(80,5,5,.6)!important;}
   .vacant-bar .rt-line>span{color:#fff!important;text-shadow:0 1px 2px rgba(80,5,5,.5)!important;}
