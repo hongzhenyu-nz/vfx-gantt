@@ -673,6 +673,8 @@
   .bar-task.req-bar .bl-seg:hover{filter:brightness(1.1);opacity:1;}
   .bar-task.req-bar .bl-lane-lab{position:absolute;left:0;top:50%;transform:translateY(-50%);z-index:3;display:inline-flex;align-items:center;gap:3px;height:15px;padding:0 6px;border-radius:5px;font-size:9.5px;font-weight:800;line-height:1;color:#fff;background:rgba(0,0,0,.34);box-shadow:0 1px 2px rgba(0,0,0,.28);white-space:nowrap;}
   .bar-task.req-bar .bl-lane-lab b{font-weight:800;opacity:.95;margin-left:3px;}
+  /* 离职成员：用标签容器上的单一覆盖层画连续划除线。不能用 text-decoration：标签内含名字、b、投入比徽标等多个 inline/inline-flex 子项，会各自生成高低不齐的分段线。 */
+  .bar-task.req-bar .bl-lane-lab.is-departed::after{content:"";position:absolute;left:4px;right:4px;top:50%;height:1.5px;transform:translateY(-50%);z-index:8;pointer-events:none;border-radius:999px;background:rgba(24,28,36,.82);box-shadow:0 .5px 0 rgba(255,255,255,.18);}
   .bar-task.req-bar .bl-seg-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
   /* 编制徽标（正/基/借）：方形小色块，底色=编制色，与本人甘特条同色，一眼对应 */
   .bar-task.req-bar .bl-corp{display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:3px;flex-shrink:0;font-size:9px;font-weight:800;color:#fff;line-height:1;box-shadow:inset 0 0 0 1px rgba(255,255,255,.35);font-style:normal;}

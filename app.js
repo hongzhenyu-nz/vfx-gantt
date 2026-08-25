@@ -1748,9 +1748,9 @@ function capacityLanesHTML(r){
     const nameHTML = p.name;
     const capLab = digest>0?`<b>消化${digest}天</b>`:'';                            // 消化N天 = 该人在本需求已投入工作日 × 效率（不依赖剩余窗口，有档期即有值）
     const invLab = segInvBadge(psegs[0]);                                            // 投入比状态徽标（全人力/跟进），取首段口径
-    // 离职：对整段标签文字（名字 + 消化N天 + 投入比徽标）统一加 line-through，黑线整齐落在每行文字中间、划掉全部信息
-    const labStrike = cs.strike ? `text-decoration:line-through;text-decoration-color:${cs.strike};text-decoration-thickness:2.5px;` : '';
-    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="${labStrike}left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${nameHTML}${capLab}${invLab}</span></div>`;
+    // 离职：给整个标签容器加类，用单个 ::after 画一条连续划除线；避免 text-decoration 在名字/b/投入比徽标上分段且高低不齐
+    const departedCls = cs.strike ? ' is-departed' : '';
+    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab${departedCls}" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${nameHTML}${capLab}${invLab}</span></div>`;
   });
   if(!nRows) return null;
   const H=nRows*(CLANE_H+CLANE_GAP)+2;
