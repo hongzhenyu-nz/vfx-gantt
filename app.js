@@ -2027,7 +2027,12 @@ function headerHTML(){
   return `<div class="row head">
     <div class="cell-left">${headLabel}</div>
     <div class="timeline" style="width:${DAYS*DAY_W}px">${months}${weeks}</div></div>`
-   + `__VLINES__${shades}${vlines}<div class="todayline" data-today="今天 ${fmt(TODAY)}" style="left:${tx}px"></div>`;
+   + `__VLINES__${shades}${vlines}`
+   /* v7.12：今天红线从竖线层里独立出来。竖线层是 top:82px（表头 54 + 热力带 32 之下），
+      红线画在里面就永远从表头下方才起笔，与表头上方的日期胶囊隔着一段空白、连不成一根指针。
+      拆成 __TODAY__ 单独一层后由 paint 挂到 top:0 的贯穿层，红线自表头顶端一路贯到底；
+      表头段用 CSS 渐变压到 28% 透明度，既连贯又不糊住月/周日期文字。 */
+   + `__TODAY__<div class="todayline" data-today="今天 ${fmt(TODAY)}" style="left:${tx}px"></div>`;
 }
 
 /* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
@@ -2656,10 +2661,13 @@ function refreshBandGapMarks(){
 
 function paint(rows){
   const h=headerHTML();
-  const [head,vlines]=h.split('__VLINES__');
+  const [head,rest]=h.split('__VLINES__');
+  const [vlines,todayLine]=rest.split('__TODAY__');   // v7.12：红线独立成层，见 headerHTML 注释
   const loadBar = loadHeatmapHTML();
   document.getElementById('grid').innerHTML =
     head + `<div style="position:absolute;left:var(--left-w);top:82px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
+    // 红线专属贯穿层：top:0 从表头顶端起笔，与表头上方的胶囊箭头首尾相接
+    + `<div class="today-layer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:8">${todayLine}</div>`
     + loadBar
     + `<div class="drop-band" id="dropBand"></div><div class="drop-guide" id="dropG0"></div><div class="drop-guide gend" id="dropG1"></div>`
     + rows;
@@ -2669,22 +2677,88 @@ function paint(rows){
   alignStripes();          // v6.83：把所有 45° 斜纹块对齐到全局坐标系（固定瓦片+双轴补偿）
   // v5.0：渲染后按真实像素实测降级标签（横排隐藏低优先徽标 → 缩字号 → 竖排 → 省略号）
   requestAnimationFrame(fitBarLabels);
-  /* v7.10：今天红线日期标签——独立 DOM 挂到 #sec-gantt(board) 顶部上方，
-     不受 .scroll overflow 裁切。每次 paint 重渲染时先移除旧标签再新建。 */
-  (function(){
-    const board = document.getElementById('sec-gantt');
-    let lbl = board.querySelector('.today-label');
-    if (lbl) lbl.remove();
-    const tl = document.querySelector('.todayline');
-    if (!tl) return;
-    const tx = parseFloat(tl.style.left);
+  /* v7.12：今天日期胶囊——渲染完成后同步一次位置。
+     胶囊本体常驻在 board 上方的 #todayRailTrack 里（见 syncTodayLabel），
+     不再每次 paint 重建 DOM，也不再挂到 #sec-gantt（那样会被 overflow:hidden 裁 / 不随滚动走）。 */
+  syncTodayLabel();
+}
+
+/* ===== v7.12 今天日期胶囊定位（单一入口：paint / 滚动 / 缩放 / 栏宽变化都走这里）=====
+   为什么用「实测几何」而不是坐标推算：
+     v7.11 的做法是 left = calc(var(--left-w) + tx)，纯推算且漏了 scrollLeft，
+     横向滚动时红线走了、胶囊不动（实测滚 400px 直接错位 400px）。
+   即使补上 scrollLeft，推算链路里还夹着 .board 的 1px 边框、vlines 层的 --left-w 偏移
+   等多个中间量，任一改动都会重新引入亚像素错位（实测残留 1px）。
+   故直接量红线与 track 的真实视口矩形做差 —— 边框/padding/缩放全部自动抵消，恒对齐。 */
+function syncTodayLabel(){
+  const track = document.getElementById('todayRailTrack');
+  const rail  = document.getElementById('todayRail');
+  if(!track) return;
+  const tl = document.querySelector('.todayline');
+  const sc = document.getElementById('scroll');
+  let lbl = track.querySelector('.today-label');
+  // 无红线的视图（如「人力分配」不画时间轴红线）：整条标尺收起，不留 26px 空白占位
+  if(rail) rail.classList.toggle('empty', !tl);
+  if(!tl || !sc){ if(lbl) lbl.remove(); return; }
+
+  if(!lbl){
     lbl = document.createElement('div');
     lbl.className = 'today-label';
-    lbl.textContent = tl.getAttribute('data-today') || '';
-    lbl.style.left = 'calc(var(--left-w) + ' + tx + 'px)';
-    board.appendChild(lbl);
-  })();
+    lbl.title = '今天所在位置。红线滚出视野时点此跳回';
+    // 贴边态可点击跳回今天（.today-rail 整体 pointer-events:none，仅 .off 态由 CSS 打开 auto）
+    lbl.addEventListener('click', ()=>{ if(lbl.classList.contains('off')) scrollToToday(true); });
+    track.appendChild(lbl);
+  }
+  const txt = tl.getAttribute('data-today') || '';
+  const tr = track.getBoundingClientRect();
+  const lr = tl.getBoundingClientRect();
+  const xView = (lr.left + lr.width/2) - tr.left;      // 红线中心相对 track 左缘的可视偏移
+  const half  = lbl.getBoundingClientRect().width/2 || 34;
+  // 红线滚出可视区 → 胶囊贴边并降透明度，同时带上方向箭头，明确「今天在左边/右边」，
+  // 而不是让用户对着一个不动的半透明标签猜今天在哪。
+  const offL = xView < half + 2, offR = xView > tr.width - half - 2;
+  const want = offL ? ('◀ ' + txt) : offR ? (txt + ' ▶') : txt;
+  if(lbl.textContent !== want) lbl.textContent = want;
+  lbl.classList.toggle('off', offL || offR);
+  lbl.classList.toggle('off-l', offL);
+  lbl.classList.toggle('off-r', offR);
+  // 文案变了 → 宽度也变了，用最新宽度重算贴边位置，避免半个胶囊露出 track 外
+  const half2 = lbl.getBoundingClientRect().width/2 || half;
+  lbl.style.left = Math.max(half2 + 2, Math.min(tr.width - half2 - 2, xView)).toFixed(2) + 'px';
 }
+
+/* v7.12 一键回到今天：把红线滚到时间轴可视区左侧 1/3 处——今天靠左、未来排期留出 2/3 视野，
+   比居中更贴合「看接下来要做什么」的实际使用习惯。 */
+function scrollToToday(smooth){
+  const sc = document.getElementById('scroll');
+  const tl = document.querySelector('.todayline');
+  if(!sc || !tl) return;
+  const lw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-w')) || 340;
+  const viewW = Math.max(120, sc.clientWidth - lw);     // 时间轴可视宽度（扣掉冻结的左侧信息栏）
+  const target = (parseFloat(tl.style.left) || 0) - viewW/3;
+  const max = Math.max(0, sc.scrollWidth - sc.clientWidth);
+  const left = Math.max(0, Math.min(max, target));
+  if(smooth && sc.scrollTo){ sc.scrollTo({left, behavior:'smooth'}); } else { sc.scrollLeft = left; }
+  syncTodayLabel();
+}
+
+/* 横向滚动 / 容器尺寸变化时实时重算胶囊位置。
+   用 rAF 节流：滚动事件频率远高于渲染帧，逐事件改样式会造成多余的样式重算。 */
+let _todayLabelBound = false;
+function bindTodayLabelFollow(){
+  if(_todayLabelBound) return; _todayLabelBound = true;
+  const sc = document.getElementById('scroll');
+  if(!sc) return;
+  let pending = false;
+  const tick = () => { pending = false; syncTodayLabel(); };
+  const onScroll = () => { if(!pending){ pending = true; requestAnimationFrame(tick); } };
+  sc.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll);
+  if(window.ResizeObserver) new ResizeObserver(onScroll).observe(sc);   // 拖栏宽 / 拉伸看板高度也会改 track 宽
+  // 首屏自动停在今天附近：否则今天常落在可视区外，胶囊只能贴边显示，用户还得自己横向找。
+  requestAnimationFrame(()=>{ if(!_todayScrolledOnce){ _todayScrolledOnce = true; scrollToToday(false); } });
+}
+let _todayScrolledOnce = false;
 /* ============ v6.83 45° 斜纹跨行对齐（真正根治「日期底纹歪了」）============
    现象：条内休息日暗块 .rest 的 45° 斜纹在不同行/不同条之间接不上，看起来"歪"。
 
@@ -7033,12 +7107,38 @@ function initVivid(){
 const ZOOM_KEY='gantt_zoom';
 function setZoom(v,sync){
   v=Math.max(100,Math.min(320,Math.round(+v/10)*10));
+  /* v7.12 缩放锚定：记住缩放前视野里的一个「基准天」，缩放后把它放回原来的屏上位置。
+     否则 scrollLeft 是像素值、DAY_W 一变含义就变，视野会莫名跳到几个月之外，
+     用户拖一下条宽滑块就得重新找今天在哪。
+     锚点优先级：① 今天红线若在可视区内 → 以红线为锚（缩放时今天钉在原处不动，最符合直觉）；
+                 ② 否则以可视区中心那天为锚。
+     坐标关系：内容坐标 x = 天索引 × DAY_W；左侧 --left-w 是 sticky 冻结名栏，
+     故时间轴可视宽 = clientWidth − left-w，屏上偏移 = x − scrollLeft。 */
+  const sc=document.getElementById('scroll');
+  let anchorDay=null, anchorOff=0;
+  if(sc && DAY_W>0){
+    const lw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-w'))||340;
+    const viewW=Math.max(120,sc.clientWidth-lw);
+    const tl=document.querySelector('.todayline');
+    const tx=tl?parseFloat(tl.style.left):NaN;
+    const todayOff=tx-sc.scrollLeft;                    // 红线相对时间轴可视区左缘的屏上偏移
+    if(isFinite(todayOff) && todayOff>=0 && todayOff<=viewW){
+      anchorDay=tx/DAY_W; anchorOff=todayOff;           // ① 钉住今天
+    }else{
+      anchorOff=viewW/2; anchorDay=(sc.scrollLeft+anchorOff)/DAY_W;   // ② 钉住视野中心
+    }
+  }
   DAY_W=+(DAY_W_BASE*v/100).toFixed(2);
   document.documentElement.style.setProperty('--day-w',DAY_W+'px');  // v5.5 进度格线按天：同步每天像素宽
   const val=document.getElementById('zoomVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('zoomRange'); if(rng&&(sync||+rng.value!==v))rng.value=v;
   try{localStorage.setItem(ZOOM_KEY,v);}catch(_){}
   if(typeof rerender==='function') rerender();
+  if(sc && anchorDay!==null){
+    const max=Math.max(0,sc.scrollWidth-sc.clientWidth);
+    sc.scrollLeft=Math.max(0,Math.min(max,anchorDay*DAY_W-anchorOff));
+    if(typeof syncTodayLabel==='function') syncTodayLabel();
+  }
 }
 function initZoom(){
   let v=100; try{const s=localStorage.getItem(ZOOM_KEY); if(s)v=+s;}catch(_){}
@@ -7053,8 +7153,20 @@ function initZoom(){
 const LEFTW_KEY='gantt_leftw';
 const LEFTW_MIN=240, LEFTW_MAX=620, LEFTW_DEF=340;
 function setLeftW(px,save){
+  const prev=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-w'))||LEFTW_DEF;
   px=Math.max(LEFTW_MIN,Math.min(LEFTW_MAX,Math.round(px)));
   document.documentElement.style.setProperty('--left-w',px+'px');
+  /* v7.12 两件事：
+     ① 栏宽变了 → .tr-track 的 left/宽度随之变化，胶囊可视坐标必须重算，否则会与红线错位。
+     ② 栏宽变宽 = 时间轴可视窗口变窄，原本靠左的红线会被挤到冻结名栏后面（实测「适配栏宽」
+        340→619 后今天直接不可见，胶囊只能贴边）。故同步补偿 scrollLeft，让时间轴内容
+        跟着左移相同像素，红线在屏上位置保持不动。 */
+  const sc=document.getElementById('scroll');
+  if(sc && px!==prev){
+    const max=Math.max(0,sc.scrollWidth-sc.clientWidth);
+    sc.scrollLeft=Math.max(0,Math.min(max,sc.scrollLeft+(px-prev)));
+  }
+  if(typeof syncTodayLabel==='function') syncTodayLabel();
   if(save!==false){ try{localStorage.setItem(LEFTW_KEY,px);}catch(_){} }
   return px;
 }
@@ -7158,6 +7270,8 @@ if(typeof bindIdleWatch==='function'){ bindIdleWatch(); }
 if(typeof bindTodayWatch==='function'){ bindTodayWatch(); }
 // 鼠标中键按住拖动平移视图
 if(typeof bindMidDragPan==='function'){ bindMidDragPan(); }
+// v7.12 今天日期胶囊跟随横向滚动 / 容器尺寸变化（红线在内容坐标系，胶囊在可视坐标系，需减 scrollLeft）
+if(typeof bindTodayLabelFollow==='function'){ bindTodayLabelFollow(); }
 // 关闭/刷新页面时若持有编辑锁，立即释放，避免锁悬挂阻塞他人（用 keepalive 同步发出）
 window.addEventListener('pagehide',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });
 window.addEventListener('beforeunload',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });

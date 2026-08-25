@@ -39,7 +39,10 @@
   #viewTabs button{padding:9px 20px;font-size:14px;font-weight:700;color:var(--tx2);border-radius:8px;transition:.14s;}
   #viewTabs button:hover:not(.on){color:var(--blue);background:rgba(255,255,255,.55);}
   #viewTabs button.on{background:var(--blue);color:#fff;box-shadow:0 2px 7px rgba(51,112,255,.38);}
-  .today-chip{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;color:#ef3b39;background:#fff1f0;border:1px solid #ffd4d2;padding:5px 12px;border-radius:9px;white-space:nowrap;}
+  .today-chip{display:inline-flex;align-items:center;gap:4px;font-size:13px;font-weight:700;color:#ef3b39;background:#fff1f0;border:1px solid #ffd4d2;padding:5px 12px;border-radius:9px;white-space:nowrap;
+    cursor:pointer;transition:background .12s,border-color .12s,transform .12s;}   /* v7.12：可点击跳回今天 */
+  .today-chip:hover{background:#ffe4e2;border-color:#ff9c98;}
+  .today-chip:active{transform:scale(.96);}
   /* 着色切换：次级小胶囊 + 前缀标签，明确区分 */
   .color-grp{display:inline-flex;align-items:center;gap:7px;}
   .color-grp .clab{font-size:12px;color:var(--tx3);font-weight:600;white-space:nowrap;}
@@ -341,16 +344,60 @@
   /* v6.86 移除 .vline.we —— 全文无任何代码生成该类（vlines 只产出 .vline 与 .vline.mono），
      属历史死代码；其 width:var(--day-w) 与新的 translateX(-50%) 居中逻辑也不兼容。 */
   /* v6.86：同 .vline，跨日界居中，避免整根线偏向一侧吞掉相邻灰带边缘 */
-  .todayline{position:absolute;top:0;bottom:0;width:2px;background:linear-gradient(180deg,#ef3b39,#ff8a86);opacity:.72;z-index:9;transform:translateX(-50%);box-shadow:0 0 6px rgba(239,59,57,.55);pointer-events:none;}
-  /* v7.11：今天红线日期胶囊——v7.10 原用 bottom:100% 浮出 .board 框外，被 .board{overflow:hidden}
-     整段裁切（即「红线层级错误」真因）。改 top:84px 定位在可见区内，箭头朝下指向红线。 */
-  .today-label{position:absolute;top:84px;transform:translateX(-50%);
-    z-index:99;white-space:nowrap;font-size:11px;font-weight:800;letter-spacing:.2px;line-height:1;
-    color:#fff;background:linear-gradient(180deg,#ef3b39,#ff7a76);padding:4px 9px;border-radius:7px;
-    box-shadow:0 3px 8px rgba(239,59,57,.4);pointer-events:none;}
-  .today-label::after{content:'';position:absolute;left:50%;top:100%;transform:translateX(-50%);
+  /* v7.12 今天红线：改由 .today-layer(top:0) 承载，自表头顶端贯穿到底，与上方日期胶囊首尾相接。
+     纵向渐变分三段——表头(0~54px)压到 .3 透明度不糊住月/周日期文字，热力带(54~86px)过渡，
+     进入任务区后恢复满色。这也是把红线从 top:82px 的竖线层里拆出来的目的。 */
+  .todayline{position:absolute;top:0;bottom:0;width:2px;z-index:9;transform:translateX(-50%);pointer-events:none;
+    background:linear-gradient(180deg,
+      rgba(239,59,57,.30) 0,
+      rgba(239,59,57,.30) 50px,
+      rgba(239,59,57,.55) 56px,
+      rgba(239,59,57,.55) 84px,
+      #ef3b39 92px,
+      #ff8a86 100%);
+    box-shadow:0 0 6px rgba(239,59,57,.30);}
+
+  /* ===== v7.12 今天日期胶囊：重做定位模型 =====
+     两个历史 Bug 一次性根治：
+     ① v7.10 用 bottom:100% 浮出 .board → 被 .board{overflow:hidden} 整段裁掉。
+     ② v7.11 改 top:84px 塞回 board 内 → 虽可见，但①压在负载热力带上遮内容，
+        ②胶囊挂在【不滚动】的 #sec-gantt 上却用【内容坐标】calc(--left-w + tx) 定位，
+        横向滚动时红线走了、胶囊不动（实测滚 400px 错位 400px）。
+     本版方案：胶囊移入 board 正上方的独立标尺条 .today-rail，
+       · 不在 .board 内 → 不受 overflow:hidden 裁切；
+       · .tr-track 用 left:var(--left-w) + overflow:hidden 建立与时间轴等宽的可视窗口，
+         胶囊按【可视坐标 = 内容坐标 − scrollLeft】定位，随滚动/缩放实时贴住红线；
+       · 红线滚出可视区时胶囊自动淡出为贴边指示箭头，不再乱飘。 */
+  .today-rail{position:relative;height:26px;margin:2px 0 -2px;pointer-events:none;z-index:11;}
+  /* 无红线的视图（人力分配）：收起标尺，不留空白占位 */
+  .today-rail.empty{height:0;margin:0;overflow:hidden;}
+  /* 可视窗口：左缘对齐时间轴（跳过冻结名栏），红线滚出范围时把胶囊裁掉。
+     用 clip-path 而非 overflow:hidden —— overflow 会同时裁纵向，把胶囊底部朝下的箭头也切掉；
+     clip-path:inset(上 右 下 左) 可只在左右收边、上下放出 20px 余量，让箭头正常伸到 .board 上边缘。 */
+  .today-rail .tr-track{position:absolute;left:var(--left-w);right:0;top:0;bottom:0;
+    clip-path:inset(-20px 0 -20px 0);}
+  .today-label{position:absolute;bottom:0;transform:translateX(-50%);
+    z-index:2;white-space:nowrap;font-size:11px;font-weight:800;letter-spacing:.2px;line-height:1;
+    color:#fff;background:linear-gradient(180deg,#ff5b58,#e5312f);padding:4px 10px 5px;border-radius:8px;
+    box-shadow:0 2px 8px rgba(239,59,57,.35),0 0 0 1.5px #fff;pointer-events:none;
+    transition:opacity .14s;}
+  /* 箭头：胶囊底部朝下的小三角，正好落在 .board 上边缘、与红线顶端相接 */
+  .today-label::after{content:'';position:absolute;left:50%;bottom:-5px;transform:translateX(-50%);
     width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;
-    border-top:6px solid var(--red);}
+    border-top:6px solid #e5312f;}
+  /* 引导线：胶囊 → board 上边缘的一小段红线，让「胶囊-红线」在视觉上连成一根完整时间指针。
+     红线在表头区被月/周文字打断，没有这段引导线时胶囊会像是浮空的独立标签。 */
+  .today-label::before{content:'';position:absolute;left:50%;bottom:-3px;transform:translateX(-50%);
+    width:2px;height:5px;background:#e5312f;border-radius:1px;}
+  .today-label.off::before{display:none;}
+  /* 红线滚到可视区外：胶囊贴边收成方向指示（文案带 ◀/▶，见 syncTodayLabel），
+     并变成可点击的「跳回今天」按钮 —— 用户看到今天在左边，顺手点一下就回去了。 */
+  .today-label.off{opacity:.62;background:linear-gradient(180deg,#ff8b88,#ef5350);
+    pointer-events:auto;cursor:pointer;}
+  .today-label.off:hover{opacity:1;}
+  .today-label.off::after{display:none;}
+  .today-label.off-l{border-top-left-radius:3px;border-bottom-left-radius:3px;}
+  .today-label.off-r{border-top-right-radius:3px;border-bottom-right-radius:3px;}
 
   /* v6.85 品级色条改为「叠加不占位」：原用 border-left:3px，但 box-sizing:border-box 下
      边框会挤占内容宽度，使条内按 (i-si0)*DAY_W 定位的休息日块 .rest 整体右移 3px，
