@@ -12,7 +12,7 @@
      cache-control:max-age=600 独立缓存，会出现「index.html 已更新、styles.css/app.js 仍是旧缓存」
      的版本错配 → 视图崩坏（左栏空白/任务条不渲染）。版本号一变 URL 即变，强制重新拉取。
      ⚠️ 改动 styles.css 或 app.js 后，必须同步递增此处 ?v= 版本号。 -->
-<link rel="stylesheet" href="styles.css?v=7.23">
+<link rel="stylesheet" href="styles.css?v=7.24">
 
 </head>
 <body>
@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.23 · build 2026-08-26 00:59</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.24 · build 2026-08-26 01:54</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -140,6 +140,11 @@
       <span class="org-lab">🗂 分组</span>
       <select id="groupSel" class="org-sel" onchange="changeGroup(this.value)" title="选择左侧列表的分组归类方式；同组可点标题折叠/展开"></select>
     </span>
+    <span class="org-group" id="sortCtl" title="成员排序：按住行首 ⋮⋮ 手柄上下拖动可手动自定义排序（同组内生效，自动保存并同步团队）；「智能排序」按甘特条布局整齐度一键优化相邻关系；「默认」恢复系统规则排序">
+      <span class="org-lab">⇅ 排序</span>
+      <button class="org-btn" onclick="smartSortMembers()" title="按「共享需求相邻、同带队相邻、档期相近相邻」自动优化成员顺序，让相关甘特条聚成整齐的块；带过渡动画">✨ 智能排序</button>
+      <button class="org-btn" onclick="resetMemberSort()" title="清除手动/智能排序结果，恢复「状态→编制→隶属→品级→支援→拼音」系统默认排序">↺ 默认</button>
+    </span>
     <span class="org-group" title="已离职超过N天的成员 / 已完结超过N天的需求，自动折叠进底部「已归档」区，让视图聚焦当前。改这里的天数即时生效。">
       <span class="org-lab">📦 超期归档</span>
       <input type="number" id="archiveVal" class="org-num" min="0" max="999" step="1" value="2" onchange="changeArchiveVal(this.value)">
@@ -161,6 +166,10 @@
   <div class="bar" style="margin-top:-6px">
     <span class="hint" id="hintBar">💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除/需求操作（改信息·删需求）· 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求</span>
     <div class="spacer"></div>
+    <span class="lbl-toggle" title="一键显示/隐藏所有甘特条上的这两类标签（仅影响显示，不改动数据，本机记忆）">
+      <label class="org-chk"><input type="checkbox" id="lblInvOn" checked onchange="changeLblShow('inv',this.checked)">占·投入比</label>
+      <label class="org-chk"><input type="checkbox" id="lblMdOn" checked onchange="changeLblShow('md',this.checked)">≈周·消化工时</label>
+    </span>
     <div class="legend" id="legend"></div>
   </div>
 
@@ -297,7 +306,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.23"></script>
+<script src="app.js?v=7.24"></script>
 
 </body>
 </html>

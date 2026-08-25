@@ -490,6 +490,13 @@
   .bar-task.flash{animation:barflash .9s ease;}
   @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}100%{box-shadow:0 1px 3px rgba(0,0,0,.20),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}}
   .b-blue{background:#4d80ff;} .b-green{background:#1fae5a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#7d92b3;} .b-purple{background:#7e63b5;}
+  /* v7.24 联调专用青碧色系：原 b-purple(#7e63b5) 与超期区/「超N周」徽标的紫红(#a855f7→#7c3aed)同族撞色，
+     用户反馈「联调需求与超期紫分不清」。联调改青碧 #0e9aa7（与蓝/绿/紫/橙均拉开色相），
+     未启动(todo)的联调用低饱和浅青 b-lt0，退到背景层不抢眼，开始后自动转正常青碧。 */
+  .b-lt{background:#0e9aa7;}
+  .b-lt0{background:#d9edf0;color:#0b5b66;text-shadow:none;}
+  .bar-task.b-lt0 .sdot{background:#0e9aa7;}
+  .bar-task.b-lt0 .prog{background-image:repeating-linear-gradient(90deg,rgba(11,91,102,.07) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(11,91,102,.16) calc(var(--p,0)*1%) 100%);}
   .b-done{background:#4ecba0;}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分 */
   /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
      用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
@@ -525,7 +532,7 @@
   .bar-task.req-bar .ph{position:absolute;top:0;bottom:0;z-index:0;pointer-events:none;overflow:hidden;}
   .bar-task.req-bar .ph-l1{border-radius:inherit;}                                   /* L1：保持本体满色（深） */
   .bar-task.req-bar .ph-l2{background:rgba(0,0,0,.16);}                                /* L2：压暗一档区分 L1（不再越来越淡，改用「同色更沉」表达二审） */
-  .bar-task.req-bar .ph-lt{background:#7e63b5;border-left:1.5px dashed rgba(255,255,255,.85);pointer-events:auto;}   /* 联调：纯色紫块，不用斜纹（斜纹只表达未完成） */
+  .bar-task.req-bar .ph-lt{background:#0e9aa7;border-left:1.5px dashed rgba(255,255,255,.85);pointer-events:auto;}   /* 联调：纯色青碧块（v7.24 由紫改青碧，与超期紫红区分），不用斜纹（斜纹只表达未完成） */
   .bar-task.req-bar .ph-lab{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:9px;font-weight:800;
     letter-spacing:1px;color:rgba(255,255,255,.72);text-shadow:0 1px 2px rgba(0,0,0,.5);pointer-events:none;z-index:1;}
   .bar-task.req-bar .ph-lt .ph-lab{color:#fff;opacity:.95;}
@@ -1580,3 +1587,31 @@
   .hr-note{font-size:11px;color:var(--tx3);margin-left:auto;flex-shrink:0;max-width:200px;text-align:right;}
   /* v6.61：窄屏隐藏面板侧栏导航，避免挤压内容 */
   @media(max-width:768px){ .panel-toc{display:none;} .panel-body{padding:14px 12px;} .quick-ref{gap:5px;padding:8px 10px;} .quick-ref .qr-btn{font-size:11px;padding:3px 9px;} }
+
+  /* ===== v7.24 条内标签全局显隐开关（占·投入比 / ≈周·消化工时）=====
+     纯观看过滤：body 类驱动，fitBarLabels 复位 inline display 后仍由此规则兜底隐藏。 */
+  body.lbl-hide-inv .rt-inv{display:none!important;}
+  body.lbl-hide-md .rt-md{display:none!important;}
+  .lbl-toggle{display:inline-flex;align-items:center;gap:10px;margin-right:10px;font-size:12px;}
+  .lbl-toggle .org-chk small{font-weight:400;}
+
+  /* ===== v7.24 成员行拖拽排序（⋮⋮ 手柄 + 插入指示线 + 拖拽浮影）===== */
+  .row-grip{flex:0 0 auto;width:12px;margin-left:-8px;margin-right:-2px;color:#c2c9d4;font-size:11px;line-height:1;letter-spacing:-2px;cursor:grab;user-select:none;touch-action:none;align-self:stretch;display:flex;align-items:center;justify-content:center;border-radius:3px;transition:color .12s,background .12s;}
+  .row-grip:hover{color:#5f6b7d;background:rgba(29,111,214,.08);}
+  .row-grip:active{cursor:grabbing;}
+  body.ro-mode .row-grip{display:none!important;}
+  body.hr-view .row-grip{display:none!important;}
+  .row-drag-ghost{box-shadow:0 10px 28px rgba(15,23,42,.30)!important;border:1px solid rgba(29,111,214,.45);opacity:.95;}
+  .row.row-drag-src{opacity:.38;}
+  /* 插入指示线：横跨整行（左栏+时间线）的 3px 蓝条，before=目标行上沿 / after=下沿 */
+  #grid > .row.ins-before::before,#grid > .row.ins-after::before{content:'';position:absolute;left:0;right:0;height:3px;background:#1d6fd6;border-radius:2px;z-index:30;pointer-events:none;box-shadow:0 0 6px rgba(29,111,214,.55);}
+  #grid > .row.ins-before::before{top:-2px;}
+  #grid > .row.ins-after::before{bottom:-2px;}
+  body.row-drag-active{cursor:grabbing!important;user-select:none!important;}
+  body.row-drag-active *{cursor:grabbing!important;}
+  /* 智能排序/恢复默认 小按钮（跟随 org 工具条视觉） */
+  .org-btn{border:1px solid var(--line);background:#fbfcfe;border-radius:6px;font-size:12px;color:var(--tx);font-weight:600;cursor:pointer;padding:3px 9px;transition:background .12s,border-color .12s;}
+  .org-btn:hover{background:#eef4ff;border-color:#b9d0f5;}
+  .org-btn:active{transform:translateY(1px);}
+  /* FLIP 排序动画期间抬升行层级，避免移动中的行被相邻行/冻结层裁切 */
+  #grid > .row.flip-moving{z-index:12;}

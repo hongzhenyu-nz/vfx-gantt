@@ -207,6 +207,12 @@ const GRADE_RANK={'红':3,'金':2,'橙':1,'':0};
 function personSortCompare(a,b){
   const la=(effLeft(a)||memArchived(a))?1:0, lb=(effLeft(b)||memArchived(b))?1:0;
   if(la!==lb) return la-lb;                                   // 1. 离职沉底
+  /* v7.24 手动/智能排序：m.sort（全局唯一序号，同组内按序号升序）优先于默认规则。
+     分组视图按组聚合后组内再调本比较器，全局序号在组内的相对顺序依然正确；
+     无序号成员（新建/从未排过）排在同组已排序成员之后、按默认规则兜底。 */
+  const oa=a.sort, ob=b.sort;
+  if(oa!=null&&ob!=null&&oa!==ob) return oa-ob;               // 2+. 自定义序号
+  if((oa!=null)!==(ob!=null)) return oa!=null?-1:1;           //    有序号在前
   const d=(CORP_PRI[a.corp]??99)-(CORP_PRI[b.corp]??99);
   if(d) return d;                                             // 2. 编制
   const lda=leadOf(a)||'~', ldb=leadOf(b)||'~';
@@ -227,6 +233,7 @@ const GROUP_OPTS={
 };
 function updateGroupSelUI(){
   const sel=document.getElementById('groupSel'); if(!sel)return;
+  const sc=document.getElementById('sortCtl'); if(sc)sc.style.display=(view==='person')?'':'none';   // v7.24 排序控件仅「按人看」可用
   if(view==='hr'){ sel.disabled=true; sel.innerHTML='<option>（人力视图按模块固定分组）</option>'; sel.parentElement.style.opacity='.5'; return; }
   sel.disabled=false; sel.parentElement.style.opacity='1';
   const vk=view==='req'?'req':'person';
@@ -852,19 +859,20 @@ const MOD_META = {
   'TPP/大厅/检视组队':{ic:'🏛️', c:'#c2255c', s:'TPP·大厅·检视组队'},
   '武器特效':         {ic:'🗡️', c:'#868e96', s:'武器特效'},
   '通用':            {ic:'🧩', c:'#5c7080', s:'通用'},
-  '联调':            {ic:'🔗', c:'#7e63b5', s:'联调'},
+  '联调':            {ic:'🔗', c:'#0e9aa7', s:'联调'},
   '全量测试':         {ic:'🐞', c:'#2b2f36', s:'全量测试'},
 };
 const modMeta = mod => MOD_META[mod] || {ic:'✦', c:'#646a73', s:mod||'其他'};
 /* 模块「色族」：把 10+ 种零散主题色归并到业务大类色族，标签只用色族色着字，统一底色，去杂乱。
-   出场系(暖橙) · 互动展示系(蓝紫) · 本体系(绿) · 中性/支援系(灰蓝) · 联调(独立深紫)。
-   v7.06：联调从「中性灰蓝」独立出来，专用深紫 #7c3aed —— 联调是贯穿所有模块的**需求类型**
-   （每个模块都可能需要联调），不与出场/检视等具体模块并列，故给它专属色以便一眼区分。 */
+   出场系(暖橙) · 互动展示系(蓝紫) · 本体系(绿) · 中性/支援系(灰蓝) · 联调(独立青碧)。
+   v7.06：联调从「中性灰蓝」独立出来——联调是贯穿所有模块的**需求类型**
+   （每个模块都可能需要联调），不与出场/检视等具体模块并列，故给它专属色以便一眼区分。
+   v7.24：联调专属色由深紫改青碧 #0e9aa7 —— 原紫与超期区/「超N周」徽标紫红撞色。 */
 const MOD_FAM = {
   '出场':'#e8590c','出场/MVP/入局':'#e8590c','MVP':'#e8590c','入局':'#e8590c','入局Cuts':'#e8590c',
   'TPP':'#7048e8','大厅':'#7048e8','检视':'#7048e8','组队':'#7048e8','检视/组队':'#7048e8','TPP/大厅/检视组队':'#7048e8',
   '本体/3C':'#2f9e44',
-  '联调':'#7e63b5',
+  '联调':'#0e9aa7',
   '武器特效':'#5c7080','通用':'#5c7080','饰品':'#5c7080','全量测试':'#5c7080',
 };
 const modFamC = mod => MOD_FAM[mod] || '#5c7080';
@@ -1801,8 +1809,12 @@ function barCls(r,seg,m){
   } else if(aggStatus(r)==='done'){
     return 'b-done'+k;                                // 整条需求所有段都完成 → 绿（即便生命周期未手动置 done）
   }
-  /* v7.09：联调模块用独立紫色条体（#7c3aed），与常规模块的蓝/灰状态色区分 */
-  if(r.mod === '联调') return 'b-purple'+k;
+  /* v7.24：联调条体改青碧色系（b-lt）。v7.09 的紫 #7e63b5 与超期区/「超N周」徽标的紫红同族撞色，
+     用户反馈「联调需求与超期紫分不清」；未启动(todo)的联调用低饱和浅青 b-lt0，退到背景层不抢眼。 */
+  if(r.mod === '联调'){
+    const _ltSt = seg ? (seg.status||'doing') : aggStatus(r);
+    return (_ltSt==='todo' ? 'b-lt0' : 'b-lt')+k;
+  }
   if(colorMode==='status'){
     return (seg ? STATUS[seg.status||'doing'].cls : STATUS[aggStatus(r)].cls)+k;
   }
@@ -2214,6 +2226,7 @@ function vacantRowHTML(m,inArc){
     // 模块标签统一由上方 tagsHTML（formatLeadDisplay / leadMap 编辑器）负责渲染，不再单独读 m.mod 显示
     return `<div class="row vacant-row${inArc?' in-archived':''} vacant-row-${isRegVac?'reg':'base'}" data-mem="${m.id}" style="min-height:${rowH}px;border-left-color:${vacRowBorder}">
       <div class="cell-left">
+        <i class="row-grip" title="按住上下拖动：自定义成员排序（同组内生效，自动保存并同步团队）" onpointerdown="rowGripDown(event,'${m.id}')">⋮⋮</i>
         <div class="vacant-card ${vacBorderCls}">
           <div class="vc-icon">${vacTypeIcon}</div>
           <div class="vc-body">
@@ -2344,6 +2357,7 @@ function personRowHTML(m,inArc){
     const isLoan=isExtLoan(m);
     return `<div class="row${isLeft?' is-left':''}${isLoan?' is-loan':''}${isBase && !isLeft?' is-base':''}${inArc?' in-archived':''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
       <div class="cell-left">
+        <i class="row-grip" title="按住上下拖动：自定义成员排序（同组内生效，自动保存并同步团队）" onpointerdown="rowGripDown(event,'${m.id}')">⋮⋮</i>
         <div class="emp-badge ${m.corp}" title="${m.corp==='reg'?'正编（带队）':m.corp==='sub'?'子公司':'基地'}">
           <span class="el">${m.corp==='reg'?'正编':m.corp==='sub'?'子':'基地'}</span>
           <i class="ed mstat" data-mem="${m.id}" style="background:${MS.col}" title="${MS.label}（点击设置：在岗/忙碌/请假/外出/离职/新人）"></i>
@@ -5424,7 +5438,7 @@ function snapshot(){
 function coreSnapshot(){
   return {
     // 成员：除原有 status 外，序列化全部字段，使「新增成员」可在刷新/分享/云端后保留
-    members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null),leadChars:m.leadChars||'',leadMods:m.leadMods||'',leadMap:m.leadMap||null})),
+    members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null),leadChars:m.leadChars||'',leadMods:m.leadMods||'',leadMap:m.leadMap||null,sort:(m.sort!=null?m.sort:null)})),
     effTiers:EFF_TIERS.map(t=>({coef:t.coef,label:t.label,mems:(t.mems||[]).slice()})),
     effLocked:effLocked,
     stdCfg:STD_CFG.map(t=>({mod:t.mod||'',grade:t.grade,col:t.col,dur:t.dur||'',weeks:t.weeks,ppl:t.ppl})),
@@ -5473,11 +5487,14 @@ function applySnap(snap){
       if(ms.leadMods!=null)m.leadMods=ms.leadMods;
       // ★ v6.17: leadMap（品级→模块配对）同步
       if(ms.leadMap!==undefined)m.leadMap=(ms.leadMap==null?null:ms.leadMap);
+      // ★ v7.24: sort（手动/智能排序序号）同步
+      if(ms.sort!==undefined)m.sort=(ms.sort==null?null:ms.sort);
     }else if(ms.name){
       const nm={id:ms.id,name:ms.name,role:ms.role||'',corp:ms.corp||'base',lead:ms.lead||'—',mod:ms.mod||'',grade:ms.grade||'',line:ms.line||'-',eff:(ms.eff!=null?ms.eff:1.0),status:ms.status||'on',leadChars:ms.leadChars||'',leadMods:ms.leadMods||'',leadMap:ms.leadMap||null};
       if(ms.support)nm.support=true;
       if(ms.tmp)nm.tmp=true;
       if(ms.leftAt!=null)nm.leftAt=i2d(ms.leftAt);
+      if(ms.sort!=null)nm.sort=ms.sort;
       members.push(nm);
     }
   });
@@ -7691,7 +7708,7 @@ function updateHint(){
   if(view==='req'){
     h.innerHTML='💡 左侧竖带=角色品级色：<b style="color:#e0a400">金</b> / <b style="color:#f59e0b">橙</b> / <b style="color:#ef3b39">红</b>，同品级相邻行连成整条 · 人名标签：<b style="color:#fff;background:#0052d9;padding:0 6px;border-radius:8px">👑正编</b> 实心蓝 / <span style="color:#56607a;background:#eef1f7;border:1px solid #c4ccdb;padding:0 6px;border-radius:8px">基地</span> 淡白 · <b style="color:#f08c00">橙环+支</b>=跨队支援 · 拖动标签改派';
   }else if(view==='person'){
-    h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 复制任务条(Ctrl+C)后，点人员信息栏选中行再 Ctrl+V，即把该任务改派给选中的人';
+    h.innerHTML='💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除 · 拖行首 ⋮⋮=自定义排序 · 复制任务条(Ctrl+C)后，点人员信息栏选中行再 Ctrl+V，即把该任务改派给选中的人';
   }else{
     h.innerHTML='💡 人力分配视图：按模块汇总在岗人员与管线缺口';
   }
@@ -7811,10 +7828,223 @@ function updateLegend(){
   }
 }
 
+/* ===== v7.24 条内标签全局显隐开关：占·投入比(.rt-inv) / ≈周·消化工时(.rt-md) =====
+   纯观看开关：body 类 + CSS 隐藏，不触碰渲染逻辑；本机 localStorage 记忆。
+   fitBarLabels 每轮复位 inline display='' 清除的是内联样式，body 类规则依然生效，两者不冲突。 */
+let LBL_SHOW={inv:true,md:true};
+try{const _lv=JSON.parse(localStorage.getItem('gantt_lbl_show')||'null'); if(_lv){LBL_SHOW.inv=_lv.inv!==false; LBL_SHOW.md=_lv.md!==false;}}catch(_){}
+function applyLblShow(){
+  document.body.classList.toggle('lbl-hide-inv',!LBL_SHOW.inv);
+  document.body.classList.toggle('lbl-hide-md',!LBL_SHOW.md);
+  const _a=document.getElementById('lblInvOn'),_b=document.getElementById('lblMdOn');
+  if(_a)_a.checked=LBL_SHOW.inv; if(_b)_b.checked=LBL_SHOW.md;
+}
+function changeLblShow(k,on){
+  LBL_SHOW[k]=!!on;
+  try{localStorage.setItem('gantt_lbl_show',JSON.stringify(LBL_SHOW));}catch(_){}
+  applyLblShow();
+  requestAnimationFrame(fitBarLabels);   // 标签占位变化→重测条内降级布局
+}
+
+/* ===== v7.24 成员手动拖拽排序 + 智能排序 + FLIP 过渡动画 =====
+   排序结果存 m.sort（全局唯一升序序号），随快照 save/broadcast 落本地+同步云端，刷新/协作不丢。
+   手动拖拽：按住行首 ⋮⋮ 手柄上下拖，同组内插入（分组视图不跨组，避免与分组语义打架）。
+   智能排序：最大化相邻成员相似度（共享需求×3 + 同带队×2 + 同编制×0.5），2-opt 插入法收敛，
+   让甘特条内容相关的成员聚成整齐的块。FLIP：重渲染前后量行 top，translateY 反向补偿再过渡。 */
+function captureRowTops(){
+  const map=new Map();
+  document.querySelectorAll('#grid > .row[data-mem]').forEach(r=>map.set(r.dataset.mem, r.getBoundingClientRect().top));
+  return map;
+}
+function flipAnimateRows(before){
+  if(!before||!before.size)return;
+  const moved=[];
+  document.querySelectorAll('#grid > .row[data-mem]').forEach(r=>{
+    const old=before.get(r.dataset.mem);
+    if(old==null)return;
+    const dy=old-r.getBoundingClientRect().top;
+    if(Math.abs(dy)<3)return;
+    r.classList.add('flip-moving');
+    r.style.transition='none';
+    r.style.transform=`translateY(${dy}px)`;
+    moved.push(r);
+  });
+  if(!moved.length)return;
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    moved.forEach(r=>{
+      r.style.transition='transform .38s cubic-bezier(.22,.8,.32,1)';
+      r.style.transform='translateY(0px)';
+      const done=()=>{r.classList.remove('flip-moving');r.style.transition='';r.style.transform='';};
+      r.addEventListener('transitionend',done,{once:true});
+      setTimeout(done,480);   // 兜底：transitionend 不触发时也清理现场
+    });
+  }));
+}
+/* 当前可视成员顺序（与 renderPerson 同一套筛选/排序，拖拽落点与智能排序共用） */
+function currentPersonOrder(){
+  const visible=members.filter(m=>{
+    if(!ARCHIVE.on && leftLong(m)) return false;
+    if(focusMode==='only' && focusRole(m)==='') return false;
+    return true;
+  });
+  const live=visible.filter(m=>!memArchived(m));
+  live.sort((a,b)=>personSortCompare(a,b));
+  return live;
+}
+let _rowDrag=null;
+function rowGripDown(e,memId){
+  if(view!=='person')return;
+  e.preventDefault();e.stopPropagation();
+  if(!requireWrite())return;
+  const row=document.querySelector(`#grid > .row[data-mem="${memId}"]`);
+  if(!row)return;
+  const cl=row.querySelector('.cell-left'); if(!cl)return;
+  const rect=row.getBoundingClientRect(), clRect=cl.getBoundingClientRect();
+  const ghost=cl.cloneNode(true);
+  ghost.classList.add('row-drag-ghost');
+  ghost.style.cssText=`position:fixed;left:${clRect.left}px;top:${rect.top}px;width:${clRect.width}px;height:${rect.height}px;z-index:1000;pointer-events:none;box-sizing:border-box;margin:0;`;
+  document.body.appendChild(ghost);
+  _rowDrag={memId,ghost,offY:e.clientY-rect.top,targetId:null,insertBefore:true};
+  row.classList.add('row-drag-src');
+  document.body.classList.add('row-drag-active');
+  window.addEventListener('pointermove',_rowDragMove,{passive:false});
+  window.addEventListener('pointerup',_rowDragUp,{once:true});
+}
+function _rowDragCands(){
+  // 候选落点：非归档区数据行；分组视图下与被拖行同组（不跨组，保持分组语义）
+  const m0=members.find(x=>x.id===_rowDrag.memId); if(!m0)return [];
+  const gk=(GROUP_MODE.person!=='none'&&typeof personGroupKey==='function')?((personGroupKey(m0)||{}).key||null):null;
+  return [...document.querySelectorAll('#grid > .row[data-mem]')].filter(r=>{
+    if(r.dataset.mem===_rowDrag.memId)return false;
+    if(r.classList.contains('in-archived'))return false;
+    if(gk){const mm=members.find(x=>x.id===r.dataset.mem);const k=mm?((personGroupKey(mm)||{}).key||null):null;if(k!==gk)return false;}
+    return true;
+  });
+}
+function _rowDragMove(e){
+  if(!_rowDrag)return;
+  e.preventDefault();
+  const d=_rowDrag;
+  d.ghost.style.top=(e.clientY-d.offY)+'px';
+  let hit=null,before=true;
+  for(const r of _rowDragCands()){
+    const rc=r.getBoundingClientRect();
+    if(e.clientY>=rc.top&&e.clientY<=rc.bottom){hit=r;before=e.clientY<rc.top+rc.height/2;break;}
+  }
+  document.querySelectorAll('#grid > .row.ins-before,#grid > .row.ins-after').forEach(x=>x.classList.remove('ins-before','ins-after'));
+  d.targetId=null;
+  if(hit){
+    d.targetId=hit.dataset.mem; d.insertBefore=before;
+    hit.classList.add(before?'ins-before':'ins-after');
+  }
+}
+function _rowDragUp(){
+  window.removeEventListener('pointermove',_rowDragMove);
+  document.body.classList.remove('row-drag-active');
+  document.querySelectorAll('#grid > .row.ins-before,#grid > .row.ins-after').forEach(x=>x.classList.remove('ins-before','ins-after'));
+  document.querySelectorAll('#grid > .row.row-drag-src').forEach(x=>x.classList.remove('row-drag-src'));
+  const d=_rowDrag; _rowDrag=null;
+  if(d&&d.ghost)d.ghost.remove();
+  if(d&&d.targetId)applyMemberDrop(d.memId,d.targetId,d.insertBefore);
+}
+function applyMemberDrop(dragId,targetId,before){
+  if(dragId===targetId)return;
+  const beforeMap=captureRowTops();
+  const live=currentPersonOrder();
+  const drag=live.find(m=>m.id===dragId), tgt=live.find(m=>m.id===targetId);
+  if(!drag||!tgt)return;
+  const arr=live.filter(m=>m.id!==dragId);
+  let ti=arr.findIndex(m=>m.id===targetId);
+  if(ti<0)return;
+  if(!before)ti+=1;
+  arr.splice(ti,0,drag);
+  pushHistory();   // 排序入撤销栈（Ctrl+Z 可回退），与其他数据改动同待遇
+  arr.forEach((m,i)=>{m.sort=i*10;});
+  _logDesc=`成员排序：${drag.name}→${tgt.name}${before?'前':'后'}`;
+  save();broadcast();rerender();
+  flipAnimateRows(beforeMap);
+  toast(`已把「${drag.name}」移到「${tgt.name}」${before?'前':'后'}面 · 排序已保存并同步`);
+}
+/* 智能排序：相邻成员相似度（共享需求×3 + 同带队×2 + 同编制×0.5），2-opt 插入法收敛 */
+function _simMembers(a,b,reqCache){
+  let s=0;
+  const ra=reqCache.get(a.id)||new Set(), rb=reqCache.get(b.id)||new Set();
+  let shared=0; ra.forEach(x=>{if(rb.has(x))shared++;});
+  s+=shared*3;                                     // 共享需求 → 甘特条内容相关，相邻成块更整齐
+  const la=leadOf(a)||'', lb=leadOf(b)||'';
+  if(la&&la===lb)s+=2;                             // 同带队聚合
+  if(a.corp===b.corp)s+=0.5;                       // 同编制微聚
+  return s;
+}
+function _twoOptOrder(arr,sim){
+  const o=arr.slice();
+  const score=()=>{let s=0;for(let k=0;k<o.length-1;k++)s+=sim(o[k],o[k+1]);return s;};
+  let guard=0;
+  while(guard++<60){
+    const cur=score();
+    let best={gain:1e-9,j:-1,i:-1};
+    for(let j=0;j<o.length;j++){
+      for(let i=0;i<o.length;i++){
+        if(i===j)continue;
+        const rm=o.splice(j,1)[0]; o.splice(i,0,rm);
+        const g=score()-cur;
+        o.splice(i,1); o.splice(j,0,rm);
+        if(g>best.gain)best={gain:g,j,i};
+      }
+    }
+    if(best.j<0)break;
+    const rm=o.splice(best.j,1)[0]; o.splice(best.i,0,rm);
+  }
+  return o;
+}
+function smartSortMembers(){
+  if(view!=='person'){toast('「智能排序」作用于成员列表，请切换到「按人看」');return;}
+  if(!requireWrite())return;
+  const live=currentPersonOrder();
+  if(live.length<3){toast('成员太少，无需智能排序');return;}
+  const reqCache=new Map();
+  live.forEach(m=>{
+    const set=new Set();
+    reqs.forEach(r=>r.segs.forEach(s=>{if(s.m===m.id)set.add(r.id);}));
+    reqCache.set(m.id,set);
+  });
+  const sim=(a,b)=>_simMembers(a,b,reqCache);
+  const beforeMap=captureRowTops();
+  let newLive=[];
+  if(GROUP_MODE.person==='none'){
+    newLive=_twoOptOrder(live,sim);
+  }else{
+    // 保持现有分组与组序，组内各自优化（与 renderPerson 的聚组/组序一致）
+    const groups={},order=[];
+    live.forEach(m=>{const g=personGroupKey(m),k=g.key;if(!groups[k]){groups[k]={g,arr:[]};order.push(k);}groups[k].arr.push(m);});
+    order.sort((a,b)=>groupSortVal(a)-groupSortVal(b)||groups[a].g.label.localeCompare(groups[b].g.label,'zh-Hans-CN'));
+    order.forEach(k=>{newLive=newLive.concat(_twoOptOrder(groups[k].arr,sim));});
+  }
+  pushHistory();   // 排序入撤销栈（Ctrl+Z 可回退）
+  newLive.forEach((m,i)=>{m.sort=i*10;});
+  _logDesc='智能排序成员';
+  save();broadcast();rerender();
+  flipAnimateRows(beforeMap);
+  toast('✨ 已按甘特条布局整齐度优化成员排序 · 结果已保存并同步');
+}
+function resetMemberSort(){
+  if(view!=='person'){toast('请切换到「按人看」再操作排序');return;}
+  if(!requireWrite())return;
+  let n=0; members.forEach(m=>{if(m.sort!=null){m.sort=null;n++;}});
+  if(!n){toast('已是默认排序');return;}
+  const beforeMap=captureRowTops();
+  pushHistory();   // 排序入撤销栈（Ctrl+Z 可回退）
+  _logDesc='恢复默认成员排序';
+  save();broadcast();rerender();
+  flipAnimateRows(beforeMap);
+  toast('↺ 已恢复系统默认排序');
+}
+
 buildMeSel();
 initVivid();
 initZoom();
 initLeftW();
+applyLblShow();
 // 恢复分组方式 / 折叠状态（本机偏好）
 try{const gp=localStorage.getItem('gantt_group_person'); if(gp)GROUP_MODE.person=gp;}catch(_){}
 try{const gr=localStorage.getItem('gantt_group_req'); if(gr)GROUP_MODE.req=gr;}catch(_){}
