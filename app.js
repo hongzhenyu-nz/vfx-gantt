@@ -2494,7 +2494,7 @@ function reqRowHTML(r, prevR, nextR, inArc){
             <i class="sdot"></i>
             <div class="bl-top"><span class="rt-line">${reqTitleHTML(r)}</span><span class="bl-pct">${prog}%</span></div>
             <div class="bl-sub"><div class="bl-rows">${blChips}</div></div>
-            <i class="open-r">»</i></div>`;
+            <i class="open-r">»</i>${reqCmtBtnHTML(r)}</div>`;
           }
           const ph=getPhases(r);
           const bx=ph.barS*DAY_W, bw=Math.max((ph.barE-ph.barS)*DAY_W,46);
@@ -2521,12 +2521,100 @@ function reqRowHTML(r, prevR, nextR, inArc){
           ${laneH?laneObj.html:`<div class="bl-sub"><div class="bl-rows">${blChips}</div></div>`}
           <i class="ph-div" data-req="${r.id}" data-phdiv="1" title="${dvTip}" style="left:${divL}%"></i>
           ${div2L!=null?`<i class="ph-div ph-div2" data-req="${r.id}" data-phdiv="2" title="${dv2Tip}" style="left:${div2L}%"></i>`:''}
-          <i class="grip gl"></i><i class="grip gr"></i></div>`;
+          <i class="grip gl"></i><i class="grip gr"></i>${reqCmtBtnHTML(r)}</div>`;
         })()}
       </div>
     </div>`;
   return rowHTML;
 }
+
+/* ============ 需求图条·评论（折叠=只留标签 / 悬停展开 / 单击常态展开 / 再点收起） ============ */
+let pinnedReqId=null, cmtHideT=null;
+window.__cmtSuppressTip=false;
+function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function getComment(r){return (r&&(r.comment||''))||'';}
+function reqCmtBtnHTML(r){
+  const c=getComment(r).trim();
+  const pinned=pinnedReqId===r.id;
+  const tip=c?('评论：'+c.slice(0,40)+(c.length>40?'…':'')+'　· 悬停展开 / 单击常态展开 / 再点收起'):'添加评论';
+  return `<span class="cmt-btn ${c?'has':'empty'}${pinned?' pinned':''}" data-cmt="${r.id}" role="button" tabindex="0" title="${escAttr(tip)}">${c?'💬':'✎'}</span>`;
+}
+function showCommentPop(reqId,anchor){
+  const r=reqs.find(x=>x.id===reqId); if(!r)return;
+  let pop=document.getElementById('cmtPop');
+  if(!pop){ pop=document.createElement('div'); pop.id='cmtPop'; document.body.appendChild(pop); }
+  const c=getComment(r).trim();
+  pop.innerHTML=`<div class="cmt-h"><span class="cmt-ic">💬</span><b>评论</b><span class="cmt-req">${escHtml(r.name)}</span></div>`
+    +`<div class="cmt-body">${c?escHtml(c).replace(/\n/g,'<br>'):'<span class="cmt-empty">暂无评论，点「编辑」添加</span>'}</div>`
+    +`<div class="cmt-ft"><button class="cmt-edit" onclick="openCommentEditor('${reqId}')">编辑</button>${pinnedReqId===reqId?'<button class="cmt-collapse" onclick="unpinComment()">收起</button>':''}</div>`;
+  pop.style.display='block';
+  window.__cmtSuppressTip=true; if(typeof hideTip==='function')hideTip();
+  const a=anchor.getBoundingClientRect();
+  const pw=pop.offsetWidth, ph=pop.offsetHeight;
+  let left=Math.min(a.right-pw, a.left); if(left<6)left=6;
+  let top=a.bottom+6;
+  if(top+ph>window.innerHeight-6) top=Math.max(6,a.top-ph-6);
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+  pop._reqId=reqId;
+  clearTimeout(cmtHideT);
+}
+function hideCommentPop(){
+  const pop=document.getElementById('cmtPop'); if(pop)pop.style.display='none';
+  if(!pinnedReqId) window.__cmtSuppressTip=false;
+}
+function toggleCommentPin(reqId,anchor){
+  if(pinnedReqId===reqId){ pinnedReqId=null; hideCommentPop(); }
+  else { pinnedReqId=reqId; showCommentPop(reqId,anchor); }
+  document.querySelectorAll('.cmt-btn').forEach(b=>b.classList.toggle('pinned', b.dataset.cmt===pinnedReqId));
+}
+function unpinComment(){ pinnedReqId=null; hideCommentPop(); document.querySelectorAll('.cmt-btn').forEach(b=>b.classList.remove('pinned')); }
+function resyncCommentPin(){
+  if(!pinnedReqId)return;
+  const b=document.querySelector('.cmt-btn[data-cmt="'+pinnedReqId+'"]');
+  if(!b){ pinnedReqId=null; hideCommentPop(); return; }
+  b.classList.add('pinned');
+  showCommentPop(pinnedReqId,b);
+}
+function openCommentEditor(reqId){
+  if(!requireWrite())return;
+  const r=reqs.find(x=>x.id===reqId); if(!r)return;
+  const body=`<div class="fld" style="margin:0"><label>评论内容</label><textarea id="cmtText" rows="5" placeholder="填写该需求的备注 / 风险提示 / 协同说明…">${escHtml(getComment(r))}</textarea></div>`;
+  renderAddModal('💬','编辑评论',body,true);
+  const ok=document.getElementById('addOk'); if(ok){ ok.textContent='保存评论'; ok.setAttribute('onclick','confirmCommentEdit(\''+reqId+'\')'); }
+}
+function confirmCommentEdit(reqId){
+  const r=reqs.find(x=>x.id===reqId); if(!r)return;
+  const el=document.getElementById('cmtText'); const v=(el?el.value:'').trim();
+  pushHistory();
+  r.comment=v; _logDesc='编辑评论：'+(r.name||reqId);
+  pinnedReqId=reqId;            // 编辑后常态展开，便于即时看到结果
+  save();broadcast();closeAdd();
+  rerender();
+  setTimeout(()=>{ const b=document.querySelector('.cmt-btn[data-cmt="'+reqId+'"]'); if(b)showCommentPop(reqId,b); },0);
+  toast(v?'评论已保存':'评论已清空');
+}
+/* 事件委托：悬停展开 / 单击常态展开 / 再点收起（单次绑定） */
+(function(){
+  document.addEventListener('mouseover',e=>{
+    const b=e.target.closest && e.target.closest('.cmt-btn');
+    const p=e.target.closest && e.target.closest('#cmtPop');
+    if(b){ clearTimeout(cmtHideT); showCommentPop(b.dataset.cmt,b); }
+    else if(p){ clearTimeout(cmtHideT); }
+  });
+  document.addEventListener('mouseout',e=>{
+    const b=e.target.closest && e.target.closest('.cmt-btn');
+    const p=e.target.closest && e.target.closest('#cmtPop');
+    if(b && pinnedReqId!==b.dataset.cmt){ cmtHideT=setTimeout(()=>{ if(pinnedReqId!==b.dataset.cmt) hideCommentPop(); },180); }
+    else if(p && !pinnedReqId){ cmtHideT=setTimeout(hideCommentPop,180); }
+  });
+  document.addEventListener('click',e=>{
+    const b=e.target.closest && e.target.closest('.cmt-btn');
+    if(b){ e.stopPropagation(); e.preventDefault(); toggleCommentPin(b.dataset.cmt,b); }
+  });
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ const p=document.getElementById('cmtPop'); if(p&&p.style.display==='block'&&!pinnedReqId)p.style.display='none'; }
+  });
+})();
 
 /* ============ v6.26 排期空隙提示 ============ */
 /* 取某成员「忙碌区间」（合并重叠段），可选 transient 覆盖某一任务段的瞬时位置（拖拽中用）。
@@ -3447,7 +3535,7 @@ function updateKPIs(){
 
 /* ============ tooltip ============ */
 const tip=document.getElementById('tip');
-function showTip(e,html,wide){if(drag)return;tip.classList.toggle('wide',!!wide);tip.innerHTML=html;tip.style.opacity=1;const w=wide?360:280;let x=e.clientX+14,y=e.clientY+14;if(x>innerWidth-w)x=e.clientX-w+6;if(x<6)x=6;const th=tip.offsetHeight||0;if(y>innerHeight-th-12)y=Math.max(8,innerHeight-th-12);tip.style.left=x+'px';tip.style.top=y+'px';}
+function showTip(e,html,wide){if(drag)return;if(window.__cmtSuppressTip)return;tip.classList.toggle('wide',!!wide);tip.innerHTML=html;tip.style.opacity=1;const w=wide?360:280;let x=e.clientX+14,y=e.clientY+14;if(x>innerWidth-w)x=e.clientX-w+6;if(x<6)x=6;const th=tip.offsetHeight||0;if(y>innerHeight-th-12)y=Math.max(8,innerHeight-th-12);tip.style.left=x+'px';tip.style.top=y+'px';}
 function hideTip(){tip.style.opacity=0;}
 /* ===== 名词释义悬停（规则面板里维度A/维度B等）===== */
 const TERM_TIP={
@@ -5058,6 +5146,7 @@ function openNewReq(){
       <div class="fld"><label>开始日期</label><input type="date" id="nrStart" min="${G_MIN}" max="${G_MAX}" value="${today}"></div>
       <div class="fld"><label>结束日期</label><input type="date" id="nrEnd" min="${G_MIN}" max="${G_MAX}" value="${end60}"></div>
     </div>
+    <div class="fld" style="margin-top:2px"><label>评论（可选）<small style="font-weight:400;color:#8a93a3">备注 / 风险提示 / 协同说明，将随需求一起显示与同步</small></label><textarea id="nrComment" rows="2" placeholder="留空则不显示评论徽标"></textarea></div>
     <div class="warn" id="nrWarn"></div>`;
   renderAddModal('📋', '添加新需求', body, true);
   const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmNewReq()');
@@ -5085,6 +5174,7 @@ function confirmNewReq(){
     grade:document.getElementById('nrGrade').value,
     line:document.getElementById('nrLine').value,
     kind:'fx', estimate:est, done:0, end:i2d(ne),
+    comment:(document.getElementById('nrComment').value||'').trim(),
     segs:[]   // 新需求暂无制作人，用一段占位窗口保证可见（指向第一位成员但 0 进度，可随后改派/删除）
   };
   // 占位 seg：用一名在岗成员承载时间窗口，避免 segs 为空导致 min/max 报错；用户随后用「＋加人」替换。
@@ -5148,7 +5238,7 @@ function coreSnapshot(){
     snapVer:SNAP_VER,                                    // v6.56 标记本快照为「含末日存储」
     // 需求：除原有 end/done/split 外，序列化全部字段，使「新增需求」持久化
     // v6.56：end / seg.e 写出时 -1，由内存的排他终点转为存储的含末日（open 段无实义窗口，同样转换以保持可逆）
-    reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',state:r.state||'active',estimate:r.estimate,end:eOut(idx(r.end)),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),
+    reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',state:r.state||'active',estimate:r.estimate,end:eOut(idx(r.end)),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),comment:(r.comment||''),
       segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:eOut(idx(s.e)),prog:s.prog,status:s.status,support:!!s.support,open:!!s.open,...(s.inv!=null?{inv:s.inv}:{})}))}))
   };
 }
@@ -5231,7 +5321,7 @@ function applySnap(snap){
     let r=reqs.find(x=>x.id===rs.id);
     if(!r && rs.name){
       // 新增需求：按快照重建（含 segs），push 进数组
-      r={id:rs.id,name:rs.name,char:rs.char||'',mod:rs.mod||'',grade:rs.grade||'',line:rs.line||'-',kind:rs.kind||'fx',state:rs.state||'active',estimate:rs.estimate||1,done:rs.done||0,end:i2d(rs.end!=null?eIn(rs.end,_ver):idx(TODAY)),segs:[]};
+      r={id:rs.id,name:rs.name,char:rs.char||'',mod:rs.mod||'',grade:rs.grade||'',line:rs.line||'-',kind:rs.kind||'fx',state:rs.state||'active',estimate:rs.estimate||1,done:rs.done||0,end:i2d(rs.end!=null?eIn(rs.end,_ver):idx(TODAY)),segs:[],comment:rs.comment||''};
       reqs.push(r);
     }
     if(!r)return;
@@ -5243,6 +5333,7 @@ function applySnap(snap){
     if(rs.char!=null)r.char=rs.char;
     if(rs.mod!=null)r.mod=rs.mod;
     if(rs.grade!=null)r.grade=rs.grade;
+    if(rs.comment!=null)r.comment=rs.comment;
     if(rs.split!==undefined) r.split=(rs.split==null?undefined:rs.split);   // L1/L2 分割点（绝对日索引）
     if(rs.split2!==undefined) r.split2=(rs.split2==null?undefined:rs.split2); // L2/联调 分割点（绝对日索引）
     // 全量重建 segs（不再按下标合并）：保证「新增/删除人员段」在刷新、分享链接、跨标签同步后都不丢失
@@ -7067,6 +7158,7 @@ function rerender(){
   if(typeof buildMeSel==='function') buildMeSel();        // 刷新「我是谁」下拉（成员/角色可能已变）
   if(view==='hr'){renderHR();return;}
   view==='person'?renderPerson():renderReq();
+  if(typeof resyncCommentPin==='function') resyncCommentPin();
 }
 function setView(v,btn){view=v;document.getElementById('viewTabs').querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');updateLegend();updateHint();updateGroupSelUI();syncHideDoneCheckbox();syncSideNavViewLabel();rerender();}
 /* v6.68：侧边导航「视图区」那一项跟随当前视图改名，让用户一眼确认目录指向的就是眼前这个视图。 */

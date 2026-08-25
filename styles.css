@@ -511,6 +511,24 @@
   .bar-task.req-bar .ph-div:hover{background:#fff;}
   .bar-task.req-bar .ph-div.dragging{background:#ffd23f!important;}
   .bar-task.req-bar .ph-div.dragging::before{opacity:1;box-shadow:0 0 0 2px rgba(255,210,63,.6),0 2px 6px rgba(0,0,0,.4);}
+  /* ── 需求条评论徽标 + 浮层（v7.13） ── */
+  .bar-task.req-bar .bl-top{padding-right:20px;}
+  .cmt-btn{position:absolute;top:2px;right:3px;z-index:8;display:inline-flex;align-items:center;justify-content:center;height:16px;min-width:16px;padding:0 4px;border-radius:9px;font-size:10px;line-height:1;cursor:pointer;user-select:none;border:1px solid transparent;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .08s,background .12s;}
+  .cmt-btn.empty{background:rgba(255,255,255,.6);color:#9aa0aa;border:1px dashed #c4ccdb;}
+  .cmt-btn.has{background:#3370ff;color:#fff;border-color:#2b62e0;}
+  .cmt-btn:hover{transform:scale(1.08);}
+  .cmt-btn.pinned{box-shadow:0 0 0 2px rgba(51,112,255,.35),0 1px 3px rgba(0,0,0,.25);}
+  #cmtPop{position:fixed;z-index:9999;width:300px;max-width:86vw;background:#fff;color:#1f2329;border:1px solid #e6e8ec;border-radius:10px;box-shadow:0 10px 34px rgba(0,0,0,.2);padding:11px 13px;font-size:12px;line-height:1.55;display:none;font-family:inherit;}
+  #cmtPop .cmt-h{display:flex;align-items:center;gap:6px;margin-bottom:7px;}
+  #cmtPop .cmt-h .cmt-ic{font-size:13px;}
+  #cmtPop .cmt-h b{font-size:12.5px;}
+  #cmtPop .cmt-h .cmt-req{margin-left:auto;color:#8f959e;font-weight:500;font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #cmtPop .cmt-body{white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto;color:#1f2329;}
+  #cmtPop .cmt-body .cmt-empty{color:#9aa0aa;}
+  #cmtPop .cmt-ft{margin-top:9px;display:flex;gap:8px;justify-content:flex-end;}
+  #cmtPop .cmt-ft button{font-size:11px;padding:4px 12px;border-radius:7px;border:1px solid #d0d4db;background:#f4f5f7;color:#1f2329;cursor:pointer;}
+  #cmtPop .cmt-ft .cmt-edit{background:#3370ff;border-color:#2b62e0;color:#fff;}
+  #cmtPop .cmt-ft button:hover{filter:brightness(.97);}
   /* 第二根分割线：L2/联调 分界（设定联调开始时间），抓手描一圈紫以与 L1/L2 分割线区分 */
   .bar-task.req-bar:hover .ph-div2::before{box-shadow:0 0 0 1.5px rgba(126,99,181,.85),0 1px 3px rgba(0,0,0,.42);}
 
