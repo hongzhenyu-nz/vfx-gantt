@@ -116,10 +116,17 @@
   .page-hint{color:var(--tx3);font-size:11px;font-weight:normal;margin-left:2px;}
   .org-hint{color:var(--tx3);font-size:11px;}
   /* 分组标题行：左侧列内可点击折叠 */
-  .grp-header{display:flex;align-items:center;cursor:pointer;background:linear-gradient(90deg,#f7f8fb,#fcfdfe);border-top:1px solid var(--line);border-bottom:1px solid var(--line);user-select:none;transition:background .12s;}
+  /* v7.14 穿透修复：.grp-header 原先既无 position 也无 z-index → 不构成层叠上下文，
+     子元素 .gh-left{position:sticky;z-index:5} 因此逃逸到 #grid 根层叠上下文，
+     与 .row.head{sticky;top:0;z-index:5} z-index 打平；平局按 DOM 顺序决胜，
+     .grp-header 在 DOM 中排在 .row.head 之后 → 分组标题左栏画到冻结表头之上，
+     把表头「成员/任务/负载」截半盖住（分组标题滚到表头位置时必现）。
+     加 position:relative + z-index:3 把 gh-left 关回内部，穿透根除。
+     全局阶梯：gh-left 2 < grp-header 3 < cell-left 4 < load-heatmap 6 < row.head 7 < today-layer 8 */
+  .grp-header{display:flex;align-items:center;cursor:pointer;background:linear-gradient(90deg,#f7f8fb,#fcfdfe);border-top:1px solid var(--line);border-bottom:1px solid var(--line);user-select:none;transition:background .12s;position:relative;z-index:3;}
   .grp-header:hover{background:#eef2f9;}
   .grp-header.archived{background:linear-gradient(90deg,#f2f3f5,#f8f9fb);}
-  .grp-header .gh-left{width:var(--left-w);min-width:var(--left-w);position:sticky;left:0;z-index:5;display:flex;align-items:center;gap:8px;padding:7px 14px;background:inherit;border-right:1px solid var(--line);box-sizing:border-box;}
+  .grp-header .gh-left{width:var(--left-w);min-width:var(--left-w);position:sticky;left:0;z-index:2;display:flex;align-items:center;gap:8px;padding:7px 14px;background:inherit;border-right:1px solid var(--line);box-sizing:border-box;}
   .grp-header .gh-caret{font-size:10px;color:var(--tx3);transition:transform .15s;width:10px;display:inline-block;}
   .grp-header.collapsed .gh-caret{transform:rotate(-90deg);}
   .grp-header .gh-dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;}
@@ -217,28 +224,44 @@
      改为 rgba(51,112,255,.07) 后，蓝色高亮与底纹叠加显示，底纹始终可见。 */
   #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):hover{background:rgba(51,112,255,.07)!important;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4, inset 0 1px 0 rgba(29,111,214,.12)!important;}
   .row:last-child{box-shadow:none;}
-  .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:5;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;}
+  .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:7;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;}   /* v7.14 z-index 5→7：必须高于 .grp-header(3) 才能修复分组标题盖住表头的穿透，也高于 .load-heatmap(6) 保证双层冻结顺序；仍低于 today-layer(8)，红线贯穿语义不变 */
   /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色
-     布局与 .row 一致：左侧 sticky 冻结 + 右侧 timeline 固定像素宽，杜绝出框/裁剪 */
-  .load-heatmap{display:flex;align-items:center;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;background:var(--panel);position:relative;z-index:4;height:32px;flex-shrink:0;}   /* v6.53b 撤销 v6.51 的 overflow:hidden —— 它会让 .load-label 的 position:sticky 失效（sticky 在 overflow:hidden 祖先内不生效），导致左侧「📊负载」标签消失、色带铺进名栏 */
-  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;align-items:center;padding:8px 14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:0;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;position:sticky;left:0;background:var(--panel);z-index:7;}   /* v6.53b z-index 4→7：必须高于 .load-gap-mark，否则横向滚动时空隙标记会画到冻结名栏之上 */
+     布局与 .row 一致：左侧 sticky 冻结 + 右侧 timeline 固定像素宽，杜绝出框/裁剪
+     v7.14：position:relative→sticky top:54px（= .row.head 高度），纵向滚动时吸附在表头正下方常驻可见；
+            z-index 4→6（必须高于普通行 .cell-left 的 4，否则冻结后会被后续行覆盖；仍低于 .row.head 的 7）；
+            height 32→44px，底部新增 12px 标注轨道放「人数·占比」微标签，
+            色段与空隙标记的绝对位置保持像素不变（见下方各自注释）。 */
+  .load-heatmap{display:flex;align-items:center;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;background:var(--panel);position:sticky;top:54px;z-index:6;height:44px;flex-shrink:0;}   /* v6.53b 撤销 v6.51 的 overflow:hidden —— 它会让 .load-label 的 position:sticky 失效（sticky 在 overflow:hidden 祖先内不生效），导致左侧「📊负载」标签消失、色带铺进名栏 */
+  /* v7.14 左侧标签配平：原先只有「📊 负载」四字，与右侧整条大色带视觉重量严重失衡。
+     改为两行——主行带团队人数，副行给峰值/均值聚合数，让左侧文字承载信息量、与色带对读。 */
+  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:1px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:0;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;position:sticky;left:0;background:var(--panel);z-index:7;}   /* v6.53b z-index 4→7：必须高于 .load-gap-mark，否则横向滚动时空隙标记会画到冻结名栏之上 */
+  .load-heatmap .load-label .ll-main{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;color:var(--tx);white-space:nowrap;}
+  .load-heatmap .load-label .ll-cnt{font-size:10px;font-weight:700;color:#1d6fd6;background:#e8f0fe;border-radius:9px;padding:0 6px;}
+  .load-heatmap .load-label .ll-sub{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:600;color:var(--tx3);white-space:nowrap;}
+  .load-heatmap .load-label .ll-peak{color:#c2410c;}
+  .load-heatmap .load-label .ll-avg{color:#0f6e56;}
   .load-heatmap .load-track{position:relative;height:100%;flex-shrink:0;min-width:0;overflow:hidden;}   /* v6.53b 约束移到 track 层：既能裁掉空隙标记的垂直溢出，又不影响 .load-label 的 sticky */
   /* 周粒度色段 —— 简洁纯色，不出框 */
-  .load-heatmap .load-seg{position:absolute;top:3px;bottom:7px;border-radius:3px;transition:background .2s;cursor:pointer;}   /* v6.45 bottom 3→7px：让出底部 4px 下划线轨道，色段自身厚度维持 22px 不变 */
+  .load-heatmap .load-seg{position:absolute;top:3px;bottom:19px;border-radius:3px;transition:background .2s;cursor:pointer;}   /* v6.45 让出底部 4px 下划线轨道，色段自身厚度维持 22px 不变；v7.14 行高 32→44 后 bottom 7→19，色段绝对位置(y 3..25)与厚度 22px 全部保持像素不变 */
   .load-heatmap .load-seg:hover{opacity:.8;z-index:2;}
+  /* v7.14 色段下沿微标注：把「颜色」翻译成「几个人 / 百分之几」，让色带自解释。
+     仅在段宽 ≥36px 时渲染（窄段放不下会挤成乱码），pointer-events:none 不抢色段的 hover tip。 */
+  .load-heatmap .load-seg-note{position:absolute;bottom:0;height:12px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--tx3);white-space:nowrap;overflow:hidden;pointer-events:none;z-index:1;}
   /* 空闲周：斜纹警示 + 橙色边框 */
   .load-heatmap .load-seg.idle-wk{background-image:repeating-linear-gradient(-45deg,transparent,transparent 3px,rgba(255,255,255,.35) 3px,rgba(255,255,255,.35) 6px) !important;box-shadow:inset 0 0 0 1.5px rgba(245,158,11,.65),0 1px 3px rgba(0,0,0,.1);}
-  .load-heatmap .load-legend-idle{position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:10px;font-weight:700;color:#b45309;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:10px;padding:2px 10px;white-space:nowrap;z-index:6;animation:idlePulse 2s ease-in-out infinite;pointer-events:none;box-shadow:0 2px 8px rgba(245,158,11,.25);}
+  .load-heatmap .load-legend-idle{position:absolute;right:10px;top:14px;transform:translateY(-50%);font-size:10px;font-weight:700;color:#b45309;background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;border-radius:10px;padding:2px 10px;white-space:nowrap;z-index:6;animation:idlePulse 2s ease-in-out infinite;pointer-events:none;box-shadow:0 2px 8px rgba(245,158,11,.25);}   /* v7.14 top 50%→14px：行高 44 后 50% 会掉到标注轨道里，改成钉在色段(y 3..25)的垂直中心 */
   /* v6.45 排期空隙标记（第四版）：彻底不碰色段本体，在色带底部新增的专属轨道里画一根细下划线。
      演进：v6.40 斜纹糊底色 → v6.41 上下描边脏乱 → v6.43 全高覆盖(top:0;bottom:0) 把绿色段整段"挖开"
      留出难看的缺口、且 4px 底边框戳出色带外（用户反馈红框处不美观）。
      v6.45 方案：色带 height 28→32px、色段 bottom 3→7px（自身厚度 22px 不变），
      底部腾出 4px 专属轨道；下划线定位 bottom:1px;height:4px 落在该轨道内，
-     色段主体 100% 完整无任何缺口。圆角实心琥珀 + 外发光，hover 时轻微加粗下沉。 */
-  .load-heatmap .load-gap-mark{position:absolute;bottom:1px;height:4px;z-index:5;cursor:pointer;
+     色段主体 100% 完整无任何缺口。圆角实心琥珀 + 外发光，hover 时轻微加粗下沉。
+     v7.14：行高 32→44、底部再让出 12px 标注轨道，故 bottom 1→13px、hover bottom 0→12px，
+            标记相对色段下缘的位置(y 27..31)与 v6.45 完全一致。 */
+  .load-heatmap .load-gap-mark{position:absolute;bottom:13px;height:4px;z-index:5;cursor:pointer;
     background:#d97706;border-radius:2px;box-shadow:0 0 5px rgba(217,119,6,.6);
     transition:height .12s,background .12s,bottom .12s;}
-  .load-heatmap .load-gap-mark:hover{bottom:0;height:6px;background:#b45309;box-shadow:0 0 7px rgba(180,83,9,.8);}
+  .load-heatmap .load-gap-mark:hover{bottom:12px;height:6px;background:#b45309;box-shadow:0 0 7px rgba(180,83,9,.8);}
   /* 命中区：向上扩 3px（止步于色段下缘，不抢 .load-seg 的 hover tip），向下扩 1px 到色带底。 */
   .load-heatmap .load-gap-mark::before{content:'';position:absolute;left:0;right:0;top:-3px;bottom:-1px;background:transparent;}
   @keyframes idlePulse{0%,100%{opacity:1;}50%{opacity:.5;}}
@@ -253,14 +276,14 @@
   @keyframes newrowglow{0%{background:#efe6ff;box-shadow:inset 0 0 0 2px #a87bf5,0 0 0 0 rgba(124,58,237,.5);}18%{background:#efe6ff;}100%{background:transparent;box-shadow:inset 0 0 0 0 rgba(124,58,237,0),0 0 0 0 rgba(124,58,237,0);}}
   @keyframes newbadge{0%{opacity:0;transform:translateY(-4px) scale(.9);}10%{opacity:1;transform:none;}80%{opacity:1;}100%{opacity:0;}}
   /* 拖拽落点：全高竖向参考线（标记将要落到的起止日期列） */
-  .drop-guide{position:absolute;top:82px;bottom:0;width:0;border-left:2px dashed var(--blue);z-index:8;pointer-events:none;display:none;}
+  .drop-guide{position:absolute;top:94px;bottom:0;width:0;border-left:2px dashed var(--blue);z-index:8;pointer-events:none;display:none;}   /* v7.14 82→94px：表头 54 + 热力带 44（带高 32→44） */
   .drop-guide.show{display:block;}
   .drop-guide.gend{border-left-color:#9dbcff;border-left-style:dotted;}
   /* v6.11: ★真凶修复——原值 `rgba(51,112,.07)` 少写一个通道（rgba 需4参数，只给了3个），
      浏览器解析为 rgb(51,112,0)=深绿且完全不透明 → 拖拽时出现贯穿整页的深绿色垂直带。
      这就是 v6.02~v6.10 追查十轮的「绿块」真身：不是文本选区、不是系统强调色、不是外部软件，
      而是本文件一个 CSS 拼写错误。正确值应为主题蓝半透明 rgba(51,112,255,.07)。 */
-  .drop-band{position:absolute;top:82px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}
+  .drop-band{position:absolute;top:94px;bottom:0;background:rgba(51,112,255,.07);z-index:7;pointer-events:none;display:none;}   /* v7.14 82→94px：表头 54 + 热力带 44（带高 32→44） */
   .drop-band.show{display:block;}
   /* 视角高亮：选中的"我"本人 + 隶属于我的人员行
      v6.44：整行背景一律用半透 rgba，让时间轴的日期/周末底纹透出来；
@@ -1436,6 +1459,24 @@
   .date-pop .dp-cancel:hover{background:#e8ebf0;}
   .date-pop .dp-ok{background:#6b7280;color:#fff;}
   .date-pop .dp-ok:hover{background:#586070;}
+  /* v7.14 删除人员浮层：复用 .date-pop 外壳，加宽并塞入三选一处理方式。
+     .dp-ok.danger 用于「确认删除」这类不可逆操作，与普通确定按钮区分。 */
+  .date-pop.del-mem{width:430px;}
+  .date-pop .dp-ok.danger{background:#c0392b;}
+  .date-pop .dp-ok.danger:hover{background:#a5322a;}
+  .date-pop.del-mem .dm-stat{font-size:12px;color:var(--tx2);line-height:1.65;background:#fff7f5;border:1px solid #f3d5cd;border-radius:8px;padding:9px 11px;margin-bottom:10px;}
+  .date-pop.del-mem .dm-stat b{color:#b04632;}
+  .date-pop.del-mem .dm-modes{display:flex;flex-direction:column;gap:7px;}
+  .date-pop.del-mem .dm-mode{display:flex;align-items:flex-start;gap:9px;padding:9px 11px;border:1px solid var(--line);border-radius:9px;cursor:pointer;transition:border-color .12s,background .12s;}
+  .date-pop.del-mem .dm-mode:hover{background:#f7f9fc;}
+  .date-pop.del-mem .dm-mode.cur{border-color:#7ea6e8;background:#f2f7ff;}
+  .date-pop.del-mem .dm-mode input[type=radio]{margin:3px 0 0;flex:0 0 auto;cursor:pointer;}
+  .date-pop.del-mem .dm-mode > div{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+  .date-pop.del-mem .dm-t{font-size:13px;font-weight:700;color:var(--tx);}
+  .date-pop.del-mem .dm-d{font-size:11px;color:var(--tx3);line-height:1.5;}
+  .date-pop.del-mem .dm-sel{margin-top:6px;width:100%;box-sizing:border-box;font-size:12.5px;padding:6px 9px;border:1px solid var(--line);border-radius:7px;color:var(--tx);outline:none;background:#fff;cursor:pointer;}
+  .date-pop.del-mem .dm-sel:focus{border-color:#9aa7b8;}
+  .date-pop.del-mem .dm-sel:disabled{background:#f2f4f7;color:var(--tx3);cursor:not-allowed;}
   #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);background:#1f2329;color:#fff;padding:9px 16px;border-radius:8px;font-size:12px;opacity:0;transition:.2s;z-index:300;display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
   #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
   .hide{display:none !important;}

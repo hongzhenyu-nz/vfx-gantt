@@ -1890,6 +1890,10 @@ function loadHeatmapHTML(){
 
   // 6. 生成周粒度色带
   let bars = '';
+  /* v7.14 负载行配平：额外收集每周指标，用于
+     ① 左侧标签的「峰 X% · 均 Y%」聚合数（原先左边只有「📊 负载」四字，与右侧整条大色带视觉失衡）
+     ② 色段下沿的「N人·X%」微标注（把颜色翻译成数字，让色带自解释） */
+  const wkStats = [];
   weeks.forEach((wk, wi) => {
     const wkDays = wk.e - wk.s;
     if(wkDays <= 0) return;
@@ -1928,7 +1932,23 @@ function loadHeatmapHTML(){
 
     bars += `<div class="load-seg${idleCls}" style="left:${leftPx}px;width:${widthPx}px;background:${color}"
       onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()"></div>`;
+
+    // v7.14 记录本周指标（workdays 为 0 的周不计入聚合，避免把假期周算成 0% 拉低均值）
+    const parallel = workdays > 0 ? totalAssignments / workdays : 0;
+    wkStats.push({ratioPct, parallel, leftPx, widthPx, counted: workdays > 0});
   });
+
+  /* v7.14 色段下沿微标注：仅当段宽 ≥36px 时渲染，窄段放不下会挤成乱码。
+     pointer-events:none（见 CSS）保证不抢 .load-seg 的 hover tip。 */
+  const segNotes = wkStats
+    .filter(w => w.widthPx >= 36)
+    .map(w => `<div class="load-seg-note" style="left:${w.leftPx}px;width:${w.widthPx}px">${Math.round(w.parallel)}人·${w.ratioPct}%</div>`)
+    .join('');
+
+  // v7.14 左侧标签聚合数：峰值取最大周利用率，均值按计入周求算术平均
+  const counted = wkStats.filter(w => w.counted);
+  const peakPct = counted.length ? Math.max(...counted.map(w=>w.ratioPct)) : 0;
+  const avgPct  = counted.length ? Math.round(counted.reduce((s,w)=>s+w.ratioPct,0) / counted.length) : 0;
 
   // 7. 图例
   const legend = idleMembers.length > 0
@@ -1979,9 +1999,16 @@ function loadHeatmapHTML(){
     }
   }catch(e){ console.warn('[load-heatmap gap marks]', e); gapMarks=''; }
 
+  /* v7.14 左侧标签两行化：主行给「团队负载 + 在岗人数徽标」，副行给「峰值/均值」，
+     与右侧色带在信息量上对等，不再是孤零零的「📊 负载」两字。
+     整行同时改为 sticky top:54px 纵向冻结（见 styles.css .load-heatmap 注释）。 */
+  const labelTip = `在岗 ${totalActive} 人　按自然周聚合　峰值周利用率 ${peakPct}%　全周期均值 ${avgPct}%　利用率 = 分配人天 ÷ (在岗人数 × 工作日)`;
   return `<div class="load-heatmap" id="loadHeatmap">
-    <div class="load-label">📊 负载</div>
-    <div class="load-track" style="width:${DAYS*DAY_W}px">${bars}${gapMarks}</div>
+    <div class="load-label" onmousemove="showTip(event,\`${labelTip}\`)" onmouseleave="hideTip()">
+      <div class="ll-main">📊 团队负载<span class="ll-cnt">${totalActive}人</span></div>
+      <div class="ll-sub"><span class="ll-peak">峰 ${peakPct}%</span><span class="ll-avg">均 ${avgPct}%</span></div>
+    </div>
+    <div class="load-track" style="width:${DAYS*DAY_W}px">${bars}${segNotes}${gapMarks}</div>
     ${legend}
   </div>`;
 }
@@ -2028,7 +2055,7 @@ function headerHTML(){
     <div class="cell-left">${headLabel}</div>
     <div class="timeline" style="width:${DAYS*DAY_W}px">${months}${weeks}</div></div>`
    + `__VLINES__${shades}${vlines}`
-   /* v7.12：今天红线从竖线层里独立出来。竖线层是 top:82px（表头 54 + 热力带 32 之下），
+   /* v7.12：今天红线从竖线层里独立出来。竖线层是 top:94px（表头 54 + 热力带 44 之下，v7.14 带高 32→44 故 82→94），
       红线画在里面就永远从表头下方才起笔，与表头上方的日期胶囊隔着一段空白、连不成一根指针。
       拆成 __TODAY__ 单独一层后由 paint 挂到 top:0 的贯穿层，红线自表头顶端一路贯到底；
       表头段用 CSS 渐变压到 28% 透明度，既连贯又不糊住月/周日期文字。 */
@@ -2753,7 +2780,7 @@ function paint(rows){
   const [vlines,todayLine]=rest.split('__TODAY__');   // v7.12：红线独立成层，见 headerHTML 注释
   const loadBar = loadHeatmapHTML();
   document.getElementById('grid').innerHTML =
-    head + `<div style="position:absolute;left:var(--left-w);top:82px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
+    head + `<div style="position:absolute;left:var(--left-w);top:94px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
     // 红线专属贯穿层：top:0 从表头顶端起笔，与表头上方的胶囊箭头首尾相接
     + `<div class="today-layer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:8">${todayLine}</div>`
     + loadBar
@@ -3771,7 +3798,22 @@ document.addEventListener('contextmenu',e=>{
     const row=e.target.closest('.req-row[data-req-row]');
     if(row) bar=row.querySelector('.bar-task.req-bar')||row.querySelector('.bar-task');
   }
-  // 右键点在「按人看」的成员行左栏上（.row[data-mem]）→ 找到该成员的第一个任务条作为锚点
+  /* v7.14 右键人员行左栏 → 弹「人员管理」菜单（编辑 / 切换状态 / 加任务 / 删除人员）。
+     必须在下面的 .row[data-mem] 回落分支【之前】拦截：
+       · 旧行为：右键成员行左栏会去找该行第一个任务条当锚点，弹出来的是【任务菜单】—— 语义错位；
+         且成员一条任务段都没有时 bar 为 null → 走到 if(!bar)return，什么都不弹，
+         等于根本没有人员管理入口（这就是「右键删除人员」缺失的根因）。
+       · 新行为：命中 .cell-left（且不在任务条内）一律走人员菜单；
+         右键任务条本体仍走原有任务菜单，行为完全不变。 */
+  if(!bar){
+    const memRow=e.target.closest('.row[data-mem]');
+    if(memRow && e.target.closest('.cell-left')){
+      e.preventDefault();
+      openMemberAdminMenu(memRow.dataset.mem, e.clientX, e.clientY);
+      return;
+    }
+  }
+  // 右键点在「按人看」的成员行任务区空白处 → 找到该成员的第一个任务条作为锚点
   if(!bar){
     const memRow=e.target.closest('.row[data-mem]');
     if(memRow) bar=memRow.querySelector('.bar-task');
@@ -3944,7 +3986,155 @@ function openStatusMenu(bar,x,y){
   else { menu.style.maxHeight=''; menu.style.overflowY=''; }
   menu.style.top=my+'px';
 }
-function hideMenu(){menu.classList.remove('show');menu.style.maxHeight='';menu.style.overflowY='';menuCtx=null;memMenuCtx=null;reqStateCtx=null;}
+function hideMenu(){menu.classList.remove('show');menu.style.maxHeight='';menu.style.overflowY='';menuCtx=null;memMenuCtx=null;memAdminCtx=null;reqStateCtx=null;}
+
+/* ============ v7.14 人员管理菜单 + 删除人员 ============
+   入口：右键「按人看」成员行的左侧名栏（见上方 contextmenu 的 v7.14 分支）。
+   命名说明：openMemStatusMenu / memMenuCtx / pickMemStatus 已被「点状态点弹状态菜单」占用，
+   故本组统一用 MemberAdmin / memAdminCtx 后缀，避免与既有命名空间冲突。 */
+let memAdminCtx=null;
+
+/* 统计某成员的任务牵连面：段数、涉及需求数、以及「删掉这人就会整条空掉」的独占需求。
+   独占判定 = 该需求的所有段都属于这个人（删段后 segs 归零，留个空需求行没有意义）。 */
+function memSegStats(memId){
+  let segs=0; const reqIds=[]; const soloReqs=[];
+  reqs.forEach(r=>{
+    const all=r.segs||[];
+    const mine=all.filter(s=>s.m===memId);
+    if(!mine.length) return;
+    segs+=mine.length; reqIds.push(r.id);
+    if(mine.length===all.length) soloReqs.push(r);
+  });
+  return {segs, reqCount:reqIds.length, soloReqs};
+}
+
+function openMemberAdminMenu(memId,x,y){
+  const m=members.find(z=>z.id===memId); if(!m)return;
+  memAdminCtx={memId};
+  const st=memSegStats(memId);
+  const vac=isVacantMem(m);
+  const q=s=>String(s).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const mid=q(memId);
+  let items=`<div class="mtitle">${escAttr(m.name)} — 人员管理</div>`;
+  items+=`<div class="mi" onclick="hideMenu();openEditMember('${mid}')"><i style="background:#2563eb"></i>编辑成员信息</div>`;
+  if(!vac){
+    const cur=(MSTATUS[m.status||'on']||{}).label||'在岗';
+    items+=`<div class="mi" onclick="hideMenu();openMemStatusMenu('${mid}',${Math.round(x)},${Math.round(y)})"><i style="background:#0f9d58;border-radius:50%"></i>切换状态（当前：${cur}）</div>`;
+  }
+  items+=`<div class="mi" onclick="hideMenu();openAddTaskFor('${mid}')"><i style="background:#7c3aed"></i>给他加任务</div>`;
+  items+=`<div class="msep"></div>`;
+  const cnt = st.segs ? `（${st.segs} 条任务`+(st.soloReqs.length?` · ${st.soloReqs.length} 条独占需求`:'')+`）` : '（无任务）';
+  items+=`<div class="mi danger" onclick="hideMenu();deleteMemberAdmin('${mid}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>删除人员${cnt}</div>`;
+  menu.innerHTML=items;
+  menu.classList.add('show');
+  let mx=x,my=y; if(mx>innerWidth-260)mx=innerWidth-260;
+  menu.style.left=mx+'px';menu.style.top=my+'px';
+  const mh=menu.offsetHeight;
+  if(my+mh>innerHeight-12) my=Math.max(8, innerHeight-mh-12);
+  menu.style.top=my+'px';
+}
+
+/* 删除人员入口。无任务段者直接删；有任务段者弹三选一处理浮层。
+   ⚠️ requireWrite() 必须保留 —— 只读模式下不得改数据（历史上为跑测试注掉过，属红线）。 */
+function deleteMemberAdmin(memId){
+  if(!requireWrite())return;
+  const m=members.find(z=>z.id===memId); if(!m){toast('成员不存在或已被删除');return;}
+  const st=memSegStats(memId);
+  if(st.segs===0){
+    if(!confirm(`确定删除成员「${m.name}」吗？\n该成员名下没有任何任务段，删除后可用 Ctrl+Z 撤销。`)) return;
+    pushHistory();
+    const i=members.findIndex(z=>z.id===memId);
+    if(i>=0) members.splice(i,1);
+    _logDesc='删除成员「'+m.name+'」（无任务）';
+    save();broadcast();rerender();
+    toast('已删除 '+m.name);
+    return;
+  }
+  showDelMemberDialog(m, st);
+}
+
+/* 有任务在身时的处理浮层：三种方式二选一 —— 改派 / 连带删 / 悬空保留。 */
+function showDelMemberDialog(m, st){
+  // 可接管人选：在岗、非占位、非本人
+  const cands=members.filter(z=>z.id!==m.id && !isVacantMem(z) && !effLeft(z) && !leftLong(z));
+  const opts=cands.map(z=>`<option value="${escAttr(z.id)}">${escAttr(z.name)}</option>`).join('');
+  const soloTip=st.soloReqs.length
+    ? `其中 <b>${st.soloReqs.length}</b> 条需求由他独占（<span style="color:#b04632">${escAttr(st.soloReqs.slice(0,4).map(r=>r.name).join('、'))}${st.soloReqs.length>4?' 等':''}</span>），选「连带删除」时这些需求会整条移除。`
+    : '所有涉及的需求都还有其他人的任务段，选「连带删除」只会删掉他自己那些段。';
+  const ov=document.createElement('div');
+  ov.className='date-pop-mask';
+  ov.innerHTML=`<div class="date-pop del-mem" onclick="event.stopPropagation()">
+    <div class="dp-h">删除「${escAttr(m.name)}」——他名下还有任务</div>
+    <div class="dp-b">
+      <div class="dm-stat">共 <b>${st.segs}</b> 条任务段，分布在 <b>${st.reqCount}</b> 条需求上。${soloTip}</div>
+      <div class="dm-modes">
+        <label class="dm-mode cur"><input type="radio" name="dmMode" value="reassign" checked><div><span class="dm-t">改派给其他人</span><span class="dm-d">保留全部任务段，归属整体转给下面选定的人</span>
+          <select class="dm-sel" id="dmTo" ${cands.length?'':'disabled'}>${opts||'<option>（无可接管人员）</option>'}</select></div></label>
+        <label class="dm-mode"><input type="radio" name="dmMode" value="purge"><div><span class="dm-t">连带任务一起删</span><span class="dm-d">删掉他的全部任务段；因此空掉的需求整条移除</span></div></label>
+        <label class="dm-mode"><input type="radio" name="dmMode" value="orphan"><div><span class="dm-t">仅删人，任务悬空保留</span><span class="dm-d">任务段留在数据里但暂时无归属，之后手工改派</span></div></label>
+      </div>
+      <div class="dp-tip">所有方式都可用 Ctrl+Z 撤销。</div>
+    </div>
+    <div class="dp-f">
+      <button class="dp-cancel" id="dmCancel">取消</button>
+      <button class="dp-ok danger" id="dmOk">确认删除</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  // 只在点遮罩本体时关闭（点内容区已 stopPropagation）
+  ov.addEventListener('click',e=>{ if(e.target===ov) close(); });
+  ov.querySelector('#dmCancel').onclick=close;
+  // 选中态高亮跟随
+  ov.querySelectorAll('input[name=dmMode]').forEach(r=>{
+    r.onchange=()=>ov.querySelectorAll('.dm-mode').forEach(l=>l.classList.toggle('cur', l.contains(r)&&r.checked));
+  });
+  ov.querySelector('#dmOk').onclick=()=>{
+    const mode=(ov.querySelector('input[name=dmMode]:checked')||{}).value||'reassign';
+    if(mode==='reassign' && !cands.length){ toast('没有可接管的人员，请改选其他方式'); return; }
+    if(mode==='purge'){
+      const extra=st.soloReqs.length?`\n其中 ${st.soloReqs.length} 条独占需求会被整条删除。`:'';
+      if(!confirm(`确定连带删除吗？\n将移除「${m.name}」的 ${st.segs} 条任务段。${extra}\n可用 Ctrl+Z 撤销。`)) return;
+    }
+    const toId=mode==='reassign'?ov.querySelector('#dmTo').value:null;
+    close();
+    applyDeleteMember(m, st, mode, toId);
+  };
+}
+
+/* 实际落数据：按 mode 处理任务段，再摘掉成员本身。三种模式共用一次 pushHistory。 */
+function applyDeleteMember(m, st, mode, toId){
+  if(!requireWrite())return;
+  pushHistory();
+  let movedSegs=0, killedSegs=0, killedReqs=0, orphaned=0;
+  if(mode==='reassign'){
+    reqs.forEach(r=>(r.segs||[]).forEach(s=>{ if(s.m===m.id){ s.m=toId; movedSegs++; } }));
+  }else if(mode==='purge'){
+    for(let i=reqs.length-1;i>=0;i--){
+      const r=reqs[i];
+      const before=(r.segs||[]).length;
+      r.segs=(r.segs||[]).filter(s=>s.m!==m.id);
+      killedSegs+=before-r.segs.length;
+      if(before>0 && r.segs.length===0){ reqs.splice(i,1); killedReqs++; }
+      else if(r.segs.length){ r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e)))); }
+    }
+    if(typeof relinkLt==='function') relinkLt();
+  }else{ // orphan：段留着但去掉归属
+    reqs.forEach(r=>(r.segs||[]).forEach(s=>{ if(s.m===m.id){ s.m=null; orphaned++; } }));
+  }
+  const i=members.findIndex(z=>z.id===m.id);
+  if(i>=0) members.splice(i,1);
+  // 选中/剪贴板若指向已删对象，清掉避免悬空引用
+  if(typeof selectedBar!=='undefined' && selectedBar && !reqs.some(r=>r.id===selectedBar.reqId)) setSelected(null);
+  if(mode==='reassign') _logDesc='删除成员「'+m.name+'」，'+movedSegs+' 条任务改派给'+memName(toId);
+  else if(mode==='purge') _logDesc='删除成员「'+m.name+'」，连带删除 '+killedSegs+' 条任务段'+(killedReqs?`、${killedReqs} 条需求`:'');
+  else _logDesc='删除成员「'+m.name+'」，'+orphaned+' 条任务段转为悬空';
+  save();broadcast();rerender();
+  if(typeof renderEffTable==='function') renderEffTable();
+  toast(mode==='reassign'?`已删除 ${m.name}，${movedSegs} 条任务改派给 ${memName(toId)}`
+       :mode==='purge'?`已删除 ${m.name}，清掉 ${killedSegs} 条任务段${killedReqs?`、${killedReqs} 条需求`:''}`
+       :`已删除 ${m.name}，${orphaned} 条任务段转为悬空`);
+}
 /* 删除某条任务段（人的排期）。reqId+seg 定位；删空后若该需求无人则保留空需求行。 */
 function removeSeg(reqId, seg){
   if(!requireWrite())return false;
