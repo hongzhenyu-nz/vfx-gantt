@@ -1731,11 +1731,8 @@ function capacityLanesHTML(r){
           : `;box-shadow:inset 0 0 0 1px ${bordCol},0 1px 2px rgba(0,0,0,.18)`)
       : '';
     // 纹理层叠在底色之上（background 多层：纹理在前、纯色在后）
-    // 离职：用 linear-gradient 在条体垂直中线画一条 2px 贯穿划除线（把人「划掉」），不用斜纹
-    const strikeLayer = cs.strike
-      ? `linear-gradient(to bottom,transparent calc(50% - .75px),${cs.strike} calc(50% - .75px),${cs.strike} calc(50% + .75px),transparent calc(50% + .75px))`
-      : '';
-    const bgLayers = [strikeLayer, cs.tex].filter(Boolean).join(',');
+    // 离职：不再用「条体中线贯穿黑带」(会切割文字且不齐整、只盖到标签中段)；改为对整个标签文字做 line-through（见下方 bl-lane-lab）
+    const bgLayers = [cs.tex].filter(Boolean).join(',');
     const segBg = bgLayers ? `background:${bgLayers},${col}` : `background:${col}`;
     const segH=Math.round(Math.max(6,Math.min(26, 15+(effv-1)*90)));   // 条高随效率：差异拉大(斜率90)——效率越高越粗、越低越细（0.85→6 / 0.95→11 / 1.0→15 / 1.05→20 / 1.10→24px）
     let segs='';
@@ -1748,12 +1745,12 @@ function capacityLanesHTML(r){
       ? `border:1px dashed ${cs.bord};box-sizing:border-box`
       : `box-shadow:inset 0 0 0 1px ${cs.bord||'rgba(255,255,255,.35)'}`;
     const corpBadge=`<i class="bl-corp" style="background:${col};color:${cs.txt};${badgeBord}">${cs.short}</i>`;   // 编制徽标：正/子/基/离/借
-    const nameHTML = cs.strike
-      ? `<span style="text-decoration:line-through;text-decoration-color:${cs.strike};text-decoration-thickness:2.5px">${p.name}</span>`
-      : p.name;
+    const nameHTML = p.name;
     const capLab = digest>0?`<b>消化${digest}天</b>`:'';                            // 消化N天 = 该人在本需求已投入工作日 × 效率（不依赖剩余窗口，有档期即有值）
     const invLab = segInvBadge(psegs[0]);                                            // 投入比状态徽标（全人力/跟进），取首段口径
-    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${nameHTML}${capLab}${invLab}</span></div>`;
+    // 离职：对整段标签文字（名字 + 消化N天 + 投入比徽标）统一加 line-through，黑线整齐落在每行文字中间、划掉全部信息
+    const labStrike = cs.strike ? `text-decoration:line-through;text-decoration-color:${cs.strike};text-decoration-thickness:2.5px;` : '';
+    lanes+=`<div class="bl-lane">${segs}<span class="bl-lane-lab" style="${labStrike}left:${labL}%" onmousemove="event.stopPropagation();showTip(event,\`${tip}\`,true)" onmouseleave="hideTip()">${corpBadge}${nameHTML}${capLab}${invLab}</span></div>`;
   });
   if(!nRows) return null;
   const H=nRows*(CLANE_H+CLANE_GAP)+2;
