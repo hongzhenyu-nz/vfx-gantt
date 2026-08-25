@@ -534,13 +534,23 @@
   .bar-task.req-bar .ph-div:hover{background:#fff;}
   .bar-task.req-bar .ph-div.dragging{background:#ffd23f!important;}
   .bar-task.req-bar .ph-div.dragging::before{opacity:1;box-shadow:0 0 0 2px rgba(255,210,63,.6),0 2px 6px rgba(0,0,0,.4);}
-  /* ── 需求条评论徽标 + 浮层（v7.13） ── */
-  .bar-task.req-bar .bl-top{padding-right:20px;}
-  .cmt-btn{position:absolute;top:2px;right:3px;z-index:8;display:inline-flex;align-items:center;justify-content:center;height:16px;min-width:16px;padding:0 4px;border-radius:9px;font-size:10px;line-height:1;cursor:pointer;user-select:none;border:1px solid transparent;box-shadow:0 1px 2px rgba(0,0,0,.2);transition:transform .08s,background .12s;}
-  .cmt-btn.empty{background:rgba(255,255,255,.6);color:#9aa0aa;border:1px dashed #c4ccdb;}
-  .cmt-btn.has{background:#3370ff;color:#fff;border-color:#2b62e0;}
-  .cmt-btn:hover{transform:scale(1.08);}
-  .cmt-btn.pinned{box-shadow:0 0 0 2px rgba(51,112,255,.35),0 1px 3px rgba(0,0,0,.25);}
+  /* ── 需求条评论徽标 + 浮层（v7.13 建，v7.14 修可见性/可点击） ──
+     ⚠️ 关键坑：`.bar-task span`(styles.css:468) 特异性(0,1,1) > `.cmt-btn`(0,1,0)，
+     它会把徽标强制成 position:relative + z-index:1 + pointer-events:none，
+     结果徽标既不落在条右上角（被塞进 flex 流末尾、被 overflow:hidden 裁掉），
+     也完全无法悬停/点击 → 表现为「功能上了但界面看不到」。
+     故必须用 `.bar-task .cmt-btn`(0,2,0) 提权，并显式恢复 pointer-events/overflow。 */
+  .bar-task.req-bar .bl-top{padding-right:22px;}
+  .bar-task .cmt-btn,.cmt-btn{position:absolute!important;top:2px;right:3px;z-index:9!important;
+    display:inline-flex;align-items:center;justify-content:center;height:17px;min-width:17px;padding:0 4px;
+    border-radius:9px;font-size:11px;line-height:1;cursor:pointer;user-select:none;
+    pointer-events:auto!important;overflow:visible!important;text-overflow:clip;text-shadow:none!important;
+    box-shadow:0 1px 3px rgba(0,0,0,.28);transition:transform .08s,background .12s,box-shadow .12s;}
+  .bar-task .cmt-btn.empty,.cmt-btn.empty{background:rgba(255,255,255,.94);color:#5b626e;border:1px dashed #8f9bb3;}
+  .bar-task .cmt-btn.has,.cmt-btn.has{background:#3370ff;color:#fff;border:1px solid #1f52c9;}
+  .bar-task .cmt-btn:hover,.cmt-btn:hover{transform:scale(1.14);background:#fff;color:#1f52c9;border-color:#3370ff;}
+  .bar-task .cmt-btn.has:hover,.cmt-btn.has:hover{background:#1f52c9;color:#fff;}
+  .bar-task .cmt-btn.pinned,.cmt-btn.pinned{box-shadow:0 0 0 2.5px rgba(51,112,255,.45),0 1px 4px rgba(0,0,0,.3);}
   #cmtPop{position:fixed;z-index:9999;width:300px;max-width:86vw;background:#fff;color:#1f2329;border:1px solid #e6e8ec;border-radius:10px;box-shadow:0 10px 34px rgba(0,0,0,.2);padding:11px 13px;font-size:12px;line-height:1.55;display:none;font-family:inherit;}
   #cmtPop .cmt-h{display:flex;align-items:center;gap:6px;margin-bottom:7px;}
   #cmtPop .cmt-h .cmt-ic{font-size:13px;}
