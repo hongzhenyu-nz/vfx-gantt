@@ -122,9 +122,12 @@
      .grp-header 在 DOM 中排在 .row.head 之后 → 分组标题左栏画到冻结表头之上，
      把表头「成员/任务/负载」截半盖住（分组标题滚到表头位置时必现）。
      加 position:relative + z-index:3 把 gh-left 关回内部，穿透根除。
-     全局阶梯：gh-left 2 < grp-header 3 < load-heatmap 6 < row.head 7 < today-layer 8 < cell-left/load-label 9
+     全局阶梯：gh-left 2 < grp-header 3 < cell-left 4 < load-heatmap 6 < row.head 7 < today-layer 8
+     （load-label 的 9 只在 load-heatmap 内部生效，不参与根阶梯；.row.head .cell-left 的 9 同理只在表头内部）
      v7.18：cell-left 与 load-label 从 4/7 提到 9（今天红线专属素材之上），修复红线滚动到「今天」
-     落在冻结左栏后方时会穿透盖在成员卡片/负载条上（z-index 8 > 4/7，冻结栏未能正常挡住红线）。 */
+     落在冻结左栏后方时会穿透盖在成员卡片/负载条上（z-index 8 > 4/7，冻结栏未能正常挡住红线）。
+     v7.19 起红线改由 clip-path 几何裁剪，z 抬升冗余；v7.23 把 cell-left 降回 4（load-label 保留 9，
+     其只在热力带层叠上下文内部生效），修复 z9 反超冻结层导致的滚动行左栏盖住表头/热力带回归。 */
   .grp-header{display:flex;align-items:center;cursor:pointer;background:linear-gradient(90deg,#f7f8fb,#fcfdfe);border-top:1px solid var(--line);border-bottom:1px solid var(--line);user-select:none;transition:background .12s;position:relative;z-index:3;}
   .grp-header:hover{background:#eef2f9;}
   .grp-header.archived{background:linear-gradient(90deg,#f2f3f5,#f8f9fb);}
@@ -297,7 +300,7 @@
   .row.me-team .cell-left{background:#fffaf2;box-shadow:inset 4px 0 0 #ffd591;}
   .row.dim{opacity:.32;filter:grayscale(.4);}
 
-  .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:9;transition:background .12s;}
+  .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:4;transition:background .12s;}   /* v7.23 z-index 9→4 回退：v7.18 提到 9 是为挡红线，v7.19 起红线已改由 today-layer 的 clip-path 几何裁剪（syncTodayLabel），z9 失去意义且反超 load-heatmap(6)/row.head(7)，导致纵向滚动时数据行左栏卡片盖到冻结表头与「团队负载」热力带上（层级穿透）。降回 4 恢复 v7.14 阶梯，红线行为不变。 */
   .row.head .cell-left{background:#fafbfc;z-index:9;}
   .timeline{position:relative;flex:1;display:flex;align-items:center;}
   /* v7.20：冻结名栏右缘给出连续的蓝色锚线，并向时间轴延伸一小段淡色导轨。
