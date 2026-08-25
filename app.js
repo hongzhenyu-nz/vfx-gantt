@@ -5392,12 +5392,25 @@ const KEY='gantt_collab_v7_mod';
    因此全团队都能看到同一份变更记录，并可一键回退到任意历史版本。 */
 let CHANGELOG=[]; let _logSeq=0; let _logDesc='';
 const LOG_MAX=120;
+/* localStorage 通常只有约 5–10MB 配额；每条日志都带完整 coreSnapshot，120 条会让本地副本膨胀到数 MB。
+   云端仍保留 120 条，本地仅保留最近 40 条，确保业务数据与最近恢复点能稳定落盘。 */
+const LOCAL_LOG_MAX=40;
+let _saveWarned=false;
 function mergeLog(incoming){
   if(!Array.isArray(incoming)||!incoming.length)return;
-  const seen=new Set(CHANGELOG.map(e=>e.id));
-  let added=false;
-  incoming.forEach(e=>{ if(e&&e.id&&!seen.has(e.id)){ CHANGELOG.push(e); seen.add(e.id); added=true; } });
-  if(added){
+  const indexById=new Map(CHANGELOG.map((e,i)=>[e.id,i]));
+  let changed=false;
+  incoming.forEach(e=>{
+    if(!e||!e.id)return;
+    const i=indexById.get(e.id);
+    if(i===undefined){
+      CHANGELOG.push(e); indexById.set(e.id,CHANGELOG.length-1); changed=true;
+    }else if((e.t||0)>(CHANGELOG[i].t||0)){
+      // recordLog 会在 1.5 秒内复用同一 id 并更新 t/snap；相同 id 必须保留更新版本，不能只做去重。
+      CHANGELOG[i]=e; changed=true;
+    }
+  });
+  if(changed){
     CHANGELOG.sort((a,b)=>a.t-b.t);
     if(CHANGELOG.length>LOG_MAX) CHANGELOG.splice(0,CHANGELOG.length-LOG_MAX);
     if(typeof renderLogPanel==='function' && document.getElementById('logPanel')) renderLogPanel();
@@ -5445,15 +5458,21 @@ function applySnap(snap){
       // 已存在：仅更新可变字段（状态等）；保留原有静态信息为主，但同步快照里的关键字段
       m.status=ms.status!=null?ms.status:m.status;
       if(ms.name!=null)m.name=ms.name;
+      if(ms.role!=null)m.role=ms.role;
+      if(ms.corp!=null)m.corp=ms.corp;
       if(ms.lead!=null)m.lead=ms.lead;
+      if(ms.mod!=null)m.mod=ms.mod;
+      if(ms.grade!=null)m.grade=ms.grade;
+      if(ms.line!=null)m.line=ms.line;
       if(ms.eff!=null)m.eff=ms.eff;
-      if(ms.support!=null)m.support=ms.support;
-      if(ms.leftAt!=null)m.leftAt=i2d(ms.leftAt);
+      if(ms.support!=null)m.support=!!ms.support;
+      if(ms.tmp!=null)m.tmp=!!ms.tmp;
+      if(ms.leftAt!==undefined)m.leftAt=(ms.leftAt==null?null:i2d(ms.leftAt));
       // ★ v5.83 持久化修复：负责(leadChars/leadMods)结构化字段也要随快照/云端同步，否则刷新后丢失
       if(ms.leadChars!=null)m.leadChars=ms.leadChars;
       if(ms.leadMods!=null)m.leadMods=ms.leadMods;
       // ★ v6.17: leadMap（品级→模块配对）同步
-      if(ms.leadMap!=null)m.leadMap=ms.leadMap;
+      if(ms.leadMap!==undefined)m.leadMap=(ms.leadMap==null?null:ms.leadMap);
     }else if(ms.name){
       const nm={id:ms.id,name:ms.name,role:ms.role||'',corp:ms.corp||'base',lead:ms.lead||'—',mod:ms.mod||'',grade:ms.grade||'',line:ms.line||'-',eff:(ms.eff!=null?ms.eff:1.0),status:ms.status||'on',leadChars:ms.leadChars||'',leadMods:ms.leadMods||'',leadMap:ms.leadMap||null};
       if(ms.support)nm.support=true;
@@ -5521,6 +5540,8 @@ function applySnap(snap){
     if(rs.char!=null)r.char=rs.char;
     if(rs.mod!=null)r.mod=rs.mod;
     if(rs.grade!=null)r.grade=rs.grade;
+    if(rs.line!=null)r.line=rs.line;
+    if(rs.kind!=null)r.kind=rs.kind;
     if(rs.comment!=null)r.comment=rs.comment;
     if(rs.split!==undefined) r.split=(rs.split==null?undefined:rs.split);   // L1/L2 分割点（绝对日索引）
     if(rs.split2!==undefined) r.split2=(rs.split2==null?undefined:rs.split2); // L2/联调 分割点（绝对日索引）
@@ -5531,13 +5552,12 @@ function applySnap(snap){
   });
   // 同步归档/分组控件 UI
   syncOrgUI();
-  // 全量快照一致性：移除快照中不存在的成员/需求（使「重置」「他人删除/回滚」生效）。
-  // 仅当快照确实带有成员/需求清单时才裁剪，避免空快照误删。
-  if(Array.isArray(snap.members) && snap.members.length){
+  // 全量快照一致性：只要字段存在，空数组也代表“全部删除”，必须忠实恢复；字段缺失才表示不处理。
+  if(Array.isArray(snap.members)){
     const keep=new Set(snap.members.map(x=>x.id));
     for(let i=members.length-1;i>=0;i--){ if(!keep.has(members[i].id)) members.splice(i,1); }
   }
-  if(Array.isArray(snap.reqs) && snap.reqs.length){
+  if(Array.isArray(snap.reqs)){
     const keepR=new Set(snap.reqs.map(x=>x.id));
     for(let i=reqs.length-1;i>=0;i--){ if(!keepR.has(reqs[i].id)) reqs.splice(i,1); }
   }
@@ -5573,8 +5593,40 @@ function syncOrgUI(){
   if(typeof updateGroupSelUI==='function') updateGroupSelUI();
 }
 const ORIG=JSON.parse(JSON.stringify(snapshot()));
-function save(){try{localStorage.setItem(KEY,JSON.stringify(snapshot()));}catch(_){}}
-function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.parse(v));}catch(_){}}
+function localSnapshot(){
+  const s=snapshot();
+  if(Array.isArray(s._log) && s._log.length>LOCAL_LOG_MAX) s._log=s._log.slice(-LOCAL_LOG_MAX);
+  return s;
+}
+/* 离线恢复补推时，在不改写业务字段的前提下合并本地与云端审计记录，避免 40 条本地副本截断云端 120 条历史。 */
+function mergeSnapshotLogs(localSnap,remoteSnap){
+  const out=JSON.parse(JSON.stringify(localSnap||{}));
+  const remote=(remoteSnap&&Array.isArray(remoteSnap._log))?remoteSnap._log:[];
+  const local=Array.isArray(out._log)?out._log:[];
+  const byId=new Map();
+  remote.concat(local).forEach(e=>{
+    if(!e||!e.id)return;
+    const prev=byId.get(e.id);
+    if(!prev||(e.t||0)>(prev.t||0))byId.set(e.id,e);
+  });
+  out._log=Array.from(byId.values()).sort((a,b)=>(a.t||0)-(b.t||0)).slice(-LOG_MAX);
+  return out;
+}
+function save(){
+  try{
+    localStorage.setItem(KEY,JSON.stringify(localSnapshot()));
+    _saveWarned=false;
+    return true;
+  }catch(e){
+    console.warn('local snapshot save failed',e);
+    if(!_saveWarned){
+      _saveWarned=true;
+      toast('⚠ 本地恢复副本保存失败；云端仍会继续保存，请勿关闭页面并联系管理员');
+    }
+    return false;
+  }
+}
+function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.parse(v));}catch(e){console.warn('local snapshot load failed',e);}}
 function resetData(){if(!requireWrite())return;pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}_logDesc='重置为初始排期';broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();if(typeof applyInvLockUI==='function')applyInvLockUI();toast('已重置为初始排期');}
 
 /* ============ Supabase 云端协作（全员实时读写 + 自动汇集，免后端） ============ */
@@ -5584,13 +5636,20 @@ const SB_TABLE='board_state';
 const SB_ROW='vfx-gantt-main';     // 单行存整份排期快照
 const TEAM_PIN='vfx2026';          // 团队写入口令（可改），公开页内属软门禁：防止误改/陌生人随手改
 const PIN_KEY='gantt_write_pin';
-let sb=null, sbChan=null, cloudReady=false, cloudPushT=null, lastSyncJSON='', applyingRemote=false, hasHashSnap=false;
+let sb=null, sbChan=null, cloudReady=false, cloudPushT=null, cloudPushEpoch=0, cloudPushRunning=false, cloudPushQueued=false, cloudWriteBusy=false, lastSyncJSON='', applyingRemote=false, hasHashSnap=false;
 /* v6.39 「放弃编辑」基线：获取编辑权成功那一刻的数据快照 JSON。
    关键：持锁期间每次改动都会自动 cloudPush 到云端，所以「放弃编辑」不能靠"从云端重拉"还原
    （云端已经是改过的数据）。必须用这份进入编辑时的本地基线回滚，并把基线推回云端。 */
 let editBaselineJSON='';
-let cloudCid=localStorage.getItem('gantt_cloud_cid');
-if(!cloudCid){cloudCid='c'+Math.random().toString(36).slice(2,10);localStorage.setItem('gantt_cloud_cid',cloudCid);}
+/* 每个页面文档使用独立 editor id。刷新也生成新 id，避免旧页面迟到的 keepalive beacon 清掉新页面租约。 */
+let cloudCid='c'+Math.random().toString(36).slice(2,10);
+sessionStorage.setItem('gantt_cloud_tab_cid',cloudCid);
+let cloudLeaseNeedsRotate=false;
+function rotateCloudCid(){
+  cloudCid='c'+Math.random().toString(36).slice(2,10);
+  sessionStorage.setItem('gantt_cloud_tab_cid',cloudCid);
+  cloudLeaseNeedsRotate=false;
+}
 /* 云端离线兜底：503/网络抖动时不让看板停摆，改写 localStorage，云端恢复自动补同步。
    触发点：cloudInit 失败、tryReconnect 连续失败。退出点：tryReconnect 成功一次。 */
 let cloudOffline=false;            // 当前是否在离线兜底模式
@@ -5598,8 +5657,62 @@ let cloudReconnTries=0;             // 连续失败次数（用于指数退避�
 let cloudReconnT=null;              // 下次重试的 setTimeout 句柄
 let cloudPendingPush=null;          // 离线期间最新 snapshot，重连后补推
 const RECONN_DELAYS=[5000,15000,45000,180000,300000];  // 5s/15s/45s/3min/5min
-const PENDING_KEY='gantt_pending_snap';
-try{const s=localStorage.getItem(PENDING_KEY); if(s) cloudPendingPush=JSON.parse(s);}catch(_){}
+/* 每个页面独立保存恢复副本，避免多个标签互相覆盖。启动时选最新一份；
+   每次只删除用户刚处理的 storage key，其他标签页留下的较早副本继续逐份审核。 */
+const PENDING_PREFIX='gantt_pending_snap:';
+const LEGACY_PENDING_KEY='gantt_pending_snap';
+const PENDING_KEY=PENDING_PREFIX+Date.now()+'-'+cloudCid;
+let pendingKeySeq=0;
+let cloudPendingStorageKey='', cloudPendingSavedAt=0;
+function loadLatestPendingSnapshot(){
+  cloudPendingPush=null; cloudPendingStorageKey=''; cloudPendingSavedAt=0;
+  try{
+    const candidates=[];
+    for(let i=0;i<localStorage.length;i++){
+      const k=localStorage.key(i);
+      if(!k||k.indexOf(PENDING_PREFIX)!==0)continue;
+      const raw=localStorage.getItem(k); if(!raw)continue;
+      try{
+        const parsed=JSON.parse(raw);
+        const wrapped=parsed&&parsed.snap&&parsed.savedAt;
+        const savedAt=wrapped?Number(parsed.savedAt):(Number(k.slice(PENDING_PREFIX.length).split('-')[0])||0);
+        candidates.push({key:k,savedAt:savedAt,snap:wrapped?parsed.snap:parsed});
+      }catch(_){}
+    }
+    const legacyRaw=localStorage.getItem(LEGACY_PENDING_KEY);
+    if(legacyRaw){try{candidates.push({key:LEGACY_PENDING_KEY,savedAt:1,snap:JSON.parse(legacyRaw)});}catch(_){}}
+    candidates.sort((a,b)=>(b.savedAt-a.savedAt)||b.key.localeCompare(a.key));
+    if(candidates.length){
+      const latest=candidates[0];
+      cloudPendingPush=latest.snap; cloudPendingStorageKey=latest.key; cloudPendingSavedAt=latest.savedAt;
+    }
+  }catch(_){}
+}
+function storePendingSnapshot(snap,keepSeparate){
+  const compact=compactPendingSnapshot(snap);
+  const savedAt=Date.now();
+  // 离线连续自动保存属于同一分支，可覆盖本页固定 key；失锁/提交失败属于独立分叉，必须新建 key，避免后一次事故吞掉前一次。
+  const storageKey=keepSeparate
+    ?PENDING_PREFIX+savedAt+'-'+cloudCid+'-'+(++pendingKeySeq)
+    :PENDING_KEY;
+  const json=JSON.stringify({savedAt:savedAt,cid:cloudCid,snap:compact});
+  try{
+    localStorage.setItem(storageKey,json);
+  }catch(firstError){
+    // KEY 只是可重建的普通缓存；配额不足时优先牺牲它，为真正未同步的恢复副本腾空间。
+    try{localStorage.removeItem(KEY);localStorage.setItem(storageKey,json);}catch(_){throw firstError;}
+  }
+  cloudPendingPush=compact; cloudPendingStorageKey=storageKey; cloudPendingSavedAt=savedAt;
+  return compact;
+}
+function clearPendingSnapshot(){
+  try{
+    // 只确认当前这一份；不能用全局时间水位跳过其他标签页更早但尚未审核的独立副本。
+    if(cloudPendingStorageKey)localStorage.removeItem(cloudPendingStorageKey);
+  }catch(_){}
+  cloudPendingPush=null; cloudPendingStorageKey=''; cloudPendingSavedAt=0;
+}
+loadLatestPendingSnapshot();
 function cloudWho(){const m=members.find(x=>x.id===meId);return m?m.name:'某成员';}
 /** v6.75 返回身份验证状态文案（用于编辑权提示等） */
 function whoAmI(){
@@ -5613,7 +5726,7 @@ function whoAmI(){
    - 抢到锁的人会被强制拉取并应用云端最新快照，确保永远在最新数据上编辑（满足"下一个人需被强制刷新"）。
    - 持有者每 30s 心跳续期；超过 90s 无心跳视为失效，可被他人抢占（应对崩溃/断网/直接关页）。
    - 结束编辑 / 关闭页面 = 把最终数据推上去并清空锁，下一个人立刻可编辑。
-   - 强制解锁：他人持锁时，输入团队密码可强制接管；被接管者会自动强制上传其最后改动，避免丢工作。 */
+   - 强制解锁：他人持锁时，输入团队密码可强制接管；被接管者的最后改动只保存为独立本地恢复副本，禁止覆盖新持锁者。 */
 const LOCK_TTL=90*1000;        // 锁「新鲜度」阈值(ms)：超过此时长无续期 → UI 标注"可能已离开"（v6.70 起不再等于可免密抢占）
 const LOCK_HEARTBEAT=30*1000;  // 持有者续锁心跳间隔
 /* v6.70 僵尸锁安全阀：正常关页/提交都会清空 editor，但断电/崩溃/强杀进程不会。
@@ -5840,34 +5953,44 @@ function showManualIdentityFallback() {
   if (fallbackEl) fallbackEl.style.display = '';
 }
 
-let _takeoverGrace=false;         // 强制接管后的短暂宽限窗口：期间接收被踢者的最后改动，避免其工作丢失
+let _takeoverGrace=false;         // 兼容旧状态；v7.19 起不再允许失锁者向云端强制写入
 let _takeoverGraceT=null;
+let takeoverFrozenSnap=null;      // 失锁瞬间冻结，防止弹窗等待期间被 realtime 新快照覆盖
 function lockExpiryISO(){return new Date(Date.now()-LOCK_TTL).toISOString();} // 早于此时刻的锁判定为过期
-function canWrite(){return lockMine===true;}   // 只有持锁者可写
-/* 被强制接管时调用：把自己当前的改动（含未提交的）强制上传到云端 snap，
-   只更新 snap+updated_at，不触碰 editor（不夺回锁），让接管者在宽限期内接住这份数据。 */
-async function forceUploadMySnap(){
-  if(!sb)return;
+function canWrite(){return lockMine===true && !cloudWriteBusy;}   // 只有持锁且不在提交/回滚事务中才可写
+function compactPendingSnapshot(snap){
+  const out=JSON.parse(JSON.stringify(snap||snapshot()));
+  if(Array.isArray(out._log)&&out._log.length>LOCAL_LOG_MAX)out._log=out._log.slice(-LOCAL_LOG_MAX);
+  return out;
+}
+function freezeTakeoverSnap(){
+  if(!takeoverFrozenSnap)takeoverFrozenSnap=compactPendingSnapshot(snapshot());
+  return takeoverFrozenSnap;
+}
+/* 被强制接管后绝不能再写共享行，否则会覆盖新持锁者。改为保存失锁瞬间冻结的本地恢复副本，
+   待下次安全获取编辑权时再由启动恢复流程合并云端日志并条件补推。 */
+async function preserveTakeoverSnap(){
   try{
-    const snap=snapshot();
-    await sb.from(SB_TABLE).update({snap:snap,updated_at:new Date().toISOString()}).eq('id',SB_ROW);
-    lastSyncJSON=JSON.stringify(snap);
-    toast('📤 你的最后改动已强制上传，不会丢失');
-  }catch(e){ console.warn('force upload my snap failed',e); }
+    const snap=storePendingSnapshot(takeoverFrozenSnap||snapshot(),true);
+    takeoverFrozenSnap=null;
+    toast('💾 你的最后改动已保留为本地恢复副本，未覆盖当前编辑者');
+    return true;
+  }catch(e){
+    console.warn('preserve takeover snap failed',e);
+    toast('⚠ 本地恢复副本保存失败，请勿关闭此页面，并截图联系管理员');
+    return false;
+  }
 }
 
-/* ===== v6.70 被强制接管：弹窗让原持有者决定未提交改动的去向 =====
-   为什么要弹窗：旧版被接管时只 toast 一条 + 自动 forceUploadMySnap()，两个问题——
-     · 用户往往看不到、来不及反应，工作"悄悄"就没了编辑权；
-     · 自动上传会把我的版本盖到接管者刚拉取的数据上，双方都不知情，容易互相覆盖。
-   现在改为显式二选一：上传我的改动（接管者会在 4s 宽限期内接住）/ 放弃我的改动（回滚到编辑起点）。 */
+/* ===== 被强制接管：弹窗让原持有者决定未提交改动的去向 =====
+   失锁者不再向共享行强制上传（会覆盖新持锁者），只允许保存本地恢复副本，或放弃并回滚到编辑起点。 */
 let _tkPending=false;
 function openTakeoverDialog(byWho){
   if(_tkPending) return;               // 已弹出，避免心跳重复触发
   const mask=document.getElementById('tkMask'); if(!mask){
-    // 兜底：DOM 缺失时退回旧行为，至少不丢数据
-    toast('⚠ 编辑权已被「'+byWho+'」接管，正在保存你的最后改动…');
-    forceUploadMySnap(); return;
+    // 兜底：DOM 缺失时只保留本地恢复副本，绝不越过新持锁者写共享行。
+    toast('⚠ 编辑权已被「'+byWho+'」接管，正在保存本地恢复副本…');
+    preserveTakeoverSnap(); return;
   }
   _tkPending=true;
   const cur=JSON.stringify(snapshot());
@@ -5875,17 +5998,18 @@ function openTakeoverDialog(byWho){
   document.getElementById('tkWho').textContent=byWho;
   document.getElementById('tkChanged').textContent = changed?'未提交的改动':'尚未改动任何内容';
   document.getElementById('tkDiff').innerHTML = changed
-    ? '<b>上传我的改动</b>：把你这次的修改推到云端，接管者会立即看到（推荐）。<br><b>放弃我的改动</b>：本地回滚到你开始编辑时的状态，云端保持接管者拉到的版本。'
+    ? '<b>保留本地恢复副本</b>：保存你这次的修改，稍后安全获取编辑权后再恢复，不覆盖当前编辑者（推荐）。<br><b>放弃我的改动</b>：本地回滚到你开始编辑时的状态，云端保持当前编辑者的版本。'
     : '你没有任何改动，两个选项效果相同 —— 直接退出编辑即可。';
   mask.classList.add('show');
 }
-/* 用户在接管弹窗中做出选择：save=true 上传我的改动；false 放弃并回滚 */
+/* 用户在接管弹窗中做出选择：save=true 保留独立本地恢复副本；false 放弃并回滚 */
 async function resolveTakeover(save){
   const mask=document.getElementById('tkMask');
   if(mask) mask.classList.remove('show');
   _tkPending=false;
   if(save){
-    await forceUploadMySnap();
+    const saved=await preserveTakeoverSnap();
+    if(!saved){ syncLockUI(); return; } // 冻结副本仍留在内存，允许用户释放空间后重试
   }else{
     // 放弃：回滚到本次编辑起点（与「放弃编辑」按钮同一套基线）
     if(editBaselineJSON){
@@ -5899,6 +6023,7 @@ async function resolveTakeover(save){
       toast('已退出编辑模式');
     }
   }
+  takeoverFrozenSnap=null;
   editBaselineJSON='';
   syncLockUI();
 }
@@ -5941,14 +6066,15 @@ function cloudSetStatus(state,txt){
 }
 /* 统一刷新指示器：持锁=on(绿，编辑中)，他人持锁=busy(琥珀，等待)，空闲=locked(灰，可申请) */
 function syncLockUI(){
+  /* 放弃编辑按钮与变更记录按钮在在线/离线状态都要刷新，不能被提前 return 跳过。 */
+  const db=document.getElementById('discardEditBtn');
+  if(db) db.style.display=(lockMine&&!cloudWriteBusy)?'inline-flex':'none';
+  if(document.getElementById('logPanel') && typeof renderLogPanel==='function') renderLogPanel();
   if(cloudOffline){ cloudSetStatus('offline', '已离线 · 自动重连中'); return; }
   if(!cloudReady){ return; }
   if(lockMine) cloudSetStatus('on',lockBtnLabel());
   else if(lockHolderCid && lockHolderCid!==cloudCid) cloudSetStatus('busy',lockBtnLabel());
   else cloudSetStatus('locked',lockBtnLabel());
-  /* 放弃编辑按钮：仅持锁时显示 */
-  const db=document.getElementById('discardEditBtn');
-  if(db) db.style.display=lockMine?'inline-flex':'none';
 }
 function refreshAllUI(){
   rerender();
@@ -5976,25 +6102,41 @@ async function cloudInit(){
         if(pendJSON!==remoteJSON){
           const useLocal=confirm('检测到你上次离线期间有未同步的改动，且云端数据与之不同。\n\n点「确定」=保留你离线期间的改动（推送到云端）\n点「取消」=采用云端版本（丢弃离线改动）');
           if(useLocal){
-            // 保留本地离线改动：把暂存应用到界面并补推云端
-            applyingRemote=true; applySnap(cloudPendingPush); applyingRemote=false;
+            // 先合并云端完整审计记录，再以“无人持锁或本标签已持锁”为条件补推；绝不 upsert 抢走他人编辑权。
+            const recoverySnap=mergeSnapshotLogs(cloudPendingPush,snapObj);
             try{
-              await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:cloudPendingPush,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()});
-              lastSyncJSON=JSON.stringify(snapshot()); save();
-              cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
-              toast('☁ 已恢复并补推你上次的离线改动');
-            }catch(pe){ console.warn('启动补推失败,保留暂存',pe); lastSyncJSON=''; }
+              const {data:claimed,error:claimErr}=await sb.from(SB_TABLE)
+                .update({snap:recoverySnap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()})
+                .eq('id',SB_ROW).eq('updated_at',data.updated_at)
+                .or('editor.is.null,editor.eq.'+cloudCid)
+                .select('snap,editor,editor_name,updated_at');
+              if(claimErr)throw claimErr;
+              if(!claimed||!claimed.length){const busy=new Error('当前有人编辑，启动恢复未写入');busy.lockBusy=true;throw busy;}
+              applyingRemote=true; applySnap(recoverySnap); applyingRemote=false;
+              data=claimed[0];
+              lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho();
+              editBaselineJSON=remoteJSON; startHeart();
+              lastSyncJSON=JSON.stringify(recoverySnap); save();
+              clearPendingSnapshot();
+              toast('☁ 已安全恢复上次离线改动，并获取编辑权');
+            }catch(pe){
+              console.warn('启动补推失败,保留暂存',pe);
+              // 共享行未确认写入时继续展示云端版本；本地改动只留在 PENDING_KEY，避免误导为已恢复成功。
+              applyingRemote=true; applySnap(snapObj); applyingRemote=false;
+              lastSyncJSON=remoteJSON; save();
+              toast(pe&&pe.lockBusy?'✋ 当前有人编辑；你的离线改动已保留本地，待其提交后再恢复':'⚠ 离线改动补推失败，已保留本地恢复副本');
+            }
           }else{
             applyingRemote=true; applySnap(snapObj); applyingRemote=false;
             lastSyncJSON=remoteJSON; save();
-            cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+            clearPendingSnapshot();
             toast('☁ 已采用云端最新排期');
           }
         }else{
           // 暂存与云端一致（上次其实已推成功）→ 清掉暂存，正常载入
           applyingRemote=true; applySnap(snapObj); applyingRemote=false;
           lastSyncJSON=remoteJSON;
-          cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+          clearPendingSnapshot();
         }
         refreshAllUI();
       }else{
@@ -6059,11 +6201,15 @@ function startKeepAlivePing(immediate){
   setTimeout(tick, 60 * 1000);                 // 启动 1 分钟后兜底检查一次
 }
 /* 把编辑权授予本地（不依赖云端锁），让用户在离线期间不被只读卡住。重连成功后让真实锁接管。 */
-function giveLocalLock(){ lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho(); }
+function giveLocalLock(){
+  lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho();
+  if(!editBaselineJSON)editBaselineJSON=JSON.stringify(snapshot());
+}
 /* 进入离线模式：保留编辑权 + 暂存 + 安排重试。注：cloudReady 仍置 true，使 cloudPush 继续被调用（改走本地暂存）。 */
 function enterOfflineMode(reason){
   if(cloudOffline) return;
   cloudOffline=true; cloudReady=true; cloudReconnTries=0;
+  stopHeart(); // 离线期间停止更新 updated_at，避免与重连恢复的 CAS 自相竞争
   giveLocalLock();
   // 【铁律】离线模式下 body 一定不带 ro-mode，让用户立刻能编辑
   document.body.classList.remove('ro-mode');
@@ -6086,8 +6232,8 @@ async function tryReconnect(){
     if(!sb) sb=window.supabase.createClient(SB_URL,SB_KEY,{realtime:{params:{eventsPerSecond:5}}});
     const {data,error}=await sb.from(SB_TABLE).select('snap,editor,editor_name,updated_at').eq('id',SB_ROW).maybeSingle();
     if(error) throw error;
-    // 恢复成功
-    cloudOffline=false; cloudReady=true; cloudReconnTries=0;
+    // 恢复成功。合并/补推事务完成前冻结写操作，避免请求等待期间的新修改被误标为已同步。
+    cloudOffline=false; cloudReady=true; cloudReconnTries=0; cloudWriteBusy=true; syncLockUI();
     // ── 重连合并（四象限，绝不无条件覆盖本地离线改动）──
     // 关键修复：本地是否「脏」以「当前快照 vs 上次同步基线 lastSyncJSON」为准，
     // 不再依赖可能过期(700ms防抖漏最新改动)或为空的 cloudPendingPush，否则会把离线改动判成"无改动"直接被云端覆盖。
@@ -6100,46 +6246,70 @@ async function tryReconnect(){
       remoteJSON=JSON.stringify(snapObj);
     }
     const remoteChanged=(remoteJSON!=null) && (remoteJSON!==lastSyncJSON);  // 别人在你离线期间改过云端
-    // 补推本地：一律用「当前快照」而非 cloudPendingPush（后者可能漏掉最后一次改动）
+    // 补推本地：先条件获取恢复锁，再写当前快照；有人持锁时返回零行，绝不 upsert 抢锁。
     const pushLocal=async(snap)=>{
-      const payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()};
-      const {error:upErr}=await sb.from(SB_TABLE).upsert(payload);
+      const {data:claimed,error:upErr}=await sb.from(SB_TABLE)
+        .update({snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()})
+        .eq('id',SB_ROW).eq('updated_at',data.updated_at)
+        .or('editor.is.null,editor.eq.'+cloudCid)
+        .select('id,editor,editor_name,updated_at');
       if(upErr) throw upErr;
-      lastSyncJSON=JSON.stringify(snap);
-      cloudPendingPush=null;
-      try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+      if(!claimed||!claimed.length){const busy=new Error('当前有人编辑，离线补推未写入');busy.lockBusy=true;throw busy;}
+      lockMine=true; lockHolderCid=cloudCid; lockHolderName=cloudWho();
+      editBaselineJSON=remoteJSON||JSON.stringify(snap); startHeart();
+      if(Array.isArray(snap._log))mergeLog(snap._log);
+      lastSyncJSON=JSON.stringify(snap); save();
+      clearPendingSnapshot();
     };
     const takeRemote=()=>{
       applyingRemote=true; applySnap(snapObj); applyingRemote=false;
       lastSyncJSON=remoteJSON; save();   // 同步 localStorage，避免旧本地存档回灌
-      cloudPendingPush=null;
-      try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+      clearPendingSnapshot();
     };
+    // 本地缓存为防配额溢出只保留最近 LOCAL_LOG_MAX 条；补推前必须把云端历史合并回来，
+    // 否则“保留本地离线改动”会把云端 120 条审计记录截成 40 条。
+    const currentLocalForPush=()=>mergeSnapshotLogs(snapshot(),snapObj);
     try{
       if(localDirty && remoteChanged){
         // 双改冲突：让用户选，默认保留本地（刚辛苦编辑的内容优先）
         const useLocal=confirm('云端已恢复，但你离线期间云端数据也有变化（可能是其他人编辑）。\n\n点「确定」=保留你离线期间的改动（覆盖云端）\n点「取消」=采用云端版本（你的离线改动将被丢弃）');
-        if(useLocal){ await pushLocal(curSnap); toast('☁ 已保留你的离线改动并推送云端'); }
+        if(useLocal){ await pushLocal(currentLocalForPush()); toast('☁ 已保留你的离线改动并推送云端'); }
         else { takeRemote(); toast('已采用云端版本'); }
       }else if(localDirty){
         // 只有本地改了 → 直接补推，绝不覆盖本地
-        await pushLocal(curSnap); toast('☁ 离线期间改动已补推云端');
+        await pushLocal(currentLocalForPush()); toast('☁ 离线期间改动已补推云端');
       }else if(remoteChanged){
         // 只有远端改了 → 安全应用
         takeRemote(); toast('☁ 云端已恢复，期间他人改动已同步');
       }else{
         // 双方都没变
-        cloudPendingPush=null; try{localStorage.removeItem(PENDING_KEY);}catch(_){}
+        clearPendingSnapshot();
       }
     }catch(upErr){
-      // 补推失败：保留本地暂存，切回离线重试（不丢数据）
       console.warn('重连补推失败,保留本地暂存',upErr);
-      cloudPendingPush=curSnap;
-      try{localStorage.setItem(PENDING_KEY, JSON.stringify(curSnap));}catch(_){}
-      cloudOffline=true; document.body.classList.remove('ro-mode');
-      cloudSetStatus('offline','已离线 · 可编辑 · 补推失败重试中…');
-      scheduleReconnect(); refreshAllUI(); syncLockUI(); return;
+      const compact=compactPendingSnapshot(curSnap);
+      let pendingSaved=false;
+      try{storePendingSnapshot(compact);pendingSaved=true;}catch(e){console.warn('pending snapshot save failed',e);}
+      if(upErr&&upErr.lockBusy){
+        // 云端可达但已有编辑者：展示云端版本并转只读，本地改动仅保留在恢复副本中，禁止继续制造双写分叉。
+        cloudOffline=false; lockMine=false; cloudLeaseNeedsRotate=true;
+        if(pendingSaved){
+          if(snapObj){ applyingRemote=true; applySnap(snapObj); applyingRemote=false; lastSyncJSON=remoteJSON; save(); }
+        }else{
+          // 磁盘配额不足时至少冻结在内存中，不立刻用云端覆盖；提示用户保持页面并人工处理。
+          takeoverFrozenSnap=compact;
+        }
+        if(data)updateLockFromRow(data);
+        if(!pendingSaved)openTakeoverDialog(lockHolderName||'当前编辑者');
+        toast(pendingSaved?'✋ 当前有人编辑；你的离线改动已保留本地，待其提交后再恢复':'⚠ 当前有人编辑，且本地恢复副本保存失败；请勿关闭页面并联系管理员');
+      }else{
+        // 网络/服务错误：仍在真正离线状态，保留本地暂存并重试。
+        cloudWriteBusy=false; cloudOffline=true; document.body.classList.remove('ro-mode');
+        cloudSetStatus('offline','已离线 · 可编辑 · 补推失败重试中…');
+        scheduleReconnect(); refreshAllUI(); syncLockUI(); return;
+      }
     }
+    cloudWriteBusy=false;
     // 重订阅 realtime
     try{ if(sbChan) await sbChan.unsubscribe(); }catch(_){}
     sbChan=sb.channel('board-'+SB_ROW)
@@ -6164,6 +6334,7 @@ async function tryReconnect(){
     if(cloudReconnT){ clearTimeout(cloudReconnT); cloudReconnT=null; }
   }catch(e){
     console.warn('重连失败',e);
+    cloudWriteBusy=false;
     // 【铁律】重连失败时也要保证 body 不带 ro-mode（用户可以继续编辑）
     document.body.classList.remove('ro-mode');
     scheduleReconnect();
@@ -6173,30 +6344,60 @@ async function tryReconnect(){
 }
 function cloudPush(immediate){
   if(!cloudReady||!sb||applyingRemote)return;
-  if(!canWrite())return;             // 只读模式：本页改动不外推
+  if(!canWrite())return;             // 只读/提交中：本页改动不外推
   clearTimeout(cloudPushT);
+  const epoch=cloudPushEpoch;
   const doPush=async()=>{
-    if(!lockMine)return;   // 推送前再确认仍持锁（避免锁被抢走后还写数据）
+    if(epoch!==cloudPushEpoch||!lockMine||cloudWriteBusy)return;   // 已进入提交/放弃流程，废弃旧防抖任务
     if(cloudOffline){
-      // 离线模式：暂存最新 snapshot 到 localStorage，等重连后补推
-      const snap=snapshot();
-      cloudPendingPush=snap;
-      try{localStorage.setItem(PENDING_KEY, JSON.stringify(snap));}catch(_){}
+      // 离线模式：PENDING_KEY 同样只保留最近日志，恢复时再与云端 120 条历史合并，避免配额溢出。
+      const snap=compactPendingSnapshot(snapshot());
+      try{
+        storePendingSnapshot(snap);
+      }catch(e){
+        console.warn('offline pending snapshot save failed',e);
+        toast('⚠ 离线恢复副本保存失败，请勿关闭页面并联系管理员');
+      }
       return;
     }
+    // 同一标签页严格串行保存。若上一请求尚未完成，只记“还需补推一次最新状态”，禁止旧请求晚到覆盖新快照。
+    if(cloudPushRunning){ cloudPushQueued=true; return; }
+    cloudPushRunning=true;
     const snap=snapshot(); const json=JSON.stringify(snap);
-    if(json===lastSyncJSON)return;
-    cloudSetStatus('syncing','保存中…');
     try{
-      // 复用现有列写锁并续期：editor=锁持有者, editor_name=持有者名, updated_at=锁心跳
-      const payload={id:SB_ROW,snap:snap,editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()};
-      const {error}=await sb.from(SB_TABLE).upsert(payload);
+      if(json===lastSyncJSON)return;
+      cloudSetStatus('syncing','保存中…');
+      // editor 使用每个标签页/每轮租约唯一的 cloudCid；迟到请求无法命中新标签或下一轮锁。
+      const {data,error}=await sb.from(SB_TABLE)
+        .update({snap:snap,editor_name:cloudWho(),updated_at:new Date().toISOString()})
+        .eq('id',SB_ROW).eq('editor',cloudCid).select('id');
       if(error)throw error;
+      if(!data||!data.length){const lost=new Error('编辑权已变化，保存被拒绝');lost.lockLost=true;throw lost;}
+      if(epoch!==cloudPushEpoch)return;
       lastSyncJSON=json; cloudSetStatus('on',lockBtnLabel());
     }catch(e){
+      // 这可能是“提交/放弃”前发出的旧请求；流程 epoch 已变化时不得把页面重新切回离线编辑态。
+      if(epoch!==cloudPushEpoch)return;
+      if(e&&e.lockLost){
+        console.warn('cloud push rejected because lock changed',e);
+        freezeTakeoverSnap();
+        cloudLeaseNeedsRotate=true;
+        lockMine=false; stopHeart();
+        await refreshLockStatus(); syncLockUI();
+        openTakeoverDialog(lockHolderName||'他人');
+        toast('⚠ 编辑权已变化，本次自动保存未覆盖云端');
+        return;
+      }
       // 推送失败 → 切离线兜底,保留编辑权+暂存
       console.warn('cloud push failed,降级本地',e);
       enterOfflineMode('保存失败,已切本地');
+    }finally{
+      cloudPushRunning=false;
+      if(cloudPushQueued){
+        cloudPushQueued=false;
+        // queued 可能来自下一轮租约；重新调用时读取当前 epoch/cid，而不是沿用旧请求的 epoch。
+        if(lockMine && !cloudWriteBusy) cloudPush(true);
+      }
     }
   };
   if(immediate)doPush(); else cloudPushT=setTimeout(doPush,700);
@@ -6223,6 +6424,10 @@ function updateLockFromRow(row){
   lockHolderZombie= !!holder && age >= LOCK_ZOMBIE;     // 超长无心跳 = 僵尸锁
   // 若云端显示锁已不在我手里（被强制接管）→ 弹窗让我确认如何处理未提交改动（v6.70 不再静默）
   if(lockMine && lockHolderCid!==cloudCid){
+    // 在 realtime 覆盖内存前冻结本地改动，再作废本租约的排队/在途自动保存。
+    freezeTakeoverSnap();
+    cloudPushEpoch++; cloudPushQueued=false; clearTimeout(cloudPushT);
+    cloudLeaseNeedsRotate=true;
     lockMine=false; stopHeart();
     openTakeoverDialog(lockHolderName||'他人');
   }
@@ -6272,8 +6477,8 @@ function bumpIdle(){
 async function idleAutoRelease(){
   if(!lockMine)return;
   toast('⏱ 已 5 分钟无操作，正在自动提交并释放编辑权…');
-  await releaseLock(true);      // 静默释放（含把最终数据上传云端）
-  toast('🔓 已自动提交并解锁，其他人现在可以编辑');
+  const ok=await releaseLock(true);      // 静默释放（含把最终数据上传云端）
+  toast(ok?'🔓 已自动提交并解锁，其他人现在可以编辑':'⚠ 自动提交未确认成功，已保留本地恢复副本，请检查云端状态');
 }
 /* 全局活动监听：任何指针/键盘/滚动/输入都视为"有操作"，重置空闲计时（仅持锁时生效）。
    一次性绑定，passive 不阻塞滚动；节流避免高频事件频繁打点。 */
@@ -6339,6 +6544,8 @@ function bindMidDragPan(){
 /* 申请编辑：原子抢锁 → 强制拉取并应用云端最新快照 → 进入可编辑态 */
 async function acquireLock(force){
   if(!cloudReady||!sb){ toast('云端尚未连接，稍后再试'); return false; }
+  // 每轮新租约使用新标签页级 id；旧会话的迟到请求即使随后抵达，也无法命中新锁。
+  if(cloudLeaseNeedsRotate) rotateCloudCid();
   cloudSetStatus('syncing',force?'强制接管中…':'申请编辑中…');
   try{
     const nowISO=new Date().toISOString();
@@ -6376,12 +6583,9 @@ async function acquireLock(force){
       toast('✋ '+(lockHolderName||'有人')+' 正在编辑，请等其提交后再申请');
       return false;
     }
-    // 抢到锁。若是强制接管：先开宽限窗口，等待被踢者的最后改动上传后再覆盖本地
-    if(force){
-      _takeoverGrace=true;
-      clearTimeout(_takeoverGraceT);
-      _takeoverGraceT=setTimeout(()=>{ _takeoverGrace=false; },4000); // 4s 内接住对方强制上传的 snap
-    }
+    // 抢到锁后不再开放“失锁者强制上传”宽限期；失锁者只能保存本地恢复副本。
+    _takeoverGrace=false;
+    clearTimeout(_takeoverGraceT);
     // 强制以云端最新快照刷新本地，保证在最新数据上编辑
     const row=data[0];
     if(row.snap){
@@ -6396,7 +6600,7 @@ async function acquireLock(force){
     editBaselineJSON=lastSyncJSON;   // v6.39 记录编辑起点（此时本地已同步到云端最新），供「放弃编辑」回滚
     startHeart();
     syncLockUI();
-    toast(force?'✅ 已强制接管编辑权（正在接收对方最后改动并同步）':'✅ 已获取编辑权（已同步至最新）。改动实时保存，编辑完请点「提交」释放');
+    toast(force?'✅ 已强制接管编辑权；对方未提交改动将保留在其本地恢复副本':'✅ 已获取编辑权（已同步至最新）。改动实时保存，编辑完请点「提交」释放');
     return true;
   }catch(e){
     // 抢锁请求本身就是一次 Supabase 探针：失败=云端不可达，直接切离线兜底
@@ -6412,20 +6616,38 @@ async function acquireLock(force){
 }
 /* 释放编辑锁：先把最终数据推上去，再清空锁字段，下一个人立即可编辑 */
 async function releaseLock(silent){
-  stopHeart();
-  if(!sb){ lockMine=false; cloudSetStatus('locked',lockBtnLabel()); return; }
+  cloudWriteBusy=true; stopHeart(); syncLockUI();
+  cloudPushEpoch++; cloudPushQueued=false; clearTimeout(cloudPushT);   // 让已排队/在途的旧自动保存失效
+  if(!sb){
+    cloudWriteBusy=false; lockMine=false; cloudLeaseNeedsRotate=true;
+    cloudSetStatus('locked',lockBtnLabel());
+    return false;
+  }
+  let attemptedSnap=null;
   try{
     if(lockMine){
-      const snap=snapshot();
-      // 释放锁：把 editor/editor_name 清空（=无人持锁），下一个人立即可申请
-      await sb.from(SB_TABLE).update({snap:snap,editor:null,editor_name:null,updated_at:new Date().toISOString()}).eq('id',SB_ROW).eq('editor',cloudCid);
-      lastSyncJSON=JSON.stringify(snap);
+      attemptedSnap=snapshot();
+      // 释放锁：带 editor=cloudCid 条件提交最终快照，防止误清除已被他人接管的锁。
+      const {data,error}=await sb.from(SB_TABLE)
+        .update({snap:attemptedSnap,editor:null,editor_name:null,updated_at:new Date().toISOString()})
+        .eq('id',SB_ROW).eq('editor',cloudCid).select('id');
+      if(error)throw error;
+      if(!data||!data.length)throw new Error('编辑权已变化，提交被拒绝');
+      lastSyncJSON=JSON.stringify(attemptedSnap);
     }
-  }catch(e){ console.warn('release lock failed',e); }
-  lockMine=false; lockHolderCid=''; lockHolderName='';
+  }catch(e){
+    console.warn('release lock failed',e);
+    cloudWriteBusy=false;
+    const state=await reconcileAfterWriteFailure(attemptedSnap||snapshot());
+    toast(state==='mine'?'⚠ 提交未成功，仍保留编辑权，请稍后重试':state==='remote'?'云端状态已重新同步，当前已退出编辑':'⚠ 提交结果未知，已转为只读；本地目标版本已保护，若弹窗出现请立即保存副本');
+    return false;
+  }
+  cloudWriteBusy=false;
+  lockMine=false; lockHolderCid=''; lockHolderName=''; cloudLeaseNeedsRotate=true;
   editBaselineJSON='';   // v6.39 正常提交后清空基线（改动已确认保存，不再需要回滚点）
   syncLockUI();
   if(!silent) toast('已提交并释放编辑权，其他人现在可以编辑了');
+  return true;
 }
 /* 放弃编辑：把数据回滚到「获取编辑权那一刻」的基线，并把基线推回云端，再释放锁。
    v6.39 根因修复：旧实现是「从云端重拉」，但持锁期间每次改动都被 cloudPush 自动写进云端了，
@@ -6445,33 +6667,70 @@ async function discardEdit(){
     : '本次编辑没有改动，确定退出编辑模式吗？';
   if(!confirm(msg)) return;
 
-  // 先停心跳并取消待推送，避免回滚过程中被防抖 push 覆盖
-  stopHeart();
+  // 事务期间先切只读，防止用户在回滚 payload 已生成后又产生新修改。
+  cloudWriteBusy=true; stopHeart(); syncLockUI();
+  // 取消待推送；epoch 会让已经进入异步流程的旧 cloudPush 也失效。
+  cloudPushEpoch++; cloudPushQueued=false;
   clearTimeout(cloudPushT);
 
+  let attemptedSnap=null;
   if(changed){
     toast('正在回滚数据…');
     try{
       const base=JSON.parse(editBaselineJSON);
-      // 1) 本地回滚到基线
+      // 1) 先在内存外构造回滚 payload：业务数据来自基线，审计日志保留当前全部记录并追加本次“放弃编辑”。
+      //    云端确认成功前绝不改写当前界面，避免条件更新失败时出现“本地已回滚、云端未回滚”的假象。
+      const auditSnap=JSON.parse(JSON.stringify(base)); delete auditSnap._log;
+      const rollbackLog=CHANGELOG.slice();
+      rollbackLog.push({
+        id:Date.now()+'-'+cloudCid+'-'+(_logSeq++),
+        t:Date.now(), who:cloudWho(),
+        desc:'放弃本次编辑，回滚到获取编辑权时的状态',
+        snap:auditSnap
+      });
+      if(rollbackLog.length>LOG_MAX)rollbackLog.splice(0,rollbackLog.length-LOG_MAX);
+      const rollbackSnap=JSON.parse(JSON.stringify(base));
+      rollbackSnap._log=rollbackLog;
+      attemptedSnap=rollbackSnap;
+      const rollbackJSON=JSON.stringify(rollbackSnap);
+      // 2) 必须带 editor=cloudCid 条件；如果期间已被接管，禁止覆盖新持锁者的数据。
+      const {data,error}=await sb.from(SB_TABLE)
+        .update({snap:rollbackSnap,editor:null,editor_name:null,updated_at:new Date().toISOString()})
+        .eq('id',SB_ROW).eq('editor',cloudCid).select('id');
+      if(error)throw error;
+      if(!data||!data.length)throw new Error('编辑权已变化，放弃编辑被拒绝');
+      // 3) 云端确认成功后再同步本地业务数据与审计日志。
       applyingRemote=true; applySnap(base); applyingRemote=false;
-      lastSyncJSON=editBaselineJSON;
-      refreshAllUI();
-      // 2) 把基线覆盖推回云端（撤销编辑期间的自动保存），同时释放锁
-      await sb.from(SB_TABLE).upsert({id:SB_ROW,snap:base,editor:null,editor_name:null,updated_at:new Date().toISOString()});
-      save();   // 同步 localStorage，避免旧本地存档回灌
+      CHANGELOG=rollbackLog;
+      lastSyncJSON=rollbackJSON;
+      save(); refreshAllUI();
     }catch(e){
       console.warn('discard rollback failed',e);
-      toast('⚠ 回滚推送失败，本地已回滚但云端可能仍是改动后的数据');
+      cloudWriteBusy=false;
+      const state=await reconcileAfterWriteFailure(attemptedSnap||snapshot());
+      toast(state==='mine'?'⚠ 回滚未成功，仍保留编辑权，请重试':state==='remote'?'云端状态已重新同步，本次未覆盖他人数据':'⚠ 回滚结果未知，已转为只读；本地目标版本已保护，若弹窗出现请立即保存副本');
+      return;
     }
   }else{
-    // 无改动：只释放锁
+    // 无改动：只释放锁。Supabase 客户端会把服务端错误放在 result.error，必须显式检查。
+    attemptedSnap=snapshot();
     try{
-      await sb.from(SB_TABLE).update({editor:null,editor_name:null,updated_at:new Date().toISOString()}).eq('id',SB_ROW).eq('editor',cloudCid);
-    }catch(e){ console.warn('discard lock release failed',e); }
+      const {data,error}=await sb.from(SB_TABLE)
+        .update({editor:null,editor_name:null,updated_at:new Date().toISOString()})
+        .eq('id',SB_ROW).eq('editor',cloudCid).select('id');
+      if(error)throw error;
+      if(!data||!data.length){const lost=new Error('编辑权已变化，退出编辑被拒绝');lost.lockLost=true;throw lost;}
+    }catch(e){
+      console.warn('discard lock release failed',e);
+      cloudWriteBusy=false;
+      const state=await reconcileAfterWriteFailure(attemptedSnap);
+      toast(state==='mine'?'⚠ 退出编辑未成功，仍保留编辑权，请重试':state==='remote'?'云端状态已重新同步，当前已退出编辑':'⚠ 退出结果未知，已转为只读；本地目标版本已保护，若弹窗出现请立即保存副本');
+      return;
+    }
   }
 
-  lockMine=false; lockHolderCid=''; lockHolderName='';
+  cloudWriteBusy=false;
+  lockMine=false; lockHolderCid=''; lockHolderName=''; cloudLeaseNeedsRotate=true;
   editBaselineJSON='';
   syncLockUI();
   toast(changed?'✅ 已放弃编辑，数据已回滚到编辑前状态':'已退出编辑模式');
@@ -6479,9 +6738,74 @@ async function discardEdit(){
 /* 仅刷新锁状态（用于抢锁失败后了解是谁占着） */
 async function refreshLockStatus(){
   try{
-    const {data}=await sb.from(SB_TABLE).select('editor,editor_name,updated_at').eq('id',SB_ROW).maybeSingle();
+    const {data,error}=await sb.from(SB_TABLE).select('editor,editor_name,updated_at').eq('id',SB_ROW).maybeSingle();
+    if(error)throw error;
     if(data) updateLockFromRow(data);
-  }catch(_){}
+    return data||null;
+  }catch(_){return null;}
+}
+/* 提交/放弃的响应可能丢失：不能凭 catch 猜测锁仍属于我。重拉完整云端行后再决定本地状态。
+   attemptedSnap 是本次条件写真正想提交的最终版本；若远端不包含它，必须先保留恢复副本再加载远端。 */
+async function reconcileAfterWriteFailure(attemptedSnap){
+  cloudWriteBusy=false;
+  const intended=attemptedSnap||snapshot();
+  try{
+    const {data,error}=await sb.from(SB_TABLE).select('snap,editor,editor_name,updated_at').eq('id',SB_ROW).maybeSingle();
+    if(error)throw error;
+    if(!data)throw new Error('云端状态为空');
+    if(data.editor===cloudCid){
+      // 锁仍属于我：按正常锁状态刷新并恢复心跳，页面中的目标版本继续保留，允许用户重试。
+      updateLockFromRow(data);
+      lockMine=true; startHeart(); syncLockUI();
+      return 'mine';
+    }
+
+    const remoteSnap=data.snap?((typeof data.snap==='string')?JSON.parse(data.snap):data.snap):null;
+    const remoteHasIntended=!!remoteSnap && JSON.stringify(remoteSnap)===JSON.stringify(intended);
+    if(!remoteHasIntended){
+      // 条件写确实未落到云端，或落地后又被其他编辑覆盖。覆盖当前页面前先持久化本次目标版本。
+      try{
+        storePendingSnapshot(intended,true);
+      }catch(pendingError){
+        console.warn('write-failure pending save failed',pendingError);
+        takeoverFrozenSnap=compactPendingSnapshot(intended);
+        lockMine=false; stopHeart(); cloudLeaseNeedsRotate=true;
+        updateLockFromRow(data); syncLockUI();
+        // 不加载远端，保持当前页面和冻结副本；弹出明确的重试入口，避免用户误以为已经持久化后直接关页。
+        openTakeoverDialog(lockHolderName||'当前编辑者');
+        cloudSetStatus('err','云端已变化 · 请保存本地恢复副本');
+        return 'unknown';
+      }
+    }
+
+    // 可能是服务端已成功但响应丢失，也可能是失锁后已先保存 pending。此时才允许切换到远端真实状态。
+    // 先退出本地持锁态，避免 updateLockFromRow() 把“自己刚释放成功”误判为强制接管并弹窗。
+    lockMine=false; stopHeart(); editBaselineJSON=''; cloudLeaseNeedsRotate=true;
+    updateLockFromRow(data);
+    if(remoteSnap){
+      applyingRemote=true; applySnap(remoteSnap); applyingRemote=false;
+      lastSyncJSON=JSON.stringify(snapshot()); save(); refreshAllUI();
+    }
+    syncLockUI();
+    return 'remote';
+  }catch(e){
+    console.warn('reconcile write failure failed',e);
+    // 两次网络结果都未知时绝不能假定仍持锁。冻结写入并保留本次实际尝试提交的版本。
+    let pendingSaved=false;
+    try{
+      storePendingSnapshot(intended,true);
+      pendingSaved=true;
+    }catch(err){
+      console.warn('unknown-state pending save failed',err);
+      takeoverFrozenSnap=compactPendingSnapshot(intended);
+    }
+    // 保留当前 cid，待网络恢复后先核对旧锁；此时不自动轮换，避免把仍属于自己的锁变成孤儿锁。
+    lockMine=false; stopHeart();
+    syncLockUI();
+    if(!pendingSaved)openTakeoverDialog('云端状态未知');
+    cloudSetStatus('err',pendingSaved?'云端状态待确认 · 本地副本已保留':'云端状态待确认 · 请保存本地恢复副本');
+    return 'unknown';
+  }
 }
 /* 右上角云端指示器点击入口：在"申请编辑 ↔ 提交释放"之间切换 */
 function cloudUnlock(){
@@ -6737,7 +7061,9 @@ function renderLogPanel(){
     return '<div class="log-item"><span class="li-dot"></span><div class="li-main">'
       +'<div class="li-desc">'+safe+'</div>'
       +'<div class="li-meta"><b>'+who+'</b> · '+fmtLogTime(e.t)+'</div></div>'
-      +(ro?'':'<button class="li-revert" onclick="revertTo(\''+e.id+'\')">回退到此</button>')
+      +(ro
+        ?'<button class="li-revert is-readonly" title="需先申请编辑权" onclick="requireWrite()">需编辑权</button>'
+        :'<button class="li-revert" onclick="revertTo(\''+e.id+'\')">回退到此</button>')
       +'</div>';
   }).join('');
 }
@@ -6762,6 +7088,9 @@ function broadcast(){
   // 留痕：每次本地改动落一条变更记录（拖拽等连续操作做合并，避免刷屏）
   if(!applyingRemote) recordLog(_logDesc||'排期更新');
   _logDesc='';
+  // 多数写操作在 broadcast() 前先 save()；此前会导致本地副本永远少最新一条日志。
+  // 这里在 recordLog() 后再落盘一次，保证本地恢复点与实际广播/云端内容一致。
+  save();
   const payload=JSON.stringify(snapshot());
   if(bc)bc.postMessage({from:meId,data:payload});
   if(typeof cloudPush==='function')cloudPush();   // 同步到云端（防抖，仅有写权限时生效）
@@ -7555,17 +7884,31 @@ if(typeof bindTodayLabelFollow==='function'){ bindTodayLabelFollow(); }
 // 关闭/刷新页面时若持有编辑锁，立即释放，避免锁悬挂阻塞他人（用 keepalive 同步发出）
 window.addEventListener('pagehide',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });
 window.addEventListener('beforeunload',()=>{ if(lockMine&&sb){ try{ releaseLockBeacon(); }catch(_){} } });
-/* 关页瞬间用 fetch+keepalive 直发 REST，确保锁被清空（普通 await 可能来不及） */
+/* 关页瞬间用 fetch+keepalive 释放锁。若最后 700ms 防抖尚未落云，先同步保存 PENDING_KEY，
+   下次启动会走安全恢复流程；避免为了塞入大 snap 而超过 keepalive 约 64KB 上限。 */
+let _beaconReleased=false;
 function releaseLockBeacon(){
+  if(_beaconReleased)return;
+  _beaconReleased=true;
   stopHeart();
-  // 关页瞬间清空锁：用现有列 editor，PATCH 仅当仍是我持锁
+  let recoverySafe=true;
+  try{
+    const latest=snapshot();
+    if(JSON.stringify(latest)!==lastSyncJSON)storePendingSnapshot(latest);
+  }catch(e){
+    recoverySafe=false;
+    console.warn('pagehide pending snapshot save failed; keep lock to avoid silent data loss',e);
+  }
+  // 无法保存最后改动的恢复副本时宁可留下僵尸锁，也不释放后让未同步数据静默消失。
+  if(!recoverySafe)return;
+  // 关页瞬间清空锁：用本页面唯一 editor id，旧页面的迟到 beacon 无法命中新页面租约。
   const url=SB_URL+'/rest/v1/'+SB_TABLE+'?id=eq.'+SB_ROW+'&editor=eq.'+cloudCid;
   try{
     fetch(url,{method:'PATCH',keepalive:true,
       headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=minimal'},
       body:JSON.stringify({editor:null,editor_name:null})});
   }catch(_){}
-  lockMine=false;
+  lockMine=false; cloudLeaseNeedsRotate=true;
 }
 
 /* v6.66 首屏快捷入口跳转：滚到目标板块并短暂高亮，让用户跳过去后立刻知道该看哪一块。
