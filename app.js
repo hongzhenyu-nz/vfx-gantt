@@ -2808,6 +2808,12 @@ function syncTodayLabel(){
   if(!track) return;
   const tl = document.querySelector('.todayline');
   const sc = document.getElementById('scroll');
+  const layer = document.querySelector('.today-layer');
+  /* v7.19：红线层属于可横向滚动的完整内容画布；仅把冻结左栏的 z-index 提高，
+     无法覆盖透明空隙，所以红线仍会漏进成员区。
+     这里按当前 scrollLeft 从红线层左侧做几何裁剪：该层本地 x=scrollLeft 以前的内容
+     正是被左侧冻结栏遮住的区域。这样红线在进入冻结栏之前就已经被裁掉，而非事后遮盖。 */
+  if(layer && sc) layer.style.clipPath = `inset(0 0 0 ${Math.max(0, sc.scrollLeft)}px)`;
   let lbl = track.querySelector('.today-label');
   // 无红线的视图（如「人力分配」不画时间轴红线）：整条标尺收起，不留 26px 空白占位
   if(rail) rail.classList.toggle('empty', !tl);
