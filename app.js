@@ -420,6 +420,15 @@ function relinkLt(){
   for(let i=reqs.length-1;i>=0;i--){ if(reqs[i].kind==='qa') reqs.splice(i,1); }
   // 2) 联调 = 独立需求行（v6.90 起）。relinkLt 仅清空历史残留的附属关系，不再建立新挂接。
   relinkLt();
+  // 3) v7.43：为演示里程碑功能，给部分本地样本需求注入里程碑数据。
+  //    云端同步后，真实数据的 req.milestones 会自然覆盖此处 seed。
+  const MS_SEED={
+    'NV_bt':[{date:DT(2026,9,15),label:'S5.1提审',type:'review',color:'#ffd23f'},{date:DT(2026,10,8),label:'S5.1封版',type:'freeze',color:'#ff5b58'}],
+    'BK_cc':[{date:DT(2026,8,20),label:'比安卡L2',type:'phase',color:'#4d8eff'}],
+    'HG_cc':[{date:DT(2026,10,10),label:'荷光者L2',type:'phase',color:'#4d8eff'}],
+    'CY_cc':[{date:DT(2026,10,20),label:'Cyndi提审',type:'review',color:'#ffd23f'}]
+  };
+  reqs.forEach(r=>{ if(MS_SEED[r.id] && !r.milestones) r.milestones=MS_SEED[r.id]; });
 })();
 /* v7.05 联调「特殊类型」彻底取消：联调不再是独立 kind，而是普通特效需求 + mod='联调'。
    ---------------------------------------------------------------------------
@@ -2093,6 +2102,63 @@ function headerHTML(){
    + `__TODAY__<div class="todayline" data-today="今天 ${fmt(TODAY)}" style="left:${tx}px"></div>`;
 }
 
+/* ============ 里程碑渲染（v7.43） ============ */
+/* 从所有需求提取里程碑，按日期排序，用于按人视图的汇总行。 */
+function allMilestones(){
+  const list=[];
+  reqs.forEach(r=>{
+    (r.milestones||[]).forEach(ms=>{
+      list.push({...ms, reqId:r.id, reqName:r.name});
+    });
+  });
+  list.sort((a,b)=>a.date-b.date);
+  return list;
+}
+/* 单个里程碑节点 HTML。
+   ctx='summary'：汇总行中的小标签（带文字）。
+   ctx='bar'：需求条内标记（顶部圆点+竖线+文字）。
+   left 传入像素偏移（summary）或百分比字符串（bar，需带 %）。 */
+function milestoneNodeHTML(ms, ctx, left){
+  const tip=`${escAttr(ms.label)}\n${fmt(ms.date)} · ${ms.reqName||'全局节点'}`;
+  const color=ms.color||'#ffd23f';
+  if(ctx==='bar'){
+    return `<div class="ms-mark" style="left:${left}" onmousemove="showTip(event,'${tip.replace(/'/g,"\\'")}')" onmouseleave="hideTip()">
+      <span class="ms-label" style="color:${color}">${escHtml(ms.label)}</span>
+      <span class="ms-dot" style="background:${color};box-shadow:0 0 0 2px ${color}33"></span>
+      <span class="ms-line" style="background:${color}"></span>
+    </div>`;
+  }
+  // summary 行：菱形图标 + 文字标签
+  return `<div class="ms-node" style="left:${left}px" onmousemove="showTip(event,'${tip.replace(/'/g,"\\'")}')" onmouseleave="hideTip()">
+    <span class="ms-diamond" style="background:${color}"></span>
+    <span class="ms-text" style="color:${color}">${escHtml(ms.label)}</span>
+  </div>`;
+}
+/* 按人视图：里程碑汇总行（方案 C）。插入在所有成员行之前，sticky 置顶。 */
+function milestoneSummaryRowHTML(){
+  const ms=allMilestones();
+  const nodes=ms.map(m=>{
+    const d=idx(m.date);
+    if(d<0 || d>=DAYS) return '';
+    return milestoneNodeHTML(m,'summary',d*DAY_W);
+  }).join('');
+  return `<div class="row ms-summary-row" style="min-height:34px;position:sticky;top:86px;z-index:7">
+    <div class="cell-left"><span class="ms-summary-label">🚩 关键节点</span></div>
+    <div class="timeline" style="width:${DAYS*DAY_W}px">${nodes}</div>
+  </div>`;
+}
+/* 按需求视图：将单个需求的里程碑渲染为条内标记（方案 B）。
+   barS/barE/span 来自 getPhases(r) 的结果，与 L1/L2 分割同算法。 */
+function reqMilestonesHTML(r, barS, barE, span){
+  if(!r.milestones || !r.milestones.length || span<=0) return '';
+  return r.milestones.map(ms=>{
+    const d=idx(ms.date);
+    if(d<barS || d>barE) return '';
+    const pct=((d-barS)/span*100).toFixed(2);
+    return milestoneNodeHTML(ms,'bar',pct+'%');
+  }).join('');
+}
+
 /* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
 /* 自适应条高：单任务时条占满行高（饱满），同行多任务并行时按泳道平分自动变窄。
    ROW_BASE=单泳道行高；PADV=行内上下留白；LANE_GAP=泳道间距；BAR_MIN=多泳道时单条最小高度（保证可读）。 */
@@ -2125,7 +2191,8 @@ function renderPerson(){
   const mode=GROUP_MODE.person;
   // 基础排序（所有模式通用）：状态 → 编制 → 隶属 → 品级 → 支援 → 拼音（v6.87 统一规则）
   live.sort((a,b)=>personSortCompare(a,b));
-  let rows='';
+  // v7.43：按人视图顶部插入里程碑汇总行（方案 C），始终置顶在所有成员/分组之前。
+  let rows=milestoneSummaryRowHTML();
   if(mode==='none' || view!=='person'){
     live.forEach(m=>{ rows+=personRowHTML(m); });
   }else{
@@ -2602,6 +2669,8 @@ function reqRowHTML(r, prevR, nextR, inArc){
           ${laneH?laneObj.html:`<div class="bl-sub"><div class="bl-rows">${blChips}</div></div>`}
           <i class="ph-div" data-req="${r.id}" data-phdiv="1" title="${dvTip}" style="left:${divL}%"></i>
           ${div2L!=null?`<i class="ph-div ph-div2" data-req="${r.id}" data-phdiv="2" title="${dv2Tip}" style="left:${div2L}%"></i>`:''}
+          <!-- v7.43：按需求视图的里程碑条内标记（方案 B） -->
+          ${reqMilestonesHTML(r,ph.barS,ph.barE,span)}
           <i class="grip gl"></i><i class="grip gr"></i>${reqCmtBtnHTML(r)}</div>`;
         })()}
       </div>

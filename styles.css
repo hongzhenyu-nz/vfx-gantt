@@ -239,6 +239,17 @@
   #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):hover{background:rgba(51,112,255,.07)!important;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4, inset 0 1px 0 rgba(29,111,214,.12)!important;}
   .row:last-child{box-shadow:none;}
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:7;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;}   /* v7.14 z-index 5→7：必须高于 .grp-header(3) 才能修复分组标题盖住表头的穿透，也高于 .load-heatmap(6) 保证双层冻结顺序；仍低于 today-layer(8)，红线贯穿语义不变 */
+  /* 里程碑汇总行（v7.43 方案 C）：按人视图置顶，位于表头与内容行之间 */
+  .row.ms-summary-row{min-height:34px;height:34px;background:#fdfcf5;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #d4c9a8;z-index:6;}
+  .row.ms-summary-row .cell-left{display:flex;align-items:center;background:#f7f3e3;border-right:1px solid #d4c9a8;}
+  .ms-summary-label{font-size:12px;font-weight:800;color:#8a6d2f;white-space:nowrap;padding-left:8px;}
+  .row.ms-summary-row .timeline{position:relative;}
+  .ms-node{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:4px;padding:1px 6px 1px 2px;
+    background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.08);border-radius:10px;pointer-events:auto;cursor:pointer;
+    box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .12s,box-shadow .12s;}
+  .ms-node:hover{transform:translateY(-50%) scale(1.04);box-shadow:0 2px 5px rgba(0,0,0,.15);z-index:10;}
+  .ms-diamond{width:9px;height:9px;transform:rotate(45deg);border-radius:1px;flex-shrink:0;}
+  .ms-text{font-size:10px;font-weight:800;white-space:nowrap;}
   /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色
      布局与 .row 一致：左侧 sticky 冻结 + 右侧 timeline 固定像素宽，杜绝出框/裁剪
      v7.14：position:relative→sticky top:54px（= .row.head 高度），纵向滚动时吸附在表头正下方常驻可见；
@@ -607,6 +618,22 @@
   .bar-task.req-bar .ph-div:hover{background:#fff;}
   .bar-task.req-bar .ph-div.dragging{background:#ffd23f!important;}
   .bar-task.req-bar .ph-div.dragging::before{opacity:1;box-shadow:0 0 0 2px rgba(255,210,63,.6),0 2px 6px rgba(0,0,0,.4);}
+
+  /* ── 里程碑：按需求视图的条内标记（v7.43 方案 B） ── */
+  .bar-task.req-bar .ms-mark{position:absolute;top:-10px;bottom:0;width:2px;z-index:6;pointer-events:auto;transform:translateX(-1px);}
+  .bar-task.req-bar .ms-mark .ms-dot{position:absolute;top:0;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;
+    box-shadow:0 0 0 2px rgba(0,0,0,.2),0 1px 3px rgba(0,0,0,.35);}
+  .bar-task.req-bar .ms-mark .ms-line{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% - 8px);opacity:.75;}
+  .bar-task.req-bar .ms-mark .ms-label{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:800;white-space:nowrap;
+    text-shadow:0 1px 2px rgba(0,0,0,.55);opacity:.9;pointer-events:none;}
+  /* 窄条：宽度不足时隐藏文字，只保留圆点 */
+  .bar-task.req-bar[data-req][style*="width:4"]:not([style*="width:4px"]) .ms-label,
+  .bar-task.req-bar[data-req][style*="width:3"]:not([style*="width:3px"]) .ms-label,
+  .bar-task.req-bar[data-req][style*="width:2"]:not([style*="width:2px"]) .ms-label,
+  .bar-task.req-bar[data-req][style*="width:4"]:not([style*="width:4px"]) .ms-line,
+  .bar-task.req-bar[data-req][style*="width:3"]:not([style*="width:3px"]) .ms-line,
+  .bar-task.req-bar[data-req][style*="width:2"]:not([style*="width:2px"]) .ms-line{display:none;}
+
   /* ── 需求条评论徽标 + 浮层（v7.13 建，v7.14 修可见性/可点击） ──
      ⚠️ 关键坑：`.bar-task span`(styles.css:468) 特异性(0,1,1) > `.cmt-btn`(0,1,0)，
      它会把徽标强制成 position:relative + z-index:1 + pointer-events:none，
