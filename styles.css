@@ -498,10 +498,12 @@
      v7.27 用户反馈「#818cf8 太深且偏蓝，与灰色系不统一」——todo 联调本质仍是「未启动态」，
      应与标准待办灰 #7d92b3 同属灰色系，不应有鲜明彩色感。改柔和紫灰 #b0a8b8（S≈10%/L≈69%），
      饱和度从 ≈90% 压到 10%，色相从 235° 蓝紫迁到 270° 紫灰，明度与灰色系同一梯队；
-     文字 #3d2f4f（深紫灰，对比度≈5.8:1 达 AA），sdot #7a6e8e（中紫灰），纱罩同步换同族。 */
+     文字 #3d2f4f（深紫灰，对比度≈5.8:1 达 AA），sdot #7a6e8e（中紫灰），纱罩同步换同族。
+     v7.28 用户反馈「#b0a8b8 仍偏暗淡」。在保持紫灰调/低饱和前提下提明度：#b0a8b8(L≈69%) → #c4bdd0(L≈78%)，
+     色相仍 270° 紫灰、饱和度仍 ≈15%；文字 #3d2f4f 不变（在更亮底上对比度升至 ≈7.5:1），sdot #7a6e8e→#8a7da0 同步提亮。 */
   .b-lt{background:#0e9aa7;}
-  .b-lt0{background:#b0a8b8;color:#3d2f4f;text-shadow:none;}
-  .bar-task.b-lt0:not(.vacant-bar) .sdot{background:#7a6e8e;}
+  .b-lt0{background:#c4bdd0;color:#3d2f4f;text-shadow:none;}
+  .bar-task.b-lt0:not(.vacant-bar) .sdot{background:#8a7da0;}
   .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(61,47,79,.07) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(61,47,79,.15) calc(var(--p,0)*1%) 100%);}
   .b-done{background:#4ecba0;}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分 */
   /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
