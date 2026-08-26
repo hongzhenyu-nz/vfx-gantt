@@ -1623,6 +1623,8 @@
      纯观看过滤：body 类驱动，fitBarLabels 复位 inline display 后仍由此规则兜底隐藏。 */
   body.lbl-hide-inv .rt-inv{display:none!important;}
   body.lbl-hide-md .rt-md{display:none!important;}
+  body.lbl-hide-eff .ltag.eff{display:none!important;}
+  body.lbl-hide-eff .vc-eff{display:none!important;}
   .lbl-toggle{display:inline-flex;align-items:center;gap:10px;margin-right:10px;font-size:12px;}
   .lbl-toggle .org-chk small{font-weight:400;}
 

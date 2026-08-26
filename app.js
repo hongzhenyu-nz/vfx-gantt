@@ -7849,13 +7849,15 @@ function updateLegend(){
 /* ===== v7.24 条内标签全局显隐开关：占·投入比(.rt-inv) / ≈周·消化工时(.rt-md) =====
    纯观看开关：body 类 + CSS 隐藏，不触碰渲染逻辑；本机 localStorage 记忆。
    fitBarLabels 每轮复位 inline display='' 清除的是内联样式，body 类规则依然生效，两者不冲突。 */
-let LBL_SHOW={inv:true,md:true};
-try{const _lv=JSON.parse(localStorage.getItem('gantt_lbl_show')||'null'); if(_lv){LBL_SHOW.inv=_lv.inv!==false; LBL_SHOW.md=_lv.md!==false;}}catch(_){}
+let LBL_SHOW={inv:true,md:true,eff:true};
+try{const _lv=JSON.parse(localStorage.getItem('gantt_lbl_show')||'null'); if(_lv){LBL_SHOW.inv=_lv.inv!==false; LBL_SHOW.md=_lv.md!==false; LBL_SHOW.eff=_lv.eff!==false;}}catch(_){}
 function applyLblShow(){
   document.body.classList.toggle('lbl-hide-inv',!LBL_SHOW.inv);
   document.body.classList.toggle('lbl-hide-md',!LBL_SHOW.md);
+  document.body.classList.toggle('lbl-hide-eff',!LBL_SHOW.eff);
   const _a=document.getElementById('lblInvOn'),_b=document.getElementById('lblMdOn');
   if(_a)_a.checked=LBL_SHOW.inv; if(_b)_b.checked=LBL_SHOW.md;
+  const _c=document.getElementById('lblEffOn'); if(_c)_c.checked=LBL_SHOW.eff;
 }
 function changeLblShow(k,on){
   LBL_SHOW[k]=!!on;
