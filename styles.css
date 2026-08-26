@@ -1665,11 +1665,36 @@
 #colorPop .cp-presets-title{font-size:11.5px;font-weight:700;color:var(--tx);margin-bottom:7px;}
 #colorPop .cp-presets-title small{font-weight:400;color:var(--tx3);font-size:10px;}
 #colorPop .cp-preset-list{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px;}
-#colorPop .cp-preset{height:30px;border:1px solid var(--line);border-radius:7px;background:#fff;cursor:pointer;padding:3px;display:flex;gap:2px;overflow:hidden;transition:transform .1s,border-color .12s;}
+/* 预设色块：div（非button）以容纳内嵌编辑/删除按钮；span 色条替代 i 标签避免跨浏览器尺寸塌陷 */
+#colorPop .cp-preset{height:30px;border:1px solid var(--line);border-radius:7px;background:#fff;cursor:pointer;padding:3px;display:flex;gap:2px;overflow:hidden;position:relative;transition:transform .1s,border-color .12s;}
 #colorPop .cp-preset:hover{transform:translateY(-1px);border-color:#b9c8ff;}
-#colorPop .cp-preset i{flex:1;border-radius:4px;display:block;}
-#colorPop .cp-gen{width:100%;border:1px solid var(--line);background:#eef3ff;border-radius:7px;font-size:12px;font-weight:700;color:#3146a8;cursor:pointer;padding:7px 0;transition:background .12s;}
+#colorPop .cp-preset span{flex:1;min-height:100%;border-radius:4px;display:block;flex-shrink:0;}
+/* 自定义预设悬浮操作按钮 */
+#colorPop .cp-p-del,#colorPop .cp-p-edit{position:absolute;width:16px;height:16px;border:none;border-radius:50%;font-size:10px;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;opacity:0;transition:opacity .15s,transform .12s;z-index:2;}
+#colorPop .cp-preset:hover .cp-p-del,#colorPop .cp-preset:hover .cp-p-edit{opacity:1;}
+#colorPop .cp-p-del{top:1px;right:1px;background:rgba(220,60,60,.85);color:#fff;}#colorPop .cp-p-del:hover{background:#dc3c3c;transform:scale(1.15);}
+#colorPop .cp-p-edit{top:1px;right:19px;background:rgba(60,100,200,.85);color:#fff;}#colorPop .cp-p-edit:hover{background:#3c64c8;transform:scale(1.15);}
+#colorPop .cp-preset-btns{display:flex;gap:6px;margin-bottom:9px;}
+#colorPop .cp-gen{flex:1;border:1px solid var(--line);background:#eef3ff;border-radius:7px;font-size:11px;font-weight:700;color:#3146a8;cursor:pointer;padding:6px 0;transition:background .12s;}
 #colorPop .cp-gen:hover{background:#dde6ff;}
+#colorPop .cp-save{flex:1;border:1px solid var(--line);background:#f0f6e8;border-radius:7px;font-size:11px;font-weight:700;color:#3a6a1a;cursor:pointer;padding:6px 0;transition:background .12s;}
+#colorPop .cp-save:hover{background:#ddecc8;}
+
+/* 最近使用颜色 */
+#colorPop .cp-recent{margin-top:10px;padding-top:8px;border-top:1px dashed var(--line);}
+#colorPop .cp-recent-title{font-size:11px;font-weight:700;color:var(--tx);margin-bottom:5px;}
+#colorPop .cp-recent-title small{font-weight:400;color:var(--tx3);font-size:9.5px;}
+#colorPop .cp-recent-list{display:flex;gap:5px;flex-wrap:wrap;min-height:22px;}
+#colorPop .cp-recent-swatch{width:22px;height:22px;border-radius:5px;border:1px solid var(--line);cursor:pointer;transition:transform .1s,box-shadow .12s;flex-shrink:0;}
+#colorPop .cp-recent-swatch:hover{transform:scale(1.2);box-shadow:0 2px 8px rgba(0,0,0,.18);}
+
+/* 撤销/重做 + 恢复默认 按钮行 */
+#colorPop .cp-btns{display:flex;gap:6px;margin-top:9px;}
+#colorPop .cp-reset{flex:1;border:1px solid var(--line);background:var(--panel);border-radius:7px;font-size:11px;font-weight:700;color:var(--tx2);cursor:pointer;padding:6px 0;transition:background .12s;}
+#colorPop .cp-reset:hover{background:#eef3ff;color:var(--tx);}
+#colorPop .cp-undo,#colorPop .cp-redo{border:1px solid var(--line);background:var(--panel);border-radius:7px;font-size:11px;font-weight:600;color:var(--tx2);cursor:pointer;padding:6px 10px;transition:background .12s,color .12s;white-space:nowrap;}
+#colorPop .cp-undo:hover:not(:disabled),#colorPop .cp-redo:hover:not(:disabled){background:#eef3ff;color:var(--tx);}
+#colorPop .cp-undo:disabled,#colorPop .cp-redo:disabled{opacity:.4;cursor:not-allowed;}
 /* 点击取色模式（降级路径）：十字光标 + 顶部提示条 */
 body.cp-picking{cursor:crosshair!important;}
 #cpPickHint{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:999;background:#3146a8;color:#fff;font-size:13px;font-weight:700;padding:9px 18px;border-radius:0 0 10px 10px;box-shadow:0 6px 20px rgba(20,30,60,.25);pointer-events:none;}

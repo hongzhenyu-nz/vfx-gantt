@@ -7868,8 +7868,8 @@ function applyUserColors(){
   if(a)a.value=d.lt0; if(b)b.value=d.lt; if(c)c.value=d.ovr;
 }
 function saveUserColors(){try{localStorage.setItem('gantt_user_colors',JSON.stringify(USER_COLORS));}catch(_){}}
-function changeColor(k,val){if(!/^#[0-9a-fA-F]{6}$/.test(val))return;USER_COLORS[k]=val;applyUserColors();saveUserColors();}
-function resetUserColors(){USER_COLORS={lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'};applyUserColors();saveUserColors();toast('🎨 已恢复默认配色');}
+function changeColor(k,val){if(!/^#[0-9a-fA-F]{6}$/.test(val))return;USER_COLORS[k]=val;applyUserColors();saveUserColors();_pushColorHistory();_addRecentColors([val]);}
+function resetUserColors(){USER_COLORS={lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'};applyUserColors();saveUserColors();_pushColorHistory();toast('🎨 已恢复默认配色');}
 function toggleColorPop(){const p=document.getElementById('colorPop');if(p)p.classList.toggle('show');}
 /* 吸色进行中屏蔽面板误关（EyeDropper 等待 / 点击取色模式） */
 let COLOR_PICKING=false;
@@ -7923,35 +7923,111 @@ function startClickPick(key){
   document.addEventListener('keydown',onKey,true);
 }
 
-/* ===== 预设（协调三色组，全局 CSS 变量驱动 → 所有视图/成员通用） ===== */
+/* ===== 预设（协调三色组，全局 CSS 变量驱动 → 所有视图/成员通用） =====
+   内置预设 COLOR_PRESETS（不可删）；自定义预设 CUSTOM_PRESETS（用户增删，localStorage 持久化）
+   renderPresetList() 渲染两类预设到 #cpPresetList   */
 const COLOR_PRESETS=[
-  {name:'默认·紫青', c:{lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'}},
-  {name:'莫兰迪',    c:{lt0:'#d8c3c0',lt:'#9aa7b0',ovr:'#b07a86'}},
-  {name:'森系绿',    c:{lt0:'#cfe3cf',lt:'#4a9d7f',ovr:'#c98a3a'}},
-  {name:'暖阳橙',    c:{lt0:'#f0d9b5',lt:'#e08a3c',ovr:'#b5423f'}},
-  {name:'深海蓝',    c:{lt0:'#bcd0e8',lt:'#2f6fb0',ovr:'#7a3fa0'}},
-  {name:'樱粉',      c:{lt0:'#f3c6d6',lt:'#e06a9c',ovr:'#9b5cc4'}},
+  {name:'默认·紫青', c:{lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'},builtin:true},
+  {name:'莫兰迪',    c:{lt0:'#d8c3c0',lt:'#9aa7b0',ovr:'#b07a86'},builtin:true},
+  {name:'森系绿',    c:{lt0:'#cfe3cf',lt:'#4a9d7f',ovr:'#c98a3a'},builtin:true},
+  {name:'暖阳橙',    c:{lt0:'#f0d9b5',lt:'#e08a3c',ovr:'#b5423f'},builtin:true},
+  {name:'深海蓝',    c:{lt0:'#bcd0e8',lt:'#2f6fb0',ovr:'#7a3fa0'},builtin:true},
+  {name:'樱粉',      c:{lt0:'#f3c6d6',lt:'#e06a9c',ovr:'#9b5cc4'},builtin:true},
 ];
-function applyPreset(c){USER_COLORS={lt0:c.lt0,lt:c.lt,ovr:c.ovr};applyUserColors();saveUserColors();}
+let CUSTOM_PRESETS=[];
+try{const _cp=JSON.parse(localStorage.getItem('gantt_custom_presets')||'null');if(Array.isArray(_cp))CUSTOM_PRESETS=_cp;}catch(_){}
+function _saveCustomPresets(){try{localStorage.setItem('gantt_custom_presets',JSON.stringify(CUSTOM_PRESETS));}catch(e){}}
+function applyPreset(c){USER_COLORS={lt0:c.lt0,lt:c.lt,ovr:c.ovr};applyUserColors();saveUserColors();_pushColorHistory();_addRecentColors([c.lt0,c.lt,c.ovr]);}
 function generatePreset(){
-  const h=Math.floor(Math.random()*360);                 // 主色相
-  const h2=(h+Math.floor(Math.random()*120+120))%360;     // 超期用对比色相，保证区分度
+  const h=Math.floor(Math.random()*360);
+  const h2=(h+Math.floor(Math.random()*120+120))%360;
   const c={
-    lt0:_hr(..._hrgb(h,0.28,0.82)),   // 联调·待启动：浅淡主色
-    lt :_hr(..._hrgb(h,0.45,0.50)),   // 联调·进行中：中饱和主色
-    ovr:_hr(..._hrgb(h2,0.55,0.58)),  // 超期：对比色相，醒目标识
+    lt0:_hr(..._hrgb(h,0.28,0.82)),
+    lt :_hr(..._hrgb(h,0.45,0.50)),
+    ovr:_hr(..._hrgb(h2,0.55,0.58)),
   };
   applyPreset(c);toast('🎲 已生成和谐配色（'+h+'°）');return c;
 }
+
+/* ---- 最近使用颜色（最多8个，去重，localStorage 持久化） ---- */
+let RECENT_COLORS=[];
+try{const _rc=JSON.parse(localStorage.getItem('gantt_recent_colors')||'null');if(Array.isArray(_rc))RECENT_COLORS=_rc;}catch(_){}
+function _saveRecentColors(){try{localStorage.setItem('gantt_recent_colors',JSON.stringify(RECENT_COLORS));}catch(e){}}
+function _addRecentColors(colors){
+  (colors||[]).forEach(c=>{if(/^#[0-9a-fA-F]{6}$/.test(c)){const i=RECENT_COLORS.indexOf(c);if(i>=0)RECENT_COLORS.splice(i,1);RECENT_COLORS.unshift(c);}});
+  RECENT_COLORS=RECENT_COLORS.slice(0,8);_saveRecentColors();_renderRecentColors();
+}
+function _renderRecentColors(){
+  const box=document.getElementById('cpRecentList');if(!box)return;
+  box.innerHTML='';if(!RECENT_COLORS.length){box.style.display='none';return;}
+  box.style.display='flex';
+  RECENT_COLORS.forEach(hex=>{
+    const s=document.createElement('span');s.className='cp-recent-swatch';s.title=hex;s.style.backgroundColor=hex;
+    s.onclick=()=>{_pushColorHistory();/* 点击最近颜色 → 设为当前 lt（最常用操作） */USER_COLORS.lt=hex;applyUserColors();saveUserColors();_addRecentColors([hex]);toast('🎨 已应用：'+hex);};
+    box.appendChild(s);
+  });
+}
+
+/* ---- 撤销/重做（最多20步） ---- */
+let COLOR_HISTORY=[];let COLOR_HISTORY_IDX=-1;
+function _pushColorHistory(){
+  const snap={...USER_COLORS};
+  /* 截断：如果在中间位置做了新操作，丢弃后面的记录 */
+  if(COLOR_HISTORY_IDX<COLOR_HISTORY.length-1)COLOR_HISTORY=COLOR_HISTORY.slice(0,COLOR_HISTORY_IDX+1);
+  COLOR_HISTORY.push(snap);if(COLOR_HISTORY.length>20)COLOR_HISTORY.shift();
+  COLOR_HISTORY_IDX=COLOR_HISTORY.length-1;
+  _updateUndoRedoBtns();
+}
+function _undoColor(){
+  if(COLOR_HISTORY_IDX<=0){toast('⏪ 已无撤销步骤');return;}
+  COLOR_HISTORY_IDX--;
+  const s=COLOR_HISTORY[COLOR_HISTORY_IDX];USER_COLORS={...s};applyUserColors();saveUserColors();toast('↩ 撤销');_updateUndoRedoBtns();
+}
+function _redoColor(){
+  if(COLOR_HISTORY_IDX>=COLOR_HISTORY.length-1){toast('⏩ 已无重做步骤');return;}
+  COLOR_HISTORY_IDX++;
+  const s=COLOR_HISTORY[COLOR_HISTORY_IDX];USER_COLORS={...s};applyUserColors();saveUserColors();toast('↪ 重做');_updateUndoRedoBtns();
+}
+function _updateUndoRedoBtns(){
+  const ub=document.getElementById('cpUndoBtn'),rb=document.getElementById('cpRedoBtn');
+  if(ub)ub.disabled=COLOR_HISTORY_IDX<=0;if(rb)rb.disabled=COLOR_HISTORY_IDX>=COLOR_HISTORY.length-1;
+}
+
+/* ---- 自定义预设 CRUD ---- */
+function _saveAsPreset(){
+  const name=prompt('保存当前配色为预设（输入名称）：','我的预设 '+(CUSTOM_PRESETS.length+1));if(!name||!name.trim())return;
+  const c={...USER_COLORS};
+  CUSTOM_PRESETS.push({name:name.trim(),c:c,builtin:false});_saveCustomPresets();renderPresetList();toast('💾 已保存预设：'+name.trim());
+}
+function _deleteCustomPreset(idx){
+  if(!confirm('确定删除预设「'+CUSTOM_PRESETS[idx].name+'」？'))return;
+  CUSTOM_PRESETS.splice(idx,1);_saveCustomPresets();renderPresetList();toast('🗑 已删除');
+}
+function _renameCustomPreset(idx){
+  const newName=prompt('重命名预设：',CUSTOM_PRESETS[idx].name);if(!newName||!newName.trim())return;
+  CUSTOM_PRESETS[idx].name=newName.trim();_saveCustomPresets();renderPresetList();
+
+}
+
+/* ---- 渲染预设列表 + 最近颜色 ---- */
 function renderPresetList(){
   const box=document.getElementById('cpPresetList');if(!box)return;
   box.innerHTML='';
-  COLOR_PRESETS.forEach(p=>{
-    const b=document.createElement('button');b.className='cp-preset';b.title=p.name;
-    b.innerHTML='<i style="background:'+p.c.lt0+'"></i><i style="background:'+p.c.lt+'"></i><i style="background:'+p.c.ovr+'"></i>';
-    b.onclick=()=>{applyPreset(p.c);toast('🎨 已应用预设：'+p.name);};
+  const allPresets=[...COLOR_PRESETS,...CUSTOM_PRESETS];
+  allPresets.forEach((p,idx)=>{
+    const b=document.createElement('div');b.className='cp-preset';
+    b.setAttribute('data-name',p.name);
+    b.innerHTML='<span style="background:'+p.c.lt0+'"></span><span style="background:'+p.c.lt+'"></span><span style="background:'+p.c.ovr+'"></span>';
+    b.onclick=(e)=>{if(e.target.closest('.cp-p-del')||e.target.closest('.cp-p-edit'))return;applyPreset(p.c);toast('🎨 已应用预设：'+p.name);};
     box.appendChild(b);
+    /* 自定义预设：悬浮显示编辑/删除按钮 */
+    if(!p.builtin){
+      const del=document.createElement('button');del.className='cp-p-del';del.title='删除预设';del.innerHTML='✕';del.onclick=(e)=>{e.stopPropagation();_deleteCustomPreset(idx-COLOR_PRESETS.length);};
+      const edit=document.createElement('button');edit.className='cp-p-edit';edit.title='重命名';edit.innerHTML='✎';edit.onclick=(e)=>{e.stopPropagation();_renameCustomPreset(idx-COLOR_PRESETS.length);};
+      b.appendChild(del);b.appendChild(edit);
+    }
   });
+  _renderRecentColors();
 }
 
 /* ===== v7.24 成员手动拖拽排序 + 智能排序 + FLIP 过渡动画 =====
@@ -8224,6 +8300,7 @@ initZoom();
 initLeftW();
 applyLblShow();
 applyUserColors();   // v7.30 应用本机自定义配色（无则保持 :root 默认）
+_pushColorHistory();   // v7.35 初始化撤销/重做栈
 renderPresetList();   // v7.32 渲染一键预设色板
 // 恢复分组方式 / 折叠状态（本机偏好）
 try{const gp=localStorage.getItem('gantt_group_person'); if(gp)GROUP_MODE.person=gp;}catch(_){}
