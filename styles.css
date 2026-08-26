@@ -397,6 +397,7 @@
   /* 胶囊吸顶独立层：z-index:50 > 表头(7)/负载带(6)/今天红线(8)，纵向滚动时钉在视口顶端；
      position:sticky 仅钉垂直(top:6px)，横向随内容移动始终对准选中列；top:6px 落在表头区、绝不侵入负载色带(54~86px)，两者不重叠 */
   .sel-pill-layer{position:sticky;top:6px;height:0;pointer-events:none;z-index:50;}
+  /* 胶囊溢出左侧的裁切由 JS 在 applyDateSel/showHover 中处理：若居中会导致左半部分进入冻结栏，则取消 transform、左对齐到时间轴边界 var(--left-w)，保持与人名栏 overflow 一致的"不溢出"行为 */
   .sel-pill{position:absolute;top:0;left:0;transform:translateX(-50%);white-space:nowrap;display:none;
     font-size:11px;font-weight:800;padding:3px 9px;border-radius:11px;box-shadow:0 2px 8px rgba(0,0,0,.2);
     pointer-events:none;letter-spacing:.2px;}

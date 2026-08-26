@@ -4547,13 +4547,28 @@ function applyDateSel(){
   pin.style.display='block';
   pin.style.left=(selDay*DAY_W)+'px';
   pin.style.width=DAY_W+'px';
-  if(pill){ pill.innerHTML='📍 '+dayLabel(selDay); pill.style.display='block'; pill.style.left='calc(var(--left-w) + '+(selDay*DAY_W)+'px)'; }
+  if(pill){
+    pill.innerHTML='📍 '+dayLabel(selDay); pill.style.display='block';
+    var leftPx=selDay*DAY_W;
+    // 先取消 transform 拿到自然宽度，检测是否溢出左侧时间轴边界
+    pill.style.transform='none'; pill.style.left='calc(var(--left-w) + '+leftPx+'px)';
+    var halfW=pill.offsetWidth/2;
+    if(leftPx<halfW){ pill.style.left='var(--left-w)'; pill.style.transform='none'; }
+    else{ pill.style.left='calc(var(--left-w) + '+leftPx+'px)'; pill.style.transform='translateX(-50%)'; }
+  }
 }
 function showHover(d){
   const h=document.getElementById('dateSelHover'); const pill=document.getElementById('dateSelHoverPill');
   if(!h) return;
   h.style.display='block'; h.style.left=(d*DAY_W)+'px'; h.style.width=DAY_W+'px';
-  if(pill){ pill.textContent=dayLabel(d); pill.style.display='block'; pill.style.left='calc(var(--left-w) + '+(d*DAY_W)+'px)'; }
+  if(pill){
+    pill.textContent=dayLabel(d); pill.style.display='block';
+    var leftPx=d*DAY_W;
+    pill.style.transform='none'; pill.style.left='calc(var(--left-w) + '+leftPx+'px)';
+    var halfW=pill.offsetWidth/2;
+    if(leftPx<halfW){ pill.style.left='var(--left-w)'; pill.style.transform='none'; }
+    else{ pill.style.left='calc(var(--left-w) + '+leftPx+'px)'; pill.style.transform='translateX(-50%)'; }
+  }
 }
 function hideHover(){ const h=document.getElementById('dateSelHover'); const p=document.getElementById('dateSelHoverPill'); if(h) h.style.display='none'; if(p) p.style.display='none'; }
 function bindDaySelect(){
