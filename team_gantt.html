@@ -12,7 +12,7 @@
      cache-control:max-age=600 独立缓存，会出现「index.html 已更新、styles.css/app.js 仍是旧缓存」
      的版本错配 → 视图崩坏（左栏空白/任务条不渲染）。版本号一变 URL 即变，强制重新拉取。
      ⚠️ 改动 styles.css 或 app.js 后，必须同步递增此处 ?v= 版本号。 -->
-<link rel="stylesheet" href="styles.css?v=7.31">
+<link rel="stylesheet" href="styles.css?v=7.32">
 
 </head>
 <body>
@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.31 · build 2026-08-26 14:17</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.32 · build 2026-08-26 14:41</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -166,15 +166,20 @@
     <span class="org-hint" id="orgHint"></span>
   </div>
 
-  <!-- v7.30 配色色盘弹层：本机自助改色，fixed 定位避免被 .board 裁切 -->
+  <!-- v7.32 配色色盘弹层：本机自助改色 + 吸色器 + 预设生成，fixed 定位避免被 .board 裁切 -->
   <div id="colorPop">
     <h4>🎨 自定义配色</h4>
-    <p class="cp-sub">选择下方颜色，甘特条会<b>实时预览</b>并自动保存到本机；仅你自己的浏览器可见，不影响他人。</p>
-    <div class="cp-row"><label for="cpLt0">联调·待启动</label><input type="color" id="cpLt0" value="#c8b6ec" oninput="changeColor('lt0',this.value)"></div>
-    <div class="cp-row"><label for="cpLt">联调·进行中</label><input type="color" id="cpLt" value="#0e9aa7" oninput="changeColor('lt',this.value)"></div>
-    <div class="cp-row"><label for="cpOvr">超期·紫红</label><input type="color" id="cpOvr" value="#bd5eb0" oninput="changeColor('ovr',this.value)"></div>
+    <p class="cp-sub">选择或<b>吸取</b>颜色，甘特条会<b>实时预览</b>并自动保存到本机；仅你自己的浏览器可见，不影响他人。</p>
+    <div class="cp-row"><label for="cpLt0">联调·待启动</label><span class="cp-ctl"><input type="color" id="cpLt0" value="#c8b6ec" oninput="changeColor('lt0',this.value)"><button class="cp-eye" type="button" title="从屏幕/页面吸取颜色（💧）" onclick="startEyeDrop('lt0')">💧</button></span></div>
+    <div class="cp-row"><label for="cpLt">联调·进行中</label><span class="cp-ctl"><input type="color" id="cpLt" value="#0e9aa7" oninput="changeColor('lt',this.value)"><button class="cp-eye" type="button" title="从屏幕/页面吸取颜色（💧）" onclick="startEyeDrop('lt')">💧</button></span></div>
+    <div class="cp-row"><label for="cpOvr">超期·紫红</label><span class="cp-ctl"><input type="color" id="cpOvr" value="#bd5eb0" oninput="changeColor('ovr',this.value)"><button class="cp-eye" type="button" title="从屏幕/页面吸取颜色（💧）" onclick="startEyeDrop('ovr')">💧</button></span></div>
     <div class="cp-note">子色（文字/圆点/渐变/边框）由所选主色自动派生，保证任意主色下都清晰可读。点击页面其它处可关闭本面板。</div>
-    <button class="cp-reset" onclick="resetUserColors()">↺ 恢复默认配色</button>
+    <div class="cp-presets">
+      <div class="cp-presets-title">一键预设 · <small>所有视图通用</small></div>
+      <div id="cpPresetList" class="cp-preset-list"></div>
+      <button class="cp-gen" type="button" onclick="generatePreset()">🎲 生成和谐配色</button>
+    </div>
+    <button class="cp-reset" type="button" onclick="resetUserColors()">↺ 恢复默认配色</button>
   </div>
 
   <div class="bar" style="margin-top:-6px">
@@ -320,7 +325,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.31"></script>
+<script src="app.js?v=7.32"></script>
 
 </body>
 </html>

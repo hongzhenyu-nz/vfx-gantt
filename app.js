@@ -7871,8 +7871,88 @@ function saveUserColors(){try{localStorage.setItem('gantt_user_colors',JSON.stri
 function changeColor(k,val){if(!/^#[0-9a-fA-F]{6}$/.test(val))return;USER_COLORS[k]=val;applyUserColors();saveUserColors();}
 function resetUserColors(){USER_COLORS={lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'};applyUserColors();saveUserColors();toast('🎨 已恢复默认配色');}
 function toggleColorPop(){const p=document.getElementById('colorPop');if(p)p.classList.toggle('show');}
-/* 点击面板外区域关闭色盘（按钮在 #colorCtl 内，不触发关闭） */
-document.addEventListener('click',function(e){const p=document.getElementById('colorPop');if(!p||!p.classList.contains('show'))return;if(!p.contains(e.target)&&!e.target.closest('#colorCtl'))p.classList.remove('show');},true);
+/* 吸色进行中屏蔽面板误关（EyeDropper 等待 / 点击取色模式） */
+let COLOR_PICKING=false;
+/* 点击面板外区域关闭色盘（按钮在 #colorCtl 内，不触发关闭；吸色中不误关） */
+document.addEventListener('click',function(e){if(COLOR_PICKING)return;const p=document.getElementById('colorPop');if(!p||!p.classList.contains('show'))return;if(!p.contains(e.target)&&!e.target.closest('#colorCtl'))p.classList.remove('show');},true);
+
+/* ===== v7.32 颜色吸取（吸色器）：跨浏览器取色 + 预设生成 =====
+   根因：原「颜色吸取」完全依赖原生 <input type=color> 自带的吸管按钮，该按钮
+   仅 Chromium 内核(Chrome/Edge)提供；Firefox/Safari/移动端无此按钮 → 吸色根本不可用。
+   本版新增 startEyeDrop()：优先用原生 EyeDropper API（屏幕级吸色，Chrome/Edge），
+   不支持时降级为「点击页面任意元素取其计算色」模式（全浏览器可用），
+   吸色全程用 COLOR_PICKING 屏蔽面板误关。 */
+function _parseRGB(str){const m=/rgba?\(([^)]+)\)/.exec(str||'');if(!m)return null;const p=m[1].split(',').map(s=>parseFloat(s));if(p.length<3)return null;if(p.length>=4&&p[3]<0.01)return null;return [p[0],p[1],p[2]];}
+function _gradLastColor(str){const m=(str||'').match(/rgb\([^)]+\)|#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3}/g);if(!m)return null;return m[m.length-1];}
+function _elemColorHex(el){
+  if(!el)return null;
+  let node=el;
+  while(node&&node.nodeType===1&&node!==document.documentElement){
+    const cs=getComputedStyle(node);
+    const rgb=_parseRGB(cs.backgroundColor);
+    if(rgb)return _hr(rgb[0],rgb[1],rgb[2]);
+    const g=_gradLastColor(cs.backgroundImage);
+    if(g){if(g[0]==='#')return g;const r2=_parseRGB(g);if(r2)return _hr(r2[0],r2[1],r2[2]);}
+    node=node.parentElement;
+  }
+  return null;
+}
+async function startEyeDrop(key){
+  if(typeof window.EyeDropper!=='undefined'){
+    COLOR_PICKING=true;
+    try{const ed=new EyeDropper();const res=await ed.open();const hex=(res&&res.sRGBHex)||'';if(/^#[0-9a-fA-F]{6}$/.test(hex))changeColor(key,hex);}
+    catch(_){/* 用户取消或未授权，静默 */}
+    COLOR_PICKING=false;return;
+  }
+  startClickPick(key);   // 降级：点击页面元素取色（Firefox/Safari/移动端）
+}
+function startClickPick(key){
+  COLOR_PICKING=true;
+  document.body.classList.add('cp-picking');
+  const hint=document.createElement('div');hint.id='cpPickHint';hint.textContent='🎯 点击页面任意处吸取颜色（Esc 取消）';document.body.appendChild(hint);
+  function cleanup(){COLOR_PICKING=false;document.body.classList.remove('cp-picking');if(hint.parentNode)hint.parentNode.removeChild(hint);document.removeEventListener('mousedown',onPick,true);document.removeEventListener('keydown',onKey,true);}
+  function onKey(e){if(e.key==='Escape')cleanup();}
+  function onPick(e){
+    e.preventDefault();e.stopPropagation();   // 阻断面板误关
+    const el=document.elementFromPoint(e.clientX,e.clientY);
+    const hex=_elemColorHex(el);
+    if(hex)changeColor(key,hex);else toast('未能读取该处颜色');
+    cleanup();
+  }
+  document.addEventListener('mousedown',onPick,true);
+  document.addEventListener('keydown',onKey,true);
+}
+
+/* ===== 预设（协调三色组，全局 CSS 变量驱动 → 所有视图/成员通用） ===== */
+const COLOR_PRESETS=[
+  {name:'默认·紫青', c:{lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'}},
+  {name:'莫兰迪',    c:{lt0:'#d8c3c0',lt:'#9aa7b0',ovr:'#b07a86'}},
+  {name:'森系绿',    c:{lt0:'#cfe3cf',lt:'#4a9d7f',ovr:'#c98a3a'}},
+  {name:'暖阳橙',    c:{lt0:'#f0d9b5',lt:'#e08a3c',ovr:'#b5423f'}},
+  {name:'深海蓝',    c:{lt0:'#bcd0e8',lt:'#2f6fb0',ovr:'#7a3fa0'}},
+  {name:'樱粉',      c:{lt0:'#f3c6d6',lt:'#e06a9c',ovr:'#9b5cc4'}},
+];
+function applyPreset(c){USER_COLORS={lt0:c.lt0,lt:c.lt,ovr:c.ovr};applyUserColors();saveUserColors();}
+function generatePreset(){
+  const h=Math.floor(Math.random()*360);                 // 主色相
+  const h2=(h+Math.floor(Math.random()*120+120))%360;     // 超期用对比色相，保证区分度
+  const c={
+    lt0:_hr(..._hrgb(h,0.28,0.82)),   // 联调·待启动：浅淡主色
+    lt :_hr(..._hrgb(h,0.45,0.50)),   // 联调·进行中：中饱和主色
+    ovr:_hr(..._hrgb(h2,0.55,0.58)),  // 超期：对比色相，醒目标识
+  };
+  applyPreset(c);toast('🎲 已生成和谐配色（'+h+'°）');return c;
+}
+function renderPresetList(){
+  const box=document.getElementById('cpPresetList');if(!box)return;
+  box.innerHTML='';
+  COLOR_PRESETS.forEach(p=>{
+    const b=document.createElement('button');b.className='cp-preset';b.title=p.name;
+    b.innerHTML='<i style="background:'+p.c.lt0+'"></i><i style="background:'+p.c.lt+'"></i><i style="background:'+p.c.ovr+'"></i>';
+    b.onclick=()=>{applyPreset(p.c);toast('🎨 已应用预设：'+p.name);};
+    box.appendChild(b);
+  });
+}
 
 /* ===== v7.24 成员手动拖拽排序 + 智能排序 + FLIP 过渡动画 =====
    排序结果存 m.sort（全局唯一升序序号），随快照 save/broadcast 落本地+同步云端，刷新/协作不丢。
@@ -8071,6 +8151,7 @@ initZoom();
 initLeftW();
 applyLblShow();
 applyUserColors();   // v7.30 应用本机自定义配色（无则保持 :root 默认）
+renderPresetList();   // v7.32 渲染一键预设色板
 // 恢复分组方式 / 折叠状态（本机偏好）
 try{const gp=localStorage.getItem('gantt_group_person'); if(gp)GROUP_MODE.person=gp;}catch(_){}
 try{const gr=localStorage.getItem('gantt_group_req'); if(gr)GROUP_MODE.req=gr;}catch(_){}

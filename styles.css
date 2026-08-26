@@ -1640,7 +1640,7 @@
    纯本地 localStorage 偏好（gantt_user_colors），不进云端快照、不改任何数据、不影响其他成员视图。
    弹层 fixed 定位避免被 .board{overflow:hidden} 裁切；实时预览（oninput）+ 自动落本地。 */
 #colorCtl .org-btn{background:#fbfcfe;}
-#colorPop{position:fixed;top:58px;right:14px;z-index:80;display:none;width:248px;
+#colorPop{position:fixed;top:58px;right:14px;z-index:80;display:none;width:270px;
   background:var(--panel);border:1px solid var(--line);border-radius:12px;
   box-shadow:0 12px 34px rgba(0,0,0,.20);padding:13px 15px;font-family:inherit;}
 #colorPop.show{display:block;}
@@ -1654,3 +1654,20 @@
 #colorPop .cp-note{margin:11px 0 7px;padding-top:9px;border-top:1px dashed var(--line);font-size:10.5px;color:var(--tx3);line-height:1.5;}
 #colorPop .cp-reset{width:100%;margin-top:2px;border:1px solid var(--line);background:#fbfcfe;border-radius:7px;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer;padding:6px 0;transition:background .12s;}
 #colorPop .cp-reset:hover{background:#fdeef0;border-color:#f3b6bf;}
+/* v7.32 吸色按钮 + 预设色板 + 取色模式 */
+#colorPop .cp-ctl{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+#colorPop .cp-eye{width:26px;height:26px;border:1px solid var(--line);border-radius:7px;background:#fbfcfe;cursor:pointer;font-size:13px;line-height:1;padding:0;display:flex;align-items:center;justify-content:center;transition:background .12s,transform .1s;}
+#colorPop .cp-eye:hover{background:#eef3ff;border-color:#b9c8ff;transform:translateY(-1px);}
+#colorPop .cp-eye:active{transform:translateY(0);}
+#colorPop .cp-presets{margin-top:11px;padding-top:9px;border-top:1px dashed var(--line);}
+#colorPop .cp-presets-title{font-size:11.5px;font-weight:700;color:var(--tx);margin-bottom:7px;}
+#colorPop .cp-presets-title small{font-weight:400;color:var(--tx3);font-size:10px;}
+#colorPop .cp-preset-list{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:9px;}
+#colorPop .cp-preset{height:30px;border:1px solid var(--line);border-radius:7px;background:#fff;cursor:pointer;padding:3px;display:flex;gap:2px;overflow:hidden;transition:transform .1s,border-color .12s;}
+#colorPop .cp-preset:hover{transform:translateY(-1px);border-color:#b9c8ff;}
+#colorPop .cp-preset i{flex:1;border-radius:4px;display:block;}
+#colorPop .cp-gen{width:100%;border:1px solid var(--line);background:#eef3ff;border-radius:7px;font-size:12px;font-weight:700;color:#3146a8;cursor:pointer;padding:7px 0;transition:background .12s;}
+#colorPop .cp-gen:hover{background:#dde6ff;}
+/* 点击取色模式（降级路径）：十字光标 + 顶部提示条 */
+body.cp-picking{cursor:crosshair!important;}
+#cpPickHint{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:999;background:#3146a8;color:#fff;font-size:13px;font-weight:700;padding:9px 18px;border-radius:0 0 10px 10px;box-shadow:0 6px 20px rgba(20,30,60,.25);pointer-events:none;}
