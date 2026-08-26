@@ -2122,13 +2122,15 @@ function allMilestones(){
    left 传入像素偏移（summary）或百分比字符串（bar，需带 %）。 */
 function milestoneNodeHTML(ms, ctx, left){
   const tip=`${escAttr(ms.label)}\n${fmt(ms.date)} · ${ms.reqName||'全局节点'}\n拖拽改期 / 右键编辑`;
-  const color=ms.color||'#ffd23f';
+  const color=ms.color||msDefaultColor();   // v7.47：无自定义色时取统一色板的虚线色
   // data-req 用于「hover/选中需求条 → 联动高亮其节点与虚线」；data-msidx 定位到 req.milestones 下标供编辑/删除
   const link=`data-req="${ms.reqId||''}" data-msidx="${ms.msIdx!=null?ms.msIdx:''}"`;
   if(ctx==='bar'){
     return `<div class="ms-mark ms-custom" ${link} style="left:${left}" onmousemove="event.stopPropagation();showTip(event,'${tip.replace(/'/g,"\\'")}')" onmouseleave="hideTip()">
       <span class="ms-label" style="color:${color}">${escHtml(ms.label)}</span>
-      <span class="ms-dot" style="background:${color};box-shadow:0 0 0 2px ${color}33"></span>
+      <!-- v7.47：光环改由 CSS 变量 --msc 驱动（样式表里统一定义三层描边），
+           不再写死 inline box-shadow —— 内联样式会盖掉 CSS 的深色外环，对比度强化失效。 -->
+      <span class="ms-dot" style="background:${color};--msc:${color}"></span>
       <span class="ms-line" style="background:${color}"></span>
     </div>`;
   }
@@ -2186,9 +2188,11 @@ function reqPhaseNodesHTML(r,ph){
   const pc=i=>((i-ph.barS)/span*100);
   return reqPhaseNodes(r,ph).map(n=>{
     const pct=Math.max(2,Math.min(98,pc(n.d))).toFixed(2);   // 同自定义节点：夹到 [2,98] 防裁切
-    const color=(r.phaseColors&&r.phaseColors[n.key])||PHASE_NODE_META[n.key].color;
+    // v7.47：需求自定义色优先，否则取「统一色板」的阶段色
+    const color=msPhaseColor(r,n.key);
     const tip=`${n.label}\n${fmt(i2d(n.d))}　·　拖拽改期 / 右键编辑`;
-    return `<div class="ms-mark phase" data-req="${r.id}" data-phdiv="${n.which}" data-phkey="${n.key}" style="left:${pct}%"
+    // v7.47：data-phlabel 供「出框文字标签层」读取（条内 .ms-mark 不再自带可见 label）
+    return `<div class="ms-mark phase" data-req="${r.id}" data-phdiv="${n.which}" data-phkey="${n.key}" data-phlabel="${escAttr(n.label)}" style="left:${pct}%"
       onmousemove="event.stopPropagation();showTip(event,'${tip.replace(/'/g,"\\'")}')" onmouseleave="hideTip()">
       <span class="ms-pdot" style="background:${color}"></span>
       <span class="ms-pline" style="background:${color}"></span>
@@ -2204,7 +2208,7 @@ function msLinkLayerHTML(){
   const links=allMilestones().map(m=>{
     const d=idx(m.date);
     if(d<0||d>=DAYS) return '';
-    return `<div class="ms-link" data-req="${m.reqId||''}" style="left:${d*DAY_W}px;--msc:${m.color||'#ffd23f'}"></div>`;
+    return `<div class="ms-link" data-req="${m.reqId||''}" style="left:${d*DAY_W}px;--msc:${m.color||msDefaultColor()}"></div>`;
   }).join('');
   return `<div class="ms-link-layer" id="msLinkLayer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:7">${links}</div>`;
 }
@@ -2251,8 +2255,155 @@ function syncMsLinks(){
   });
 }
 
-/* ===== v7.45：关键节点 / 阶段节点 可视化编辑（复用 renderAddModal 模态） ===== */
+/* ===== v7.47：需求条内关键节点的「出框文字标签」层 =====
+   为什么单独开一层：需求条 .bar-task 是 overflow:hidden（用于裁掉斜纹/进度层的溢出），
+   任何画在条内的标签一旦上移到条外就会被裁掉 —— v7.44 就是因为 top:-10px 被裁才改成纯 tooltip。
+   现在要求「标签显示在条目顶部并允许出框」，就必须让标签脱离那个裁切上下文：
+   本层挂 #grid（无 overflow 裁切）、与虚线层同级，标签按节点实测坐标绝对定位到条顶之上。
+   坐标来源：直接量 .ms-mark 相对 #grid 的矩形（不重算百分比），保证与渲染结果像素一致。 */
+function msBarLabelLayerHTML(){
+  return `<div class="ms-label-layer" id="msLabelLayer"></div>`;
+}
+/* 渲染/滚动/缩放后重算标签位置。与 syncMsLinks 同入口调用。 */
+function syncMsBarLabels(){
+  const layer=document.getElementById('msLabelLayer');
+  if(!layer) return;
+  const grid=document.getElementById('grid'); if(!grid) return;
+  const gr=grid.getBoundingClientRect();
+  const sc=document.getElementById('scroll');
+  // 与虚线层同步做 clip-path 裁剪，防止标签横向滚进冻结左栏区域
+  if(sc) layer.style.clipPath=`inset(0 0 0 ${Math.max(0,sc.scrollLeft)}px)`;
+  const hlReq=_msHoverReq || (typeof selectedBar!=='undefined'&&selectedBar&&selectedBar.reqId) || null;
+  let html='';
+  grid.querySelectorAll('.bar-task.req-bar').forEach(bar=>{
+    const br=bar.getBoundingClientRect();
+    // 条整体滚出可视区则跳过（省 DOM，也避免标签飘在视口外）
+    if(br.bottom<gr.top-40 || br.top>gr.bottom+40) return;
+    bar.querySelectorAll('.ms-mark').forEach(mk=>{
+      const mr=mk.getBoundingClientRect();
+      if(mr.width===0&&mr.height===0) return;
+      // 标签文本：自定义节点取 ms-label，阶段节点取 data-phlabel
+      let txt='';
+      if(mk.classList.contains('phase')) txt=mk.dataset.phlabel||'';
+      else{
+        const le=mk.querySelector('.ms-label'); txt=le?le.textContent:'';
+      }
+      if(!txt) return;
+      // 定位：水平对准节点中心，垂直让标签【底边】落在条顶之上 → 整块出框。
+      // ⚠️ 不能只减 7px：top 定的是标签上边，标签高约 15px，那样底边会压进条内 8px。
+      // 正确做法是先量出标签高度再上移，故用两次布局：先按 0 高度写入取 offsetHeight，再修正 top。
+      const x=mr.left-gr.left+mr.width/2;
+      const yRaw=br.top-gr.top-5;   // 条顶上方 5px 作为目标【底边】
+      const hl=(hlReq&&mk.dataset.req===hlReq)?' hl':'';
+      html+=`<span class="ms-bar-label${hl}" data-req="${mk.dataset.req||''}" data-ybase="${yRaw.toFixed(1)}" style="left:${x.toFixed(1)}px;top:0px">${escHtml(txt)}</span>`;
+    });
+  });
+  layer.innerHTML=html;
+  /* 第二遍：按实测高度把每个标签上移，使其底边落在条顶之上（真正出框）。
+     高度统一的标签本可只量一次，但不同字号/内边距会浮动，逐个量最稳。 */
+  layer.querySelectorAll('.ms-bar-label').forEach(el=>{
+    const base=parseFloat(el.dataset.ybase);
+    if(isFinite(base)) el.style.top=(base-el.offsetHeight)+'px';
+  });
+}
+/* ===== v7.47：关键节点「统一色板」面板 =====
+   ⚠️ MS_COLORS 必须在此【之前】声明：applyMsPalette() 会就地改写它的内容（见下），
+      而本块位于文件更上方、早于 MS_COLORS 原定义处，故把定义前移到这里。 */
 const MS_COLORS=['#ffd23f','#ff5b5b','#5b9bff','#2fbf9a','#b06bff','#ff8c42'];
+/* 把散落各处的节点相关颜色收进一张注册表，集中编辑：
+     · msBg    —— 🚩 关键节点汇总行的整行底色（v7.46 已引出）
+     · msLine  —— 竖向虚线颜色（未单独指定节点色时的默认值）
+     · msL1 / msL2 —— 阶段节点（L1 完成 / L2 完成·联调开始）的菱形色
+     · msA..F  —— 自定义关键节点的候选色板（新建/编辑节点时从这里选）
+   约束（需求）：颜色必须不透明 —— 一律 #RRGGBB 六位十六进制，禁止 rgba()/#RRGGBBAA；
+   半透明节点色叠在深色任务条上会与条色混脏，对比度也随背景漂移。
+   作用域：本机 localStorage（gantt_ms_palette），不进云端快照、不影响他人视图。 */
+const MS_PALETTE_DEF={
+  msBg  :'#fdfcf5',
+  msLine:'#ffb020',
+  msL1  :'#5b9bff',
+  msL2  :'#f7a54f',
+  msA   :'#ffd23f',
+  msB   :'#ff5b5b',
+  msC   :'#5b9bff',
+  msD   :'#2fbf9a',
+  msE   :'#b06bff',
+  msF   :'#ff8c42',
+};
+/* 色板的展示元数据：label 用于面板显示，desc 说明它影响哪里 */
+const MS_PALETTE_META=[
+  {group:'关键节点行', items:[
+    {k:'msBg',   label:'汇总行底色',   desc:'🚩 关键节点整行的背景色'},
+    {k:'msLine', label:'竖向虚线色',   desc:'节点连到需求条/需求组的虚线（节点自身无色时用它）'},
+  ]},
+  {group:'阶段节点', items:[
+    {k:'msL1',   label:'L1 完成',      desc:'需求条内 L1 阶段菱形圆点'},
+    {k:'msL2',   label:'L2 完成',      desc:'需求条内 L2 阶段菱形圆点（= 联调开始）'},
+  ]},
+  {group:'自定义节点色板', items:[
+    {k:'msA',label:'色 1',desc:'新建/编辑关键节点时可选'},{k:'msB',label:'色 2',desc:'新建/编辑关键节点时可选'},
+    {k:'msC',label:'色 3',desc:'新建/编辑关键节点时可选'},{k:'msD',label:'色 4',desc:'新建/编辑关键节点时可选'},
+    {k:'msE',label:'色 5',desc:'新建/编辑关键节点时可选'},{k:'msF',label:'色 6',desc:'新建/编辑关键节点时可选'},
+  ]},
+];
+const MS_PAL_KEY='gantt_ms_palette';
+let MS_PALETTE=Object.assign({},MS_PALETTE_DEF);
+try{
+  const _p=JSON.parse(localStorage.getItem(MS_PAL_KEY)||'null');
+  if(_p&&typeof _p==='object'){
+    Object.keys(MS_PALETTE_DEF).forEach(k=>{
+      if(typeof _p[k]==='string' && /^#[0-9a-fA-F]{6}$/.test(_p[k])) MS_PALETTE[k]=_p[k];   // 拒绝 rgba/8位hex，保证不透明
+    });
+  }
+}catch(_){}
+/* 应用色板：msBg 注入 CSS 变量（驱动汇总行底色），其余供 JS 渲染节点时读取 */
+function applyMsPalette(){
+  document.documentElement.style.setProperty('--ms-bg',MS_PALETTE.msBg);
+  // 自定义节点候选色列表：供新建/编辑弹层的色板使用
+  MS_COLORS.length=0;
+  ['msA','msB','msC','msD','msE','msF'].forEach(k=>MS_COLORS.push(MS_PALETTE[k]));
+  renderMsPaletteUI();
+}
+/* 改单个色。校验：仅接受 6 位 #RRGGBB（不透明），其余一律拒绝并提示。 */
+function changeMsPalette(k,val){
+  if(!/^#[0-9a-fA-F]{6}$/.test(val)){ toast('颜色必须是不透明的 #RRGGBB 格式'); return; }
+  if(!(k in MS_PALETTE_DEF)) return;
+  MS_PALETTE[k]=val;
+  try{localStorage.setItem(MS_PAL_KEY,JSON.stringify(MS_PALETTE));}catch(_){}
+  applyMsPalette();
+  rerender();
+}
+function resetMsPalette(){
+  MS_PALETTE=Object.assign({},MS_PALETTE_DEF);
+  try{localStorage.setItem(MS_PAL_KEY,JSON.stringify(MS_PALETTE));}catch(_){}
+  applyMsPalette(); rerender();
+  toast('🎨 关键节点配色已恢复默认');
+}
+/* 阶段节点默认色：需求未自定义时取色板值 */
+function msPhaseColor(r,key){
+  if(r&&r.phaseColors&&r.phaseColors[key]) return r.phaseColors[key];
+  return (key==='l2')?MS_PALETTE.msL2:MS_PALETTE.msL1;
+}
+/* 虚线/节点缺省色 */
+function msDefaultColor(){ return MS_PALETTE.msLine; }
+/* 渲染色板面板 UI（挂进 #colorPop 的 #msPaletteBox 容器） */
+function renderMsPaletteUI(){
+  const box=document.getElementById('msPaletteBox'); if(!box) return;
+  let h='';
+  MS_PALETTE_META.forEach(g=>{
+    h+=`<div class="mp-grp"><div class="mp-grp-t">${g.group}</div><div class="mp-items">`;
+    g.items.forEach(it=>{
+      const v=MS_PALETTE[it.k];
+      h+=`<div class="mp-item" title="${escAttr(it.desc)}">
+        <input type="color" class="mp-color" value="${v}" oninput="changeMsPalette('${it.k}',this.value)">
+        <span class="mp-lab">${escHtml(it.label)}</span>
+        <code class="mp-hex">${v.toUpperCase()}</code>
+      </div>`;
+    });
+    h+=`</div></div>`;
+  });
+  box.innerHTML=h;
+}
 let msCtx=null;   // {mode:'add'|'edit'|'phase', reqId, msIdx, phkey, which}
 function msColorSwatches(cur){
   return MS_COLORS.map(c=>`<span class="ms-sw${c===cur?' on':''}" data-c="${c}" style="background:${c}" onclick="msPickColor('${c}')"></span>`).join('');
@@ -2367,7 +2518,7 @@ function openEditPhaseNode(reqId, phkey){
   if(curD==null){toast('该需求无此阶段节点');return;}
   msCtx={mode:'phase',reqId,phkey,which};
   const meta=PHASE_NODE_META[phkey]||PHASE_NODE_META.l1;
-  const cur=(r.phaseColors&&r.phaseColors[phkey])||meta.color;
+  const cur=msPhaseColor(r,phkey);   // v7.47：走统一色板
   const desc=which===2?'日期即「联调开始」时间（与拖拽该圆点等效，会同步移动联调子需求）':'日期即「L1 完成 / L2 开始」分割时间（与拖拽该圆点等效）';
   const body=`
     <div class="ctx" style="background:#eef6ff;border-color:#bcd9f7;color:#185fa5">修改阶段节点「${meta.label}」。${desc}。</div>
@@ -3138,18 +3289,22 @@ function paint(rows){
   const [vlines,todayLine]=rest.split('__TODAY__');   // v7.12：红线独立成层，见 headerHTML 注释
   const loadBar = loadHeatmapHTML();
   document.getElementById('grid').innerHTML =
-    // v7.41 日期胶囊吸顶层：置于 #grid 首个子元素，自然流位置在顶端 → scrollTop=0 起即吸顶(top:6)，纵滚始终钉在视口顶端
-    `<div class="sel-pill-layer"><div class="sel-pill hover-pill" id="dateSelHoverPill"></div><div class="sel-pill pin-pill" id="dateSelPinPill"></div></div>`
+    /* v7.47：钉选层已移除，只保留 hover 胶囊层。
+       层级由 v7.41 的 z-index:50 大幅下调 —— 它只要不穿过甘特行即可，
+       绝不能压住顶部冻结信息行(.row.head z7)与负载带(.load-heatmap z6)。 */
+    `<div class="sel-pill-layer"><div class="sel-pill hover-pill" id="dateSelHoverPill"></div></div>`
     + head + `<div style="position:absolute;left:var(--left-w);top:86px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
     // 红线专属贯穿层：top:0 从表头顶端起笔，与表头上方的胶囊箭头首尾相接
     + `<div class="today-layer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:8">${todayLine}</div>`
     + loadBar
     + `<div class="drop-band" id="dropBand"></div><div class="drop-guide" id="dropG0"></div><div class="drop-guide gend" id="dropG1"></div>`
-    /* v7.40 日期选择高亮层：仿 today-layer 用 left:var(--left-w) 包裹，内部 left=天索引×DAY_W。
-       hover=悬停预览带（浅蓝），pin=单击钉选带（紫色+两侧描边+📍胶囊）。二者 pointer-events:none 不挡交互。 */
-    + `<div class="date-sel-layer"><div id="dateSelHover" class="sel-band hover"></div><div id="dateSelPin" class="sel-band pin"></div></div>`
+    /* v7.40 日期悬停层（v7.47 仅保留 hover，pin 已删）：仿 today-layer 用 left:var(--left-w) 包裹，
+       内部 left=天索引×DAY_W。pointer-events:none 不挡交互。 */
+    + `<div class="date-sel-layer"><div id="dateSelHover" class="sel-band hover"></div></div>`
     /* v7.45：关键节点→需求条目 竖向虚线层（仿 today 层，高度由 syncMsLinks 实测需求行设定） */
     + msLinkLayerHTML()
+    /* v7.47：需求条内关键节点的出框文字标签层（无 overflow 裁切，可溢出到条外） */
+    + msBarLabelLayerHTML()
     + rows;
   updateKPIs();
   if(typeof reapplySelection==='function') reapplySelection();
@@ -3164,6 +3319,7 @@ function paint(rows){
      不再每次 paint 重建 DOM，也不再挂到 #sec-gantt（那样会被 overflow:hidden 裁 / 不随滚动走）。 */
   syncTodayLabel();
   syncMsLinks();   // v7.45：渲染完成后实测各需求行位置，设定关键节点虚线的 top/height
+  if(typeof syncMsBarLabels==='function') syncMsBarLabels();   // v7.47：同步需求条内关键节点的出框标签
 }
 
 /* ===== v7.12 今天日期胶囊定位（单一入口：paint / 滚动 / 缩放 / 栏宽变化都走这里）=====
@@ -3239,7 +3395,7 @@ function bindTodayLabelFollow(){
   const sc = document.getElementById('scroll');
   if(!sc) return;
   let pending = false;
-  const tick = () => { pending = false; syncTodayLabel(); if(typeof syncMsLinks==='function') syncMsLinks(); };   // v7.45：滚动/缩放同步刷新关键节点虚线（clip-path 随 scrollLeft）
+  const tick = () => { pending = false; syncTodayLabel(); if(typeof syncMsLinks==='function') syncMsLinks(); if(typeof syncMsBarLabels==='function') syncMsBarLabels(); };   // v7.45：滚动/缩放同步刷新关键节点虚线（clip-path 随 scrollLeft）；v7.47：同步刷新出框标签
   const onScroll = () => { if(!pending){ pending = true; requestAnimationFrame(tick); } };
   sc.addEventListener('scroll', onScroll, {passive:true});
   window.addEventListener('resize', onScroll);
@@ -4926,16 +5082,21 @@ function applyMsHighlight(){
 }
 grid.addEventListener('pointerover',e=>{
   const el=e.target.closest&&e.target.closest('.bar-task.req-bar,.ms-node,.ms-mark');
+  const prev=_msHoverReq;
   _msHoverReq = el ? (el.dataset.req||null) : null;
   applyMsHighlight();
+  // v7.47：出框标签层跟随高亮。放在 applyMsHighlight 之外 —— 那个函数有
+  // 「id 未变则 early-return」的短路，高亮从 A 切回 null 时它仍会走完（id 变了），
+  // 但 null→null 的重复 pointerover 不会重绘；此处统一兜底，保证标签态与高亮态一致。
+  if(prev!==_msHoverReq && typeof syncMsBarLabels==='function') syncMsBarLabels();
 });
-/* ============ v7.40 日期选择高亮（悬停预览 / 单击钉选） ============
-   触发：鼠标在甘特区（表头日期、空白、任务条）悬停 → 浅色预览带 + 日期胶囊；
-        左键单击（非拖拽）→ 钉选该天：强色带 + 两侧描边 + 📍 日期胶囊；再次单击同列取消。
-   状态：selDay = 钉选的天索引（0-based）或 null；hover 仅预览、不持久化。
+/* ============ v7.40 日期悬停提示（v7.47 简化：去掉单击钉选） ============
+   v7.47 变更：
+     · 移除「单击钉选某天」—— 钉选列与 📍 胶囊被判定为干扰信息（强色带 + 紫色描边 +
+       吸顶胶囊过于抢眼），且它在纵向滚动时一直悬在顶部，与「顶部冻结信息行」争夺注意力。
+     · 悬停保留，但降为极轻微提示：细淡色带 + 跟随光标的日期胶囊（不再吸顶、不抢层级）。
    坐标：内容 x = 天索引×DAY_W，时间轴可视区自 --left-w 起、随 #scroll 横向滚动；
         故 day = floor((clientX - scrollRect.left - leftW + scrollLeft)/DAY_W)。 */
-let selDay=null;
 const _WD=['日','一','二','三','四','五','六'];
 function dayLabel(d){ const dt=i2d(d); return fmt(dt)+' 周'+_WD[dt.getDay()]; }
 function clientXToDay(clientX){
@@ -4947,58 +5108,45 @@ function clientXToDay(clientX){
   const d=Math.floor(x/DAY_W);
   return (d>=0&&d<DAYS)?d:null;
 }
+/* v7.47：钉选已移除，此函数降级为「清理历史 DOM/状态」+ 保留 hover 带的重绘入口。
+   保留函数本身是因为 paint() 与其它地方仍有调用，直接删会抛 ReferenceError。 */
 function applyDateSel(){
-  const pin=document.getElementById('dateSelPin');
-  const pill=document.getElementById('dateSelPinPill');
-  if(!pin) return;
-  if(selDay==null){ pin.style.display='none'; if(pill) pill.style.display='none'; return; }
-  pin.style.display='block';
-  pin.style.left=(selDay*DAY_W)+'px';
-  pin.style.width=DAY_W+'px';
-  if(pill){
-    pill.innerHTML='📍 '+dayLabel(selDay); pill.style.display='block';
-    var leftPx=selDay*DAY_W;
-    // 先取消 transform 拿到自然宽度，检测是否溢出左侧时间轴边界
-    pill.style.transform='none'; pill.style.left='calc(var(--left-w) + '+leftPx+'px)';
-    var halfW=pill.offsetWidth/2;
-    if(leftPx<halfW){ pill.style.left='var(--left-w)'; pill.style.transform='none'; }
-    else{ pill.style.left='calc(var(--left-w) + '+leftPx+'px)'; pill.style.transform='translateX(-50%)'; }
-  }
+  const pin=document.getElementById('dateSelPin'); if(pin) pin.style.display='none';
+  const pill=document.getElementById('dateSelPinPill'); if(pill) pill.style.display='none';
 }
-function showHover(d){
+/* 悬停提示：竖带对准该天（内容坐标），日期胶囊跟随鼠标光标（视口坐标）。
+   胶囊跟随光标而非吸顶 —— 既不会在纵向滚动时一直悬在顶部跟冻结信息行抢位，
+   也更符合「指针在哪、信息在哪」的直觉。 */
+function showHover(d,clientX,clientY){
   const h=document.getElementById('dateSelHover'); const pill=document.getElementById('dateSelHoverPill');
-  if(!h) return;
-  h.style.display='block'; h.style.left=(d*DAY_W)+'px'; h.style.width=DAY_W+'px';
-  if(pill){
-    pill.textContent=dayLabel(d); pill.style.display='block';
-    var leftPx=d*DAY_W;
-    pill.style.transform='none'; pill.style.left='calc(var(--left-w) + '+leftPx+'px)';
-    var halfW=pill.offsetWidth/2;
-    if(leftPx<halfW){ pill.style.left='var(--left-w)'; pill.style.transform='none'; }
-    else{ pill.style.left='calc(var(--left-w) + '+leftPx+'px)'; pill.style.transform='translateX(-50%)'; }
-  }
+  if(h){ h.style.display='block'; h.style.left=(d*DAY_W)+'px'; h.style.width=DAY_W+'px'; }
+  if(!pill) return;
+  pill.textContent=dayLabel(d); pill.style.display='block';
+  // 胶囊挂在 .sel-pill-layer（#grid 内静态定位层）下，用视口坐标时需换算成 #grid 内容坐标
+  const grid=document.getElementById('grid');
+  if(!grid) return;
+  const gr=grid.getBoundingClientRect();
+  let x=clientX-gr.left+14, y=clientY-gr.top+16;   // 光标右下偏移，避免压住指针
+  const pw=pill.offsetWidth, ph=pill.offsetHeight;
+  // 右/下越界时翻到光标另一侧，保证完整可见
+  if(x+pw>gr.width) x=clientX-gr.left-pw-14;
+  if(y+ph>gr.height) y=clientY-gr.top-ph-14;
+  pill.style.transform='none';
+  pill.style.left=Math.max(0,x)+'px';
+  pill.style.top=y+'px';
 }
 function hideHover(){ const h=document.getElementById('dateSelHover'); const p=document.getElementById('dateSelHoverPill'); if(h) h.style.display='none'; if(p) p.style.display='none'; }
 function bindDaySelect(){
   if(window.__daySelBound) return; window.__daySelBound=true;
   const grid=document.getElementById('grid'); if(!grid) return;
-  let px=0,py=0;
-  grid.addEventListener('pointerdown',e=>{ px=e.clientX; py=e.clientY; });
   grid.addEventListener('pointermove',e=>{
     if(drag||(typeof chipDrag!=='undefined'&&chipDrag)){ hideHover(); return; } // 拖拽中不打扰
     const d=clientXToDay(e.clientX);
     if(d==null){ hideHover(); return; }
-    showHover(d);
+    showHover(d,e.clientX,e.clientY);
   });
   grid.addEventListener('pointerleave',hideHover);
-  grid.addEventListener('click',e=>{
-    if(Math.abs(e.clientX-px)>5||Math.abs(e.clientY-py)>5) return; // 拖拽（移动条/拖成员标签）→ 不算单击
-    if(e.target.closest('button,input,select,textarea,a,#menu,.tk-modal,.mstat,.ptag,.inl-add,.editable')) return;
-    const d=clientXToDay(e.clientX);
-    if(d==null) return;                       // 点到冻结左栏或时间轴之外 → 忽略
-    selDay = (selDay===d)?null:d;             // 同列再点 → 取消；否则钉选
-    applyDateSel();
-  });
+  // v7.47：click 钉选分支已整体移除（连同 selDay 状态），点击日期列不再产生任何持久选中。
 }
 /* ============ 人员行选中（「按人看」粘贴改派目标） ============
    点击某人的信息栏 → 选中整行；之后 Ctrl+V / 粘贴 会把剪贴板里的任务段「改派」给这个人。 */
@@ -8521,22 +8669,16 @@ function changeLblShow(k,on){
   requestAnimationFrame(fitBarLabels);   // 标签占位变化→重测条内降级布局
 }
 
-/* ===== v7.46 「🚩 关键节点」汇总行底色（本机偏好，key=gantt_ms_bg）=====
-   为什么独立建 key 而不是塞进 USER_COLORS：
-     USER_COLORS 与 applyPreset(一键预设) / 撤销重做 共用同一个 {lt0,lt,ovr} 对象，
-     那些路径是整对象替换，新增字段会被静默抹掉。故沿用 LBL_SHOW 式独立 key，互不干扰。
-   作用域：仅本机浏览器可见，不进云端快照、不影响他人视图（与配色面板其它项一致）。 */
-let MS_BG='#fdfcf5';
-try{const _b=localStorage.getItem('gantt_ms_bg'); if(_b&&/^#[0-9a-f]{6}$/i.test(_b))MS_BG=_b;}catch(_){}
-function applyMsBg(){
-  document.documentElement.style.setProperty('--ms-bg',MS_BG);
-  const el=document.getElementById('cpMsBg'); if(el)el.value=MS_BG;
-}
-function changeMsBg(v){
-  if(!/^#[0-9a-f]{6}$/i.test(v))return;
-  MS_BG=v;
-  try{localStorage.setItem('gantt_ms_bg',v);}catch(_){}
-  applyMsBg();
+/* v7.47：原 v7.46 的「汇总行底色」偏好已并入统一色板 MS_PALETTE.msBg（gantt_ms_palette），
+   此处保留向后兼容：老用户 localStorage 里的 gantt_ms_bg 会在启动时迁移进色板，随后删除旧 key。 */
+function _migrateMsBg(){
+  try{
+    const old=localStorage.getItem('gantt_ms_bg');
+    if(old && /^#[0-9a-f]{6}$/i.test(old)){
+      if(!localStorage.getItem(MS_PAL_KEY)){ MS_PALETTE.msBg=old; try{localStorage.setItem(MS_PAL_KEY,JSON.stringify(MS_PALETTE));}catch(_){} }
+      localStorage.removeItem('gantt_ms_bg');
+    }
+  }catch(_){}
 }
 
 /* ===== v7.30 配色色盘：本机自助改 联调(待启动/进行中) 与 超期 颜色 =====
@@ -8563,7 +8705,13 @@ function applyUserColors(){
 function saveUserColors(){try{localStorage.setItem('gantt_user_colors',JSON.stringify(USER_COLORS));}catch(_){}}
 function changeColor(k,val){if(!/^#[0-9a-fA-F]{6}$/.test(val))return;USER_COLORS[k]=val;applyUserColors();saveUserColors();_pushColorHistory();_addRecentColors([val]);}
 function resetUserColors(){USER_COLORS={lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'};applyUserColors();saveUserColors();_pushColorHistory();toast('🎨 已恢复默认配色');}
-function toggleColorPop(){const p=document.getElementById('colorPop');if(p)p.classList.toggle('show');}
+/* v7.47：打开面板时重绘「关键节点统一色板」—— 该面板内容由 JS 生成，
+   而 rerender() 会重建 #grid（不影响 #colorPop），但色值改动后需保证展示与内存一致。 */
+function toggleColorPop(){
+  const p=document.getElementById('colorPop'); if(!p) return;
+  p.classList.toggle('show');
+  if(p.classList.contains('show') && typeof renderMsPaletteUI==='function') renderMsPaletteUI();
+}
 /* 吸色进行中屏蔽面板误关（EyeDropper 等待 / 点击取色模式） */
 let COLOR_PICKING=false;
 /* 点击面板外区域关闭色盘（按钮在 #colorCtl 内，不触发关闭；吸色中不误关） */
@@ -8593,8 +8741,8 @@ function _elemColorHex(el){
 async function startEyeDrop(key){
   if(typeof window.EyeDropper!=='undefined'){
     COLOR_PICKING=true;
-    // v7.46：分发到对应 setter —— 'msbg' 走 changeMsBg，其余仍走 changeColor
-    const setter=(key==='msbg')?changeMsBg:changeColor;
+    // v7.47：统一色板的 key（msBg/msLine/msL1/…）走 changeMsPalette，其余仍走 changeColor
+    const setter=(typeof MS_PALETTE_DEF==='object' && (key in MS_PALETTE_DEF))?changeMsPalette:changeColor;
     try{const ed=new EyeDropper();const res=await ed.open();const hex=(res&&res.sRGBHex)||'';if(/^#[0-9a-fA-F]{6}$/.test(hex))setter(key,hex);}
     catch(_){/* 用户取消或未授权，静默 */}
     COLOR_PICKING=false;return;
@@ -8603,7 +8751,7 @@ async function startEyeDrop(key){
 }
 function startClickPick(key){
   COLOR_PICKING=true;
-  const setter=(key==='msbg')?changeMsBg:changeColor;   // v7.46：同上分发
+  const setter=(typeof MS_PALETTE_DEF==='object' && (key in MS_PALETTE_DEF))?changeMsPalette:changeColor;   // v7.47：同上分发
   document.body.classList.add('cp-picking');
   const hint=document.createElement('div');hint.id='cpPickHint';hint.textContent='🎯 点击页面任意处吸取颜色（Esc 取消）';document.body.appendChild(hint);
   function cleanup(){COLOR_PICKING=false;document.body.classList.remove('cp-picking');if(hint.parentNode)hint.parentNode.removeChild(hint);document.removeEventListener('mousedown',onPick,true);document.removeEventListener('keydown',onKey,true);}
@@ -8995,7 +9143,8 @@ initVivid();
 initZoom();
 initLeftW();
 applyLblShow();
-applyMsBg();         // v7.46 应用本机「关键节点汇总行」底色（无则走 CSS 兜底 #fdfcf5）
+_migrateMsBg();       // v7.47 老版 gantt_ms_bg → 统一色板 MS_PALETTE.msBg
+applyMsPalette();    // v7.47 应用「关键节点统一色板」（汇总行底色 / 虚线色 / 阶段色 / 候选色板）
 applyUserColors();   // v7.30 应用本机自定义配色（无则保持 :root 默认）
 _pushColorHistory();   // v7.35 初始化撤销/重做栈
 renderPresetList();   // v7.32 渲染一键预设色板

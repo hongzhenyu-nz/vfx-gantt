@@ -251,8 +251,13 @@
     background:#ffffff;border:1px solid rgba(0,0,0,.08);border-radius:10px;pointer-events:auto;cursor:grab;
     box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .12s,box-shadow .12s,background .12s;}
   .ms-node:hover{transform:translateY(-50%) scale(1.04);background:#fff8e1;border-color:#e8d9a8;box-shadow:0 2px 5px rgba(0,0,0,.15);z-index:10;}
-  .ms-diamond{width:9px;height:9px;transform:rotate(45deg);border-radius:1px;flex-shrink:0;}
-  .ms-text{font-size:10px;font-weight:800;white-space:nowrap;}
+  /* v7.47 对比度强化：菱形加白描边 + 深色外环，与条内圆点同一套三层结构，
+     保证在浅色汇总行底与深色任务条底上都清晰。 */
+  .ms-diamond{width:10px;height:10px;transform:rotate(45deg);border-radius:1.5px;flex-shrink:0;
+    border:2px solid #fff;box-shadow:0 0 0 1.2px rgba(0,0,0,.55);}
+  /* v7.47：节点文字也加对比保障 —— 主色文字在浅底上可能过淡，补一层白色描边（text-shadow 四向） */
+  .ms-text{font-size:10px;font-weight:800;white-space:nowrap;
+    text-shadow:0 0 2px #fff,0 0 2px #fff,0 1px 1px rgba(255,255,255,.9);}
   /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色
      布局与 .row 一致：左侧 sticky 冻结 + 右侧 timeline 固定像素宽，杜绝出框/裁剪
      v7.14：position:relative→sticky top:54px（= .row.head 高度），纵向滚动时吸附在表头正下方常驻可见；
@@ -396,28 +401,27 @@
   .daycol{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0;}
   .daycol.we{background:rgba(120,130,145,.10);}                 /* 双休：浅灰 */
   .daycol.hol{background:rgba(224,90,90,.10);}                  /* 法定节假日：淡红灰，与双休区分 */
-  /* v7.40 日期选择高亮层（悬停预览 / 单击钉选）。z-index:6 → 位于行背景与竖线(0)之上、
-     任务条(1)之上（半透羽化不挡条），但被不透明表头(7)与今天红线(8)压住，故只显现在甘特区。 */
-  .date-sel-layer{position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:6;}
+  /* v7.40 日期悬停层。v7.47：z-index 6→5，明确压在甘特行(1)之上、任务条之上，
+     但严格低于负载热力带(6)、顶部冻结信息行 .row.head(7)、关键节点汇总行(6)与今天红线层(8)。
+     需求：日期列的层级不得高于顶部冻结的信息行 —— 此处 5 < 7 已满足，且留出两级余量。 */
+  .date-sel-layer{position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:5;}
   .sel-band{position:absolute;top:86px;bottom:0;width:var(--day-w);display:none;pointer-events:none;
     transition:left .13s cubic-bezier(.4,0,.2,1), width .13s cubic-bezier(.4,0,.2,1), background .15s, box-shadow 0s;}
-  .sel-band.hover{background:linear-gradient(180deg,rgba(29,111,214,.10),rgba(29,111,214,.045));
-    box-shadow:inset 0 0 0 1.5px rgba(29,111,214,.32);}
-  .sel-band.pin{background:linear-gradient(180deg,rgba(124,58,237,.17),rgba(124,58,237,.07));
-    box-shadow:inset 2px 0 0 0 #7c3aed, inset -2px 0 0 0 #7c3aed;}
-  /* 钉选列顶端的下指三角，明确「这一列被选中」（band 自 86px 起，三角落在负载带下方、数据行顶端） */
-  .sel-band.pin::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
-    border:6px solid transparent;border-top-color:#7c3aed;filter:drop-shadow(0 1px 1px rgba(0,0,0,.22));}
-  /* 胶囊吸顶独立层：z-index:50 > 表头(7)/负载带(6)/今天红线(8)，纵向滚动时钉在视口顶端；
-     position:sticky 仅钉垂直(top:6px)，横向随内容移动始终对准选中列；top:6px 落在表头区、绝不侵入负载色带(54~86px)，两者不重叠 */
-  .sel-pill-layer{position:sticky;top:6px;height:0;pointer-events:none;z-index:50;}
-  /* 胶囊溢出左侧的裁切由 JS 在 applyDateSel/showHover 中处理：若居中会导致左半部分进入冻结栏，则取消 transform、左对齐到时间轴边界 var(--left-w)，保持与人名栏 overflow 一致的"不溢出"行为 */
-  .sel-pill{position:absolute;top:0;left:0;transform:translateX(-50%);white-space:nowrap;display:none;
-    font-size:11px;font-weight:800;padding:3px 9px;border-radius:11px;box-shadow:0 2px 8px rgba(0,0,0,.2);
-    pointer-events:none;letter-spacing:.2px;}
-  .sel-pill.hover-pill{background:#fff;color:#1d6fd6;border:1.5px solid rgba(29,111,214,.5);}
-  .sel-pill.pin-pill{background:#7c3aed;color:#fff;border:1.5px solid #6d28d9;}
-  .timeline{cursor:pointer;}                                   /* 整条时间轴（含表头日期）提示「可点选某天」 */
+  /* v7.47：视觉权重降到「极轻微提示」——去掉 1.5px 内描边，底色透明度 10%→5.5%，仅留一层若有若无的底纹 */
+  .sel-band.hover{background:linear-gradient(180deg,rgba(29,111,214,.055),rgba(29,111,214,.02));}
+  /* v7.47：钉选已移除，.sel-band.pin 及其下指三角一并删除（JS 侧也不再生成 #dateSelPin）。 */
+  /* 胶囊层：v7.41 的「吸顶 z-index:50」已废弃 —— 它会盖住顶部冻结信息行(7)、负载带(6)、
+     关键节点汇总行(6)，与「日期列层级不得高于冻结信息行」的要求直接冲突。
+     v7.47 改为跟随光标的轻量浮层：absolute 定位在 #grid 内、由 showHover() 按光标坐标赋值 left/top；
+     z-index:5 与 .date-sel-layer 同级，同样严格低于 .row.head(7)。 */
+  .sel-pill-layer{position:absolute;top:0;left:0;right:0;bottom:0;height:0;pointer-events:none;z-index:5;}
+  /* 胶囊定位完全交给 JS（left/top 为 #grid 内容坐标），CSS 不再施加 transform 居中。
+     v7.47 视觉权重下调：去掉重投影、改细描边 + 小字号，只作轻微提示。 */
+  .sel-pill{position:absolute;top:0;left:0;white-space:nowrap;display:none;
+    font-size:10px;font-weight:700;padding:2px 7px;border-radius:9px;box-shadow:0 1px 4px rgba(0,0,0,.12);
+    pointer-events:none;letter-spacing:.2px;opacity:.92;}
+  .sel-pill.hover-pill{background:#fff;color:#4a5a70;border:1px solid rgba(29,111,214,.28);}
+  .timeline{cursor:default;}   /* v7.47：日期列不再可点选，去掉"可点选"的指针暗示 */
   .vline.mono{background:#dfe2e6;width:1px;}
   /* v6.86 移除 .vline.we —— 全文无任何代码生成该类（vlines 只产出 .vline 与 .vline.mono），
      属历史死代码；其 width:var(--day-w) 与新的 translateX(-50%) 居中逻辑也不兼容。 */
@@ -627,14 +631,28 @@
      最初的 top:-10px 把圆点/标签画到条外 → 被裁（视觉上"没变化"）。
      → 圆点改 top:3px 贴在条内顶部；竖线接在圆点下方；标签默认隐藏，hover 走全局 tooltip。 */
   .bar-task.req-bar .ms-mark{position:absolute;top:0;bottom:0;width:2px;z-index:6;pointer-events:auto;transform:translateX(-1px);}
-  .bar-task.req-bar .ms-mark .ms-dot{position:absolute;top:3px;left:50%;transform:translateX(-50%);width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;
-    box-shadow:0 1px 3px rgba(0,0,0,.45);}
-  .bar-task.req-bar .ms-mark .ms-line{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% - 11px);opacity:.8;}
-  .bar-task.req-bar .ms-mark .ms-label{display:none;}  /* label 走 hover tooltip，避免 overflow:hidden 裁切、与条内文字重叠 */
+  /* v7.47 对比度强化：圆点改「白内环 + 深色外环 + 主色实心」三层结构。
+     单靠主色在深色条/浅色条上总有一边糊掉；白色内环把主色与任意背景隔开，
+     深色外环（rgba(0,0,0,.55)）再压住浅背景侧，双向都清晰。 */
+  .bar-task.req-bar .ms-mark .ms-dot{position:absolute;top:3px;left:50%;transform:translateX(-50%);width:10px;height:10px;border-radius:50%;
+    border:2px solid #fff;box-shadow:0 0 0 1.2px rgba(0,0,0,.55),0 0 0 2.5px var(--msc,transparent),0 1px 3px rgba(0,0,0,.45);}
+  /* 竖线：主色 + 半透明白色底衬（::before 画在下方 3px 宽），深色背景上不吞线、浅色背景上不发散 */
+  .bar-task.req-bar .ms-mark .ms-line{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% - 12px);opacity:1;}
+  /* v7.47：需求条内的关键节点需要文字标签，且允许出框（溢出显示）。
+     ⚠️ 障碍：父级 .bar-task 是 overflow:hidden，直接把标签画在条上方会被裁掉。
+     解法：把标签挂到 .ms-mark 上并用负 top 上移到条外 —— 但 .ms-mark 本身也在
+     overflow:hidden 的条内，同样会被裁。真正的出路是让标签脱离该裁切上下文：
+     给 .ms-mark 加 overflow:visible 无效（裁切发生在祖先 .bar-task）。
+     故改为：标签由 JS 渲染进「关键节点标签层」(.ms-label-layer，挂 #grid、无裁切)，
+     与虚线层同级管理，见 app.js 的 renderMsBarLabels()/syncMsBarLabels()。
+     此处仅定义标签本体样式（出框、带白底与描边，保证任意背景上可读）。 */
+  .ms-bar-label{position:absolute;transform:translateX(-50%);white-space:nowrap;pointer-events:none;
+    font-size:9px;font-weight:800;line-height:12px;padding:1px 5px;border-radius:7px;
+    background:#fff;color:#2b3240;border:1px solid rgba(0,0,0,.28);
+    box-shadow:0 1px 3px rgba(0,0,0,.28);z-index:7;}
+  .ms-bar-label.hl{background:#fff8e1;border-color:#ffb020;color:#7a5300;box-shadow:0 0 0 2px rgba(255,176,32,.55),0 1px 4px rgba(0,0,0,.3);}
+  .bar-task.req-bar .ms-mark .ms-label{display:none;}  /* 条内那份 label 不再渲染，统一走 .ms-bar-label 层 */
   /* 窄条：宽度不足时隐藏文字，只保留圆点 */
-  .bar-task.req-bar[data-req][style*="width:4"]:not([style*="width:4px"]) .ms-label,
-  .bar-task.req-bar[data-req][style*="width:3"]:not([style*="width:3px"]) .ms-label,
-  .bar-task.req-bar[data-req][style*="width:2"]:not([style*="width:2px"]) .ms-label,
   .bar-task.req-bar[data-req][style*="width:4"]:not([style*="width:4px"]) .ms-line,
   .bar-task.req-bar[data-req][style*="width:3"]:not([style*="width:3px"]) .ms-line,
   .bar-task.req-bar[data-req][style*="width:2"]:not([style*="width:2px"]) .ms-line{display:none;}
@@ -644,9 +662,9 @@
      故 .ms-pdot/.ms-pline 必须用 `.bar-task.req-bar .ms-mark.phase` 高特异性前缀(≥0,4,0)压过它。 */
   /* 阶段节点菱形（L1完成 / L2完成·联调开始）：区分自定义节点的圆形 .ms-dot */
   .bar-task.req-bar .ms-mark.phase{cursor:ew-resize;}   /* 阶段菱形可拖拽改期 */
-  .bar-task.req-bar .ms-mark.phase .ms-pdot{position:absolute;top:3px;left:50%;transform:translateX(-50%) rotate(45deg);width:8px;height:8px;border-radius:1.5px;border:1.5px solid #fff;
-    box-shadow:0 1px 3px rgba(0,0,0,.45);}
-  .bar-task.req-bar .ms-mark.phase .ms-pline{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% - 11px);opacity:.55;}
+  .bar-task.req-bar .ms-mark.phase .ms-pdot{position:absolute;top:3px;left:50%;transform:translateX(-50%) rotate(45deg);width:9px;height:9px;border-radius:1.5px;
+    border:2px solid #fff;box-shadow:0 0 0 1.2px rgba(0,0,0,.55),0 1px 3px rgba(0,0,0,.45);}
+  .bar-task.req-bar .ms-mark.phase .ms-pline{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% - 12px);opacity:1;}
   .bar-task.req-bar .ms-mark.phase.dragging .ms-pdot{box-shadow:0 0 0 3px rgba(255,210,63,.55),0 2px 6px rgba(0,0,0,.4);}
   .bar-task.req-bar .ms-mark.ms-custom{cursor:grab;}   /* v7.46：条内圆点也可拖改期 */
   /* v7.46：拖拽态 —— 汇总行菱形提 z-index 到 12（拖拽期允许盖住红线层 8）；条内圆点提 9 压过同条其它节点 */
@@ -662,10 +680,19 @@
   .ms-node.ms-active{transform:translateY(-50%) scale(1.12);box-shadow:0 0 0 2px #ffb020,0 3px 8px rgba(255,150,0,.4);z-index:11;}
   .bar-task.req-bar .ms-mark.ms-active .ms-dot,.bar-task.req-bar .ms-mark.ms-active .ms-pdot{box-shadow:0 0 0 3px rgba(255,176,32,.65),0 1px 4px rgba(0,0,0,.5);}
   .ms-link.ms-active{opacity:1;width:3px;}
-  /* 关键节点 → 需求条目 竖向虚线（默认淡显；free=按人视图无需求行的全高兜底） */
-  .ms-link{position:absolute;width:2px;transform:translateX(-50%);
-    background:repeating-linear-gradient(to bottom,var(--msc,#ffb020) 0 6px,transparent 6px 11px);opacity:.32;}
-  .ms-link.free{opacity:.15;}
+  /* 关键节点 → 需求条目 竖向虚线。
+     v7.47 对比度强化：原 opacity .32 + 2px 宽在深色条背景下几乎看不见。
+     改为「白色底衬 + 主色虚线」双层：底衬用 ::before 画一条 4px 宽的半透明白，
+     主色虚线画在其上，深色区靠白衬托出、浅色区靠主色实心，双向可读。
+     opacity 由 .32 提到 .9，宽度 2→3px。free=按人视图无需求行的全高兜底（仍淡显）。 */
+  .ms-link{position:absolute;width:3px;transform:translateX(-50%);opacity:.9;
+    background:repeating-linear-gradient(to bottom,var(--msc,#ffb020) 0 5px,transparent 5px 10px);}
+  .ms-link::before{content:'';position:absolute;top:0;bottom:0;left:-0.5px;right:-0.5px;
+    background:rgba(255,255,255,.55);border-radius:2px;}
+  .ms-link.free{opacity:.28;}
+  /* v7.47：需求条内关键节点的文字标签层（挂 #grid、无 overflow 裁切 → 允许出框）。
+     z-index:7 低于今天红线层(8)，与关键节点汇总行(6)/负载带(6)同级但不穿透冻结信息行(7)。 */
+  .ms-label-layer{position:absolute;left:var(--left-w);top:0;right:0;bottom:0;pointer-events:none;z-index:7;}
   /* 汇总行「＋」新增按钮 */
   .ms-add-btn{margin-left:6px;width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;border:1px dashed #c9b574;background:#fff;color:#8a6d2f;
     font-size:13px;font-weight:800;cursor:pointer;padding:0;transition:background .12s,transform .12s;}
@@ -1792,6 +1819,25 @@
 #colorPop .cp-row input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
 #colorPop .cp-row input[type=color]::-webkit-color-swatch{border:none;border-radius:5px;}
 #colorPop .cp-note{margin:11px 0 7px;padding-top:9px;border-top:1px dashed var(--line);font-size:10.5px;color:var(--tx3);line-height:1.5;}
+/* ── v7.47 关键节点统一色板面板（#msPaletteBox，挂在 #colorPop 内）──
+   分组陈列：行底色 / 虚线色 / 阶段节点色 / 自定义节点候选色板。
+   每项 = 色块 + 名称 + 十六进制回显，点色块直接取色。 */
+#colorPop .mp-sec{margin:11px 0 7px;padding-top:9px;border-top:1px dashed var(--line);}
+#colorPop .mp-sec-t{font-size:11.5px;font-weight:800;color:var(--tx);margin-bottom:7px;display:flex;align-items:baseline;gap:6px;}
+#colorPop .mp-sec-t small{font-size:10px;font-weight:600;color:var(--tx3);}
+#colorPop .mp-grp{margin-bottom:9px;}
+#colorPop .mp-grp-t{font-size:10px;font-weight:700;color:var(--tx3);margin-bottom:5px;letter-spacing:.3px;}
+#colorPop .mp-items{display:grid;grid-template-columns:1fr 1fr;gap:5px 8px;}
+#colorPop .mp-item{display:flex;align-items:center;gap:6px;min-width:0;}
+#colorPop .mp-color{-webkit-appearance:none;appearance:none;width:24px;height:24px;flex-shrink:0;border:1px solid var(--line);
+  border-radius:6px;background:none;cursor:pointer;padding:0;}
+#colorPop .mp-color::-webkit-color-swatch-wrapper{padding:2px;}
+#colorPop .mp-color::-webkit-color-swatch{border:none;border-radius:4px;}
+#colorPop .mp-lab{font-size:10.5px;font-weight:600;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
+#colorPop .mp-hex{font-size:9px;font-weight:700;color:var(--tx3);font-family:ui-monospace,Menlo,Consolas,monospace;flex-shrink:0;}
+#colorPop .mp-foot{margin-top:7px;}
+#colorPop .mp-reset{width:100%;border:1px solid var(--line);background:#fbfcfe;border-radius:7px;font-size:11.5px;font-weight:700;color:var(--tx2);cursor:pointer;padding:5px 0;transition:background .12s;}
+#colorPop .mp-reset:hover{background:#fdeef0;border-color:#f3b6bf;}
 #colorPop .cp-reset{width:100%;margin-top:2px;border:1px solid var(--line);background:#fbfcfe;border-radius:7px;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer;padding:6px 0;transition:background .12s;}
 #colorPop .cp-reset:hover{background:#fdeef0;border-color:#f3b6bf;}
 /* v7.32 吸色按钮 + 预设色板 + 取色模式 */
