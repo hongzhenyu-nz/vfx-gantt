@@ -1,6 +1,12 @@
   :root{
     --bg:#f5f6f8; --panel:#ffffff; --line:#e6e8ec; --line2:#eef0f3;
     --tx:#1f2329; --tx2:#646a73; --tx3:#8f959e;
+  /* v7.30 配色色盘可改色（用户本机自助，默认如下；app.js 会按用户选择以 documentElement.style 覆盖这些变量）。
+     联调·待启动=淡紫 #c8b6ec；超期=偏紫红降饱和 #bd5eb0 → 渐变末端 #9c4a92、分界线 #7d2f76。
+     子色（文字/圆点/渐变末端/边框）由 JS 从主色派生，确保任意主色下对比度与层次自洽。 */
+  --c-lt0:#c8b6ec; --c-lt0-tx:#2e1f47; --c-lt0-sdot:#a890d6;
+  --c-lt:#0e9aa7;
+  --c-ovr:#bd5eb0; --c-ovr2:#9c4a92; --c-ovr-brd:#7d2f76;
     --blue:#3370ff; --blue-l:#e1ebff;
     --green:#34c759; --green-l:#e3f7e8;
     --amber:#ff9f0a; --amber-l:#fff1da;
@@ -505,10 +511,10 @@
      故将 todo 联调明度从 L≈78% 压回 L≈60% 与之一致：#c4bdd0→#9889a7(HSL 270/15%/60%，紫灰、低饱和)，
      sdot #8a7da0→#7d6f92 同步；文字 #3d2f4f 在 L60% 底上对比度仍 ≈4.8:1（达 AA）。
      两者明度统一后，todo 联调与 todo 灰条同属一个明度梯队，仅靠色相（紫灰 vs 蓝灰）区分联调身份。 */
-  .b-lt{background:#0e9aa7;}
-  .b-lt0{background:#9889a7;color:#3d2f4f;text-shadow:none;}
-  .bar-task.b-lt0:not(.vacant-bar) .sdot{background:#7d6f92;}
-  .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(61,47,79,.07) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(61,47,79,.15) calc(var(--p,0)*1%) 100%);}
+  .b-lt{background:var(--c-lt);}
+  .b-lt0{background:var(--c-lt0);color:var(--c-lt0-tx);text-shadow:none;}   /* v7.30 淡紫，色值由 --c-lt0 变量驱动（色盘可改） */
+  .bar-task.b-lt0:not(.vacant-bar) .sdot{background:var(--c-lt0-sdot);}
+  .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(61,47,79,.07) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),color-mix(in srgb, var(--c-lt0-tx) 15%, transparent) calc(var(--p,0)*1%) 100%);}
   .b-done{background:#4ecba0;}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分 */
   /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
      用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
@@ -544,7 +550,7 @@
   .bar-task.req-bar .ph{position:absolute;top:0;bottom:0;z-index:0;pointer-events:none;overflow:hidden;}
   .bar-task.req-bar .ph-l1{border-radius:inherit;}                                   /* L1：保持本体满色（深） */
   .bar-task.req-bar .ph-l2{background:rgba(0,0,0,.16);}                                /* L2：压暗一档区分 L1（不再越来越淡，改用「同色更沉」表达二审） */
-  .bar-task.req-bar .ph-lt{background:#0e9aa7;border-left:1.5px dashed rgba(255,255,255,.85);pointer-events:auto;}   /* 联调：纯色青碧块（v7.24 由紫改青碧，与超期紫红区分），不用斜纹（斜纹只表达未完成） */
+  .bar-task.req-bar .ph-lt{background:var(--c-lt);border-left:1.5px dashed rgba(255,255,255,.85);pointer-events:auto;}   /* 联调：纯色块（v7.24 由紫改青碧，色值随 --c-lt 变量；v7.30 色盘可改），不用斜纹（斜纹只表达未完成） */
   .bar-task.req-bar .ph-lab{position:absolute;bottom:2px;left:0;right:0;text-align:center;font-size:9px;font-weight:800;
     letter-spacing:1px;color:rgba(255,255,255,.72);text-shadow:0 1px 2px rgba(0,0,0,.5);pointer-events:none;z-index:1;}
   .bar-task.req-bar .ph-lt .ph-lab{color:#fff;opacity:.95;}
@@ -985,16 +991,16 @@
   /* v7.26：超期整套由 violet 迁紫红 fuchsia（色相 ≈270°→292°），与 todo 联调的新蓝紫 #818cf8(≈235°) 拉开 ≈57°，
      避免同族撞色（联调蓝紫、超期紫红、品牌紫 #7c3aed 借调/带队/新建 三方各司其职）。 */
   .ovr-zone{position:absolute;right:0;top:0;bottom:0;pointer-events:none;z-index:0;overflow:visible;
-    background:repeating-linear-gradient(-45deg,rgba(217,70,239,.30) 0,rgba(217,70,239,.30) 5px,rgba(162,28,175,.14) 5px,rgba(162,28,175,.14) 10px);
-    box-shadow:inset 2px 0 0 rgba(134,25,143,.9), inset 0 0 0 1px rgba(134,25,143,.35);}
+    background:repeating-linear-gradient(-45deg,color-mix(in srgb,var(--c-ovr) 30%,transparent) 0,color-mix(in srgb,var(--c-ovr) 30%,transparent) 5px,color-mix(in srgb,var(--c-ovr2) 14%,transparent) 5px,color-mix(in srgb,var(--c-ovr2) 14%,transparent) 10px);
+    box-shadow:inset 2px 0 0 var(--c-ovr-brd), inset 0 0 0 1px color-mix(in srgb,var(--c-ovr-brd) 35%,transparent);}   /* v7.30 超期色由 --c-ovr/--c-ovr2/--c-ovr-brd 变量驱动（色盘可改），透明斜纹/分界线用 color-mix 从主色派生 */
   /* 超期区右上角小标：只显示周数，紧凑不抢位。z-index 提到文字层之上保证可见（区域本体仍在文字下）。
      v6.59：改为「垂直居中 + 全条型号显示」，不再因矮条隐藏 —— 超期周数是关键信息，任何条高都要看得到。 */
   .ovr-zone .ovr-tag{position:absolute;top:50%;transform:translateY(-50%);right:2px;z-index:2;pointer-events:auto;
     font-size:8.5px;font-weight:900;line-height:1.3;
-    padding:0 4px;border-radius:3px;white-space:nowrap;color:#fff;background:linear-gradient(135deg,#d946ef,#a21caf);
-    border:1px solid #86198f;box-shadow:0 1px 2px rgba(112,26,117,.4);letter-spacing:.2px;}
+    padding:0 4px;border-radius:3px;white-space:nowrap;color:#fff;background:linear-gradient(135deg,var(--c-ovr),var(--c-ovr2));
+    border:1px solid var(--c-ovr-brd);box-shadow:0 1px 2px color-mix(in srgb,var(--c-ovr-brd) 40%,transparent);letter-spacing:.2px;}   /* v7.30 超期标渐变/边框改用变量 */
   /* v6.59 矮条（slim，并行挤压后条高<34%行高）：缩字号 + 收紧内边距/边框，保证仍能显示而不糊 */
-  .bar-task.slim .ovr-zone .ovr-tag{font-size:7px;padding:0 2.5px;border-radius:2px;border-width:.5px;letter-spacing:0;line-height:1.2;box-shadow:0 0 2px rgba(112,26,117,.5);}
+  .bar-task.slim .ovr-zone .ovr-tag{font-size:7px;padding:0 2.5px;border-radius:2px;border-width:.5px;letter-spacing:0;line-height:1.2;box-shadow:0 0 2px color-mix(in srgb,var(--c-ovr-brd) 50%,transparent);}
   /* 极窄超期区（如只超 0.3 周）：小标宽度会超出区域本身 → 靠 .ovr-zone 的 overflow:visible（见上方主定义）
      允许它向左溢出显示，不被裁掉；父级 .bar-task 的 overflow:hidden 仍兜住不出条。 */
   /* 已完成/封存条上降低饱和，避免抢过「✓已完成」印章 */
@@ -1629,3 +1635,22 @@
   .org-btn:active{transform:translateY(1px);}
   /* FLIP 排序动画期间抬升行层级，避免移动中的行被相邻行/冻结层裁切 */
   #grid > .row.flip-moving{z-index:12;}
+
+/* ===== v7.30 配色色盘：本机自助改 联调(待启动/进行中) 与 超期 的颜色 =====
+   纯本地 localStorage 偏好（gantt_user_colors），不进云端快照、不改任何数据、不影响其他成员视图。
+   弹层 fixed 定位避免被 .board{overflow:hidden} 裁切；实时预览（oninput）+ 自动落本地。 */
+#colorCtl .org-btn{background:#fbfcfe;}
+#colorPop{position:fixed;top:58px;right:14px;z-index:80;display:none;width:248px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 12px 34px rgba(0,0,0,.20);padding:13px 15px;font-family:inherit;}
+#colorPop.show{display:block;}
+#colorPop h4{margin:0 0 4px;font-size:13px;font-weight:800;color:var(--tx);}
+#colorPop .cp-sub{margin:0 0 9px;font-size:10.5px;color:var(--tx2);line-height:1.45;}
+#colorPop .cp-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 0;font-size:12px;color:var(--tx);}
+#colorPop .cp-row label{flex:1;cursor:default;}
+#colorPop .cp-row input[type=color]{width:44px;height:28px;border:1px solid var(--line);border-radius:7px;background:none;cursor:pointer;padding:2px;flex-shrink:0;}
+#colorPop .cp-row input[type=color]::-webkit-color-swatch-wrapper{padding:0;}
+#colorPop .cp-row input[type=color]::-webkit-color-swatch{border:none;border-radius:5px;}
+#colorPop .cp-note{margin:11px 0 7px;padding-top:9px;border-top:1px dashed var(--line);font-size:10.5px;color:var(--tx3);line-height:1.5;}
+#colorPop .cp-reset{width:100%;margin-top:2px;border:1px solid var(--line);background:#fbfcfe;border-radius:7px;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer;padding:6px 0;transition:background .12s;}
+#colorPop .cp-reset:hover{background:#fdeef0;border-color:#f3b6bf;}

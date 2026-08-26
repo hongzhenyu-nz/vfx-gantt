@@ -7846,6 +7846,34 @@ function changeLblShow(k,on){
   requestAnimationFrame(fitBarLabels);   // 标签占位变化→重测条内降级布局
 }
 
+/* ===== v7.30 配色色盘：本机自助改 联调(待启动/进行中) 与 超期 颜色 =====
+   纯本地 localStorage 偏好（gantt_user_colors）：不进云端快照、不改任何数据、不影响他人视图；
+   色值以 CSS 变量(--c-lt0/--c-lt/--c-ovr…) 注入 documentElement，CSS 用 var() 取色；
+   子色(文字/圆点/渐变末端/边框)由主色自动派生，保证任意主色下对比度与层次自洽。 */
+let USER_COLORS={lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'};
+try{const _c=JSON.parse(localStorage.getItem('gantt_user_colors')||'null'); if(_c&&typeof _c==='object')USER_COLORS={lt0:_c.lt0||'#c8b6ec',lt:_c.lt||'#0e9aa7',ovr:_c.ovr||'#bd5eb0'};}catch(_){}
+function _hc(h){h=(h||'').replace('#','');if(h.length===3)h=h.split('').map(x=>x+x).join('');const n=parseInt(h,16);return [(n>>16)&255,(n>>8)&255,n&255];}
+function _hr(r,g,b){const t=v=>('0'+Math.max(0,Math.min(255,Math.round(v))).toString(16)).slice(-2);return '#'+t(r)+t(g)+t(b);}
+function _rh(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h=0,s=0,l=(mx+mn)/2;if(mx!==mn){const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);if(mx===r)h=(g-b)/d+(g<b?6:0);else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h/=6;}return [h*360,s,l];}
+function _hrgb(h,s,l){h/=360;s=Math.max(0,Math.min(1,s));l=Math.max(0,Math.min(1,l));const f=n=>{const k=(n+h*12)%12,a=s*Math.min(l,1-l);return l-a*Math.max(-1,Math.min(k-3,9-k,1));};return [f(0)*255,f(8)*255,f(4)*255];}
+function _shade(hex,targetL){const _c=_hc(hex);const _h=_rh(_c[0],_c[1],_c[2]);const _o=_hrgb(_h[0],Math.min(1,(_h[1]||0)+0.05),Math.max(0,Math.min(1,targetL)));return _hr(_o[0],_o[1],_o[2]);}
+function _deriveLt(base){const _c=_hc(base);const _h=_rh(_c[0],_c[1],_c[2]);const tx=_shade(base,Math.max(0.16,Math.min(0.30,_h[2]*0.30)));const sdot=_shade(base,Math.max(0.45,Math.min(0.82,_h[2]*0.74)));return {tx,sdot};}
+function _deriveOvr(base){const _c=_hc(base);const _h=_rh(_c[0],_c[1],_c[2]);const ovr2=_shade(base,Math.max(0.30,Math.min(0.55,_h[2]*0.82)));const brd=_shade(base,Math.max(0.20,Math.min(0.45,_h[2]*0.60)));return {ovr2,brd};}
+function applyUserColors(){
+  const st=document.documentElement.style,d=USER_COLORS;
+  const lt=_deriveLt(d.lt0);st.setProperty('--c-lt0',d.lt0);st.setProperty('--c-lt0-tx',lt.tx);st.setProperty('--c-lt0-sdot',lt.sdot);
+  st.setProperty('--c-lt',d.lt);
+  const ov=_deriveOvr(d.ovr);st.setProperty('--c-ovr',d.ovr);st.setProperty('--c-ovr2',ov.ovr2);st.setProperty('--c-ovr-brd',ov.brd);
+  const a=document.getElementById('cpLt0'),b=document.getElementById('cpLt'),c=document.getElementById('cpOvr');
+  if(a)a.value=d.lt0; if(b)b.value=d.lt; if(c)c.value=d.ovr;
+}
+function saveUserColors(){try{localStorage.setItem('gantt_user_colors',JSON.stringify(USER_COLORS));}catch(_){}}
+function changeColor(k,val){if(!/^#[0-9a-fA-F]{6}$/.test(val))return;USER_COLORS[k]=val;applyUserColors();saveUserColors();}
+function resetUserColors(){USER_COLORS={lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'};applyUserColors();saveUserColors();toast('🎨 已恢复默认配色');}
+function toggleColorPop(){const p=document.getElementById('colorPop');if(p)p.classList.toggle('show');}
+/* 点击面板外区域关闭色盘（按钮在 #colorCtl 内，不触发关闭） */
+document.addEventListener('click',function(e){const p=document.getElementById('colorPop');if(!p||!p.classList.contains('show'))return;if(!p.contains(e.target)&&!e.target.closest('#colorCtl'))p.classList.remove('show');},true);
+
 /* ===== v7.24 成员手动拖拽排序 + 智能排序 + FLIP 过渡动画 =====
    排序结果存 m.sort（全局唯一升序序号），随快照 save/broadcast 落本地+同步云端，刷新/协作不丢。
    手动拖拽：按住行首 ⋮⋮ 手柄上下拖，同组内插入（分组视图不跨组，避免与分组语义打架）。
@@ -8045,6 +8073,7 @@ initVivid();
 initZoom();
 initLeftW();
 applyLblShow();
+applyUserColors();   // v7.30 应用本机自定义配色（无则保持 :root 默认）
 // 恢复分组方式 / 折叠状态（本机偏好）
 try{const gp=localStorage.getItem('gantt_group_person'); if(gp)GROUP_MODE.person=gp;}catch(_){}
 try{const gr=localStorage.getItem('gantt_group_req'); if(gr)GROUP_MODE.req=gr;}catch(_){}

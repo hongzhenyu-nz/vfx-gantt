@@ -12,7 +12,7 @@
      cache-control:max-age=600 独立缓存，会出现「index.html 已更新、styles.css/app.js 仍是旧缓存」
      的版本错配 → 视图崩坏（左栏空白/任务条不渲染）。版本号一变 URL 即变，强制重新拉取。
      ⚠️ 改动 styles.css 或 app.js 后，必须同步递增此处 ?v= 版本号。 -->
-<link rel="stylesheet" href="styles.css?v=7.29">
+<link rel="stylesheet" href="styles.css?v=7.30">
 
 </head>
 <body>
@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.29 · build 2026-08-26 13:48</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.30 · build 2026-08-26 14:06</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -145,6 +145,9 @@
       <button class="org-btn" onclick="smartSortMembers()" title="按「共享需求相邻、同带队相邻、档期相近相邻」自动优化成员顺序，让相关甘特条聚成整齐的块；带过渡动画">✨ 智能排序</button>
       <button class="org-btn" onclick="resetMemberSort()" title="清除手动/智能排序结果，恢复「状态→编制→隶属→品级→支援→拼音」系统默认排序">↺ 默认</button>
     </span>
+    <span class="org-group" id="colorCtl" title="🎨 自定义配色：本机自助改 联调(待启动/进行中) 与 超期 的颜色，实时预览并自动保存，不影响其他成员与任何数据">
+      <button class="org-btn" onclick="toggleColorPop()" title="打开配色色盘，自行选择联调/超期条的颜色">🎨 配色</button>
+    </span>
     <span class="org-group" title="已离职超过N天的成员 / 已完结超过N天的需求，自动折叠进底部「已归档」区，让视图聚焦当前。改这里的天数即时生效。">
       <span class="org-lab">📦 超期归档</span>
       <input type="number" id="archiveVal" class="org-num" min="0" max="999" step="1" value="2" onchange="changeArchiveVal(this.value)">
@@ -161,6 +164,17 @@
     </span>
     <span class="spacer"></span>
     <span class="org-hint" id="orgHint"></span>
+  </div>
+
+  <!-- v7.30 配色色盘弹层：本机自助改色，fixed 定位避免被 .board 裁切 -->
+  <div id="colorPop">
+    <h4>🎨 自定义配色</h4>
+    <p class="cp-sub">选择下方颜色，甘特条会<b>实时预览</b>并自动保存到本机；仅你自己的浏览器可见，不影响他人。</p>
+    <div class="cp-row"><label for="cpLt0">联调·待启动</label><input type="color" id="cpLt0" value="#c8b6ec" oninput="changeColor('lt0',this.value)"></div>
+    <div class="cp-row"><label for="cpLt">联调·进行中</label><input type="color" id="cpLt" value="#0e9aa7" oninput="changeColor('lt',this.value)"></div>
+    <div class="cp-row"><label for="cpOvr">超期·紫红</label><input type="color" id="cpOvr" value="#bd5eb0" oninput="changeColor('ovr',this.value)"></div>
+    <div class="cp-note">子色（文字/圆点/渐变/边框）由所选主色自动派生，保证任意主色下都清晰可读。点击页面其它处可关闭本面板。</div>
+    <button class="cp-reset" onclick="resetUserColors()">↺ 恢复默认配色</button>
   </div>
 
   <div class="bar" style="margin-top:-6px">
@@ -306,7 +320,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.29"></script>
+<script src="app.js?v=7.30"></script>
 
 </body>
 </html>
