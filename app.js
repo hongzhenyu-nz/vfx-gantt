@@ -8072,16 +8072,63 @@ function applyMemberDrop(dragId,targetId,before){
   flipAnimateRows(beforeMap);
   toast(`已把「${drag.name}」移到「${tgt.name}」${before?'前':'后'}面 · 排序已保存并同步`);
 }
-/* 智能排序：相邻成员相似度（共享需求×3 + 同带队×2 + 同编制×0.5），2-opt 插入法收敛 */
-function _simMembers(a,b,reqCache){
+/* ===== v7.33 可配置智能排序规则 =====
+   把原「单一相似度」拆成可开关/可调权的多维度信号，统一汇入 2-opt 邻接优化。
+   每个维度是成员对的相似度函数 dim(a,b)→score；组合得分 = Σ 启用维度(权重×dim)。
+   权重即优先级：多维度冲突由加权目标全局调和，权重高者主导（非字典序硬切）。
+   维度清单：
+     req  需求相近   = 共享需求数（原始计数，越多越应相邻）
+     mod  模块相近   = 共享模块类型数（两人参与需求的 r.mod 集合交集大小）
+     lead 隶属相近   = 同带队 ? 1 : 0
+     neat 档期整齐度 = 两人活跃档期的时间重叠率(交集/并集∈[0,1])，档期越对齐越应相邻→纵向成块
+     corp 编制聚合   = 同编制 ? 1 : 0
+   默认沿用原配比(req3/lead2/corp0.5)，mod/neat 为新维度默认关闭 → 向后兼容不改变既有行为。
+   配置持久化 localStorage('gantt_sort_rules')，纯本机偏好、不进云端、不影响他人。 */
+const SORT_RULE_DEFS={
+  req :{label:'需求相近',  def:{on:true ,w:3.0}},
+  mod :{label:'模块相近',  def:{on:false,w:2.0}},
+  lead:{label:'隶属相近',  def:{on:true ,w:2.0}},
+  neat:{label:'档期整齐度',def:{on:false,w:1.5}},
+  corp:{label:'编制聚合',  def:{on:true ,w:0.5}},
+};
+let SORT_RULES={};
+try{
+  const _r=JSON.parse(localStorage.getItem('gantt_sort_rules')||'null');
+  for(const k in SORT_RULE_DEFS)SORT_RULES[k]={on:(_r&&_r[k]&&_r[k].on!=null)?!!_r[k].on:SORT_RULE_DEFS[k].def.on, w:(_r&&_r[k]&&typeof _r[k].w==='number')?_r[k].w:SORT_RULE_DEFS[k].def.w};
+}catch(_){for(const k in SORT_RULE_DEFS)SORT_RULES[k]={...SORT_RULE_DEFS[k].def};}
+function saveSortRules(){try{localStorage.setItem('gantt_sort_rules',JSON.stringify(SORT_RULES));}catch(_){}}
+/* 各维度相似度（cache 含 req/mod/span 三个 Map） */
+function _dimReq(a,b,cache){const ra=cache.req.get(a.id),rb=cache.req.get(b.id);let s=0;if(ra&&rb)ra.forEach(x=>{if(rb.has(x))s++;});return s;}
+function _dimMod(a,b,cache){const ma=cache.mod.get(a.id),mb=cache.mod.get(b.id);let s=0;if(ma&&mb)ma.forEach(x=>{if(mb.has(x))s++;});return s;}
+function _dimLead(a,b){const la=leadOf(a)||'',lb=leadOf(b)||'';return (la&&la===lb)?1:0;}
+function _dimCorp(a,b){return a.corp===b.corp?1:0;}
+function _dimNeat(a,b,cache){
+  const ra=cache.span.get(a.id),rb=cache.span.get(b.id);
+  if(!ra||!rb)return 0;
+  const lo=Math.max(ra.min,rb.min),hi=Math.min(ra.max,rb.max);
+  if(hi<=lo)return 0;
+  const span=Math.max(ra.max,rb.max)-Math.min(ra.min,rb.min);
+  return span>0?(hi-lo)/span:0;
+}
+/* 组合相似度：Σ 启用维度(权重×dim) */
+function _combinedSim(a,b,cache){
   let s=0;
-  const ra=reqCache.get(a.id)||new Set(), rb=reqCache.get(b.id)||new Set();
-  let shared=0; ra.forEach(x=>{if(rb.has(x))shared++;});
-  s+=shared*3;                                     // 共享需求 → 甘特条内容相关，相邻成块更整齐
-  const la=leadOf(a)||'', lb=leadOf(b)||'';
-  if(la&&la===lb)s+=2;                             // 同带队聚合
-  if(a.corp===b.corp)s+=0.5;                       // 同编制微聚
+  if(SORT_RULES.req .on)s+=SORT_RULES.req .w*_dimReq (a,b,cache);
+  if(SORT_RULES.mod .on)s+=SORT_RULES.mod .w*_dimMod (a,b,cache);
+  if(SORT_RULES.lead.on)s+=SORT_RULES.lead.w*_dimLead(a,b);
+  if(SORT_RULES.neat.on)s+=SORT_RULES.neat.w*_dimNeat(a,b,cache);
+  if(SORT_RULES.corp.on)s+=SORT_RULES.corp.w*_dimCorp(a,b);
   return s;
+}
+/* 构建一次排序缓存：每成员的需求集合 / 模块集合 / 活跃档期区间(min~max ms) */
+function _sortCache(live){
+  const cache={req:new Map(),mod:new Map(),span:new Map()};
+  live.forEach(m=>{
+    const rset=new Set(),mset=new Set();let mn=Infinity,mx=-Infinity;
+    reqs.forEach(r=>r.segs.forEach(s=>{if(s.m===m.id){rset.add(r.id);mset.add(r.mod||'其他');const t0=s.s.getTime(),t1=s.e.getTime();if(t0<mn)mn=t0;if(t1>mx)mx=t1;}}));
+    cache.req.set(m.id,rset);cache.mod.set(m.id,mset);cache.span.set(m.id,isFinite(mn)?{min:mn,max:mx}:null);
+  });
+  return cache;
 }
 function _twoOptOrder(arr,sim){
   const o=arr.slice();
@@ -8108,13 +8155,8 @@ function smartSortMembers(){
   if(view!=='person'){toast('「智能排序」作用于成员列表，请切换到「按人看」');return;}
   const live=currentPersonOrder();
   if(live.length<3){toast('成员太少，无需智能排序');return;}
-  const reqCache=new Map();
-  live.forEach(m=>{
-    const set=new Set();
-    reqs.forEach(r=>r.segs.forEach(s=>{if(s.m===m.id)set.add(r.id);}));
-    reqCache.set(m.id,set);
-  });
-  const sim=(a,b)=>_simMembers(a,b,reqCache);
+  const cache=_sortCache(live);                       // v7.33 需求/模块/档期 三类缓存
+  const sim=(a,b)=>_combinedSim(a,b,cache);           // v7.33 按用户勾选+权重组合
   const beforeMap=captureRowTops();
   let newLive=[];
   if(GROUP_MODE.person==='none'){
@@ -8131,7 +8173,8 @@ function smartSortMembers(){
   _logDesc='智能排序成员';
   save();broadcast();rerender();
   flipAnimateRows(beforeMap);
-  toast('✨ 已按甘特条布局整齐度优化成员排序 · 结果已保存并同步');
+  const act=Object.keys(SORT_RULES).filter(k=>SORT_RULES[k].on).map(k=>SORT_RULE_DEFS[k].label).join('·')||'无';
+  toast('✨ 已按规则['+act+']优化成员排序 · 结果已保存并同步');
 }
 function resetMemberSort(){
   if(view!=='person'){toast('请切换到「按人看」再操作排序');return;}
@@ -8144,6 +8187,36 @@ function resetMemberSort(){
   flipAnimateRows(beforeMap);
   toast('↺ 已恢复系统默认排序');
 }
+
+/* ===== v7.33 排序规则配置面板（勾选维度 + 调权重，实时持久化） ===== */
+function toggleSortRulePop(){const p=document.getElementById('sortRulePop');if(!p)return;const open=!p.classList.contains('show');if(open)renderSortRulePop();p.classList.toggle('show');}
+function renderSortRulePop(){
+  const box=document.getElementById('srList');if(!box)return;
+  box.innerHTML='';
+  for(const k in SORT_RULE_DEFS){
+    const d=SORT_RULE_DEFS[k],r=SORT_RULES[k];
+    const row=document.createElement('div');row.className='sr-row';
+    row.innerHTML=`<label class="sr-chk"><input type="checkbox" ${r.on?'checked':''} onchange="changeSortRule('${k}','on',this.checked,this)"><span>${d.label}</span></label>`
+      +`<input type="range" class="sr-w" min="0" max="5" step="0.5" value="${r.w}" ${r.on?'':'disabled'} oninput="changeSortRule('${k}','w',this.value)">`
+      +`<span class="sr-val" id="srVal_${k}">${r.w}</span>`;
+    box.appendChild(row);
+  }
+}
+function changeSortRule(k,field,val,el){
+  if(field==='on'){
+    SORT_RULES[k].on=!!val;
+    const row=el&&el.closest('.sr-row');const rng=row&&row.querySelector('.sr-w');
+    if(rng)rng.disabled=!val;
+  }else{
+    SORT_RULES[k].w=parseFloat(val)||0;
+    const v=document.getElementById('srVal_'+k);if(v)v.textContent=SORT_RULES[k].w;
+  }
+  saveSortRules();
+}
+function resetSortRules(){for(const k in SORT_RULE_DEFS)SORT_RULES[k]={...SORT_RULE_DEFS[k].def};saveSortRules();renderSortRulePop();toast('⚖️ 已恢复默认排序规则');}
+function applySortRules(){smartSortMembers();}
+/* 点击面板外区域关闭排序规则面板（按钮 #sortRuleBtn 不触发关闭） */
+document.addEventListener('click',function(e){const p=document.getElementById('sortRulePop');if(!p||!p.classList.contains('show'))return;if(!p.contains(e.target)&&!e.target.closest('#sortRuleBtn'))p.classList.remove('show');},true);
 
 buildMeSel();
 initVivid();

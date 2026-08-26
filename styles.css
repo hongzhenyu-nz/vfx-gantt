@@ -1671,3 +1671,23 @@
 /* 点击取色模式（降级路径）：十字光标 + 顶部提示条 */
 body.cp-picking{cursor:crosshair!important;}
 #cpPickHint{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:999;background:#3146a8;color:#fff;font-size:13px;font-weight:700;padding:9px 18px;border-radius:0 0 10px 10px;box-shadow:0 6px 20px rgba(20,30,60,.25);pointer-events:none;}
+
+/* ===== v7.33 排序规则配置弹层 ===== */
+#sortRulePop{position:fixed;top:58px;right:14px;z-index:80;display:none;width:284px;
+  background:var(--panel);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 12px 34px rgba(0,0,0,.20);padding:13px 15px;font-family:inherit;}
+#sortRulePop.show{display:block;}
+#sortRulePop h4{margin:0 0 4px;font-size:13px;font-weight:800;color:var(--tx);}
+#sortRulePop .sr-sub{margin:0 0 10px;font-size:10.5px;color:var(--tx2);line-height:1.45;}
+#sortRulePop .sr-row{display:flex;align-items:center;gap:8px;margin:9px 0;font-size:12px;color:var(--tx);}
+#sortRulePop .sr-chk{display:flex;align-items:center;gap:5px;width:96px;flex-shrink:0;cursor:pointer;}
+#sortRulePop .sr-chk span{white-space:nowrap;}
+#sortRulePop .sr-w{flex:1;min-width:0;accent-color:#3146a8;cursor:pointer;height:18px;}
+#sortRulePop .sr-w:disabled{opacity:.35;cursor:not-allowed;}
+#sortRulePop .sr-val{width:26px;flex-shrink:0;text-align:right;font-weight:700;color:#3146a8;font-variant-numeric:tabular-nums;}
+#sortRulePop .sr-note{margin:11px 0 8px;padding-top:9px;border-top:1px dashed var(--line);font-size:10.5px;color:var(--tx3);line-height:1.5;}
+#sortRulePop .sr-btns{display:flex;gap:8px;}
+#sortRulePop .sr-apply{flex:1;border:1px solid var(--line);background:#eef3ff;border-radius:7px;font-size:12px;font-weight:700;color:#3146a8;cursor:pointer;padding:7px 0;transition:background .12s;}
+#sortRulePop .sr-apply:hover{background:#dde6ff;}
+#sortRulePop .sr-reset{flex:0 0 auto;border:1px solid var(--line);background:#fbfcfe;border-radius:7px;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer;padding:7px 12px;transition:background .12s;}
+#sortRulePop .sr-reset:hover{background:#fdeef0;border-color:#f3b6bf;}

@@ -12,7 +12,7 @@
      cache-control:max-age=600 独立缓存，会出现「index.html 已更新、styles.css/app.js 仍是旧缓存」
      的版本错配 → 视图崩坏（左栏空白/任务条不渲染）。版本号一变 URL 即变，强制重新拉取。
      ⚠️ 改动 styles.css 或 app.js 后，必须同步递增此处 ?v= 版本号。 -->
-<link rel="stylesheet" href="styles.css?v=7.32">
+<link rel="stylesheet" href="styles.css?v=7.33">
 
 </head>
 <body>
@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.32 · build 2026-08-26 14:41</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.33 · build 2026-08-26 15:05</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -144,6 +144,7 @@
       <span class="org-lab">⇅ 排序</span>
       <button class="org-btn" onclick="smartSortMembers()" title="按「共享需求相邻、同带队相邻、档期相近相邻」自动优化成员顺序，让相关甘特条聚成整齐的块；带过渡动画">✨ 智能排序</button>
       <button class="org-btn" onclick="resetMemberSort()" title="清除手动/智能排序结果，恢复「状态→编制→隶属→品级→支援→拼音」系统默认排序">↺ 默认</button>
+      <button class="org-btn" id="sortRuleBtn" onclick="toggleSortRulePop()" title="自定义智能排序的维度与权重：需求相近/模块相近/隶属相近/档期整齐度/编制聚合，可勾选组合并调权，冲突按权重折中">⚖️ 排序规则</button>
     </span>
     <span class="org-group" id="colorCtl" title="🎨 自定义配色：本机自助改 联调(待启动/进行中) 与 超期 的颜色，实时预览并自动保存，不影响其他成员与任何数据">
       <button class="org-btn" onclick="toggleColorPop()" title="打开配色色盘，自行选择联调/超期条的颜色">🎨 配色</button>
@@ -180,6 +181,18 @@
       <button class="cp-gen" type="button" onclick="generatePreset()">🎲 生成和谐配色</button>
     </div>
     <button class="cp-reset" type="button" onclick="resetUserColors()">↺ 恢复默认配色</button>
+  </div>
+
+  <!-- v7.33 排序规则配置弹层：自定义智能排序维度与权重，fixed 定位避免被 .board 裁切 -->
+  <div id="sortRulePop">
+    <h4>⚖️ 智能排序规则</h4>
+    <p class="sr-sub">勾选参与排序的<b>维度</b>并拖动<b>权重</b>（权重 = 优先级，多维度冲突按权重折中）。仅本机偏好，不影响他人与任何数据。</p>
+    <div id="srList"></div>
+    <div class="sr-note">组合得分 = Σ 启用维度 × 权重，由 2-opt 算法优化相邻关系，让相关甘特条聚成整齐的块；分组视图内按组分别优化。</div>
+    <div class="sr-btns">
+      <button class="sr-apply" type="button" onclick="applySortRules()">✨ 应用并排序</button>
+      <button class="sr-reset" type="button" onclick="resetSortRules()">↺ 恢复默认</button>
+    </div>
   </div>
 
   <div class="bar" style="margin-top:-6px">
@@ -325,7 +338,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.32"></script>
+<script src="app.js?v=7.33"></script>
 
 </body>
 </html>
