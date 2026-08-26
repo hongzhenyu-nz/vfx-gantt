@@ -240,14 +240,17 @@
   .row:last-child{box-shadow:none;}
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:7;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;}   /* v7.14 z-index 5→7：必须高于 .grp-header(3) 才能修复分组标题盖住表头的穿透，也高于 .load-heatmap(6) 保证双层冻结顺序；仍低于 today-layer(8)，红线贯穿语义不变 */
   /* 里程碑汇总行（v7.43 方案 C）：按人视图置顶，位于表头与内容行之间 */
-  .row.ms-summary-row{min-height:34px;height:34px;background:#fdfcf5;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #d4c9a8;z-index:6;}
+  /* v7.46：底色走 --ms-bg（🎨 配色面板「关键节点行底色」可改，本机 localStorage 持久化），缺省回落 #fdfcf5 */
+  .row.ms-summary-row{min-height:34px;height:34px;background:var(--ms-bg,#fdfcf5);box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #d4c9a8;z-index:6;}
   .row.ms-summary-row .cell-left{display:flex;align-items:center;background:#f7f3e3;border-right:1px solid #d4c9a8;}
   .ms-summary-label{font-size:12px;font-weight:800;color:#8a6d2f;white-space:nowrap;padding-left:8px;}
   .row.ms-summary-row .timeline{position:relative;}
+  /* v7.46：节点底色改实白（原 rgba(255,255,255,.75) 半透明会透出周末底纹/虚线，显脏）；
+     hover 用不透明暖底 #fff8e1（与汇总行同族），不再叠半透明。二者均 100% 不透明。 */
   .ms-node{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:4px;padding:1px 6px 1px 2px;
-    background:rgba(255,255,255,.75);border:1px solid rgba(0,0,0,.08);border-radius:10px;pointer-events:auto;cursor:pointer;
-    box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .12s,box-shadow .12s;}
-  .ms-node:hover{transform:translateY(-50%) scale(1.04);box-shadow:0 2px 5px rgba(0,0,0,.15);z-index:10;}
+    background:#ffffff;border:1px solid rgba(0,0,0,.08);border-radius:10px;pointer-events:auto;cursor:grab;
+    box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .12s,box-shadow .12s,background .12s;}
+  .ms-node:hover{transform:translateY(-50%) scale(1.04);background:#fff8e1;border-color:#e8d9a8;box-shadow:0 2px 5px rgba(0,0,0,.15);z-index:10;}
   .ms-diamond{width:9px;height:9px;transform:rotate(45deg);border-radius:1px;flex-shrink:0;}
   .ms-text{font-size:10px;font-weight:800;white-space:nowrap;}
   /* 负载热力图（拥堵线路图风格）——紧跟表头下方，按周粒度着色
@@ -645,7 +648,12 @@
     box-shadow:0 1px 3px rgba(0,0,0,.45);}
   .bar-task.req-bar .ms-mark.phase .ms-pline{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% - 11px);opacity:.55;}
   .bar-task.req-bar .ms-mark.phase.dragging .ms-pdot{box-shadow:0 0 0 3px rgba(255,210,63,.55),0 2px 6px rgba(0,0,0,.4);}
-  .bar-task.req-bar .ms-mark.ms-custom{cursor:pointer;}
+  .bar-task.req-bar .ms-mark.ms-custom{cursor:grab;}   /* v7.46：条内圆点也可拖改期 */
+  /* v7.46：拖拽态 —— 汇总行菱形提 z-index 到 12（拖拽期允许盖住红线层 8）；条内圆点提 9 压过同条其它节点 */
+  .ms-node.dragging{cursor:grabbing;z-index:12;background:#fff8e1;border-color:#ffb020;
+    box-shadow:0 0 0 2px #ffb020,0 4px 10px rgba(0,0,0,.3);}
+  .bar-task.req-bar .ms-mark.ms-custom.dragging{z-index:9;}
+  .bar-task.req-bar .ms-mark.ms-custom.dragging .ms-dot{box-shadow:0 0 0 3px rgba(255,210,63,.55),0 2px 6px rgba(0,0,0,.4);}
   /* 需求条联动高亮（hover/选中）：醒目描边环 + 脉冲动画。用 outline+filter，不覆盖 box-shadow（保住品级色条/进度/水洗蒙版） */
   .bar-task.req-bar.req-glow{z-index:8;outline:3px solid #ffb020;outline-offset:1.5px;animation:reqGlowPulse 1.1s ease-in-out infinite;}
   @keyframes reqGlowPulse{0%,100%{outline-color:#ffb020;outline-offset:1.5px;filter:drop-shadow(0 0 2px rgba(255,176,32,.45));}

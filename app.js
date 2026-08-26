@@ -280,7 +280,9 @@ function toggleGroup(key){
 function groupHeaderHTML(g,count,isArchived,tip){
   const col=collapsed[g.key]?' collapsed':'';
   const arc=isArchived?' archived':'';
-  return `<div class="grp-header${col}${arc}" onclick="toggleGroup('${g.key.replace(/'/g,"\\'")}')" title="点击折叠/展开该分组">
+  /* v7.46：补 data-grp —— 分组 key 原先只存在于 onclick 字符串里，DOM 层无法识别分组边界。
+     关键节点竖向虚线需要「止于该需求所属组的最后一行」，必须能在 DOM 里定位 .grp-header 才能求组尾。 */
+  return `<div class="grp-header${col}${arc}" data-grp="${escAttr(g.key)}" onclick="toggleGroup('${g.key.replace(/'/g,"\\'")}')" title="点击折叠/展开该分组">
     <div class="gh-left">
       <span class="gh-caret">▼</span>
       ${g.color?`<span class="gh-dot" style="background:${g.color}"></span>`:''}
@@ -2119,7 +2121,7 @@ function allMilestones(){
    ctx='bar'：需求条内标记（顶部圆点+竖线+文字）。
    left 传入像素偏移（summary）或百分比字符串（bar，需带 %）。 */
 function milestoneNodeHTML(ms, ctx, left){
-  const tip=`${escAttr(ms.label)}\n${fmt(ms.date)} · ${ms.reqName||'全局节点'}\n右键编辑 / 拖拽改期`;
+  const tip=`${escAttr(ms.label)}\n${fmt(ms.date)} · ${ms.reqName||'全局节点'}\n拖拽改期 / 右键编辑`;
   const color=ms.color||'#ffd23f';
   // data-req 用于「hover/选中需求条 → 联动高亮其节点与虚线」；data-msidx 定位到 req.milestones 下标供编辑/删除
   const link=`data-req="${ms.reqId||''}" data-msidx="${ms.msIdx!=null?ms.msIdx:''}"`;
@@ -2206,7 +2208,12 @@ function msLinkLayerHTML(){
   }).join('');
   return `<div class="ms-link-layer" id="msLinkLayer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:7">${links}</div>`;
 }
-/* paint 后/滚动/缩放时同步虚线：top=汇总行底，height=需求行中线-汇总行底；并按 scrollLeft 裁掉漏进冻结左栏的部分。 */
+/* paint 后/滚动/缩放时同步虚线：top=汇总行底，height=需求行中线-汇总行底；并按 scrollLeft 裁掉漏进冻结左栏的部分。
+   v7.46：终点语义由「该需求行中线」升级为「该需求所属分组的最后一行底边」——
+     按需求视图按模块/角色分组时，一个组往往含多条需求，虚线应覆盖整组以表达"这个节点牵动这一组"，
+     但绝不能越界画进下一个分组（那会误导成"与下一组也有关"）。
+   实现：从目标行向前找最近的 .grp-header 确认有组（无组=GROUP_MODE.req==='none'，回落中线）；
+        有组则向后遍历到下一个 .grp-header 之前，取最后一个 .req-row 的底边作为终点。 */
 function syncMsLinks(){
   const layer=document.getElementById('msLinkLayer'); if(!layer) return;
   const sc=document.getElementById('scroll');
@@ -2217,16 +2224,30 @@ function syncMsLinks(){
     const reqId=link.dataset.req;
     const row=reqId?document.querySelector(`.req-row[data-req-row="${reqId}"]`):null;
     link.style.top=base+'px';
-    if(row){
-      const y=row.offsetTop + row.offsetHeight/2;
-      link.classList.remove('free');
-      link.style.bottom='auto';
-      link.style.height=Math.max(0,y-base)+'px';
-    }else{
-      link.classList.add('free');   // 无目标需求行：全高淡显
+    if(!row){
+      link.classList.add('free');   // 无目标需求行（按人视图 / 所属组被折叠）：全高淡显
       link.style.height='';
       link.style.bottom='0';
+      return;
     }
+    // —— 向前找组头：确认该行处于某个分组内 ——
+    let hdr=null, prev=row.previousElementSibling;
+    while(prev){ if(prev.classList.contains('grp-header')){hdr=prev;break;} prev=prev.previousElementSibling; }
+    let bottom;
+    if(hdr){
+      // 向后遍历到下一个组头之前，最后一个 .req-row 的底边 = 组末
+      let last=row, next=row.nextElementSibling, guard=0;
+      while(next && !next.classList.contains('grp-header') && guard++<5000){
+        if(next.classList.contains('req-row')) last=next;
+        next=next.nextElementSibling;
+      }
+      bottom=last.offsetTop + last.offsetHeight;
+    }else{
+      bottom=row.offsetTop + row.offsetHeight/2;   // 无组头（不分组视图）：回落「指向该行中线」
+    }
+    link.classList.remove('free');
+    link.style.bottom='auto';
+    link.style.height=Math.max(0,bottom-base)+'px';
   });
 }
 
@@ -2297,7 +2318,7 @@ function openEditMilestone(reqId, msIdx){
     </div>
     <div class="fld"><label>颜色</label><div class="ms-swrow">${msColorSwatches(cur)}</div><input type="hidden" id="msColor" value="${cur}"></div>
     <div class="warn" id="msWarn"></div>
-    <div style="margin-top:10px"><button class="am-cancel" style="color:#ef3b39;border-color:#f3c1c0" onclick="deleteMilestone()">🗑 删除该节点</button></div>`;
+    <div style="margin-top:10px"><button class="am-cancel" id="msDelBtn" style="color:#ef3b39;border-color:#f3c1c0" onclick="deleteMilestone()">🗑 删除该节点</button></div>`;
   renderAddModal('🚩','编辑关键节点',body,true);
   const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmEditMilestone()');
 }
@@ -2312,10 +2333,23 @@ function confirmEditMilestone(){
   save();broadcast();closeAdd();rerender();
   toast('关键节点已更新：'+f.label);
 }
+/* v7.46：删除改两段式确认 —— 首次点击把按钮切成「确认删除」态（4 秒无操作自动复位），
+   再次点击才真删。用同弹层内的按钮态翻转实现，不引 window.confirm（会被浏览器拦截且样式割裂）。 */
 function deleteMilestone(){
   if(!requireWrite()||!msCtx)return;
   const r=reqs.find(x=>x.id===msCtx.reqId); if(!r){closeAdd();return;}
-  const label=(r.milestones||[])[msCtx.msIdx]?.label||'';
+  const ms=(r.milestones||[])[msCtx.msIdx]; if(!ms){closeAdd();return;}
+  const label=ms.label||'';
+  const btn=document.getElementById('msDelBtn');
+  if(btn && btn.dataset.armed!=='1'){
+    btn.dataset.armed='1'; btn.textContent='⚠️ 再点一次确认删除'; btn.style.background='#fdecec';
+    setTimeout(()=>{
+      if(btn.isConnected && btn.dataset.armed==='1'){
+        btn.dataset.armed=''; btn.textContent='🗑 删除该节点'; btn.style.background='';
+      }
+    },4000);
+    return;
+  }
   pushHistory();
   (r.milestones||[]).splice(msCtx.msIdx,1);
   _logDesc='删除关键节点：'+label;
@@ -3930,6 +3964,7 @@ const grid=document.getElementById('grid');
 const dlabel=document.getElementById('dlabel');
 let drag=null;
 let phdrag=null;   // L1/L2 分割线拖拽态
+let msdrag=null;   // v7.46 关键节点拖拽改期态（汇总行菱形 .ms-node / 需求条内圆点 .ms-mark.ms-custom）
 
 /* v5.90fix: 捕获阶段拦截 #grid 内任意左键 pointerdown 并 preventDefault，从源头掐断浏览器原生「拖拽选区/拖放」反馈
    （该反馈即用户看到的拖条时大块纯色高亮；它不属于页面 DOM、Selection API 也常采样不到，纯 CSS 禁选仍可能在
@@ -3941,7 +3976,32 @@ document.addEventListener('pointerdown',e=>{
 grid.addEventListener('pointerdown',e=>{
   if(e.button!==0)return;            // 仅左键可拖任务条/分割线；中键留给视图平移、右键留给浏览器菜单
   // 只读模式：任何任务条/分割线的拖拽与点击改状态都不允许（仅当点到可交互条时拦截并提示）
-  if((e.target.closest('.bar-task')||e.target.closest('.ph-div')) && !requireWrite()){ e.preventDefault(); return; }
+  // v7.46：补 .ms-node —— 汇总行菱形不在 .bar-task 内，原先漏判会在只读模式下仍可拖动关键节点
+  if((e.target.closest('.bar-task')||e.target.closest('.ph-div')||e.target.closest('.ms-node')) && !requireWrite()){ e.preventDefault(); return; }
+  /* —— v7.46：关键节点拖拽改期（必须排在 .bar-task 分支之前）——
+     .ms-mark.ms-custom 是嵌在需求条内的圆点，若先走 .bar-task 分支会被"整条改期"吞掉；
+     .ms-node 是汇总行菱形，本身不在条内。二者统一在此拦截。
+     坐标系双轨：汇总行用像素（left = 天索引 × DAY_W），条内用百分比（相对条宽），
+     故 inBar 与否各算各的，不可混用。 */
+  const msel=e.target.closest('.ms-node,.ms-mark.ms-custom');
+  if(msel && !msel.classList.contains('phase')){   // 阶段菱形归 .ms-mark.phase，仍走下方 phdrag 分支
+    if(!requireWrite()){ e.preventDefault(); return; }
+    const r=reqs.find(x=>x.id===msel.dataset.req); if(!r)return;
+    const mi=+msel.dataset.msidx, ms=(r.milestones||[])[mi]; if(!ms)return;
+    const inBar=msel.classList.contains('ms-mark');
+    const bar=inBar?msel.closest('.bar-task'):null;
+    /* 虚线 DOM 顺序 == allMilestones() 顺序（同一函数、同样按 date 排序），
+       故按下时按全局下标缓存 link 元素即可，move 里不必再重排查询。 */
+    const gi=allMilestones().findIndex(m=>m.reqId===r.id&&m.msIdx===mi);
+    const lk=gi>=0?document.querySelectorAll('#msLinkLayer .ms-link')[gi]:null;
+    msdrag={el:msel,r,mi,inBar,bar,reqId:r.id,startX:e.clientX,startIdx:idx(ms.date),
+            barS:inBar?parseFloat(bar.style.left)/DAY_W:0,     // 条起点（天），供百分比换算
+            span:inBar?parseFloat(bar.style.width)/DAY_W:0,    // 条宽度（天）
+            linkEl:lk, cur:null, moved:false};
+    msel.classList.add('dragging');hideTip();hideMenu();
+    e.preventDefault();e.stopPropagation();
+    return;
+  }
   // —— 优先处理「阶段分割线」：独立拖拽，不触发整条改期/改派 ——
   //    phdiv=1 → L1/L2 分割（设 L1 完成时间，写 r.split）
   //    phdiv=2 → L2/联调 分割（设联调开始时间，写 r.split2）
@@ -3972,6 +4032,25 @@ grid.addEventListener('pointerdown',e=>{
   e.preventDefault();
 });
 window.addEventListener('pointermove',e=>{
+  // v7.46：关键节点拖拽 —— 实时改位 + 虚线跟随 + 日期标签
+  if(msdrag){
+    const d=Math.round((e.clientX-msdrag.startX)/DAY_W);
+    const ni=Math.max(0,Math.min(DAYS-1,msdrag.startIdx+d));   // 夹在时间轴范围内
+    if(d!==0) msdrag.moved=true;
+    msdrag.cur=ni;
+    if(msdrag.inBar){
+      // 条内：百分比定位。夹 [2,98] 与 reqMilestonesHTML 一致，防 .bar-task 的 overflow:hidden 裁掉半颗粒子
+      const pct=Math.max(2,Math.min(98,(ni-msdrag.barS)/msdrag.span*100));
+      msdrag.el.style.left=pct.toFixed(2)+'%';
+    }else{
+      msdrag.el.style.left=(ni*DAY_W)+'px';   // 汇总行：像素定位
+    }
+    if(msdrag.linkEl) msdrag.linkEl.style.left=(ni*DAY_W)+'px';   // 竖向虚线实时跟随
+    const lab=(msdrag.r.milestones[msdrag.mi]||{}).label||'';
+    dlabel.textContent=`🚩 ${lab} → ${fmt(i2d(ni))}`;
+    dlabel.style.opacity=1;dlabel.style.left=(e.clientX+14)+'px';dlabel.style.top=(e.clientY-32)+'px';
+    return;
+  }
   // 分割线拖拽：实时移动 + 标签提示
   if(phdrag){
     const {ph,bar,which}=phdrag;
@@ -4047,10 +4126,27 @@ window.addEventListener('pointercancel',()=>{
   // 指针意外中断（离开窗口/触控中断等）：清理所有拖拽状态，防止 drop-guide 残留
   if(drag){drag=null;}
   if(phdrag){phdrag=null;}
+  if(msdrag){msdrag=null;}   // v7.46：关键节点拖拽态一并清理
   hideDragLabel();
   document.querySelectorAll('.dragging,.dup-src,.row-target').forEach(el=>el.classList.remove('dragging','dup-src','row-target'));
 });
 window.addEventListener('pointerup',()=>{
+  // v7.46：关键节点拖拽收尾 —— 写回 r.milestones[mi].date
+  if(msdrag){
+    const {el,r,mi,cur,moved}=msdrag;
+    el.classList.remove('dragging');
+    hideDragLabel();
+    msdrag=null;
+    if(moved && cur!=null){
+      pushHistory();
+      const lab=(r.milestones[mi]||{}).label||'';
+      r.milestones[mi].date=i2d(cur);
+      _logDesc='拖拽关键节点改期：'+lab;
+      save();broadcast();rerender();
+      toast('关键节点已改期 → '+fmt(i2d(cur)));
+    }else{ rerender(); }   // 未移动：重渲染复位（顺带清掉可能的残留状态）
+    return;
+  }
   // 分割线拖拽收尾：写回 r.split（L1 完成时间）或 r.split2（联调开始时间）
   if(phdrag){
     const {div,r,cur,moved,which}=phdrag;
@@ -8425,6 +8521,24 @@ function changeLblShow(k,on){
   requestAnimationFrame(fitBarLabels);   // 标签占位变化→重测条内降级布局
 }
 
+/* ===== v7.46 「🚩 关键节点」汇总行底色（本机偏好，key=gantt_ms_bg）=====
+   为什么独立建 key 而不是塞进 USER_COLORS：
+     USER_COLORS 与 applyPreset(一键预设) / 撤销重做 共用同一个 {lt0,lt,ovr} 对象，
+     那些路径是整对象替换，新增字段会被静默抹掉。故沿用 LBL_SHOW 式独立 key，互不干扰。
+   作用域：仅本机浏览器可见，不进云端快照、不影响他人视图（与配色面板其它项一致）。 */
+let MS_BG='#fdfcf5';
+try{const _b=localStorage.getItem('gantt_ms_bg'); if(_b&&/^#[0-9a-f]{6}$/i.test(_b))MS_BG=_b;}catch(_){}
+function applyMsBg(){
+  document.documentElement.style.setProperty('--ms-bg',MS_BG);
+  const el=document.getElementById('cpMsBg'); if(el)el.value=MS_BG;
+}
+function changeMsBg(v){
+  if(!/^#[0-9a-f]{6}$/i.test(v))return;
+  MS_BG=v;
+  try{localStorage.setItem('gantt_ms_bg',v);}catch(_){}
+  applyMsBg();
+}
+
 /* ===== v7.30 配色色盘：本机自助改 联调(待启动/进行中) 与 超期 颜色 =====
    纯本地 localStorage 偏好（gantt_user_colors）：不进云端快照、不改任何数据、不影响他人视图；
    色值以 CSS 变量(--c-lt0/--c-lt/--c-ovr…) 注入 documentElement，CSS 用 var() 取色；
@@ -8479,7 +8593,9 @@ function _elemColorHex(el){
 async function startEyeDrop(key){
   if(typeof window.EyeDropper!=='undefined'){
     COLOR_PICKING=true;
-    try{const ed=new EyeDropper();const res=await ed.open();const hex=(res&&res.sRGBHex)||'';if(/^#[0-9a-fA-F]{6}$/.test(hex))changeColor(key,hex);}
+    // v7.46：分发到对应 setter —— 'msbg' 走 changeMsBg，其余仍走 changeColor
+    const setter=(key==='msbg')?changeMsBg:changeColor;
+    try{const ed=new EyeDropper();const res=await ed.open();const hex=(res&&res.sRGBHex)||'';if(/^#[0-9a-fA-F]{6}$/.test(hex))setter(key,hex);}
     catch(_){/* 用户取消或未授权，静默 */}
     COLOR_PICKING=false;return;
   }
@@ -8487,6 +8603,7 @@ async function startEyeDrop(key){
 }
 function startClickPick(key){
   COLOR_PICKING=true;
+  const setter=(key==='msbg')?changeMsBg:changeColor;   // v7.46：同上分发
   document.body.classList.add('cp-picking');
   const hint=document.createElement('div');hint.id='cpPickHint';hint.textContent='🎯 点击页面任意处吸取颜色（Esc 取消）';document.body.appendChild(hint);
   function cleanup(){COLOR_PICKING=false;document.body.classList.remove('cp-picking');if(hint.parentNode)hint.parentNode.removeChild(hint);document.removeEventListener('mousedown',onPick,true);document.removeEventListener('keydown',onKey,true);}
@@ -8495,7 +8612,7 @@ function startClickPick(key){
     e.preventDefault();e.stopPropagation();   // 阻断面板误关
     const el=document.elementFromPoint(e.clientX,e.clientY);
     const hex=_elemColorHex(el);
-    if(hex)changeColor(key,hex);else toast('未能读取该处颜色');
+    if(hex)setter(key,hex);else toast('未能读取该处颜色');
     cleanup();
   }
   document.addEventListener('mousedown',onPick,true);
@@ -8878,6 +8995,7 @@ initVivid();
 initZoom();
 initLeftW();
 applyLblShow();
+applyMsBg();         // v7.46 应用本机「关键节点汇总行」底色（无则走 CSS 兜底 #fdfcf5）
 applyUserColors();   // v7.30 应用本机自定义配色（无则保持 :root 默认）
 _pushColorHistory();   // v7.35 初始化撤销/重做栈
 renderPresetList();   // v7.32 渲染一键预设色板
