@@ -481,9 +481,9 @@
     background:rgba(255,255,255,.92);box-shadow:1px 0 0 rgba(0,0,0,.06);}
   .bar-task .prog[style*="--p:100"]::after{display:none;}                 /* 100% 已完成：纯满色，无分界线 */
   .bar-task .prog[style*="--p:0"]::after{display:none;}                   /* 0% 起步：整条浅色空槽、不画起点竖线 */
-  .bar-task.open .prog::after{display:none;}                              /* 无限延长（时间待定/长期持续）：无明确起止，不画进度分界竖线 */
+  .bar-task.open .prog::after,.bar-task.open-both .prog::after,.bar-task.open-front .prog::after,.bar-task.open-back .prog::after{display:none;} /* 无限延长：无明确起止，不画进度分界竖线 */
   /* 无限延长条：去掉基于 --p 的「已完成/未完成」深浅分区覆盖层，整条统一底色，只保留天格线 */
-  .bar-task.open .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px));}
+  .bar-task.open .prog,.bar-task.open-both .prog,.bar-task.open-front .prog,.bar-task.open-back .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px));}
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
   /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上） */
@@ -518,18 +518,31 @@
   .bar-task.b-lt0:not(.vacant-bar) .sdot{background:var(--c-lt0-sdot);}
   .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(61,47,79,.07) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),color-mix(in srgb, var(--c-lt0-tx) 15%, transparent) calc(var(--p,0)*1%) 100%);}
   .b-done{background:#4ecba0;}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分 */
-  /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
-     用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
-  .bar-task.open{
+  /* ===== 时间长度类型：前端无限 / 后端无限 / 两端无限 =====
+     用 mask 让相应端淡出，叠加斜纹质感与 « » 箭头提示延伸方向。
+     不显示拖拽抓手（无精确边界可拖）。.open 保留作为 .open-both 的兼容别名。 */
+  .bar-task.open,.bar-task.open-both,.bar-task.open-front,.bar-task.open-back{
     background-color:transparent;
     background-image:repeating-linear-gradient(45deg,rgba(180,160,140,.10) 0 8px,transparent 8px 16px);
-    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
-            mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
     border-left:none!important;opacity:1;box-shadow:none!important;}
-  .bar-task.open .grip{display:none;}
-  .bar-task.open::before{content:'«';position:absolute;left:5px;top:50%;transform:translateY(-50%);z-index:2;
+  .bar-task.open .grip,.bar-task.open-both .grip,.bar-task.open-front .grip,.bar-task.open-back .grip{display:none;}
+  /* 两端无限：左右均羽化 */
+  .bar-task.open,.bar-task.open-both{
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);
+            mask-image:linear-gradient(90deg,transparent 0,#000 5%,#000 95%,transparent 100%);}
+  /* 前端无限：仅左侧羽化 */
+  .bar-task.open-front{
+    -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 100%);
+            mask-image:linear-gradient(90deg,transparent 0,#000 8%,#000 100%);}
+  /* 后端无限：仅右侧羽化 */
+  .bar-task.open-back{
+    -webkit-mask-image:linear-gradient(90deg,#000 0,#000 92%,transparent 100%);
+            mask-image:linear-gradient(90deg,#000 0,#000 92%,transparent 100%);}
+  /* 左箭头 «：前端无限或两端无限时显示 */
+  .bar-task.open::before,.bar-task.open-both::before,.bar-task.open-front::before{content:'«';position:absolute;left:5px;top:50%;transform:translateY(-50%);z-index:2;
     font-size:13px;font-weight:900;color:rgba(255,255,255,.8);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.35);}
-  .bar-task.open .open-r{position:absolute;right:5px;top:50%;transform:translateY(-50%);z-index:2;
+  /* 右箭头 »：后端无限或两端无限时显示（由 HTML 条件渲染 .open-r 元素） */
+  .bar-task.open .open-r,.bar-task.open-both .open-r,.bar-task.open-back .open-r{position:absolute;right:5px;top:50%;transform:translateY(-50%);z-index:2;
     font-size:13px;font-weight:900;color:rgba(255,255,255,.8);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.35);}
   .grip{position:absolute;top:0;bottom:0;width:9px;cursor:ew-resize;z-index:3;}
   .grip.gl{left:0;border-radius:6px 0 0 6px;}

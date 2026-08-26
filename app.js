@@ -753,9 +753,17 @@ function isVacantMem(m){ return m && /暂缺/.test(m.name||''); }
 
    memCountsAsStaff(m)：该成员是否计入「在岗人力编制」——离职日已到 / 暂缺占位 均不计。
      注意与「是否出现在名单里」区分：离职者仍要在名单里显示(带已离标注)，只是不占编制数。 */
+/* seg.open 类型规范化：从 boolean 升级为 string（'front'/'back'/'both'/null）。
+   兼容旧数据：true → 'both'；false/undefined → null。 */
+function segOpenType(s){
+  if(!s || !s.open) return null;
+  const t = String(s.open);
+  if(t==='front' || t==='back' || t==='both') return t;
+  return 'both';                       // 旧 true 或任何其它 truthy 值
+}
 function segHasDuration(s){
   if(!s) return false;
-  if(s.open) return true;              // 无明确时间段：铺满整行，视为有效占位
+  if(segOpenType(s)) return true;      // 无明确时间段：铺满整行，视为有效占位
   return idx(s.e) - idx(s.s) > 0;      // 普通段：须有正时长
 }
 function memCountsAsStaff(m){
@@ -1866,7 +1874,10 @@ function loadHeatmapHTML(){
       (r.segs||[]).forEach(s => {
         if(s.m !== m.id) return;
         let si = idx(s.s), ei = idx(s.e);
-        if(s.open){ si=0; ei=DAYS; }
+        const _ot=segOpenType(s);
+        if(_ot==='front') si=0;
+        else if(_ot==='back') ei=DAYS;
+        else if(_ot==='both'){ si=0; ei=DAYS; }
         else if(ei <= si) return;
         si = Math.max(0, si); ei = Math.min(ei, DAYS);
         for(let d=si; d<ei; d++){
@@ -2154,7 +2165,10 @@ function vacantRowHTML(m,inArc){
       if(!segHasDuration(s)) return;                     // v6.64 统一时长判定
       if(HIDE_DONE[view] && reqIsCompleted(r)) return;   // 纯观看过滤（不影响下方空隙计算）
       let si0=idx(s.s),ei0=idx(s.e);
-      if(s.open){ si0=0; ei0=DAYS; }
+      const _ot=segOpenType(s);
+      if(_ot==='front') si0=0;
+      else if(_ot==='back') ei0=DAYS;
+      else if(_ot==='both'){ si0=0; ei0=DAYS; }
       items.push({r,sg:s,si,si0,ei0});
     }));
     const laid=assignLanes(items.map(it=>({...it,s:it.si0,e:it.ei0})));
@@ -2178,8 +2192,11 @@ function vacantRowHTML(m,inArc){
     let bars='';
     laid.items.forEach(it=>{
       const {r,sg,si}=it;
-      const isOpen=!!sg.open;
-      const x=isOpen?0:it.si0*DAY_W, w=isOpen?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
+      const openType=segOpenType(sg);
+      let x=it.si0*DAY_W, w=(it.ei0-it.si0)*DAY_W;
+      if(openType==='front'){ x=0; w=it.ei0*DAY_W; }
+      else if(openType==='back'){ w=(DAYS-it.si0)*DAY_W; }
+      else if(openType==='both'){ x=0; w=DAYS*DAY_W; }
       // 与真人行同源的纵向定位：本条所在重叠簇内等高等分，条间恒定 GAP_PX 缝隙
       const overlapLanes=clusterLanesOf(it);
       const kPar=Math.max(overlapLanes.length,1);
@@ -2194,22 +2211,26 @@ function vacantRowHTML(m,inArc){
       const owd = overdueWorkdays(r);                   // v7.36 工作日口径超期数（排除周末+法定节假日）
       const auto=autoSegState(sg);
       const st=STATUS[auto.status||'doing'];
-      const barWpx = isOpen ? DAYS*DAY_W : (it.ei0-it.si0)*DAY_W;
+      const barWpx = w;
       const nShow = Math.max(1, Math.floor(barWpx / 55));
       // 安全获取人天（open段无日期时跳过segDigestOne）
-      const pdays = isOpen ? '' : r1(segDigestOne(r,sg,m.id).digest);
+      const pdays = openType ? '' : r1(segDigestOne(r,sg,m.id).digest);
       const lblInner = reqTitleHTML(r,{pdays, nShow, barWpx, barHpx});
       // 根据 corp 区分缺正编/缺基地（前置声明，供下方 tip / 角标复用，避免 TDZ）
       const isRegVac = m.corp === 'reg';
       const vacTypeLabel = isRegVac ? '缺正编' : '缺基地';
       const vacTypeIcon = isRegVac ? '🔴' : '🔴';
       const vacBadgeCls = isRegVac ? 'vacant-badge-reg' : 'vacant-badge-base';
-      const winTip = isOpen ? '时间待定（长期/持续）' : `${fmt(sg.s)} → ${fmtEnd(sg.e)}`;
+      const winTip = openType==='front' ? `起始待定 → ${fmtEnd(sg.e)}（前端无限）`
+        : openType==='back' ? `${fmt(sg.s)} → 结束待定（后端无限）`
+        : openType==='both' ? '时间待定（长期/持续）'
+        : `${fmt(sg.s)} → ${fmtEnd(sg.e)}`;
       const tip=`<b>${r.name}</b><br><span class='g'>占位</span> ${m.name}（${vacTypeLabel}）　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> 缺失（无人执行）　<span class='g'>窗口</span> ${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天${owd>0?overdueTipText(r,owd):''}<br><span style='color:#f87171'>⚠ 此坑位缺人，分配真人后自动转为正常任务条</span>`;
       const slimCls = (barHpx/rowH)<0.34 ? ' slim' : '';   // v6.47 与真人行一致：条纤细时缩小字号
-      bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;--gcol:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar${slimCls}${openType?' open open-'+openType:''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;--gcol:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line">${lblInner}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}${owd>0?segOverdueWDBadge(owd):''}</span><span class="vacant-badge ${vacBadgeCls}" title="${vacTypeLabel}占位">${vacTypeIcon}${vacTypeLabel}</span>
+        ${(openType==='back'||openType==='both')?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:0"></div>
         ${segStdOverflowZone(sg,r,{...m,corp:'base'})}
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
@@ -2280,7 +2301,10 @@ function personRowHTML(m,inArc){
       if(!segHasDuration(s)) return;                     // v6.64 统一时长判定
       if(HIDE_DONE[view] && reqIsCompleted(r)) return;   // 纯观看过滤：不渲染此条（不影响下方空隙/负载计算）
       let si0=idx(s.s),ei0=idx(s.e);
-      if(s.open){ si0=0; ei0=DAYS; }              // 无明确时间(open)段铺满整行，按整行占位
+      const _ot=segOpenType(s);
+      if(_ot==='front') si0=0;
+      else if(_ot==='back') ei0=DAYS;
+      else if(_ot==='both'){ si0=0; ei0=DAYS; }    // 无明确时间(open)段铺满整行，按整行占位
       items.push({r,sg:s,si,si0,ei0});
     }));
     // 跨队「支援」改为标注在对应任务条上（见 bars 渲染的 .sup-mk），不再挂在姓名旁。
@@ -2319,9 +2343,12 @@ function personRowHTML(m,inArc){
     let bars='';
     laid.items.forEach(it=>{
       const {r,sg,si}=it;
-      const isOpen=!!sg.open;
-      // 无明确时间段：横向铺满整条时间线（前后无限延长，靠 CSS 两端羽化表达"未定/持续"）
-      const x=isOpen?0:it.si0*DAY_W, w=isOpen?DAYS*DAY_W:(it.ei0-it.si0)*DAY_W;
+      const openType=segOpenType(sg);
+      // 无明确时间段：按 open 类型决定铺满方向（前端/后端/两端无限，靠 CSS 羽化表达"未定/持续"）
+      let x=it.si0*DAY_W, w=(it.ei0-it.si0)*DAY_W;
+      if(openType==='front'){ x=0; w=it.ei0*DAY_W; }
+      else if(openType==='back'){ w=(DAYS-it.si0)*DAY_W; }
+      else if(openType==='both'){ x=0; w=DAYS*DAY_W; }
       // 局部并行密度等分（关键·均高）：每条的纵向高度/位置只取决于它所在时段「真正并行的条数」，
       // 而不再被远期高并行撑大的全局 laneCount 影响、也不贪心吞并空泳道（旧算法会让某条独吞下方空槽
       // 变超高、相邻条被夹扁，导致同一个人的两条任务高度参差不齐）。改为：与本条时间重叠的若干条，
@@ -2349,7 +2376,10 @@ function personRowHTML(m,inArc){
       // 已完成呈现（与「按需求看」统一）：整条需求完成 → seg-done（深绿「✓已完成」居中印章）；
       // 仅本人这段完成 → seg-done-self（浅色「✓本人完成」居中）；其余照常。条内信息随之淡化锁定。
       const doneCls = reqIsDone(r) ? ' seg-done' : (auto.status==='done' ? ' seg-done-self' : '');
-      const winTip = isOpen ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）` : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmtEnd(sg.e)}`;
+      const winTip = openType==='front' ? `<span class='g'>窗口</span> 起始待定 → ${fmtEnd(sg.e)}（前端无限延长）`
+        : openType==='back' ? `<span class='g'>窗口</span> ${fmt(sg.s)} → 结束待定（后端无限延长）`
+        : openType==='both' ? `<span class='g'>窗口</span> 时间待定（前后延长 · 长期/持续）`
+        : `<span class='g'>窗口</span> ${fmt(sg.s)} → ${fmtEnd(sg.e)}`;
       /* 横向单行 v4.8：按条子像素宽度决定显示几个信息位（任务名永远显示），按高度选字号档。
          任务名 > 模块 > 人天 > 投入比 优先级递减；窄条从右往左省略，不缩字号硬撑、不换行裁切。 */
       const barWpx = w;                                                     // 本条像素宽度
@@ -2361,12 +2391,12 @@ function personRowHTML(m,inArc){
       const floatCls = canFloat ? (barHpx>=34?' done-float':' done-float sm') : '';
       const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天${owd>0?overdueTipText(r,owd):''}<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
-      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;--gcol:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
+      bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${openType?' open open-'+openType:''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;--gcol:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)&&(m.corp!=='reg'&&m.corp!=='sub')?segOverdueBadge():''}${owd>0&&m.corp!=='reg'&&m.corp!=='sub'?segOverdueWDBadge(owd):''}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
-        ${isOpen?'<i class="open-r">»</i>':''}
-        <div class="prog" style="--p:${Math.round(effProg*100)}">${isOpen?'':restBlocksHTML(it.si0,it.ei0)}</div>
+        ${(openType==='back'||openType==='both')?'<i class="open-r">»</i>':''}
+        <div class="prog" style="--p:${Math.round(effProg*100)}">${openType?'':restBlocksHTML(it.si0,it.ei0)}</div>
         ${segStdOverflowZone(sg,r,m)}
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
     });
@@ -2679,7 +2709,10 @@ function getMemberBusyIntervals(mid, transient){
     //   空闲标识/负载色带会凭空多出一段，与真实排期不符。
     if(!segHasDuration(s)) return;          // 与全局同源的时长判定
     let si0=idx(s.s), ei0=idx(s.e);
-    if(s.open){ si0=0; ei0=DAYS; }
+    const _ot=segOpenType(s);
+    if(_ot==='front') si0=0;
+    else if(_ot==='back') ei0=DAYS;
+    else if(_ot==='both'){ si0=0; ei0=DAYS; }
     if(transient && transient.reqId===r.id && transient.seg===si){ si0=transient.si0; ei0=transient.ei0; }
     ivs.push({s:si0,e:ei0});
   }));
@@ -3784,7 +3817,7 @@ window.addEventListener('pointerup',()=>{
       if(s<0){e-=s;s=0;} if(e>DAYS){s-=(e-DAYS);e=DAYS;} s=Math.max(0,s);e=Math.min(DAYS,e);
       const newSeg={m:src.m, s:i2d(s), e:i2d(e), prog:0, status:'todo'};  // 复制派活=全新任务段，进度归零、未开始（不继承源段进度，避免显示成「整体/源进度」）
       if(src.support) newSeg.support=true;
-      if(src.open) newSeg.open=true;
+      const _ot=segOpenType(src); if(_ot) newSeg.open=_ot;
       if(src.inv!=null) newSeg.inv=src.inv;
       if(targetMember && targetMember!==src.m){
         newSeg.m=targetMember;
@@ -3981,7 +4014,11 @@ function openStatusMenu(bar,x,y){
     });
     items+=`<div class="msep"></div>`;
     items+=`<div class="mtitle">时间长度</div>`;
-    items+=`<div class="mi ${sg.open?'cur':''}" onclick="toggleSegOpen()"><i style="background:#7c3aed"></i><div style="display:flex;flex-direction:column;line-height:1.25"><span>前后无限长度（时间待定）</span><span style="font-size:10px;color:var(--tx3)">${sg.open?'当前为无限延长 · 点击改回固定起止时间':'铺满整行、两端羽化，不计入负载窗口'}</span></div></div>`;
+    const _otm=segOpenType(sg);
+    items+=`<div class="mi ${_otm===null?'cur':''}" onclick="toggleSegOpen(null)"><i style="background:#64748b"></i>固定起止时间<span style="font-size:10px;color:var(--tx3);margin-left:auto">有限长度</span></div>`;
+    items+=`<div class="mi ${_otm==='front'?'cur':''}" onclick="toggleSegOpen('front')"><i style="background:#8b5cf6"></i>前端无限延长<span style="font-size:10px;color:var(--tx3);margin-left:auto">起始端无固定边界</span></div>`;
+    items+=`<div class="mi ${_otm==='back'?'cur':''}" onclick="toggleSegOpen('back')"><i style="background:#a855f7"></i>后端无限延长<span style="font-size:10px;color:var(--tx3);margin-left:auto">结束端无固定边界</span></div>`;
+    items+=`<div class="mi ${_otm==='both'?'cur':''}" onclick="toggleSegOpen('both')"><i style="background:#7c3aed"></i>前后无限延长<span style="font-size:10px;color:var(--tx3);margin-left:auto">时间待定 · 长期/持续</span></div>`;
     items+=`<div class="msep"></div>`;
     items+=`<div class="mtitle">模块类型（改本需求归属模块）</div>`;
     items+=`<div class="mod-grid">`;
@@ -4249,34 +4286,38 @@ function pickInv(v){
   flashReq(reqId);
   toast('投入比已更新：'+(tier?tier.name:'')+' '+v+'，消化工作量已重算');
 }
-/* 切换某任务段「前后无限长度（时间待定）」开关。
-   开：标 open=true → 渲染铺满整行、两端羽化，不计入负载/产能窗口；记下原始起止 s/e 以便还原。
-   关：清除 open，优先恢复进入 open 前缓存的 s/e；若无缓存则以今日为起点给一个 10 工作日的默认窗口。 */
-function toggleSegOpen(){
+/* 设置某任务段「时间长度」类型：null=固定起止 / 'front'=前端无限 / 'back'=后端无限 / 'both'=两端无限。
+   开无限：缓存原窗口 s/e 以便还原；关无限：优先恢复缓存，无缓存则以今日为起点给 10 工作日默认窗口。 */
+function toggleSegOpen(type){
   if(!menuCtx||menuCtx.seg==null){hideMenu();return;}
   if(!requireWrite()){hideMenu();return;}
   const r=reqs.find(z=>z.id===menuCtx.reqId); if(!r){hideMenu();return;}
   const sg=r.segs[menuCtx.seg]; if(!sg){hideMenu();return;}
+  const prevType=segOpenType(sg);
+  if(prevType===type){ hideMenu(); return; }   // 无变化
   pushHistory();
-  if(sg.open){
-    // 关：恢复固定起止
+  if(type==null){
+    // 关无限：恢复固定起止
     delete sg.open;
     if(sg._fixS!=null && sg._fixE!=null){ sg.s=i2d(sg._fixS); sg.e=i2d(sg._fixE); }
     else{ const ns=Math.max(0,Math.min(idx(TODAY),DAYS-1)); sg.s=i2d(ns); sg.e=i2d(Math.min(ns+10,DAYS)); }
     delete sg._fixS; delete sg._fixE;
     _logDesc='把「'+r.name+' · '+memName(sg.m)+'」改回固定起止时间';
   }else{
-    // 开：缓存原窗口后标无限延长
-    sg._fixS=idx(sg.s); sg._fixE=idx(sg.e);
-    sg.open=true;
-    _logDesc='把「'+r.name+' · '+memName(sg.m)+'」改为前后无限长度（时间待定）';
+    // 开无限（或切换类型）：若之前是固定则缓存原窗口；若之前是其它无限类型则保留已有缓存
+    if(!prevType){ sg._fixS=idx(sg.s); sg._fixE=idx(sg.e); }
+    sg.open=type;
+    const typeLabel=type==='front'?'前端无限延长':type==='back'?'后端无限延长':'前后无限长度（时间待定）';
+    _logDesc='把「'+r.name+' · '+memName(sg.m)+'」改为'+typeLabel;
   }
   r.end=i2d(Math.max(...r.segs.map(x=>idx(x.e))));
   hideMenu();save();broadcast();
   const reqId=r.id;
   rerender();
   flashReq(reqId);
-  toast(sg.open?'已改为前后无限长度（时间待定）':'已改回固定起止时间');
+  const curType=segOpenType(sg);
+  const msg=curType==='front'?'已改为前端无限延长（起始端无固定边界）':curType==='back'?'已改为后端无限延长（结束端无固定边界）':curType==='both'?'已改为前后无限长度（时间待定）':'已改回固定起止时间';
+  toast(msg);
 }
 /* 修改本需求的模块类型（需求级字段 r.mod）。两视图共享，改后标签/分组/配色随之更新。 */
 function pickMod(mk){
@@ -4488,7 +4529,7 @@ function setSelectedMem(id){
 let clip=null;                 // {mode:'copy'|'cut', reqId, seg|null, payload}
 function segPayload(r,si){
   const s=r.segs[si];
-  return {m:s.m, s:idx(s.s), e:idx(s.e), prog:s.prog, status:s.status, support:!!s.support, open:!!s.open, inv:(s.inv!=null?s.inv:null), span:idx(s.e)-idx(s.s)};
+  return {m:s.m, s:idx(s.s), e:idx(s.e), prog:s.prog, status:s.status, support:!!s.support, open:segOpenType(s)||false, inv:(s.inv!=null?s.inv:null), span:idx(s.e)-idx(s.s)};
 }
 function doCopy(cut){
   if(!selectedBar){toast('请先点选一个任务条');return;}
@@ -4676,7 +4717,13 @@ function openAddTaskFor(memId){
       <div class="fld"><label>开始日期</label><input type="date" id="addStart" min="${G_MIN}" max="${G_MAX}"></div>
       <div class="fld"><label>结束日期</label><input type="date" id="addEnd" min="${G_MIN}" max="${G_MAX}"></div>
     </div>
-    <label class="open-chk"><input type="checkbox" id="addOpen" onchange="toggleAddOpen()"> 无明确时间（待定 / 长期）—— 任务条将前后无限延长铺满时间线</label>
+    <div class="fld"><label>时间长度</label>
+      <select id="addOpen" onchange="toggleAddOpen()">
+        <option value="">固定起止时间</option>
+        <option value="front">前端无限延长（起始待定）</option>
+        <option value="back">后端无限延长（结束待定）</option>
+        <option value="both">前后无限延长（时间待定）</option>
+      </select></div>
     ${INV_SELECT_HTML}
     <div class="seg-pre" id="addPre"></div>
     <div class="warn" id="addWarn"></div>`
@@ -4710,7 +4757,13 @@ function openAddPersonTo(reqId, prefCorp){
       <div class="fld"><label>开始日期</label><input type="date" id="addStart" min="${G_MIN}" max="${G_MAX}"></div>
       <div class="fld"><label>结束日期</label><input type="date" id="addEnd" min="${G_MIN}" max="${G_MAX}"></div>
     </div>
-    <label class="open-chk"><input type="checkbox" id="addOpen" onchange="toggleAddOpen()"> 无明确时间（待定 / 长期）—— 任务条将前后无限延长铺满时间线</label>
+    <div class="fld"><label>时间长度</label>
+      <select id="addOpen" onchange="toggleAddOpen()">
+        <option value="">固定起止时间</option>
+        <option value="front">前端无限延长（起始待定）</option>
+        <option value="back">后端无限延长（结束待定）</option>
+        <option value="both">前后无限延长（时间待定）</option>
+      </select></div>
     ${INV_SELECT_HTML}
     <div class="seg-pre" id="addPre"></div>
     <div class="warn" id="addWarn"></div>`
@@ -4744,19 +4797,22 @@ function addPrefillDates(){
   if(eEl)eEl.onchange=()=>{eEl.dataset.touched=1;updateAddPre();};
   updateAddPre();
 }
-/* 勾选「无明确时间」：禁用起止日期输入（此时不需要精确时间），并刷新预览/校验 */
+/* 选择「时间长度」类型：前端/后端/两端无限时禁用相应日期输入，并刷新预览/校验 */
 function toggleAddOpen(){
   const op=document.getElementById('addOpen');
   const sEl=document.getElementById('addStart'), eEl=document.getElementById('addEnd');
-  const on=op&&op.checked;
-  if(sEl){sEl.disabled=on;} if(eEl){eEl.disabled=on;}
+  const type=(op&&op.value)||'';
+  if(sEl){sEl.disabled=type==='front'||type==='both';}
+  if(eEl){eEl.disabled=type==='back'||type==='both';}
   updateAddPre();
 }
 function updateAddPre(){
   const pre=document.getElementById('addPre'), warn=document.getElementById('addWarn'), ok=document.getElementById('addOk');
   const op=document.getElementById('addOpen');
-  if(op&&op.checked){   // 无明确时间：跳过日期校验，直接放行
-    if(pre)pre.textContent='时间待定 —— 任务条将前后延长铺满时间线（可后续拖拽改为具体时间）';
+  const type=(op&&op.value)||'';
+  if(type){   // 无限延长：跳过日期校验，直接放行
+    const label=type==='front'?'前端无限延长（起始待定）':type==='back'?'后端无限延长（结束待定）':'前后无限延长（时间待定）';
+    if(pre)pre.textContent=`${label} —— 任务条将向${type==='front'?'左':type==='back'?'右':'两侧'}延长铺满时间线（可后续改为固定时间）`;
     if(warn){warn.textContent='';warn.classList.remove('show');}
     if(ok)ok.disabled=false;
     return;
@@ -4778,10 +4834,10 @@ function confirmAdd(){
   if(!addCtx)return;
   if(!requireWrite())return;
   const op=document.getElementById('addOpen');
-  const isOpen=op&&op.checked;
+  const openType=(op&&op.value)||'';
   const sEl=document.getElementById('addStart'), eEl=document.getElementById('addEnd');
   const sd=parseInput(sEl.value), ed=parseInput(eEl.value);
-  if(!isOpen && (!sd||!ed||ed<sd)){updateAddPre();return;}
+  if(!openType && (!sd||!ed||ed<sd)){updateAddPre();return;}
   let memId, r;
   if(addCtx.mode==='task'){memId=addCtx.memId;const sel=document.getElementById('addReqSel');r=reqs.find(x=>x.id===sel.value);}
   else{r=reqs.find(x=>x.id===addCtx.reqId);const sel=document.getElementById('addMemSel');memId=sel.value;}
@@ -4789,11 +4845,11 @@ function confirmAdd(){
   if(r.segs.some(s=>s.m===memId)){toast(memName(memId)+' 已在该需求中');closeAdd();return;}
   pushHistory();
   let seg;
-  if(isOpen){
-    // 无明确时间：给一个占位窗口（仅作排序/兜底用），并标 open=true 让其渲染成铺满延长条；
+  if(openType){
+    // 无限延长：给一个占位窗口（仅作排序/兜底用），并标 open 类型让其渲染成相应方向的延长条；
     // open 段不计入负载/产能（见 memLoad/reqRisk 已按时长窗口计，open 占位窗口设在今日±少量天，影响可忽略，且渲染走铺满分支）。
     const ns=Math.max(0,Math.min(idx(TODAY),DAYS-1));
-    seg={m:memId, s:i2d(ns), e:i2d(Math.min(ns+1,DAYS)), prog:0, status:'todo', open:true};
+    seg={m:memId, s:i2d(ns), e:i2d(Math.min(ns+1,DAYS)), prog:0, status:'todo', open:openType};
   }else{
     // 夹到甘特范围内。v6.55：输入框是「含末日」语义 → idx(ed)+1 还原为底层排他终点
     let ns=Math.max(0,Math.min(idx(sd),DAYS-1)), ne=Math.max(ns+1,Math.min(idx(ed)+1,DAYS));
@@ -4813,9 +4869,10 @@ function confirmAdd(){
   rerender();
   // 反馈：两个视图都给高亮
   if(view==='req'){flashReqRow(r.id);} else {flashReq(r.id);}
+  const openLabel=openType==='front'?'（前端无限）':openType==='back'?'（后端无限）':openType==='both'?'（时间待定）':'';
   toast(addCtx&&addCtx.mode==='person'
-    ? `已为「${r.name}」添加 ${memName(memId)}${seg.support?'（支援）':''}${isOpen?'（时间待定）':''}`
-    : `已为 ${memName(memId)} 新增任务：${r.name}${seg.support?'（支援）':''}${isOpen?'（时间待定）':''}`);
+    ? `已为「${r.name}」添加 ${memName(memId)}${seg.support?'（支援）':''}${openLabel}`
+    : `已为 ${memName(memId)} 新增任务：${r.name}${seg.support?'（支援）':''}${openLabel}`);
 }
 
 /* ============ 新建成员 / 新建需求（写入 members / reqs 数组，纳入持久化） ============ */
@@ -5472,7 +5529,7 @@ function coreSnapshot(){
     // 需求：除原有 end/done/split 外，序列化全部字段，使「新增需求」持久化
     // v6.56：end / seg.e 写出时 -1，由内存的排他终点转为存储的含末日（open 段无实义窗口，同样转换以保持可逆）
     reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',state:r.state||'active',estimate:r.estimate,end:eOut(idx(r.end)),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),comment:(r.comment||''),
-      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:eOut(idx(s.e)),prog:s.prog,status:s.status,support:!!s.support,open:!!s.open,...(s.inv!=null?{inv:s.inv}:{})}))}))
+      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:eOut(idx(s.e)),prog:s.prog,status:s.status,support:!!s.support,open:segOpenType(s)||false,...(s.inv!=null?{inv:s.inv}:{})}))}))
   };
 }
 function applySnap(snap){
@@ -5582,7 +5639,7 @@ function applySnap(snap){
     if(rs.split2!==undefined) r.split2=(rs.split2==null?undefined:rs.split2); // L2/联调 分割点（绝对日索引）
     // 全量重建 segs（不再按下标合并）：保证「新增/删除人员段」在刷新、分享链接、跨标签同步后都不丢失
     if(Array.isArray(rs.segs)){
-      r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(eIn(ss.e,_ver)),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;if(ss.open)o.open=true;if(ss.inv!=null)o.inv=ss.inv;return o;});
+      r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(eIn(ss.e,_ver)),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;if(ss.open)o.open=(ss.open===true?'both':(ss.open==='front'||ss.open==='back'||ss.open==='both'?ss.open:'both'));if(ss.inv!=null)o.inv=ss.inv;return o;});
     }
   });
   // 同步归档/分组控件 UI
