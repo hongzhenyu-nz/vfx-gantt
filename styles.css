@@ -1619,7 +1619,7 @@
   .row-grip{flex:0 0 auto;width:12px;margin-left:-8px;margin-right:-2px;color:#c2c9d4;font-size:11px;line-height:1;letter-spacing:-2px;cursor:grab;user-select:none;touch-action:none;align-self:stretch;display:flex;align-items:center;justify-content:center;border-radius:3px;transition:color .12s,background .12s;}
   .row-grip:hover{color:#5f6b7d;background:rgba(29,111,214,.08);}
   .row-grip:active{cursor:grabbing;}
-  body.ro-mode .row-grip{display:none!important;}
+  /* v7.31：只读模式不再隐藏拖拽手柄——成员排序（拖拽/智能/默认）与分组方式一致，无需编辑权限即可使用；云端写入仍由 cloudPush 的 lockMine 闸门控制，不影响他人 */
   body.hr-view .row-grip{display:none!important;}
   .row-drag-ghost{box-shadow:0 10px 28px rgba(15,23,42,.30)!important;border:1px solid rgba(29,111,214,.45);opacity:.95;}
   .row.row-drag-src{opacity:.38;}

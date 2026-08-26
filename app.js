@@ -7923,7 +7923,6 @@ let _rowDrag=null;
 function rowGripDown(e,memId){
   if(view!=='person')return;
   e.preventDefault();e.stopPropagation();
-  if(!requireWrite())return;
   const row=document.querySelector(`#grid > .row[data-mem="${memId}"]`);
   if(!row)return;
   const cl=row.querySelector('.cell-left'); if(!cl)return;
@@ -8027,7 +8026,6 @@ function _twoOptOrder(arr,sim){
 }
 function smartSortMembers(){
   if(view!=='person'){toast('「智能排序」作用于成员列表，请切换到「按人看」');return;}
-  if(!requireWrite())return;
   const live=currentPersonOrder();
   if(live.length<3){toast('成员太少，无需智能排序');return;}
   const reqCache=new Map();
@@ -8057,7 +8055,6 @@ function smartSortMembers(){
 }
 function resetMemberSort(){
   if(view!=='person'){toast('请切换到「按人看」再操作排序');return;}
-  if(!requireWrite())return;
   let n=0; members.forEach(m=>{if(m.sort!=null){m.sort=null;n++;}});
   if(!n){toast('已是默认排序');return;}
   const beforeMap=captureRowTops();
