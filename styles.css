@@ -241,7 +241,7 @@
   .load-heatmap{display:flex;align-items:center;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;background:var(--panel);position:sticky;top:54px;z-index:6;height:32px;flex-shrink:0;}   /* v6.53b 撤销 v6.51 的 overflow:hidden —— 它会让 .load-label 的 position:sticky 失效（sticky 在 overflow:hidden 祖先内不生效），导致左侧「📊负载」标签消失、色带铺进名栏 */
   /* v7.14 左侧标签配平；v7.20 起左栏只保留「📊 团队负载」主行——人数/峰值/均值三项聚合数
      已收进 hover 提示，避免与右侧色带重复表达。.ll-cnt / .ll-sub / .ll-peak / .ll-avg 当前无 DOM，样式保留备用。 */
-  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:1px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:0;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;position:sticky;left:0;background:var(--panel);z-index:9;}   /* v7.18 z-index 7→9：必须高于 today-layer(8)，否则红线滚动到「今天」落在冻结栏后方时会穿透盖在「团队负载」峰值/均值文字上 */
+  .load-heatmap .load-label{width:var(--left-w);min-width:var(--left-w);flex-shrink:0;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;align-self:stretch;gap:1px;padding:4px 14px;font-size:11px;font-weight:700;color:var(--tx2);letter-spacing:0;user-select:none;border-right:1px solid var(--line);box-sizing:border-box;position:sticky;left:0;background:var(--panel);z-index:9;}   /* v7.18 z-index 7→9：必须高于 today-layer(8)，否则红线滚动到「今天」落在冻结栏后方时会穿透盖在「团队负载」峰值/均值文字上。v7.25 align-self:stretch：原为内容高(~25px)随 align-items:center 垂直居中，行高 32px 上下各留 ~3px 透缝，色带底部空隙标记(.load-gap-mark bottom:1px)横向滚动到标签栏下方时从底缝露出（红框「空闲条层级异常」）；撑满行高后白底完整遮盖，与成员行 .cell-left 冻结栏行为一致 */
   .load-heatmap .load-label .ll-main{display:flex;align-items:center;gap:6px;font-size:11.5px;font-weight:800;color:var(--tx);white-space:nowrap;}
   .load-heatmap .load-label .ll-cnt{font-size:10px;font-weight:700;color:#1d6fd6;background:#e8f0fe;border-radius:9px;padding:0 6px;}
   .load-heatmap .load-label .ll-sub{display:flex;align-items:center;gap:7px;font-size:10px;font-weight:600;color:var(--tx3);white-space:nowrap;}
@@ -491,12 +491,15 @@
   @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}100%{box-shadow:0 1px 3px rgba(0,0,0,.20),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}}
   .b-blue{background:#4d80ff;} .b-green{background:#1fae5a;} .b-amber{background:#f59e0b;} .b-red{background:#ef3b39;} .b-gray{background:#7d92b3;} .b-purple{background:#7e63b5;}
   /* v7.24 联调专用青碧色系：原 b-purple(#7e63b5) 与超期区/「超N周」徽标的紫红(#a855f7→#7c3aed)同族撞色，
-     用户反馈「联调需求与超期紫分不清」。联调改青碧 #0e9aa7（与蓝/绿/紫/橙均拉开色相），
-     未启动(todo)的联调用低饱和浅青 b-lt0，退到背景层不抢眼，开始后自动转正常青碧。 */
+     用户反馈「联调需求与超期紫分不清」。联调改青碧 #0e9aa7（与蓝/绿/紫/橙均拉开色相），开始后自动转正常青碧。
+     v7.25 两项修正：① 未启动(todo)联调 #d9edf0 → 亮青 #22d3ee——浅青用户反馈「不够醒目」，亮青与进行中蓝(#4d80ff)、
+     青碧(#0e9aa7)均拉开明度/色相；② b-lt0 的深色进度纱罩/青碧圆点原会渗漏到缺人占位条(.vacant-bar)，
+     把红斜纹压暗（用户反馈「缺人的联调颜色变深」）——子元素覆写加 :not(.vacant-bar) 限定，
+     占位联调条回落到默认白纱罩/白圆点，与其他缺人红条观感完全一致（缺人身份优先于需求类型）。 */
   .b-lt{background:#0e9aa7;}
-  .b-lt0{background:#d9edf0;color:#0b5b66;text-shadow:none;}
-  .bar-task.b-lt0 .sdot{background:#0e9aa7;}
-  .bar-task.b-lt0 .prog{background-image:repeating-linear-gradient(90deg,rgba(11,91,102,.07) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(11,91,102,.16) calc(var(--p,0)*1%) 100%);}
+  .b-lt0{background:#22d3ee;color:#0b5b66;text-shadow:none;}
+  .bar-task.b-lt0:not(.vacant-bar) .sdot{background:#0e9aa7;}
+  .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(11,91,102,.07) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(11,91,102,.16) calc(var(--p,0)*1%) 100%);}
   .b-done{background:#4ecba0;}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分 */
   /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
      用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
