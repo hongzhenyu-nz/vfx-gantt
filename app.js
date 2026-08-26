@@ -1556,6 +1556,22 @@ function segStdOverflowZone(seg, r, m){
   const tip = `📏 超出标准工期　该段排期 ${actualDays} 天（≈${(actualDays/7).toFixed(1)} 周）｜标准 ${stdWks} 周（${stdDays} 天）｜超出 ${ovrDays} 天（≈${ovrWks} 周）　斜纹区即超期部分，建议核查或调整排期`;
   return `<i class="ovr-zone" style="left:${leftPct}%" title="${escAttr(tip)}"><b class="ovr-tag">超${ovrWks}周</b></i>`;
 }
+/* v7.36 工作日口径「超期」核算 —— 实际排期结束日 vs 计划完成日(r.end)，仅数工作日。
+   与休息日暗块/排期空隙提示完全同口径：均经 isWorkday()→shadeType() 排除周六日 + HOLIDAYS，
+   调休上班日(WORKMAKEUP)计入工作日。节假日集合 HOLIDAYS/WORKMAKEUP 在文件顶部可配置。 */
+function reqActualEndDate(r){ let d=null; (r.segs||[]).forEach(s=>{ if(s.open) return; if(!d||s.e>d) d=s.e; }); return d; }   // 各分段最晚结束日(排他 Date)，无日期段返回 null
+function overdueWorkdays(r){
+  if(!r||!r.end) return 0;
+  const P = idx(r.end);                                    // 计划完成日索引（r.end 为含末日日历日）
+  let A = -1; (r.segs||[]).forEach(s=>{ if(s.open) return; const e=idx(s.e); if(e>A) A=e; });   // 实际排期最晚结束日(排他索引)
+  if(A <= P) return 0;                                     // 实际结束日 ≤ 计划完成日 → 不超期
+  return workdaysIdx(P+1, A);                              // 仅工作日：(P, A] 区间内、shadeType 为 null 的天数 = 超期工作日数
+}
+function overdueTipText(r,n){
+  const a = reqActualEndDate(r);
+  return `<br><span class='g'>超期</span> ${n} 个工作日（已排除周末与法定节假日）　<span class='g'>计划完成</span> ${fmt(r.end)}　<span class='g'>实际结束</span> ${a?fmtEnd(a):'—'}`;
+}
+function segOverdueWDBadge(n){ return `<span class="rt-ovrwd" data-rank="3" title="实际排期结束日已晚于计划完成日，按工作日(排除周六日+法定节假日)核算超期 ${n} 天">⏰ 超期${n}工作日</span>`; }
 
 /* 某人在某个工作日「全人力制作」的并行段数（用于自动分摊；跟进型不计入分摊分母） */
 function personDayFullCount(id, t){
@@ -2175,6 +2191,7 @@ function vacantRowHTML(m,inArc){
       const topPct=(((segTop*rowH)+(GAP_PX/2))/rowH*100).toFixed(3);
       const hPct=(barHpx/rowH*100).toFixed(3);
       const risk=reqRisk(r);
+      const owd = overdueWorkdays(r);                   // v7.36 工作日口径超期数（排除周末+法定节假日）
       const auto=autoSegState(sg);
       const st=STATUS[auto.status||'doing'];
       const barWpx = isOpen ? DAYS*DAY_W : (it.ei0-it.si0)*DAY_W;
@@ -2188,11 +2205,11 @@ function vacantRowHTML(m,inArc){
       const vacTypeIcon = isRegVac ? '🔴' : '🔴';
       const vacBadgeCls = isRegVac ? 'vacant-badge-reg' : 'vacant-badge-base';
       const winTip = isOpen ? '时间待定（长期/持续）' : `${fmt(sg.s)} → ${fmtEnd(sg.e)}`;
-      const tip=`<b>${r.name}</b><br><span class='g'>占位</span> ${m.name}（${vacTypeLabel}）　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> 缺失（无人执行）　<span class='g'>窗口</span> ${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span style='color:#f87171'>⚠ 此坑位缺人，分配真人后自动转为正常任务条</span>`;
+      const tip=`<b>${r.name}</b><br><span class='g'>占位</span> ${m.name}（${vacTypeLabel}）　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> 缺失（无人执行）　<span class='g'>窗口</span> ${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天${owd>0?overdueTipText(r,owd):''}<br><span style='color:#f87171'>⚠ 此坑位缺人，分配真人后自动转为正常任务条</span>`;
       const slimCls = (barHpx/rowH)<0.34 ? ' slim' : '';   // v6.47 与真人行一致：条纤细时缩小字号
       bars+=`<div class="bar-task ${barCls(r,{...sg,status:auto.status})} vacant-bar${slimCls}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;--gcol:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line">${lblInner}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}</span><span class="vacant-badge ${vacBadgeCls}" title="${vacTypeLabel}占位">${vacTypeIcon}${vacTypeLabel}</span>
+        <i class="sdot"></i><span class="rt-line">${lblInner}${auto.status==='overdue'&&!reqIsDone(r)?segOverdueBadge():''}${owd>0?segOverdueWDBadge(owd):''}</span><span class="vacant-badge ${vacBadgeCls}" title="${vacTypeLabel}占位">${vacTypeIcon}${vacTypeLabel}</span>
         <div class="prog" style="--p:0"></div>
         ${segStdOverflowZone(sg,r,{...m,corp:'base'})}
         <i class="grip gl"></i><i class="grip gr"></i></div>`;
@@ -2322,6 +2339,7 @@ function personRowHTML(m,inArc){
       const frac=barHpx/rowH;                                  // 本条实际占整行内高比例（估算是否纤细）
       const slimCls = frac<0.34 ? ' slim' : '';
       const risk=reqRisk(r);
+      const owd = overdueWorkdays(r);                   // v7.36 工作日口径超期数（排除周末+法定节假日）
       // v5.8：状态/进度按今天日期自动推算（到开始日灰→蓝，进度随已过工作日增长；休息日不推进）。
       //       人工「已完成/废弃」仍为准，不被日期覆盖。构造 autoSeg 供着色/标签/进度统一使用。
       const auto=autoSegState(sg);
@@ -2341,11 +2359,11 @@ function personRowHTML(m,inArc){
       // 条内信息淡化衬底；太窄(<108px)或太矮(<24px)则回退行内小徽标保命。浮标字号按条高分两档。
       const canFloat = reqIsDone(r) && barWpx>=108 && barHpx>=24;
       const floatCls = canFloat ? (barHpx>=34?' done-float':' done-float sm') : '';
-      const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
+      const tip=`<b>${r.name}</b><br><span class='g'>负责</span> ${m.name}　<span class='g'>状态</span> ${st.label}<br><span class='g'>进度</span> ${Math.round(effProg*100)}%　${winTip}<br><span class='g'>风险</span> ${risk.lvl} · 缺口${risk.gap}人天${owd>0?overdueTipText(r,owd):''}<br><span class='g' style='color:#7da0ff'>单击改状态 · 上下拖改派</span>`;
       const lblInner = reqTitleHTML(r,{pdays:r1(segDigestOne(r,sg,m.id).digest), nShow, barWpx, barHpx});
       bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${isOpen?' open':''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;--gcol:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-        <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)&&(m.corp!=='reg'&&m.corp!=='sub')?segOverdueBadge():''}</span>
+        <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)&&(m.corp!=='reg'&&m.corp!=='sub')?segOverdueBadge():''}${owd>0&&m.corp!=='reg'&&m.corp!=='sub'?segOverdueWDBadge(owd):''}</span>
         ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${isOpen?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(effProg*100)}">${isOpen?'':restBlocksHTML(it.si0,it.ei0)}</div>
