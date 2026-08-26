@@ -2842,9 +2842,14 @@ function paint(rows){
     + `<div class="today-layer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:8">${todayLine}</div>`
     + loadBar
     + `<div class="drop-band" id="dropBand"></div><div class="drop-guide" id="dropG0"></div><div class="drop-guide gend" id="dropG1"></div>`
+    /* v7.40 日期选择高亮层：仿 today-layer 用 left:var(--left-w) 包裹，内部 left=天索引×DAY_W。
+       hover=悬停预览带（浅蓝），pin=单击钉选带（紫色+两侧描边+📍胶囊）。二者 pointer-events:none 不挡交互。 */
+    + `<div class="date-sel-layer"><div id="dateSelHover" class="sel-band hover"><div class="sel-pill hover-pill" id="dateSelHoverPill"></div></div><div id="dateSelPin" class="sel-band pin"><div class="sel-pill pin-pill" id="dateSelPinPill"></div></div></div>`
     + rows;
   updateKPIs();
   if(typeof reapplySelection==='function') reapplySelection();
+  if(typeof bindDaySelect==='function') bindDaySelect();
+  if(typeof applyDateSel==='function') applyDateSel();
   injectGapIndicators();   // v6.26：渲染后注入排期空隙提示（半透琥珀，始终显示）
   alignStripes();          // v6.83：把所有 45° 斜纹块对齐到全局坐标系（固定瓦片+双轴补偿）
   // v5.0：渲染后按真实像素实测降级标签（横排隐藏低优先徽标 → 缩字号 → 竖排 → 省略号）
@@ -4513,6 +4518,62 @@ function reapplySelection(){
     : `.bar-task.req-bar[data-req="${selectedBar.reqId}"]`;
   const b=document.querySelector(sel); if(b)b.classList.add('sel');
   if(clip&&clip.mode==='cut')markCut();
+}
+/* ============ v7.40 日期选择高亮（悬停预览 / 单击钉选） ============
+   触发：鼠标在甘特区（表头日期、空白、任务条）悬停 → 浅色预览带 + 日期胶囊；
+        左键单击（非拖拽）→ 钉选该天：强色带 + 两侧描边 + 📍 日期胶囊；再次单击同列取消。
+   状态：selDay = 钉选的天索引（0-based）或 null；hover 仅预览、不持久化。
+   坐标：内容 x = 天索引×DAY_W，时间轴可视区自 --left-w 起、随 #scroll 横向滚动；
+        故 day = floor((clientX - scrollRect.left - leftW + scrollLeft)/DAY_W)。 */
+let selDay=null;
+const _WD=['日','一','二','三','四','五','六'];
+function dayLabel(d){ const dt=i2d(d); return fmt(dt)+' 周'+_WD[dt.getDay()]; }
+function clientXToDay(clientX){
+  const sc=document.getElementById('scroll'); if(!sc) return null;
+  const lw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-w'))||340;
+  const rect=sc.getBoundingClientRect();
+  const x=clientX-rect.left-lw+sc.scrollLeft;
+  if(x<0) return null;
+  const d=Math.floor(x/DAY_W);
+  return (d>=0&&d<DAYS)?d:null;
+}
+function applyDateSel(){
+  const pin=document.getElementById('dateSelPin');
+  const pill=document.getElementById('dateSelPinPill');
+  if(!pin) return;
+  if(selDay==null){ pin.style.display='none'; return; }
+  pin.style.display='block';
+  pin.style.left=(selDay*DAY_W)+'px';
+  pin.style.width=DAY_W+'px';
+  if(pill) pill.innerHTML='📍 '+dayLabel(selDay);
+}
+function showHover(d){
+  const h=document.getElementById('dateSelHover'); const pill=document.getElementById('dateSelHoverPill');
+  if(!h) return;
+  h.style.display='block'; h.style.left=(d*DAY_W)+'px'; h.style.width=DAY_W+'px';
+  if(pill) pill.textContent=dayLabel(d);
+}
+function hideHover(){ const h=document.getElementById('dateSelHover'); if(h) h.style.display='none'; }
+function bindDaySelect(){
+  if(window.__daySelBound) return; window.__daySelBound=true;
+  const grid=document.getElementById('grid'); if(!grid) return;
+  let px=0,py=0;
+  grid.addEventListener('pointerdown',e=>{ px=e.clientX; py=e.clientY; });
+  grid.addEventListener('pointermove',e=>{
+    if(drag||(typeof chipDrag!=='undefined'&&chipDrag)){ hideHover(); return; } // 拖拽中不打扰
+    const d=clientXToDay(e.clientX);
+    if(d==null){ hideHover(); return; }
+    showHover(d);
+  });
+  grid.addEventListener('pointerleave',hideHover);
+  grid.addEventListener('click',e=>{
+    if(Math.abs(e.clientX-px)>5||Math.abs(e.clientY-py)>5) return; // 拖拽（移动条/拖成员标签）→ 不算单击
+    if(e.target.closest('button,input,select,textarea,a,#menu,.tk-modal,.mstat,.ptag,.inl-add,.editable')) return;
+    const d=clientXToDay(e.clientX);
+    if(d==null) return;                       // 点到冻结左栏或时间轴之外 → 忽略
+    selDay = (selDay===d)?null:d;             // 同列再点 → 取消；否则钉选
+    applyDateSel();
+  });
 }
 /* ============ 人员行选中（「按人看」粘贴改派目标） ============
    点击某人的信息栏 → 选中整行；之后 Ctrl+V / 粘贴 会把剪贴板里的任务段「改派」给这个人。 */
