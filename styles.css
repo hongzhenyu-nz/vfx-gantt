@@ -12,13 +12,15 @@
     --amber:#ff9f0a; --amber-l:#fff1da;
     --red:#f5413f; --red-l:#ffe5e4;
     --row-h:44px; --day-w:30px; --left-w:340px;
+    --wrap-max:min(4000px,99vw);   /* v7.34 主体宽度上限：流体铺满可用宽度（原固定 min(1980px,97vw) 在宽屏产生两侧大留白）。
+                                        .wrap 与 .side-nav 共用此变量，改一处两处同步，保持侧导航贴合 wrap 左缘。 */
     --wash:0;   /* 任务条色彩浓度的「淡化量」：0=原色，1=最大淡化(底色之上叠白蒙版泛白)。由滑块的“浓度%”反推：wash=(100-浓度)/100。仅淡化底色,不碰文字/甘特/标签 */
   }
   /* 淡化作用区：仅任务条（标签）底色。真·泛白 = 在底色之上叠一层白色蒙版（不是降饱和变灰、也不是压暗），
      白越浓底色越往白褪 → 淡蓝/淡橙的清爽感。蒙版用 inset 阴影实现（绘制在背景之上、文字之下，不挡字）。 */
   *{box-sizing:border-box;margin:0;padding:0;}
   body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--tx);font-size:13px;line-height:1.5;}
-  .wrap{max-width:min(1980px,97vw);margin:0 auto;padding:18px 22px 40px;}
+  .wrap{max-width:var(--wrap-max);margin:0 auto;padding:18px 22px 40px;}
   h1{font-size:20px;font-weight:600;}
   .hd-row{display:flex;align-items:center;gap:14px;}
   .hd-row h1{flex:0 1 auto;}
@@ -1308,7 +1310,7 @@
        · 宽度 72→104px、字号 11→12.5px、单项 padding 8→10px，整体明显加大；
        · 拆成两组：【视图区】页面顶部/甘特图/参考数据 + 【参考数据】6 个板块，分组标题区隔；
        · 甘特图区 .board 补 id="sec-gantt"，KPI 区补 id="sec-top"，纳入同一套滚动高亮。 */
-  .side-nav{position:fixed;left:max(8px,calc((100vw - min(1980px,97vw))/2 - 4px));top:50%;transform:translateY(-50%);
+  .side-nav{position:fixed;left:max(8px,calc((100vw - var(--wrap-max))/2 - 4px));top:50%;transform:translateY(-50%);
     z-index:60;width:104px;display:flex;flex-direction:column;gap:2px;padding:11px 8px 13px;
     background:rgba(255,255,255,.95);backdrop-filter:blur(7px);border:1px solid var(--line);
     border-radius:12px;box-shadow:0 4px 16px rgba(20,30,50,.12);}
