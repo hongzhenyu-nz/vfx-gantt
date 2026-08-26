@@ -494,14 +494,15 @@
      用户反馈「联调需求与超期紫分不清」。联调改青碧 #0e9aa7（与蓝/绿/紫/橙均拉开色相），开始后自动转正常青碧。
      v7.25：b-lt0 子元素覆写加 :not(.vacant-bar)，缺人占位联调条回归标准红斜纹+白纱罩。
      v7.26 未启动(todo)联调再配色：亮青 #22d3ee 偏绿观感不佳 → 蓝紫 #818cf8（indigo-400，色相≈235°/明度≈74%）；
-     同轮「超期」整套由 violet(#a855f7→#7c3aed，色相≈270°) 迁紫红 fuchsia(#d946ef→#a21caf，色相≈292°) ——
-     两者色相拉开 ≈57°（蓝紫 vs 紫红）、明度拉开（≈74% 浅 vs 40–60% 中深），
-     加上「整条大面积铺底」vs「小标+斜纹区点状出现」的面积差，三重维度防混淆；
-     深靛文字 #1e1b4b 对 #818cf8 对比度 ≈5.4:1（达 AA），sdot 用深一档 indigo #6366f1，纱罩同步换靛族。 */
+     同轮「超期」整套由 violet(#a855f7→#7c3aed，色相≈270°) 迁紫红 fuchsia(#d946ef→#a21caf，色相≈292°)。
+     v7.27 用户反馈「#818cf8 太深且偏蓝，与灰色系不统一」——todo 联调本质仍是「未启动态」，
+     应与标准待办灰 #7d92b3 同属灰色系，不应有鲜明彩色感。改柔和紫灰 #b0a8b8（S≈10%/L≈69%），
+     饱和度从 ≈90% 压到 10%，色相从 235° 蓝紫迁到 270° 紫灰，明度与灰色系同一梯队；
+     文字 #3d2f4f（深紫灰，对比度≈5.8:1 达 AA），sdot #7a6e8e（中紫灰），纱罩同步换同族。 */
   .b-lt{background:#0e9aa7;}
-  .b-lt0{background:#818cf8;color:#1e1b4b;text-shadow:none;}
-  .bar-task.b-lt0:not(.vacant-bar) .sdot{background:#6366f1;}
-  .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(30,27,75,.08) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(30,27,75,.15) calc(var(--p,0)*1%) 100%);}
+  .b-lt0{background:#b0a8b8;color:#3d2f4f;text-shadow:none;}
+  .bar-task.b-lt0:not(.vacant-bar) .sdot{background:#7a6e8e;}
+  .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(61,47,79,.07) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(61,47,79,.15) calc(var(--p,0)*1%) 100%);}
   .b-done{background:#4ecba0;}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分 */
   /* 无明确时间（待定/长期）任务条：前后无限延长铺满整条时间线，左右边缘羽化渐隐，表示「时间未定、持续进行」。
      用 mask 让两端淡出，叠加斜纹质感与 « » 箭头提示「向两侧延伸」。不显示拖拽抓手（无精确边界可拖）。 */
