@@ -2148,14 +2148,18 @@ function milestoneSummaryRowHTML(){
   </div>`;
 }
 /* 按需求视图：将单个需求的里程碑渲染为条内标记（方案 B）。
-   barS/barE/span 来自 getPhases(r) 的结果，与 L1/L2 分割同算法。 */
+   barS/barE/span 来自 getPhases(r) 的结果，与 L1/L2 分割同算法。
+   v7.44 修复：越界里程碑（如落在条末端之后的"封版"节点）不再整条丢弃，
+   而是把位置夹到 [2,98]% 贴在条两端，保证可见；真实日期由 hover tooltip 显示。 */
 function reqMilestonesHTML(r, barS, barE, span){
   if(!r.milestones || !r.milestones.length || span<=0) return '';
   return r.milestones.map(ms=>{
     const d=idx(ms.date);
-    if(d<barS || d>barE) return '';
-    const pct=((d-barS)/span*100).toFixed(2);
-    return milestoneNodeHTML(ms,'bar',pct+'%');
+    let pct=((d-barS)/span*100);
+    if(!isFinite(pct)) return '';
+    // 夹到 [2,98]：既防圆点圆心贴边被 overflow:hidden 裁掉一半，又让越界节点仍可见
+    pct=Math.max(2,Math.min(98,pct));
+    return milestoneNodeHTML(ms,'bar',pct.toFixed(2)+'%');
   }).join('');
 }
 

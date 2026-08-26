@@ -619,13 +619,15 @@
   .bar-task.req-bar .ph-div.dragging{background:#ffd23f!important;}
   .bar-task.req-bar .ph-div.dragging::before{opacity:1;box-shadow:0 0 0 2px rgba(255,210,63,.6),0 2px 6px rgba(0,0,0,.4);}
 
-  /* ── 里程碑：按需求视图的条内标记（v7.43 方案 B） ── */
-  .bar-task.req-bar .ms-mark{position:absolute;top:-10px;bottom:0;width:2px;z-index:6;pointer-events:auto;transform:translateX(-1px);}
-  .bar-task.req-bar .ms-mark .ms-dot{position:absolute;top:0;left:50%;transform:translateX(-50%);width:8px;height:8px;border-radius:50%;
-    box-shadow:0 0 0 2px rgba(0,0,0,.2),0 1px 3px rgba(0,0,0,.35);}
-  .bar-task.req-bar .ms-mark .ms-line{position:absolute;top:8px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% - 8px);opacity:.75;}
-  .bar-task.req-bar .ms-mark .ms-label{position:absolute;top:-14px;left:50%;transform:translateX(-50%);font-size:9px;font-weight:800;white-space:nowrap;
-    text-shadow:0 1px 2px rgba(0,0,0,.55);opacity:.9;pointer-events:none;}
+  /* ── 里程碑：按需求视图的条内标记（v7.43 方案 B；v7.44 修裁切） ──
+     ⚠️ 父级 .bar-task 是 overflow:hidden，所有可见元素必须落在条体内（正偏移）。
+     最初的 top:-10px 把圆点/标签画到条外 → 被裁（视觉上"没变化"）。
+     → 圆点改 top:3px 贴在条内顶部；竖线接在圆点下方；标签默认隐藏，hover 走全局 tooltip。 */
+  .bar-task.req-bar .ms-mark{position:absolute;top:0;bottom:0;width:2px;z-index:6;pointer-events:auto;transform:translateX(-1px);}
+  .bar-task.req-bar .ms-mark .ms-dot{position:absolute;top:3px;left:50%;transform:translateX(-50%);width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.45);}
+  .bar-task.req-bar .ms-mark .ms-line{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% - 11px);opacity:.8;}
+  .bar-task.req-bar .ms-mark .ms-label{display:none;}  /* label 走 hover tooltip，避免 overflow:hidden 裁切、与条内文字重叠 */
   /* 窄条：宽度不足时隐藏文字，只保留圆点 */
   .bar-task.req-bar[data-req][style*="width:4"]:not([style*="width:4px"]) .ms-label,
   .bar-task.req-bar[data-req][style*="width:3"]:not([style*="width:3px"]) .ms-label,
