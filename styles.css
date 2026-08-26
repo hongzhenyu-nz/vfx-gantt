@@ -636,6 +636,38 @@
   .bar-task.req-bar[data-req][style*="width:3"]:not([style*="width:3px"]) .ms-line,
   .bar-task.req-bar[data-req][style*="width:2"]:not([style*="width:2px"]) .ms-line{display:none;}
 
+  /* ── v7.45：阶段节点菱形 + 联动高亮 + 竖向虚线 + 新增按钮 + 编辑色板 ──
+     ⚠️ 特异性坑：`.bar-task span`(468) 会把 span 压成 relative/z-index:1/pointer-events:none，
+     故 .ms-pdot/.ms-pline 必须用 `.bar-task.req-bar .ms-mark.phase` 高特异性前缀(≥0,4,0)压过它。 */
+  /* 阶段节点菱形（L1完成 / L2完成·联调开始）：区分自定义节点的圆形 .ms-dot */
+  .bar-task.req-bar .ms-mark.phase{cursor:ew-resize;}   /* 阶段菱形可拖拽改期 */
+  .bar-task.req-bar .ms-mark.phase .ms-pdot{position:absolute;top:3px;left:50%;transform:translateX(-50%) rotate(45deg);width:8px;height:8px;border-radius:1.5px;border:1.5px solid #fff;
+    box-shadow:0 1px 3px rgba(0,0,0,.45);}
+  .bar-task.req-bar .ms-mark.phase .ms-pline{position:absolute;top:11px;left:50%;transform:translateX(-50%);width:2px;height:calc(100% - 11px);opacity:.55;}
+  .bar-task.req-bar .ms-mark.phase.dragging .ms-pdot{box-shadow:0 0 0 3px rgba(255,210,63,.55),0 2px 6px rgba(0,0,0,.4);}
+  .bar-task.req-bar .ms-mark.ms-custom{cursor:pointer;}
+  /* 需求条联动高亮（hover/选中）：醒目描边环 + 脉冲动画。用 outline+filter，不覆盖 box-shadow（保住品级色条/进度/水洗蒙版） */
+  .bar-task.req-bar.req-glow{z-index:8;outline:3px solid #ffb020;outline-offset:1.5px;animation:reqGlowPulse 1.1s ease-in-out infinite;}
+  @keyframes reqGlowPulse{0%,100%{outline-color:#ffb020;outline-offset:1.5px;filter:drop-shadow(0 0 2px rgba(255,176,32,.45));}
+    50%{outline-color:#ffd23f;outline-offset:3px;filter:drop-shadow(0 0 7px rgba(255,176,32,.8));}}
+  /* 节点/虚线联动高亮 */
+  .ms-node.ms-active{transform:translateY(-50%) scale(1.12);box-shadow:0 0 0 2px #ffb020,0 3px 8px rgba(255,150,0,.4);z-index:11;}
+  .bar-task.req-bar .ms-mark.ms-active .ms-dot,.bar-task.req-bar .ms-mark.ms-active .ms-pdot{box-shadow:0 0 0 3px rgba(255,176,32,.65),0 1px 4px rgba(0,0,0,.5);}
+  .ms-link.ms-active{opacity:1;width:3px;}
+  /* 关键节点 → 需求条目 竖向虚线（默认淡显；free=按人视图无需求行的全高兜底） */
+  .ms-link{position:absolute;width:2px;transform:translateX(-50%);
+    background:repeating-linear-gradient(to bottom,var(--msc,#ffb020) 0 6px,transparent 6px 11px);opacity:.32;}
+  .ms-link.free{opacity:.15;}
+  /* 汇总行「＋」新增按钮 */
+  .ms-add-btn{margin-left:6px;width:18px;height:18px;line-height:16px;text-align:center;border-radius:50%;border:1px dashed #c9b574;background:#fff;color:#8a6d2f;
+    font-size:13px;font-weight:800;cursor:pointer;padding:0;transition:background .12s,transform .12s;}
+  .ms-add-btn:hover{background:#ffd23f;color:#5b4a12;transform:scale(1.1);}
+  /* 节点编辑弹层的颜色色板 */
+  .ms-swrow{display:flex;gap:8px;padding:4px 0;}
+  .ms-sw{width:22px;height:22px;border-radius:50%;cursor:pointer;border:2px solid transparent;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.6);transition:transform .1s,border-color .1s;}
+  .ms-sw:hover{transform:scale(1.12);}
+  .ms-sw.on{border-color:#1f2329;transform:scale(1.12);}
+
   /* ── 需求条评论徽标 + 浮层（v7.13 建，v7.14 修可见性/可点击） ──
      ⚠️ 关键坑：`.bar-task span`(styles.css:468) 特异性(0,1,1) > `.cmt-btn`(0,1,0)，
      它会把徽标强制成 position:relative + z-index:1 + pointer-events:none，

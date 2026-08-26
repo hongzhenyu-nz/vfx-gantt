@@ -2107,8 +2107,8 @@ function headerHTML(){
 function allMilestones(){
   const list=[];
   reqs.forEach(r=>{
-    (r.milestones||[]).forEach(ms=>{
-      list.push({...ms, reqId:r.id, reqName:r.name});
+    (r.milestones||[]).forEach((ms,mi)=>{
+      list.push({...ms, reqId:r.id, reqName:r.name, msIdx:mi});
     });
   });
   list.sort((a,b)=>a.date-b.date);
@@ -2119,17 +2119,19 @@ function allMilestones(){
    ctx='bar'：需求条内标记（顶部圆点+竖线+文字）。
    left 传入像素偏移（summary）或百分比字符串（bar，需带 %）。 */
 function milestoneNodeHTML(ms, ctx, left){
-  const tip=`${escAttr(ms.label)}\n${fmt(ms.date)} · ${ms.reqName||'全局节点'}`;
+  const tip=`${escAttr(ms.label)}\n${fmt(ms.date)} · ${ms.reqName||'全局节点'}\n右键编辑 / 拖拽改期`;
   const color=ms.color||'#ffd23f';
+  // data-req 用于「hover/选中需求条 → 联动高亮其节点与虚线」；data-msidx 定位到 req.milestones 下标供编辑/删除
+  const link=`data-req="${ms.reqId||''}" data-msidx="${ms.msIdx!=null?ms.msIdx:''}"`;
   if(ctx==='bar'){
-    return `<div class="ms-mark" style="left:${left}" onmousemove="showTip(event,'${tip.replace(/'/g,"\\'")}')" onmouseleave="hideTip()">
+    return `<div class="ms-mark ms-custom" ${link} style="left:${left}" onmousemove="event.stopPropagation();showTip(event,'${tip.replace(/'/g,"\\'")}')" onmouseleave="hideTip()">
       <span class="ms-label" style="color:${color}">${escHtml(ms.label)}</span>
       <span class="ms-dot" style="background:${color};box-shadow:0 0 0 2px ${color}33"></span>
       <span class="ms-line" style="background:${color}"></span>
     </div>`;
   }
   // summary 行：菱形图标 + 文字标签
-  return `<div class="ms-node" style="left:${left}px" onmousemove="showTip(event,'${tip.replace(/'/g,"\\'")}')" onmouseleave="hideTip()">
+  return `<div class="ms-node" ${link} style="left:${left}px" onmousemove="showTip(event,'${tip.replace(/'/g,"\\'")}')" onmouseleave="hideTip()">
     <span class="ms-diamond" style="background:${color}"></span>
     <span class="ms-text" style="color:${color}">${escHtml(ms.label)}</span>
   </div>`;
@@ -2142,9 +2144,10 @@ function milestoneSummaryRowHTML(){
     if(d<0 || d>=DAYS) return '';
     return milestoneNodeHTML(m,'summary',d*DAY_W);
   }).join('');
+  // v7.45：标签区加「＋」新增按钮；空时间轴右键可新建节点（见 contextmenu 的 .ms-summary-row 分支）
   return `<div class="row ms-summary-row" style="min-height:34px;position:sticky;top:86px;z-index:7">
-    <div class="cell-left"><span class="ms-summary-label">🚩 关键节点</span></div>
-    <div class="timeline" style="width:${DAYS*DAY_W}px">${nodes}</div>
+    <div class="cell-left"><span class="ms-summary-label">🚩 关键节点</span><button class="ms-add-btn" onclick="event.stopPropagation();openAddMilestone()" title="新增关键节点">＋</button></div>
+    <div class="timeline ms-summary-track" style="width:${DAYS*DAY_W}px">${nodes}</div>
   </div>`;
 }
 /* 按需求视图：将单个需求的里程碑渲染为条内标记（方案 B）。
@@ -2153,14 +2156,217 @@ function milestoneSummaryRowHTML(){
    而是把位置夹到 [2,98]% 贴在条两端，保证可见；真实日期由 hover tooltip 显示。 */
 function reqMilestonesHTML(r, barS, barE, span){
   if(!r.milestones || !r.milestones.length || span<=0) return '';
-  return r.milestones.map(ms=>{
+  return r.milestones.map((ms,mi)=>{
     const d=idx(ms.date);
     let pct=((d-barS)/span*100);
     if(!isFinite(pct)) return '';
     // 夹到 [2,98]：既防圆点圆心贴边被 overflow:hidden 裁掉一半，又让越界节点仍可见
     pct=Math.max(2,Math.min(98,pct));
-    return milestoneNodeHTML(ms,'bar',pct.toFixed(2)+'%');
+    return milestoneNodeHTML({...ms,reqId:r.id,reqName:r.name,msIdx:mi},'bar',pct.toFixed(2)+'%');
   }).join('');
+}
+
+/* ===== v7.45：阶段节点（L1/L2/联调完成点）—— 取消分段色块后改用「菱形圆点」表达 =====
+   与自定义关键节点（圆形 .ms-dot）区分：阶段节点用菱形 .ms-pdot。
+   圆点带 data-req/data-phdiv → 复用 pointerdown 的分割线拖拽分支改期；右键弹层编辑日期/颜色。 */
+const PHASE_NODE_META={
+  l1:{label:'L1 完成',color:'#5b9bff'},
+  l2:{label:'L2 完成',color:'#f7a54f'},
+};
+function reqPhaseNodes(r,ph){
+  if(ph.isLt) return [];   // 旧版联调整条铺满，无 L1/L2 分段概念
+  const list=[{key:'l1',which:1,d:ph.split,label:PHASE_NODE_META.l1.label}];
+  if(ph.split2!=null) list.push({key:'l2',which:2,d:ph.split2,label:ph.lt2?'L2 完成 · 联调开始':'L2 完成'});
+  return list;
+}
+function reqPhaseNodesHTML(r,ph){
+  const span=Math.max(ph.barE-ph.barS,1); if(span<=0) return '';
+  const pc=i=>((i-ph.barS)/span*100);
+  return reqPhaseNodes(r,ph).map(n=>{
+    const pct=Math.max(2,Math.min(98,pc(n.d))).toFixed(2);   // 同自定义节点：夹到 [2,98] 防裁切
+    const color=(r.phaseColors&&r.phaseColors[n.key])||PHASE_NODE_META[n.key].color;
+    const tip=`${n.label}\n${fmt(i2d(n.d))}　·　拖拽改期 / 右键编辑`;
+    return `<div class="ms-mark phase" data-req="${r.id}" data-phdiv="${n.which}" data-phkey="${n.key}" style="left:${pct}%"
+      onmousemove="event.stopPropagation();showTip(event,'${tip.replace(/'/g,"\\'")}')" onmouseleave="hideTip()">
+      <span class="ms-pdot" style="background:${color}"></span>
+      <span class="ms-pline" style="background:${color}"></span>
+    </div>`;
+  }).join('');
+}
+
+/* ===== v7.45：关键节点 → 需求条目 的竖向虚线层（仿 today 红线层）=====
+   层：left:var(--left-w) 与内容同原点；每条 .ms-link left=idx(date)*DAY_W。
+   高度由 syncMsLinks() 实测需求行 offsetTop 设定 → 精确停在需求行中线（按需求视图）。
+   按人视图行=成员、无单一需求行 → .ms-link 加 .free 淡显全高兜底。 */
+function msLinkLayerHTML(){
+  const links=allMilestones().map(m=>{
+    const d=idx(m.date);
+    if(d<0||d>=DAYS) return '';
+    return `<div class="ms-link" data-req="${m.reqId||''}" style="left:${d*DAY_W}px;--msc:${m.color||'#ffd23f'}"></div>`;
+  }).join('');
+  return `<div class="ms-link-layer" id="msLinkLayer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:7">${links}</div>`;
+}
+/* paint 后/滚动/缩放时同步虚线：top=汇总行底，height=需求行中线-汇总行底；并按 scrollLeft 裁掉漏进冻结左栏的部分。 */
+function syncMsLinks(){
+  const layer=document.getElementById('msLinkLayer'); if(!layer) return;
+  const sc=document.getElementById('scroll');
+  if(sc) layer.style.clipPath=`inset(0 0 0 ${Math.max(0,sc.scrollLeft)}px)`;   // 同 v7.19 红线防穿透
+  const sr=document.querySelector('.ms-summary-row');
+  const base=sr ? (sr.offsetTop + sr.offsetHeight) : 120;   // 汇总行底（#grid 内容坐标，约 86+34）
+  layer.querySelectorAll('.ms-link').forEach(link=>{
+    const reqId=link.dataset.req;
+    const row=reqId?document.querySelector(`.req-row[data-req-row="${reqId}"]`):null;
+    link.style.top=base+'px';
+    if(row){
+      const y=row.offsetTop + row.offsetHeight/2;
+      link.classList.remove('free');
+      link.style.bottom='auto';
+      link.style.height=Math.max(0,y-base)+'px';
+    }else{
+      link.classList.add('free');   // 无目标需求行：全高淡显
+      link.style.height='';
+      link.style.bottom='0';
+    }
+  });
+}
+
+/* ===== v7.45：关键节点 / 阶段节点 可视化编辑（复用 renderAddModal 模态） ===== */
+const MS_COLORS=['#ffd23f','#ff5b5b','#5b9bff','#2fbf9a','#b06bff','#ff8c42'];
+let msCtx=null;   // {mode:'add'|'edit'|'phase', reqId, msIdx, phkey, which}
+function msColorSwatches(cur){
+  return MS_COLORS.map(c=>`<span class="ms-sw${c===cur?' on':''}" data-c="${c}" style="background:${c}" onclick="msPickColor('${c}')"></span>`).join('');
+}
+function msPickColor(c){
+  const h=document.getElementById('msColor'); if(h)h.value=c;
+  document.querySelectorAll('.ms-sw').forEach(s=>s.classList.toggle('on',s.dataset.c===c));
+}
+function msReqOptions(selId){
+  return reqs.filter(r=>r.kind!=='lt').map(r=>`<option value="${r.id}" ${r.id===selId?'selected':''}>${escAttr(r.name)}</option>`).join('');
+}
+/* 新增关键节点：入口=汇总行「＋」按钮 / 汇总行空白右键 / 需求条右键菜单 */
+function openAddMilestone(reqId, dateIdx){
+  if(!requireWrite())return;
+  hideMenu();
+  msCtx={mode:'add'};
+  const defDate=(dateIdx!=null)?i2d(dateIdx):TODAY;
+  const body=`
+    <div class="ctx" style="background:#fdf6e3;border-color:#eadfae;color:#8a6d2f">新增关键节点（里程碑）。它会出现在顶部「🚩 关键节点」行，并以竖向虚线连到所属需求条目。</div>
+    <div class="fld"><label>所属需求</label><select id="msReq">${msReqOptions(reqId)}</select></div>
+    <div class="row2">
+      <div class="fld"><label>节点名称</label><input type="text" id="msLabel" placeholder="如：封版 / 内审通过"></div>
+      <div class="fld"><label>日期</label><input type="date" id="msDate" value="${dInput(defDate)}"></div>
+    </div>
+    <div class="fld"><label>颜色</label><div class="ms-swrow">${msColorSwatches(MS_COLORS[0])}</div><input type="hidden" id="msColor" value="${MS_COLORS[0]}"></div>
+    <div class="warn" id="msWarn"></div>`;
+  renderAddModal('🚩','新增关键节点',body,true);
+  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmAddMilestone()');
+}
+function _msReadForm(warn){
+  const r=reqs.find(x=>x.id===document.getElementById('msReq').value);
+  const label=(document.getElementById('msLabel').value||'').trim();
+  const d=parseInput(document.getElementById('msDate').value);
+  const color=document.getElementById('msColor').value||MS_COLORS[0];
+  if(!r){warn.textContent='请选择需求';warn.classList.add('show');return null;}
+  if(!label){warn.textContent='请填写节点名称';warn.classList.add('show');return null;}
+  if(!d){warn.textContent='请选择日期';warn.classList.add('show');return null;}
+  return {r,label,d,color};
+}
+function confirmAddMilestone(){
+  if(!requireWrite())return;
+  const f=_msReadForm(document.getElementById('msWarn')); if(!f)return;
+  pushHistory();
+  (f.r.milestones=f.r.milestones||[]).push({date:f.d,label:f.label,color:f.color,type:'custom'});
+  _logDesc='新增关键节点：'+f.label;
+  save();broadcast();closeAdd();rerender();
+  toast('已新增关键节点：'+f.label);
+}
+/* 编辑关键节点：右键节点（汇总行菱形 / 条内圆点）弹出 */
+function openEditMilestone(reqId, msIdx){
+  if(!requireWrite())return;
+  hideMenu();
+  const r=reqs.find(x=>x.id===reqId); if(!r)return;
+  const ms=(r.milestones||[])[msIdx]; if(!ms)return;
+  msCtx={mode:'edit',reqId,msIdx};
+  const cur=ms.color||MS_COLORS[0];
+  const body=`
+    <div class="ctx" style="background:#fdf6e3;border-color:#eadfae;color:#8a6d2f">修改关键节点「${escAttr(ms.label)}」。可改所属需求 / 名称 / 日期 / 颜色，改动实时同步两个视图。</div>
+    <div class="fld"><label>所属需求</label><select id="msReq">${msReqOptions(reqId)}</select></div>
+    <div class="row2">
+      <div class="fld"><label>节点名称</label><input type="text" id="msLabel" value="${escAttr(ms.label)}"></div>
+      <div class="fld"><label>日期</label><input type="date" id="msDate" value="${dInput(ms.date)}"></div>
+    </div>
+    <div class="fld"><label>颜色</label><div class="ms-swrow">${msColorSwatches(cur)}</div><input type="hidden" id="msColor" value="${cur}"></div>
+    <div class="warn" id="msWarn"></div>
+    <div style="margin-top:10px"><button class="am-cancel" style="color:#ef3b39;border-color:#f3c1c0" onclick="deleteMilestone()">🗑 删除该节点</button></div>`;
+  renderAddModal('🚩','编辑关键节点',body,true);
+  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmEditMilestone()');
+}
+function confirmEditMilestone(){
+  if(!requireWrite()||!msCtx)return;
+  const f=_msReadForm(document.getElementById('msWarn')); if(!f)return;
+  pushHistory();
+  const or=reqs.find(x=>x.id===msCtx.reqId);
+  if(or)(or.milestones||[]).splice(msCtx.msIdx,1);          // 先从原需求移除
+  (f.r.milestones=f.r.milestones||[]).push({date:f.d,label:f.label,color:f.color,type:'custom'});  // 再加入目标（支持跨需求移动）
+  _logDesc='编辑关键节点：'+f.label;
+  save();broadcast();closeAdd();rerender();
+  toast('关键节点已更新：'+f.label);
+}
+function deleteMilestone(){
+  if(!requireWrite()||!msCtx)return;
+  const r=reqs.find(x=>x.id===msCtx.reqId); if(!r){closeAdd();return;}
+  const label=(r.milestones||[])[msCtx.msIdx]?.label||'';
+  pushHistory();
+  (r.milestones||[]).splice(msCtx.msIdx,1);
+  _logDesc='删除关键节点：'+label;
+  save();broadcast();closeAdd();rerender();
+  toast('已删除关键节点：'+label);
+}
+/* 编辑阶段节点（L1完成 / L2完成·联调开始）：日期写回逻辑与拖拽圆点一致；颜色存 r.phaseColors */
+function openEditPhaseNode(reqId, phkey){
+  if(!requireWrite())return;
+  hideMenu();
+  const r=reqs.find(x=>x.id===reqId); if(!r)return;
+  const ph=getPhases(r);
+  const which=phkey==='l2'?2:1;
+  const curD=which===2?ph.split2:ph.split;
+  if(curD==null){toast('该需求无此阶段节点');return;}
+  msCtx={mode:'phase',reqId,phkey,which};
+  const meta=PHASE_NODE_META[phkey]||PHASE_NODE_META.l1;
+  const cur=(r.phaseColors&&r.phaseColors[phkey])||meta.color;
+  const desc=which===2?'日期即「联调开始」时间（与拖拽该圆点等效，会同步移动联调子需求）':'日期即「L1 完成 / L2 开始」分割时间（与拖拽该圆点等效）';
+  const body=`
+    <div class="ctx" style="background:#eef6ff;border-color:#bcd9f7;color:#185fa5">修改阶段节点「${meta.label}」。${desc}。</div>
+    <div class="row2">
+      <div class="fld"><label>${meta.label}日期</label><input type="date" id="msDate" value="${dInput(i2d(curD))}"></div>
+      <div class="fld"><label>颜色</label><div class="ms-swrow">${msColorSwatches(cur)}</div><input type="hidden" id="msColor" value="${cur}"></div>
+    </div>
+    <div class="warn" id="msWarn"></div>`;
+  renderAddModal('◆','编辑阶段节点',body,true);
+  const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmEditPhaseNode()');
+}
+function confirmEditPhaseNode(){
+  if(!requireWrite()||!msCtx)return;
+  const warn=document.getElementById('msWarn');
+  const r=reqs.find(x=>x.id===msCtx.reqId); if(!r){closeAdd();return;}
+  const d=parseInput(document.getElementById('msDate').value);
+  if(!d){warn.textContent='请选择日期';warn.classList.add('show');return;}
+  const color=document.getElementById('msColor').value;
+  const newIdx=idx(d);
+  pushHistory();
+  const ph=getPhases(r);
+  if(msCtx.which===2){
+    // 与拖拽 split2 一致：移动联调子需求 segs 起点（锚定结束），split2 派生自 lt.s
+    const addons=(r.children||[]).map(id=>reqs.find(x=>x.id===id)).filter(Boolean);
+    addons.forEach(a=>a.segs.forEach(sg=>{ const se=idx(sg.e); sg.s=i2d(Math.min(Math.max(newIdx,0),se)); }));
+    addons.forEach(a=>{ if(a.segs.length) a.end=i2d(Math.max(...a.segs.map(x=>idx(x.e)))); });
+  }else{
+    r.split=Math.max(ph.s+1,Math.min(ph.l2.e-1,newIdx));   // 同拖拽 L1/L2 分割的夹取区间
+  }
+  (r.phaseColors=r.phaseColors||{})[msCtx.phkey]=color;
+  _logDesc='编辑阶段节点：'+msCtx.phkey;
+  save();broadcast();closeAdd();rerender();
+  toast('阶段节点已更新');
 }
 
 /* ============ 泳道分配：把时间重叠的任务条拆到多行并行 ============ */
@@ -2506,7 +2712,8 @@ function renderReq(){
   const live=vis.filter(r=>!reqArchived(r) && !(hideDone && reqIsCompleted(r)));
   const archived=vis.filter(r=>reqArchived(r) && !(hideDone && reqIsCompleted(r)));
   const mode=GROUP_MODE.req;
-  let rows='';
+  // v7.45：按需求视图同按人视图，顶部也插「🚩 关键节点」汇总行
+  let rows=milestoneSummaryRowHTML();
   // band 连续性基于"实际相邻渲染的需求"，故按分组排好序后整体连续传 prev/next。
   const emit=(list)=>{
     list.forEach((r,i)=>{ rows+=reqRowHTML(r, list[i-1], list[i+1]); });
@@ -2651,29 +2858,16 @@ function reqRowHTML(r, prevR, nextR, inArc){
           const ph=getPhases(r);
           const bx=ph.barS*DAY_W, bw=Math.max((ph.barE-ph.barS)*DAY_W,46);
           const span=Math.max(ph.barE-ph.barS,1);
-          // 三段相对本条左缘的百分比
-          const pc=i=>((i-ph.barS)/span*100);
-          const l1L=pc(ph.l1.s),l1W=pc(ph.l1.e)-pc(ph.l1.s);
-          const l2L=pc(ph.l2.s),l2W=pc(ph.l2.e)-pc(ph.l2.s);
-          const divL=pc(ph.split);
-          // 联调段被 L2 完全覆盖（split2 拖到 barE，窗口=0）时不渲染联调块与标签
-          const ltSeg = ph.isLt ? {lL:0,lW:100} : (ph.lt2 && ph.lt2.e>ph.lt2.s) ? (()=>{const lL=pc(ph.lt2.s),lW=pc(ph.lt2.e)-pc(ph.lt2.s);return {lL,lW};})() : null;
-          const div2L = ph.split2!=null?pc(ph.split2):null;
-          const dvTip=`L1 一审 → ${fmt(i2d(ph.l1.s))} ~ ${fmtEnd(i2d(ph.split))}　|　L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmtEnd(i2d(ph.l2.e))}（拖拽分割线设定 L1 完成时间）`;
-          const dv2Tip = ph.lt2?`L2 二审 → ${fmt(i2d(ph.split))} ~ ${fmtEnd(i2d(ph.split2))}　|　联调 → ${fmt(i2d(ph.split2))} ~ ${fmtEnd(i2d(ph.lt2.e))}（拖拽分割线设定联调开始时间）`:'';
-          const ltTip = ph.isLt ? `<b>联调</b>（独立需求）<br><span class='g'>窗口</span> ${fmt(i2d(ph.lt2.s))} → ${fmtEnd(i2d(ph.lt2.e))}` : (ph.lt?`<b>联调</b>（特效完成后进入）<br><span class='g'>工作量</span> ${ph.lt.est}人天<br><span class='g'>窗口</span> ${fmt(i2d(ph.lt2.s))} → ${fmtEnd(i2d(ph.lt2.e))}`:'');
+          // v7.45：L1/L2/联调分段色块已移除（用户决策），阶段节点改由 reqPhaseNodesHTML 画菱形圆点
           return `<div class="bar-task req-bar ${barCls(r,null)}" data-req="${r.id}" style="left:${bx}px;width:${bw}px;--gcol:${gCol}"
           onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-          <div class="ph ph-l1" style="left:${l1L}%;width:${l1W}%"><span class="ph-lab">L1</span></div>
-          <div class="ph ph-l2" style="left:${l2L}%;width:${l2W}%"><span class="ph-lab">L2</span></div>
-          ${ltSeg?`<div class="ph ph-lt" style="left:${ltSeg.lL}%;width:${ltSeg.lW}%" onmousemove="event.stopPropagation();showTip(event,\`${ltTip}\`)"><span class="ph-lab">联调</span></div>`:''}
           <div class="prog" style="--p:${prog}">${restBlocksHTML(ph.barS,ph.barE)}</div>
           <i class="sdot"></i>
           <div class="bl-top"><span class="rt-line">${reqTitleHTML(r)}</span><span class="bl-pct">${prog}%</span></div>
           ${laneH?laneObj.html:`<div class="bl-sub"><div class="bl-rows">${blChips}</div></div>`}
-          <i class="ph-div" data-req="${r.id}" data-phdiv="1" title="${dvTip}" style="left:${divL}%"></i>
-          ${div2L!=null?`<i class="ph-div ph-div2" data-req="${r.id}" data-phdiv="2" title="${dv2Tip}" style="left:${div2L}%"></i>`:''}
-          <!-- v7.43：按需求视图的里程碑条内标记（方案 B） -->
+          <!-- v7.45：阶段节点菱形圆点（L1完成/L2完成·联调开始），可拖拽改期、右键编辑日期/颜色 -->
+          ${reqPhaseNodesHTML(r,ph)}
+          <!-- 自定义关键节点（圆形条内圆点），右键编辑 -->
           ${reqMilestonesHTML(r,ph.barS,ph.barE,span)}
           <i class="grip gl"></i><i class="grip gr"></i>${reqCmtBtnHTML(r)}</div>`;
         })()}
@@ -2920,6 +3114,8 @@ function paint(rows){
     /* v7.40 日期选择高亮层：仿 today-layer 用 left:var(--left-w) 包裹，内部 left=天索引×DAY_W。
        hover=悬停预览带（浅蓝），pin=单击钉选带（紫色+两侧描边+📍胶囊）。二者 pointer-events:none 不挡交互。 */
     + `<div class="date-sel-layer"><div id="dateSelHover" class="sel-band hover"></div><div id="dateSelPin" class="sel-band pin"></div></div>`
+    /* v7.45：关键节点→需求条目 竖向虚线层（仿 today 层，高度由 syncMsLinks 实测需求行设定） */
+    + msLinkLayerHTML()
     + rows;
   updateKPIs();
   if(typeof reapplySelection==='function') reapplySelection();
@@ -2933,6 +3129,7 @@ function paint(rows){
      胶囊本体常驻在 board 上方的 #todayRailTrack 里（见 syncTodayLabel），
      不再每次 paint 重建 DOM，也不再挂到 #sec-gantt（那样会被 overflow:hidden 裁 / 不随滚动走）。 */
   syncTodayLabel();
+  syncMsLinks();   // v7.45：渲染完成后实测各需求行位置，设定关键节点虚线的 top/height
 }
 
 /* ===== v7.12 今天日期胶囊定位（单一入口：paint / 滚动 / 缩放 / 栏宽变化都走这里）=====
@@ -3008,7 +3205,7 @@ function bindTodayLabelFollow(){
   const sc = document.getElementById('scroll');
   if(!sc) return;
   let pending = false;
-  const tick = () => { pending = false; syncTodayLabel(); };
+  const tick = () => { pending = false; syncTodayLabel(); if(typeof syncMsLinks==='function') syncMsLinks(); };   // v7.45：滚动/缩放同步刷新关键节点虚线（clip-path 随 scrollLeft）
   const onScroll = () => { if(!pending){ pending = true; requestAnimationFrame(tick); } };
   sc.addEventListener('scroll', onScroll, {passive:true});
   window.addEventListener('resize', onScroll);
@@ -3748,7 +3945,8 @@ grid.addEventListener('pointerdown',e=>{
   // —— 优先处理「阶段分割线」：独立拖拽，不触发整条改期/改派 ——
   //    phdiv=1 → L1/L2 分割（设 L1 完成时间，写 r.split）
   //    phdiv=2 → L2/联调 分割（设联调开始时间，写 r.split2）
-  const div=e.target.closest('.ph-div');
+  // v7.45：阶段节点圆点 .ms-mark.phase 复用分割线拖拽（data-req/data-phdiv 已带），改期写回逻辑不变
+  const div=e.target.closest('.ph-div,.ms-mark.phase');
   if(div){
     const bar=div.closest('.bar-task');
     const r=reqs.find(x=>x.id===div.dataset.req); if(!r){return;}
@@ -3935,6 +4133,24 @@ window.addEventListener('pointerup',()=>{
 
 // 右键单击任务条 / 左栏需求行 / 成员行 → 选中 + 弹出状态/操作菜单
 document.addEventListener('contextmenu',e=>{
+  // v7.45：右键关键节点（汇总行菱形 / 条内圆点 / 阶段菱形）→ 弹节点编辑层，不走任务菜单
+  const msEl=e.target.closest('.ms-node,.ms-mark');
+  if(msEl){
+    e.preventDefault();
+    const rid=msEl.dataset.req;
+    if(msEl.classList.contains('phase')) openEditPhaseNode(rid, msEl.dataset.phkey);
+    else openEditMilestone(rid, +msEl.dataset.msidx);
+    return;
+  }
+  // v7.45：右键「关键节点」汇总行空白时间轴 → 新建节点（按点击处的日期预填）
+  const msTrack=e.target.closest('.ms-summary-track');
+  if(msTrack){
+    e.preventDefault();
+    const rect=msTrack.getBoundingClientRect();
+    const dIdx=Math.max(0,Math.min(DAYS-1,Math.round((e.clientX-rect.left)/DAY_W)));
+    openAddMilestone(null, dIdx);
+    return;
+  }
   let bar=e.target.closest('.bar-task');
   // 右键点在「按需求看」的需求行上（.req-row）→ 找到该行的 req-bar 作为菜单锚点
   if(!bar){
@@ -4118,6 +4334,7 @@ function openStatusMenu(bar,x,y){
       items+=`<div class="msep"></div>`;
       items+=`<div class="mtitle">需求操作</div>`;
       items+=`<div class="mi" style="color:#185fa5;font-weight:600" onclick="hideMenu();openEditReq('${_r.id}')"><i style="background:#2563eb"></i>修改需求信息</div>`;
+      items+=`<div class="mi" style="color:#8a6d2f;font-weight:600" onclick="hideMenu();openAddMilestone('${_r.id}')"><i style="background:#d4a017"></i>＋ 新建关键节点</div>`;
       items+=`<div class="mi danger" onclick="hideMenu();deleteReq('${_r.id}')"><i style="background:#b04632"></i>删除需求</div>`;
     }
   }
@@ -4581,6 +4798,7 @@ function setSelected(bar){
   bar.classList.add('sel');
   const seg=(bar.dataset.seg!==undefined && bar.dataset.seg!=='')?+bar.dataset.seg:null;
   selectedBar={reqId:bar.dataset.req, seg};
+  if(typeof applyMsHighlight==='function') applyMsHighlight();   // v7.45：选中需求条 → 联动高亮其关键节点与虚线
 }
 function reapplySelection(){
   if(selectedMem){
@@ -4593,7 +4811,28 @@ function reapplySelection(){
     : `.bar-task.req-bar[data-req="${selectedBar.reqId}"]`;
   const b=document.querySelector(sel); if(b)b.classList.add('sel');
   if(clip&&clip.mode==='cut')markCut();
+  // v7.45：重渲染后恢复关键节点联动高亮（DOM 已重建，需强制重算）
+  _msHoverReq=null; _msApplied='__none__'; if(typeof applyMsHighlight==='function') applyMsHighlight();
 }
+/* ===== v7.45：需求条 ↔ 关键节点/竖虚线 联动高亮 =====
+   hover（瞬时）与 选中（持久，selectedBar）两路汇聚到 applyMsHighlight。
+   高亮对象：该需求的任务条(.req-glow 脉冲动画) + 其关键节点(.ms-node 汇总/.ms-mark 条内) + 竖虚线(.ms-link)。 */
+let _msHoverReq=null, _msApplied='__none__';
+function applyMsHighlight(){
+  const id=_msHoverReq || (selectedBar&&selectedBar.reqId) || null;
+  if(id===_msApplied) return;
+  _msApplied=id||'__none__';
+  document.querySelectorAll('.ms-active').forEach(el=>el.classList.remove('ms-active'));
+  document.querySelectorAll('.req-glow').forEach(el=>el.classList.remove('req-glow'));
+  if(!id) return;
+  document.querySelectorAll(`.ms-node[data-req="${id}"],.ms-mark[data-req="${id}"],.ms-link[data-req="${id}"]`).forEach(el=>el.classList.add('ms-active'));
+  document.querySelectorAll(`.bar-task.req-bar[data-req="${id}"]`).forEach(el=>el.classList.add('req-glow'));
+}
+grid.addEventListener('pointerover',e=>{
+  const el=e.target.closest&&e.target.closest('.bar-task.req-bar,.ms-node,.ms-mark');
+  _msHoverReq = el ? (el.dataset.req||null) : null;
+  applyMsHighlight();
+});
 /* ============ v7.40 日期选择高亮（悬停预览 / 单击钉选） ============
    触发：鼠标在甘特区（表头日期、空白、任务条）悬停 → 浅色预览带 + 日期胶囊；
         左键单击（非拖拽）→ 钉选该天：强色带 + 两侧描边 + 📍 日期胶囊；再次单击同列取消。
