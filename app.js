@@ -2837,14 +2837,16 @@ function paint(rows){
   const [vlines,todayLine]=rest.split('__TODAY__');   // v7.12：红线独立成层，见 headerHTML 注释
   const loadBar = loadHeatmapHTML();
   document.getElementById('grid').innerHTML =
-    head + `<div style="position:absolute;left:var(--left-w);top:86px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
+    // v7.41 日期胶囊吸顶层：置于 #grid 首个子元素，自然流位置在顶端 → scrollTop=0 起即吸顶(top:6)，纵滚始终钉在视口顶端
+    `<div class="sel-pill-layer"><div class="sel-pill hover-pill" id="dateSelHoverPill"></div><div class="sel-pill pin-pill" id="dateSelPinPill"></div></div>`
+    + head + `<div style="position:absolute;left:var(--left-w);top:86px;bottom:0;right:0;pointer-events:none">${vlines}</div>`
     // 红线专属贯穿层：top:0 从表头顶端起笔，与表头上方的胶囊箭头首尾相接
     + `<div class="today-layer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:8">${todayLine}</div>`
     + loadBar
     + `<div class="drop-band" id="dropBand"></div><div class="drop-guide" id="dropG0"></div><div class="drop-guide gend" id="dropG1"></div>`
     /* v7.40 日期选择高亮层：仿 today-layer 用 left:var(--left-w) 包裹，内部 left=天索引×DAY_W。
        hover=悬停预览带（浅蓝），pin=单击钉选带（紫色+两侧描边+📍胶囊）。二者 pointer-events:none 不挡交互。 */
-    + `<div class="date-sel-layer"><div id="dateSelHover" class="sel-band hover"><div class="sel-pill hover-pill" id="dateSelHoverPill"></div></div><div id="dateSelPin" class="sel-band pin"><div class="sel-pill pin-pill" id="dateSelPinPill"></div></div></div>`
+    + `<div class="date-sel-layer"><div id="dateSelHover" class="sel-band hover"></div><div id="dateSelPin" class="sel-band pin"></div></div>`
     + rows;
   updateKPIs();
   if(typeof reapplySelection==='function') reapplySelection();
@@ -4541,19 +4543,19 @@ function applyDateSel(){
   const pin=document.getElementById('dateSelPin');
   const pill=document.getElementById('dateSelPinPill');
   if(!pin) return;
-  if(selDay==null){ pin.style.display='none'; return; }
+  if(selDay==null){ pin.style.display='none'; if(pill) pill.style.display='none'; return; }
   pin.style.display='block';
   pin.style.left=(selDay*DAY_W)+'px';
   pin.style.width=DAY_W+'px';
-  if(pill) pill.innerHTML='📍 '+dayLabel(selDay);
+  if(pill){ pill.innerHTML='📍 '+dayLabel(selDay); pill.style.display='block'; pill.style.left='calc(var(--left-w) + '+(selDay*DAY_W)+'px)'; }
 }
 function showHover(d){
   const h=document.getElementById('dateSelHover'); const pill=document.getElementById('dateSelHoverPill');
   if(!h) return;
   h.style.display='block'; h.style.left=(d*DAY_W)+'px'; h.style.width=DAY_W+'px';
-  if(pill) pill.textContent=dayLabel(d);
+  if(pill){ pill.textContent=dayLabel(d); pill.style.display='block'; pill.style.left='calc(var(--left-w) + '+(d*DAY_W)+'px)'; }
 }
-function hideHover(){ const h=document.getElementById('dateSelHover'); if(h) h.style.display='none'; }
+function hideHover(){ const h=document.getElementById('dateSelHover'); const p=document.getElementById('dateSelHoverPill'); if(h) h.style.display='none'; if(p) p.style.display='none'; }
 function bindDaySelect(){
   if(window.__daySelBound) return; window.__daySelBound=true;
   const grid=document.getElementById('grid'); if(!grid) return;

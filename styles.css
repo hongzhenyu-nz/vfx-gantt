@@ -385,18 +385,21 @@
   /* v7.40 日期选择高亮层（悬停预览 / 单击钉选）。z-index:6 → 位于行背景与竖线(0)之上、
      任务条(1)之上（半透羽化不挡条），但被不透明表头(7)与今天红线(8)压住，故只显现在甘特区。 */
   .date-sel-layer{position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:6;}
-  .sel-band{position:absolute;top:0;bottom:0;width:var(--day-w);display:none;pointer-events:none;
+  .sel-band{position:absolute;top:86px;bottom:0;width:var(--day-w);display:none;pointer-events:none;
     transition:left .13s cubic-bezier(.4,0,.2,1), width .13s cubic-bezier(.4,0,.2,1), background .15s, box-shadow 0s;}
   .sel-band.hover{background:linear-gradient(180deg,rgba(29,111,214,.10),rgba(29,111,214,.045));
     box-shadow:inset 0 0 0 1.5px rgba(29,111,214,.32);}
   .sel-band.pin{background:linear-gradient(180deg,rgba(124,58,237,.17),rgba(124,58,237,.07));
     box-shadow:inset 2px 0 0 0 #7c3aed, inset -2px 0 0 0 #7c3aed;}
-  /* 钉选列顶端的下指三角，明确「这一列被选中」 */
-  .sel-band.pin::before{content:'';position:absolute;top:54px;left:50%;transform:translateX(-50%);
+  /* 钉选列顶端的下指三角，明确「这一列被选中」（band 自 86px 起，三角落在负载带下方、数据行顶端） */
+  .sel-band.pin::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
     border:6px solid transparent;border-top-color:#7c3aed;filter:drop-shadow(0 1px 1px rgba(0,0,0,.22));}
-  .sel-pill{position:absolute;top:58px;left:50%;transform:translateX(-50%);white-space:nowrap;
+  /* 胶囊吸顶独立层：z-index:50 > 表头(7)/负载带(6)/今天红线(8)，纵向滚动时钉在视口顶端；
+     position:sticky 仅钉垂直(top:6px)，横向随内容移动始终对准选中列；top:6px 落在表头区、绝不侵入负载色带(54~86px)，两者不重叠 */
+  .sel-pill-layer{position:sticky;top:6px;height:0;pointer-events:none;z-index:50;}
+  .sel-pill{position:absolute;top:0;left:0;transform:translateX(-50%);white-space:nowrap;display:none;
     font-size:11px;font-weight:800;padding:3px 9px;border-radius:11px;box-shadow:0 2px 8px rgba(0,0,0,.2);
-    pointer-events:none;z-index:2;letter-spacing:.2px;}
+    pointer-events:none;letter-spacing:.2px;}
   .sel-pill.hover-pill{background:#fff;color:#1d6fd6;border:1.5px solid rgba(29,111,214,.5);}
   .sel-pill.pin-pill{background:#7c3aed;color:#fff;border:1.5px solid #6d28d9;}
   .timeline{cursor:pointer;}                                   /* 整条时间轴（含表头日期）提示「可点选某天」 */
