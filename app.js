@@ -6119,6 +6119,91 @@ async function resolveTakeover(save){
   editBaselineJSON='';
   syncLockUI();
 }
+/* ===== v7.39 云端冲突·非阻塞选择弹窗 + 需求级三方合并 + 锁判定加固 =====
+   背景：原生 confirm() 会冻结主线程，连带冻结实时心跳 → 服务器误判客户端失活 → 触发离线+重连，
+   重连合并又弹 confirm()，形成「弹窗频繁 + 重连增多 + 掉线感」的正反馈。
+   ① 改用返回 Promise 的页内模态（不冻结主线程），决策期间连接保持活跃；同一时刻只弹一个（复用待决）。
+   ② 重连合并由「整行二选一」升级为「按需求三方合并」：非重叠改动自动无感合并，仅同一需求双方都改才弹选择。
+   ③ updateLockFromRow 仅在锁被「另一个非空持有者」占据时才判接管；锁被置空多为工具推送副作用，改为静默重占。 */
+let _cfPending=null;   // {promise, resolve} 当前待决的冲突选择（去重用）
+function askDataConflict(msgHTML, conflictNames){
+  const mask=document.getElementById('cfMask');
+  if(!mask){ // 兜底：DOM 缺失退回原生 confirm（文本剥标签）
+    const txt=(conflictNames&&conflictNames.length?('双方都改了：'+conflictNames.join('、')+'\n\n'):'')
+      +String(msgHTML||'').replace(/<[^>]*>/g,'').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+    return Promise.resolve(window.confirm(txt));
+  }
+  if(_cfPending) return _cfPending.promise;   // 已有待决 → 复用同一决策，避免重连风暴连弹
+  const msgEl=document.getElementById('cfMsg');
+  const listEl=document.getElementById('cfList');
+  if(msgEl) msgEl.innerHTML=msgHTML||'';
+  if(listEl){
+    if(conflictNames&&conflictNames.length){ listEl.style.display=''; listEl.innerHTML='双方都改了：<b>'+conflictNames.map(escHtml).join('</b>、<b>')+'</b>'; }
+    else { listEl.style.display='none'; listEl.innerHTML=''; }
+  }
+  mask.classList.add('show');
+  const promise=new Promise(res=>{ _cfPending={promise:null, resolve:res}; });
+  _cfPending.promise=promise;
+  return promise;
+}
+/* 用户在冲突弹窗中做出选择：useLocal=true 保留我的；false 采用云端 */
+function resolveDataConflict(useLocal){
+  const mask=document.getElementById('cfMask'); if(mask) mask.classList.remove('show');
+  if(_cfPending){ const r=_cfPending.resolve; _cfPending=null; r(!!useLocal); }
+}
+/* —— 需求级三方合并（base=上次同步基线 lastSyncJSON，local=本地，remote=云端）—— */
+function safeParseSnap(s){ try{ return (typeof s==='string')?JSON.parse(s):s; }catch(_){ return null; } }
+function snapReqIndex(arr){ const m={}; (Array.isArray(arr)?arr:[]).forEach(r=>{ if(r&&r.id!=null)m[r.id]=r; }); return m; }
+function stripReqsForCmp(s){ const o=JSON.parse(JSON.stringify(s||{})); delete o.reqs; delete o._log; return o; }
+function threeWayMergeSnapshot(base, local, remote){
+  const out=JSON.parse(JSON.stringify(local));           // 以本地为壳
+  // 非需求部分（成员/配置）粗粒度三方：仅远端改了而本地没改 → 采用远端；其余保持本地（本地优先，避免丢用户配置）
+  const bRest=JSON.stringify(stripReqsForCmp(base)), lRest=JSON.stringify(stripReqsForCmp(local)), rRest=JSON.stringify(stripReqsForCmp(remote));
+  if(lRest===bRest && rRest!==bRest){ const ro=stripReqsForCmp(remote); Object.keys(ro).forEach(k=>{ out[k]=ro[k]; }); }
+  const bR=snapReqIndex(base&&base.reqs), lR=snapReqIndex(local&&local.reqs), rR=snapReqIndex(remote&&remote.reqs);
+  const ids=new Set([...Object.keys(bR),...Object.keys(lR),...Object.keys(rR)]);
+  const mergedReqs=[]; const conflicts=[];
+  ids.forEach(id=>{
+    const b=bR[id], l=lR[id], r=rR[id];
+    const bj=b?JSON.stringify(b):null, lj=l?JSON.stringify(l):null, rj=r?JSON.stringify(r):null;
+    const lc=lj!==bj, rc=rj!==bj;                            // 各侧相对基线是否变化（含删除：该侧缺失）
+    if(!lc && !rc){ const keep=l||r; if(keep)mergedReqs.push(keep); return; }
+    if(lc && !rc){ if(l)mergedReqs.push(l); return; }        // 仅本地改/删 → 取本地
+    if(!lc && rc){ if(r)mergedReqs.push(r); return; }        // 仅远端改/删 → 取远端
+    if(lj===rj){ if(l)mergedReqs.push(l); return; }          // 双方改成一样 → 不冲突
+    conflicts.push({id:id, name:String((l&&l.name)||(r&&r.name)||(b&&b.name)||('需求'+id)), local:l||null, remote:r||null});
+    mergedReqs.push(l||r);                                    // 冲突需求占位（保证 id 在场，便于之后按选择替换/移除）
+  });
+  out.reqs=mergedReqs;
+  return {snap:out, conflicts:conflicts};
+}
+/* 按用户选择落实冲突需求：useLocal=true 取本地版（本地已删则移除）；false 取云端版（云端已删则移除）。 */
+function mergeResolveConflicts(mergeRes, useLocal){
+  const pick={}; mergeRes.conflicts.forEach(c=>{ pick[c.id]= useLocal ? c.local : c.remote; });
+  const reqs=[];
+  (mergeRes.snap.reqs||[]).forEach(r=>{
+    if(Object.prototype.hasOwnProperty.call(pick,r.id)){ if(pick[r.id])reqs.push(pick[r.id]); /* null=删除 */ }
+    else reqs.push(r);
+  });
+  mergeRes.snap.reqs=reqs;
+  return mergeRes.snap;
+}
+/* 锁在云端被置空（多为工具/AI 推送副作用，并非他人接管）时，静默重占锁，保住编辑权与未提交改动。 */
+let _reacquiring=false;
+async function silentReacquireLock(){
+  if(_reacquiring||cloudOffline||!lockMine||!sb)return;
+  _reacquiring=true;
+  try{
+    const {data,error}=await sb.from(SB_TABLE)
+      .update({editor:cloudCid,editor_name:cloudWho(),updated_at:new Date().toISOString()})
+      .eq('id',SB_ROW).is('editor',null)                 // 只在锁确实空闲时重占，绝不抢他人
+      .select('editor');
+    if(error)throw error;
+    if(data&&data.length){ lockHolderCid=cloudCid; lockHolderName=cloudWho(); startHeart(); syncLockUI(); }
+    else { await refreshLockStatus(); syncLockUI(); }    // 被人抢先 → 重读后走正常判定
+  }catch(e){ console.warn('silent reacquire failed',e); }
+  finally{ _reacquiring=false; }
+}
 /* 写操作守门：只读模式下统一拦截所有数据改动（排期/状态/改派/增删/重置/撤销重做/标准表编辑），
    仅提示需先解锁，不改动任何数据。返回 true=可写、false=已拦截。
    节流提示：避免拖拽等连续触发时狂弹 toast。 */
@@ -6192,7 +6277,8 @@ async function cloudInit(){
       if(cloudPendingPush){
         const pendJSON=JSON.stringify(cloudPendingPush);
         if(pendJSON!==remoteJSON){
-          const useLocal=confirm('检测到你上次离线期间有未同步的改动，且云端数据与之不同。\n\n点「确定」=保留你离线期间的改动（推送到云端）\n点「取消」=采用云端版本（丢弃离线改动）');
+          // v7.39：原生 confirm 改非阻塞模态，避免冻结主线程/心跳
+          const useLocal=await askDataConflict('检测到你<b>上次离线期间有未同步的改动</b>，且云端数据与之不同。<br>· <b>保留我的</b>＝保留你离线期间的改动（推送到云端）<br>· <b>采用云端</b>＝丢弃离线改动');
           if(useLocal){
             // 先合并云端完整审计记录，再以“无人持锁或本标签已持锁”为条件补推；绝不 upsert 抢走他人编辑权。
             const recoverySnap=mergeSnapshotLogs(cloudPendingPush,snapObj);
@@ -6363,10 +6449,32 @@ async function tryReconnect(){
     const currentLocalForPush=()=>mergeSnapshotLogs(snapshot(),snapObj);
     try{
       if(localDirty && remoteChanged){
-        // 双改冲突：让用户选，默认保留本地（刚辛苦编辑的内容优先）
-        const useLocal=confirm('云端已恢复，但你离线期间云端数据也有变化（可能是其他人编辑）。\n\n点「确定」=保留你离线期间的改动（覆盖云端）\n点「取消」=采用云端版本（你的离线改动将被丢弃）');
-        if(useLocal){ await pushLocal(currentLocalForPush()); toast('☁ 已保留你的离线改动并推送云端'); }
-        else { takeRemote(); toast('已采用云端版本'); }
+        // v7.39 需求级三方合并：非重叠改动自动无感合并，仅「同一需求双方都改」才弹非阻塞选择
+        const baseSnap=lastSyncJSON?safeParseSnap(lastSyncJSON):null;
+        const mergeRes=baseSnap?threeWayMergeSnapshot(baseSnap,curSnap,snapObj):null;
+        if(mergeRes && !mergeRes.conflicts.length){
+          // 无冲突 → 自动合并并补推，绝不打扰用户（先写云端成功再更新本地，避免补推失败时内存与恢复副本不一致）
+          const mergedSnap=mergeSnapshotLogs(mergeRes.snap,snapObj);
+          await pushLocal(mergedSnap);
+          applyingRemote=true; applySnap(mergedSnap); applyingRemote=false;
+          lastSyncJSON=JSON.stringify(mergedSnap); save();
+          toast('☁ 已自动合并你与云端的改动');
+        }else if(mergeRes){
+          // 有冲突需求 → 其余已自动合并，仅针对冲突需求非阻塞二选一
+          const names=mergeRes.conflicts.map(c=>c.name);
+          const useLocal=await askDataConflict('云端已恢复，但<b>以下需求</b>你和云端都有改动：<br>· <b>保留我的</b>＝这些需求按你的改动<br>· <b>采用云端</b>＝这些需求按云端版本',names);
+          const resolved=mergeResolveConflicts(mergeRes,useLocal);
+          const mergedSnap=mergeSnapshotLogs(resolved,snapObj);
+          await pushLocal(mergedSnap);
+          applyingRemote=true; applySnap(mergedSnap); applyingRemote=false;
+          lastSyncJSON=JSON.stringify(mergedSnap); save();
+          toast(useLocal?'☁ 已保留你的改动，并合并了其余云端更新':'☁ 冲突需求已采用云端，其余改动已合并');
+        }else{
+          // 无基线可三方合并 → 退回非阻塞整体二选一（默认保留本地，刚辛苦编辑的内容优先）
+          const useLocal=await askDataConflict('云端已恢复，但你离线期间云端数据也有变化（可能是其他人编辑）。<br>· <b>保留我的</b>＝保留你离线期间的改动（覆盖云端）<br>· <b>采用云端</b>＝丢弃你的离线改动');
+          if(useLocal){ await pushLocal(currentLocalForPush()); toast('☁ 已保留你的离线改动并推送云端'); }
+          else { takeRemote(); toast('已采用云端版本'); }
+        }
       }else if(localDirty){
         // 只有本地改了 → 直接补推，绝不覆盖本地
         await pushLocal(currentLocalForPush()); toast('☁ 离线期间改动已补推云端');
@@ -6514,14 +6622,18 @@ function updateLockFromRow(row){
   lockHolderName = holder?(row.editor_name||'某成员'):'';
   lockHolderStale= !!holder && !fresh;                  // 有人占但心跳已停
   lockHolderZombie= !!holder && age >= LOCK_ZOMBIE;     // 超长无心跳 = 僵尸锁
-  // 若云端显示锁已不在我手里（被强制接管）→ 弹窗让我确认如何处理未提交改动（v6.70 不再静默）
-  if(lockMine && lockHolderCid!==cloudCid){
+  // 若云端显示锁已被「另一个非空持有者」占据（真·被强制接管）→ 弹窗让我确认如何处理未提交改动（v6.70 不再静默）
+  // v7.39 加固：仅当 holder 为非空且非我时才判接管；holder 被置空多为工具/AI 推送副作用，并非接管，改为静默重占。
+  if(lockMine && lockHolderCid && lockHolderCid!==cloudCid){
     // 在 realtime 覆盖内存前冻结本地改动，再作废本租约的排队/在途自动保存。
     freezeTakeoverSnap();
     cloudPushEpoch++; cloudPushQueued=false; clearTimeout(cloudPushT);
     cloudLeaseNeedsRotate=true;
     lockMine=false; stopHeart();
     openTakeoverDialog(lockHolderName||'他人');
+  }else if(lockMine && !lockHolderCid){
+    // 锁在云端被置空：不弹接管窗，静默重占，保住编辑权与未提交改动
+    silentReacquireLock();
   }
   syncLockUI();
 }

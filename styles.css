@@ -1218,6 +1218,29 @@
   .tk-modal .tk-drop:hover{background:#e6e8ec;}
   .tk-modal .tk-save{background:#0a7d3c;color:#fff;}
   .tk-modal .tk-save:hover{background:#08682f;box-shadow:0 4px 14px rgba(10,125,60,.34);}
+  /* ===== v7.39 云端冲突·非阻塞选择弹窗（替代原生 confirm，不冻结主线程/心跳）===== */
+  .cf-mask{position:fixed;inset:0;background:rgba(12,18,32,.55);backdrop-filter:blur(3px);
+    display:none;align-items:center;justify-content:center;z-index:10060;}
+  .cf-mask.show{display:flex;}
+  .cf-modal{width:470px;max-width:92vw;background:#fff;border-radius:14px;overflow:hidden;
+    box-shadow:0 26px 74px rgba(0,0,0,.40);border:2px solid #2f6fed;animation:addpop .16s ease-out;}
+  .cf-modal .cf-h{display:flex;align-items:center;gap:9px;padding:15px 18px;
+    background:linear-gradient(90deg,#eef4ff,#f7faff);border-bottom:1px solid #d4e2ff;
+    font-size:15px;font-weight:800;color:#1a4fd6;}
+  .cf-modal .cf-h .ic{width:27px;height:27px;border-radius:8px;display:inline-flex;align-items:center;
+    justify-content:center;background:#2f6fed;color:#fff;font-size:15px;flex-shrink:0;}
+  .cf-modal .cf-body{padding:15px 18px 8px;font-size:13px;color:#3a3f4a;line-height:1.65;}
+  .cf-modal .cf-msg{margin-bottom:4px;}
+  .cf-modal .cf-list{font-size:12px;color:#5a626e;background:#f6f8fc;border:1px solid #e7ebf2;
+    border-radius:9px;padding:9px 11px;margin:8px 0 6px;max-height:180px;overflow:auto;}
+  .cf-modal .cf-list b{color:#1d2330;}
+  .cf-modal .cf-foot{display:flex;gap:10px;justify-content:flex-end;padding:10px 18px 17px;}
+  .cf-modal .cf-foot button{font-size:13px;font-weight:700;padding:10px 16px;border-radius:9px;
+    cursor:pointer;border:1.5px solid transparent;}
+  .cf-modal .cf-remote{background:#f1f2f5;color:#5a626e;}
+  .cf-modal .cf-remote:hover{background:#e6e8ec;}
+  .cf-modal .cf-local{background:#2f6fed;color:#fff;}
+  .cf-modal .cf-local:hover{background:#1f5ce0;box-shadow:0 4px 14px rgba(47,111,237,.34);}
   /* ===== v6.71 首次身份确认弹窗（方案1：引导正确填写，不做强身份校验）===== */
   .idn-mask{position:fixed;inset:0;background:rgba(12,18,32,.62);backdrop-filter:blur(4px);
     display:none;align-items:center;justify-content:center;z-index:10080;}
