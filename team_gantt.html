@@ -12,7 +12,7 @@
      cache-control:max-age=600 独立缓存，会出现「index.html 已更新、styles.css/app.js 仍是旧缓存」
      的版本错配 → 视图崩坏（左栏空白/任务条不渲染）。版本号一变 URL 即变，强制重新拉取。
      ⚠️ 改动 styles.css 或 app.js 后，必须同步递增此处 ?v= 版本号。 -->
-<link rel="stylesheet" href="styles.css?v=7.59">
+<link rel="stylesheet" href="styles.css?v=7.60">
 
 </head>
 <body>
@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.59 · build 2026-08-27 22:14</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.60 · build 2026-08-27 22:23</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -129,6 +129,18 @@
         <input type="range" id="zoomRange" min="100" max="320" step="10" value="100" oninput="setZoom(this.value)">
         <span class="vc-val" id="zoomVal">100%</span>
         <button class="vc-reset" onclick="setZoom(100,true)" title="恢复默认条宽">↺</button>
+      </span>
+      <span class="vivid-ctrl" title="调试·条内栅格间距：控制任务条内部竖向格线的疏密（默认=每天一格，与日期列对齐；调大则稀疏、调小则密集）。仅影响视觉，不改变数据">
+        <span class="vc-ic">▦</span>
+        <input type="range" id="gridGapRange" min="4" max="48" step="1" value="0" oninput="setGridGap(+this.value)" title="0=自动(跟随每天宽度)">
+        <span class="vc-val" id="gridGapVal">自动</span>
+        <button class="vc-reset" onclick="setGridGap(0)" title="恢复自动间距">↺</button>
+      </span>
+      <span class="vivid-ctrl" title="调试·假日阴影浓度：控制节假日/双休斜纹暗块的可见度（100%=默认；往左变淡便于看清条色，往右加深强调停工期）">
+        <span class="vc-ic">🌫</span>
+        <input type="range" id="holOpacRange" min="0" max="200" step="5" value="100" oninput="setHolOpacity(+this.value)">
+        <span class="vc-val" id="holOpacVal">100%</span>
+        <button class="vc-reset" onclick="setHolOpacity(100)" title="恢复默认浓度">↺</button>
       </span>
       <button class="ubtn" onclick="autoFitLeftW()" title="自动加宽左侧信息栏，让人名标签尽量不换行、各行宽度一致、版面整齐（也可拖动栏右侧分界线手动调，或双击分界线自动适配）">⇆ 适配栏宽</button>
       <button class="reset" onclick="resetData()">重置</button>
@@ -373,7 +385,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.59"></script>
+<script src="app.js?v=7.60"></script>
 
 </body>
 </html>

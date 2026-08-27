@@ -9313,6 +9313,39 @@ function initVivid(){
   let v=100; try{const s=localStorage.getItem(VIVID_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
   setVivid(v,true);
 }
+/* ===== 调试：条内栅格间距 ===== */
+const GRIDGAP_KEY='gantt_gridgap';
+function setGridGap(v){
+  /* v=0 表示自动（跟随 --day-w 即每天一格）；否则为固定像素间距 */
+  v=Math.max(0,Math.min(48,Math.round(+v)));
+  const val=document.getElementById('gridGapVal');
+  if(val)val.textContent=v===0?'自动':v+'px';
+  const rng=document.getElementById('gridGapRange'); if(rng)rng.value=v;
+  if(v===0){
+    document.documentElement.style.removeProperty('--grid-gap');
+  }else{
+    document.documentElement.style.setProperty('--grid-gap',v+'px');
+  }
+  try{localStorage.setItem(GRIDGAP_KEY,v);}catch(_){}
+}
+function initGridGap(){
+  let v=0; try{const s=localStorage.getItem(GRIDGAP_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
+  setGridGap(v);
+}
+/* ===== 调试：假日阴影浓度 ===== */
+const HOLOPAC_KEY='gantt_holopac';
+function setHolOpacity(v){
+  /* v 为百分比，100=默认原样，0=完全透明，200=两倍加深 */
+  v=Math.max(0,Math.min(200,Math.round(+v/5)*5));
+  document.documentElement.style.setProperty('--hol-opacity',(v/100).toFixed(2));
+  const val=document.getElementById('holOpacVal'); if(val)val.textContent=v+'%';
+  const rng=document.getElementById('holOpacRange'); if(rng)rng.value=v;
+  try{localStorage.setItem(HOLOPAC_KEY,v);}catch(_){}
+}
+function initHolOpacity(){
+  let v=100; try{const s=localStorage.getItem(HOLOPAC_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
+  setHolOpacity(v);
+}
 /* 条宽 / 时间轴密度：滑块缩放 DAY_W（100%~320%），觉得任务条太细可调宽，设置记本机 */
 const ZOOM_KEY='gantt_zoom';
 function setZoom(v,sync){
@@ -9911,6 +9944,8 @@ document.addEventListener('click',function(e){const p=document.getElementById('s
 
 buildMeSel();
 initVivid();
+initGridGap();
+initHolOpacity();
 initZoom();
 initLeftW();
 applyLblShow();
