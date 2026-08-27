@@ -231,23 +231,20 @@
 
   .row{display:flex;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;min-height:var(--row-h);position:relative;transition:background .15s;}
   /* v6.78 回退 v6.77 斑马纹（nth-of-type 交替底色导致日期行/表头渲染异常，日期标签消失） */
-  /* 悬停高亮：鼠标所在行更醒目。
-     v6.82 关键：必须用**半透明** rgba，不能用不透明色值。
-     日期底纹 .daycol（周末/节假日灰列）画在一个全局绝对定位层上，该层在 DOM 中排在 .row 之前
-     → 行的背景会盖在它上面。若 hover 用不透明色（旧版 #f0f4ff），周末底纹整行消失。
-     改为 rgba(51,112,255,.07) 后，蓝色高亮与底纹叠加显示，底纹始终可见。 */
-  /* v7.51：:not() 排除名单补 .ms-summary-row —— 该规则带 !important 会把关键节点行的不透明底色
-     var(--ms-bg) 整体换成 rgba(51,112,255,.07)，日期底纹透出来 = 用户看到的"悬停变透明"。
-     opacity 一直是 1，病根在这条背景替换，故直接把它排除在通用悬停高亮之外（悬停零视觉变化）。 */
-  #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):not(.ms-summary-row):hover{background:rgba(51,112,255,.07)!important;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4, inset 0 1px 0 rgba(29,111,214,.12)!important;}
+  /* v7.52：按产品要求**删除**「所有行悬停换底」通用规则（原 #grid > .row:not(...):hover{rgba(51,112,255,.07)!important}）。
+     该规则的历史包袱：v6.82 为保周末底纹可见被迫用 7% 半透明蓝，任何自带不透明底色的行（关键节点行的
+     var(--ms-bg) 米色底）悬停时都会被 !important 换成近透明蓝 → v7.50/v7.51 两版"悬停变透明"的病根。
+     现整规则移除，行级悬停不再有任何底色/描边变化；只保留针对特定元素的悬停反馈
+     （.ms-node / .grp-header / 各按钮 / 菜单项 / 热力色段等，均在本文件各自选择器下）。
+     若将来要恢复行级悬停高亮，须为每个有自有底色的行类显式写豁免，勿再用 !important 一刀切。 */
   .row:last-child{box-shadow:none;}
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:7;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;}   /* v7.14 z-index 5→7：必须高于 .grp-header(3) 才能修复分组标题盖住表头的穿透，也高于 .load-heatmap(6) 保证双层冻结顺序；仍低于 today-layer(8)，红线贯穿语义不变 */
   /* 里程碑汇总行（v7.43 方案 C）：按人视图置顶，位于表头与内容行之间 */
   /* v7.46：底色走 --ms-bg（🎨 配色面板「关键节点行底色」可改，本机 localStorage 持久化），缺省回落 #fdfcf5 */
   /* v7.50：整行悬停同样保持不透明 —— 底色 var(--ms-bg) 若被色板设成带 alpha 的值（如 #rrggbbaa），
      叠加在日期底纹上就会呈现半透。此处强制 opacity:1 兜底，并显式声明不叠任何 hover 半透层。
-     v7.51 补记：真正的"悬停变透明"病根在上方通用行 hover 规则（!important 替换本行底色为 7% 蓝），
-     已把 .ms-summary-row 加进其 :not() 排除名单；下面两条 :hover 规则留作双保险。 */
+     v7.52 补记：通用行 hover 换底规则已整体删除（见 .row 上方注释），本行悬停天然零变化；
+     下面两条 :hover 的 opacity:1 继续保留，防未来新增通用规则时旧病复发。 */
   .row.ms-summary-row{min-height:34px;height:34px;background:var(--ms-bg,#fdfcf5);box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #d4c9a8;z-index:6;opacity:1;}
   .row.ms-summary-row:hover{opacity:1;}
   .row.ms-summary-row:hover .cell-left{opacity:1;}
