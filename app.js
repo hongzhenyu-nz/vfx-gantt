@@ -1565,9 +1565,11 @@ function segDoneBadge(r,s){
    仅在 autoSegState 判为 overdue 时插入（rank3，与完成印章同级，尽量保命）。 */
 function segOverdueBadge(){ return `<span class="rt-late" data-rank="3" title="排期结束日已过，但尚未人工确认完成 → 请尽快收尾或调整排期">⚠ 逾期未完</span>`; }
 
-/* v6.38 超标准工期标注：从 STD_CFG 按 (r.grade, r.mod) 查制作工期（周），与段实际日历天数对比。
+/* v6.38 超标准工期标注：从 STD_CFG 按 (r.grade, r.mod) 查制作工期（周），与段实际【工作日】数对比。
    标准工期为空或0时不显示；实际 ≤ 标准 不显示；超出时返回紫红色「📏 超 N周」徽标。
-   周数按日历天/7 粗算（与甘特条日历刻度一致），方便直观对比条长。
+   v7.x 起统一为工作日口径（与 overdueWorkdays / 工时统计一致）：actual 与 std 均只数工作日，
+   排除周末+法定节假日、计入调休。标准工期(制作)按 5 个工作日/周折算；无假期内显示值与旧日历口径完全一致
+   （两侧同乘 5/7，÷7 与 ÷5 抵消），仅跨春节等长假期时不再把假日计入超期。
 
    v6.57 关键修复：原来用严格相等匹配，但两边键名体系根本不同 → 44 个需求 100% 匹配失败、徽标从未出现过。
      · 品级：STD_CFG 写「金角/橙角/红角」，需求写「金/橙/红」
@@ -1627,14 +1629,18 @@ function segStdOverflowZone(seg, r, m){
   const stdWks = stdWeeksForReq(r);
   if(stdWks <= 0) return '';
   if(seg.open) return '';                                    // 时间待定的长期条无实义窗口，不标
-  const actualDays = Math.max(0, idx(seg.e) - idx(seg.s));    // 内存 e 为排他终点，天数即 e-s
-  const stdDays = stdWks * 7;                                 // 日历天粗算（与甘特轴对齐）
-  if(actualDays <= stdDays || actualDays <= 0) return '';
-  const ovrDays = actualDays - stdDays;
-  const ovrWks  = (ovrDays / 7).toFixed(1);
+  /* v7.x 统一为工作日口径（与 overdueWorkdays / 工时统计完全一致）：actual 与 std 均只数工作日，
+     排除周末+法定节假日、计入调休。拖动条形跨春节等长假期时，假日不计入超期，
+     消除「工作日没增加、超期周数却跳变」的口径不一致。
+     标准工期(制作)按 5 个工作日/周折算 —— 无假期内显示值与旧版日历口径完全一致（两侧同乘 5/7，÷7 与 ÷5 抵消）。 */
+  const actualWD = workdaysIdx(idx(seg.s), idx(seg.e));       // 该段实际工作日数（e 为排他终点）
+  const stdWD   = Math.round(stdWks * 5);                      // 标准工期 → 工作日数（5 天/周）
+  if(actualWD <= stdWD || actualWD <= 0) return '';
+  const ovrWD  = actualWD - stdWD;
+  const ovrWks = (ovrWD / 5).toFixed(1);                       // 超出周数（按 5 工作日/周）
   // 标准工期结束点在条内的百分比；上限 96% 保证极小超期量也有可见宽度（否则 0.4 周会窄到看不见）
-  const leftPct = Math.min(96, stdDays / actualDays * 100).toFixed(3);
-  const tip = `📏 超出标准工期　该段排期 ${actualDays} 天（≈${(actualDays/7).toFixed(1)} 周）｜标准 ${stdWks} 周（${stdDays} 天）｜超出 ${ovrDays} 天（≈${ovrWks} 周）　斜纹区即超期部分，建议核查或调整排期`;
+  const leftPct = Math.min(96, stdWD / actualWD * 100).toFixed(3);
+  const tip = `📏 超出标准工期　该段排期 ${actualWD} 个工作日（已排除周末与法定节假日）｜标准 ${stdWks} 周（${stdWD} 个工作日）｜超出 ${ovrWD} 个工作日（≈${ovrWks} 周）　斜纹区即超期部分，建议核查或调整排期`;
   return `<i class="ovr-zone" style="left:${leftPct}%" title="${escAttr(tip)}"><b class="ovr-tag">超${ovrWks}周</b></i>`;
 }
 /* v7.36 工作日口径「超期」核算 —— 实际排期结束日 vs 计划完成日(r.end)，仅数工作日。
