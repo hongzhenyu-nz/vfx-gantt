@@ -406,7 +406,7 @@
      使条内双休暗块显得「左边多、右边少、整体偏左」（A/B 实测：隐藏 .vline 后偏差 0.769px → 0.001px）。
      改为 transform:translateX(-50%) 让线体跨日界居中，两侧各占 0.5px，
      不再单侧吞掉灰带边缘，灰带左右边界即与条内暗块严格一致。 */
-  .vline{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);transform:translateX(-50%);}
+  .vline{position:absolute;top:0;bottom:0;width:1px;background:rgba(238,240,243,var(--vline-opacity,1));transform:translateX(-50%);}
   /* 节假日/双休灰列：贯穿全高、置于最底层，任务条与竖线覆盖其上；pointer-events:none 不挡交互 */
   .daycol{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0;}
   .daycol.we{background:rgba(120,130,145,calc(.10 * var(--daycol-opacity,1)));}                 /* 双休：浅灰 */
@@ -432,7 +432,7 @@
     pointer-events:none;letter-spacing:.2px;opacity:.92;}
   .sel-pill.hover-pill{background:#fff;color:#4a5a70;border:1px solid rgba(29,111,214,.28);}
   .timeline{cursor:default;}   /* v7.47：日期列不再可点选，去掉"可点选"的指针暗示 */
-  .vline.mono{background:#dfe2e6;width:1px;}
+  .vline.mono{background:rgba(223,226,230,var(--vline-opacity,1));width:1px;}
   /* v6.86 移除 .vline.we —— 全文无任何代码生成该类（vlines 只产出 .vline 与 .vline.mono），
      属历史死代码；其 width:var(--day-w) 与新的 translateX(-50%) 居中逻辑也不兼容。 */
   /* v6.86：同 .vline，跨日界居中，避免整根线偏向一侧吞掉相邻灰带边缘 */
@@ -514,7 +514,7 @@
      故 .prog 不再需要 -3px 反向补偿，直接 inset:0 即与条外缘（=整天边界）对齐。 */
   .bar-task .prog{position:absolute;top:0;bottom:0;left:0;right:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
     background-image:
-      repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--grid-gap,var(--day-w,12px))),
+      repeating-linear-gradient(90deg,rgba(255,255,255,var(--bar-grid-opacity,.16)) 0 1px,rgba(255,255,255,0) 1px var(--grid-gap,var(--day-w,12px))),
       linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(255,255,255,.50) calc(var(--p,0)*1%) 100%);}
   /* v5.7 休息日暗块：周末/节假日在条内叠一层 45° 斜纹暗块，表达「这天停工·不算人天产出」。
      left 从条起始整天边界起算(k*DAY_W)自动对齐日期列。
@@ -533,7 +533,7 @@
   .bar-task .prog[style*="--p:0"]::after{display:none;}                   /* 0% 起步：整条浅色空槽、不画起点竖线 */
   .bar-task.open .prog::after,.bar-task.open-both .prog::after,.bar-task.open-front .prog::after,.bar-task.open-back .prog::after{display:none;} /* 无限延长：无明确起止，不画进度分界竖线 */
   /* 无限延长条：去掉基于 --p 的「已完成/未完成」深浅分区覆盖层，整条统一底色，只保留天格线 */
-  .bar-task.open .prog,.bar-task.open-both .prog,.bar-task.open-front .prog,.bar-task.open-back .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,.16) 0 1px,rgba(255,255,255,0) 1px var(--grid-gap,var(--day-w,12px)));}
+  .bar-task.open .prog,.bar-task.open-both .prog,.bar-task.open-front .prog,.bar-task.open-back .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,var(--bar-grid-opacity,.16)) 0 1px,rgba(255,255,255,0) 1px var(--grid-gap,var(--day-w,12px)));}
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
   /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上） */

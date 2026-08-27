@@ -9384,6 +9384,23 @@ function initDayColOpacity(){
   let v=100; try{const s=localStorage.getItem(DAYCOL_OPAC_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
   setDayColOpacity(v);
 }
+/* 栅格透明度：统一控制条内竖向天格线(--bar-grid-opacity) + 行分隔横线(--row-line-opacity)
+   + 时间轴竖线(--vline-opacity)。0~200%，100%=默认原样。重点：调低可让网格不再切断甘特图条 */
+const GRID_OPAC_KEY='gantt_grid_opac';
+function setGridOpacity(v){
+  v=Math.max(0,Math.min(200,Math.round(+v/5)*5));
+  const mult=v/100;
+  document.documentElement.style.setProperty('--row-line-opacity',mult.toFixed(2));
+  document.documentElement.style.setProperty('--vline-opacity',mult.toFixed(2));
+  document.documentElement.style.setProperty('--bar-grid-opacity',(.16*mult).toFixed(3));
+  const val=document.getElementById('gridOpacVal'); if(val)val.textContent=v+'%';
+  const rng=document.getElementById('gridOpacRange'); if(rng)rng.value=v;
+  try{localStorage.setItem(GRID_OPAC_KEY,v);}catch(_){}
+}
+function initGridOpacity(){
+  let v=100; try{const s=localStorage.getItem(GRID_OPAC_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
+  setGridOpacity(v);
+}
 /* 条宽 / 时间轴密度：滑块缩放 DAY_W（100%~320%），觉得任务条太细可调宽，设置记本机 */
 const ZOOM_KEY='gantt_zoom';
 function setZoom(v,sync){
@@ -9986,6 +10003,7 @@ initGridGap();
 initHolOpacity();
 initMsLinkOpac();
 initDayColOpacity();
+initGridOpacity();
 initZoom();
 initLeftW();
 applyLblShow();
