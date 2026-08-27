@@ -2349,9 +2349,9 @@ function syncMsBarLabels(){
     bar.querySelectorAll('.ms-mark').forEach(mk=>{
       const mr=mk.getBoundingClientRect();
       if(mr.width===0&&mr.height===0) return;
-      // 标签文本：自定义节点取 ms-label，阶段节点取 data-phlabel
+      // 标签文本：自定义节点取 ms-label；阶段节点（L1/L2）不再显示标签（v7.63 移除）
       let txt='';
-      if(mk.classList.contains('phase')) txt=mk.dataset.phlabel||'';
+      if(mk.classList.contains('phase')) { /* v7.63: 阶段节点不渲染文字标签 */ }
       else{
         const le=mk.querySelector('.ms-label'); txt=le?le.textContent:'';
       }

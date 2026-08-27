@@ -735,15 +735,11 @@
   .bar-task.req-bar .ms-mark.ms-active .ms-dot,.bar-task.req-bar .ms-mark.ms-active .ms-pdot{box-shadow:0 0 0 3px rgba(255,176,32,.65),0 1px 4px rgba(0,0,0,.5);}
   .ms-link.ms-active{opacity:1;width:3px;}
   /* 关键节点 → 需求条目 竖向虚线。
-     v7.47 对比度强化：原 opacity .32 + 2px 宽在深色条背景下几乎看不见。
-     改为「白色底衬 + 主色虚线」双层：底衬用 ::before 画一条 4px 宽的半透明白，
-     主色虚线画在其上，深色区靠白衬托出、浅色区靠主色实心，双向可读。
-     opacity 由 .32 提到 .9，宽度 2→3px。free=按人视图无需求行的全高兜底（仍淡显）。 */
-  .ms-link{position:absolute;width:3px;transform:translateX(-50%);opacity:var(--ms-link-opacity,.9);
+     v7.63 精简：去掉 ::before 白色底衬（避免浅色条上脏白块），
+     去掉 .ms-link.free 淡显兜底（不再按人视图降权），
+     仅保留主色虚线，颜色取 --msc（色板·竖向虚线色），强度由 --ms-link-opacity 控制。 */
+  .ms-link{position:absolute;width:3px;transform:translateX(-50%);opacity:var(--ms-link-opacity,1);
     background:repeating-linear-gradient(to bottom,var(--msc,#ffb020) 0 5px,transparent 5px 10px);}
-  .ms-link::before{content:'';position:absolute;top:0;bottom:0;left:-0.5px;right:-0.5px;
-    background:rgba(255,255,255,calc(.55 * var(--ms-link-opacity,1)));border-radius:2px;}
-  .ms-link.free{opacity:calc(var(--ms-link-opacity,.9) * .28);}
   /* v7.47：需求条内关键节点的文字标签层（挂 #grid、无 overflow 裁切 → 允许出框）。
      z-index:7 低于今天红线层(8)，与关键节点汇总行(6)/负载带(6)同级但不穿透冻结信息行(7)。 */
   .ms-label-layer{position:absolute;left:var(--left-w);top:0;right:0;bottom:0;pointer-events:none;z-index:7;}
