@@ -558,7 +558,10 @@
   /* v7.56：条色改为读取 CSS 变量，由 🎨 配色面板「甘特图条」分组驱动（见 app.js applyMsPalette）。
      var() 的**兜底值逐字取自原硬编码色**，未设变量时渲染结果与改动前完全一致，零视觉变化。
      变量作用域在 :root，改色后浏览器立即重绘 = 实时生效，无需 rerender。 */
-  .b-blue{background:var(--bar-blue,#4d80ff);} .b-green{background:var(--bar-green,#1fae5a);} .b-amber{background:var(--bar-amber,#f59e0b);} .b-red{background:var(--bar-red,#ef3b39);} .b-gray{background:var(--bar-gray,#7d92b3);} .b-purple{background:#7e63b5;}
+  .b-blue{background:var(--bar-blue,#4d80ff);} .b-green{background:var(--bar-green,#1fae5a);} .b-amber{background:var(--bar-amber,#f59e0b);} .b-red{background:var(--bar-red,#ef3b39);} .b-gray{background:var(--bar-gray,#7d92b3);} .b-purple{background:var(--bar-purple,#7e63b5);}
+  /* v7.57：.b-purple 同批变量化（v7.56 漏网，仍是硬编码 #7e63b5）。兜底值=原硬编码色，未设变量时零视觉变化。
+     注：b-purple 现仅由历史数据/旧快照的 kind:'lt' 分支触发（v7.05 起联调已迁移为 mod:'联调' → b-lt/b-lt0），
+     变量化仅为与其余条色保持一致，便于日后统一调色。 */
   /* v7.24 联调专用青碧色系：原 b-purple(#7e63b5) 与超期区/「超N周」徽标的紫同族撞色，
      用户反馈「联调需求与超期紫分不清」。联调改青碧 #0e9aa7（与蓝/绿/紫/橙均拉开色相），开始后自动转正常青碧。
      v7.25：b-lt0 子元素覆写加 :not(.vacant-bar)，缺人占位联调条回归标准红斜纹+白纱罩。
@@ -579,6 +582,9 @@
   .bar-task.b-lt0:not(.vacant-bar) .sdot{background:var(--c-lt0-sdot);}
   .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(61,47,79,.07) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),color-mix(in srgb, var(--c-lt0-tx) 15%, transparent) calc(var(--p,0)*1%) 100%);}
   .b-done{background:var(--bar-done,#4ecba0);}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分。v7.56 变量化，兜底=原值 */
+  /* v7.57 终态色优先级最高：**已完成/废弃必须压过开放条 .open 的底色**（规则实体见下方 .open 之后）。
+     原因见「v7.57 终态色优先级」注释块——.open 用 background-color 整片盖掉 .b-done，
+     导致「已完成条目却显示成色板里的紫」。此处仅作标记，实体规则须排在 .open 之后才能生效。 */
   /* ===== 时间长度类型：前端无限 / 后端无限 / 两端无限 =====
      用 mask 让相应端淡出，叠加斜纹质感与 « » 箭头提示延伸方向。
      不显示拖拽抓手（无精确边界可拖）。.open 保留作为 .open-both 的兼容别名。
@@ -620,6 +626,18 @@
   .bar-task.open .rt-line .rt-nm,.bar-task.open-both .rt-line .rt-nm,
   .bar-task.open-front .rt-line .rt-nm,.bar-task.open-back .rt-line .rt-nm{color:#5a4a33;text-shadow:none;}
   .bar-task.open .sdot,.bar-task.open-both .sdot,.bar-task.open-front .sdot,.bar-task.open-back .sdot{background:rgba(90,75,55,.6);}
+  /* ===== v7.57 终态色优先级最高：压过一切「长度类型/配色面板」底色 =====
+     症状：已完成条目（b-done，应为青绿 #4ecba0）却显示成色板里选的紫色。
+     根因是 CSS 层叠而非 JS 判定——barCls() 早已把终态判定排在最前并正确返回 b-done，
+     但 .bar-task.open* 规则（上方 595 行）声明在 .b-done（584 行）**之后**，
+     二者特异度同为 (0,2,0)，「后者胜」→ .open 的 background-color:var(--bar-open,…)
+     整片盖掉 .b-done 的绿。用户改过 --bar-open（紫）并存在 localStorage，于是永久显示紫。
+     修复：把终态底色规则**排到 .open 之后**，特异度持平、靠顺序取胜。
+     只夺回 background-color，不碰 background-image/mask/::before —— 斜纹、羽化、
+     « » 箭头等「开放」语义原样保留，视觉上仍是「一根已完成的开放条」。
+     废弃态 b-gray 同理（开放条被废弃时也应显示灰，而非色板紫）。 */
+  .bar-task.b-done{background-color:var(--bar-done,#4ecba0);}
+  .bar-task.b-gray{background-color:var(--bar-gray,#7d92b3);}
   .grip{position:absolute;top:0;bottom:0;width:9px;cursor:ew-resize;z-index:3;}
   .grip.gl{left:0;border-radius:6px 0 0 6px;}
   .grip.gr{right:0;border-radius:0 6px 6px 0;}
@@ -1143,7 +1161,7 @@
   /* 已完成需求：信息锁死、不再变化。整条底色 + 阶段块 + 每人子条 + 标签统一降低透明度（淡化呈"封存"态），
      仅「✓已完成」大标保持满色醒目，居中放大，一眼看出该需求已收尾。 */
   .row.req-done .req .rt-nm{color:#4ecba0;}
-  .row.req-done .bar-task.req-bar{background:#4ecba0!important;}  /* 已完成大条本体强制青绿，杜绝透出旧草绿 */
+  .row.req-done .bar-task.req-bar{background:var(--bar-done,#4ecba0)!important;}  /* v7.57：改读 --bar-done 变量（原硬编码 #4ecba0，会盖掉色板「已完成条」的自定义色）；!important 保留以杜绝透出旧草绿 */
   .row.req-done .bar-task.req-bar > .ph,
   .row.req-done .bar-task.req-bar .bl-lanes,
   .row.req-done .bar-task.req-bar .bl-top,
