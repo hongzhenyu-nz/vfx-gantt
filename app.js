@@ -481,7 +481,11 @@ function relinkLt(){
     'HG_cc':[{date:DT(2026,10,10),label:'荷光者L2',type:'phase',color:'#4d8eff'}],
     'CY_cc':[{date:DT(2026,10,20),label:'Cyndi提审',type:'review',color:'#ffd23f'}]
   };
-  reqs.forEach(r=>{ if(MS_SEED[r.id] && !r.milestones) r.milestones=MS_SEED[r.id]; });
+  /* v7.49：条件由 `!r.milestones` 收紧为 `r.milestones==null`。
+     修复持久化后「删光节点」会存成空数组 []，而 `![]` 为 false —— 原写法碰巧也不会重新注入，
+     但语义含混；显式判 null 才能准确表达「从未有过节点才注入演示数据」，
+     避免将来有人误改成 `!r.milestones.length` 导致删光后演示数据复活。 */
+  reqs.forEach(r=>{ if(MS_SEED[r.id] && r.milestones==null) r.milestones=MS_SEED[r.id]; });
 })();
 /* v7.05 联调「特殊类型」彻底取消：联调不再是独立 kind，而是普通特效需求 + mod='联调'。
    ---------------------------------------------------------------------------
@@ -6705,7 +6709,13 @@ function coreSnapshot(){
     // 需求：除原有 end/done/split 外，序列化全部字段，使「新增需求」持久化
     // v6.56：end / seg.e 写出时 -1，由内存的排他终点转为存储的含末日（open 段无实义窗口，同样转换以保持可逆）
     reqs:reqs.map(r=>({id:r.id,name:r.name,char:r.char||'',mod:r.mod||'',grade:r.grade||'',line:r.line||'-',kind:r.kind||'fx',state:r.state||'active',estimate:r.estimate,end:eOut(idx(r.end)),done:r.done,split:(r.split!=null?r.split:null),split2:(r.split2!=null?r.split2:null),comment:(r.comment||''),
-      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:eOut(idx(s.e)),prog:s.prog,status:s.status,support:!!s.support,open:segOpenType(s)||false,...(s.inv!=null?{inv:s.inv}:{})}))}))
+      segs:r.segs.map(s=>({m:s.m,s:idx(s.s),e:eOut(idx(s.e)),prog:s.prog,status:s.status,support:!!s.support,open:segOpenType(s)||false,...(s.inv!=null?{inv:s.inv}:{})})),
+      /* ★ v7.49 关键节点持久化修复：milestones 自 v7.43 引入起就漏了这一键，
+           导致新增/编辑/拖拽改期/删除全部只停留在内存，刷新、分享链接、云端同步后一律蒸发。
+           date 存 Date 对象，必须走 idx() 转日索引（与 leftAt / loan 同式）——
+           直接 JSON.stringify 塞 Date 会存成 ISO 字符串，读回是字符串而非 Date，渲染与拖拽全崩。
+           全量写出（含空数组）：空数组代表「节点已全部删除」，须忠实落盘。 */
+      milestones:(r.milestones||[]).map(ms=>({date:idx(ms.date),label:ms.label||'',color:ms.color||'',type:ms.type||'custom'}))}))
   };
 }
 function applySnap(snap){
@@ -6802,7 +6812,9 @@ function applySnap(snap){
     let r=reqs.find(x=>x.id===rs.id);
     if(!r && rs.name){
       // 新增需求：按快照重建（含 segs），push 进数组
-      r={id:rs.id,name:rs.name,char:rs.char||'',mod:rs.mod||'',grade:rs.grade||'',line:rs.line||'-',kind:rs.kind||'fx',state:rs.state||'active',estimate:rs.estimate||1,done:rs.done||0,end:i2d(rs.end!=null?eIn(rs.end,_ver):idx(TODAY)),segs:[],comment:rs.comment||''};
+      // v7.49：milestones 一并重建，否则云端新建的需求首次读回会缺字段（节点渲染/拖拽对 undefined 容错不足）
+      r={id:rs.id,name:rs.name,char:rs.char||'',mod:rs.mod||'',grade:rs.grade||'',line:rs.line||'-',kind:rs.kind||'fx',state:rs.state||'active',estimate:rs.estimate||1,done:rs.done||0,end:i2d(rs.end!=null?eIn(rs.end,_ver):idx(TODAY)),segs:[],comment:rs.comment||'',
+        milestones:Array.isArray(rs.milestones)?rs.milestones.map(ms=>({date:i2d(ms.date),label:ms.label||'',color:ms.color||'',type:ms.type||'custom'})):[]};
       reqs.push(r);
     }
     if(!r)return;
@@ -6822,6 +6834,13 @@ function applySnap(snap){
     // 全量重建 segs（不再按下标合并）：保证「新增/删除人员段」在刷新、分享链接、跨标签同步后都不丢失
     if(Array.isArray(rs.segs)){
       r.segs=rs.segs.map(ss=>{const o={m:ss.m,s:i2d(ss.s),e:i2d(eIn(ss.e,_ver)),prog:ss.prog,status:ss.status};if(ss.support)o.support=true;if(ss.open)o.open=(ss.open===true?'both':(ss.open==='front'||ss.open==='back'||ss.open==='both'?ss.open:'both'));if(ss.inv!=null)o.inv=ss.inv;return o;});
+    }
+    /* ★ v7.49 关键节点读回（与 segs 同为「全量重建」语义）：
+         · 字段是数组 → 忠实恢复，空数组代表节点已全删（不是"不处理"）
+         · 字段缺失（旧快照）→ 不处理，保留内存现有值（向下兼容，老数据不会被清空）
+       date 用 i2d() 还原为 Date，保证渲染 / 拖拽改期 / 虚线定位全部可用。 */
+    if(Array.isArray(rs.milestones)){
+      r.milestones=rs.milestones.map(ms=>({date:i2d(ms.date),label:ms.label||'',color:ms.color||'',type:ms.type||'custom'}));
     }
   });
   // 同步归档/分组控件 UI
