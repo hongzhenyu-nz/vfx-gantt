@@ -540,6 +540,14 @@
   .bar-task .sup-mk{position:absolute;right:3px;top:2px;z-index:2;font-size:8.5px;font-weight:800;line-height:1;
     color:#fff;background:#f59e0b;border-radius:4px;padding:1px 4px;box-shadow:0 1px 2px rgba(0,0,0,.3);pointer-events:none;
     text-shadow:none;letter-spacing:.5px;}
+  /* v7.54 超宽条浮动文字（仅针对「支援·武器特效」这类条目的显示问题，见 app.js syncXWideLabels）：
+     深色半透明底托 + 白字，垫在任何条色/底纹上都清晰；pointer-events:none 不挡交互。
+     不改任何既有元素的样式，纯新增一层，条内文字可见时本层不出现。 */
+  .bar-xwide-lbl{position:fixed;z-index:12;pointer-events:none;display:flex;align-items:center;gap:5px;
+    padding:2px 8px;border-radius:5px;background:rgba(28,32,44,.88);white-space:nowrap;
+    box-shadow:0 1px 5px rgba(0,0,0,.35);font-size:12.5px;font-weight:800;color:#fff;}
+  .bar-xwide-lbl .xl-mk{font-size:9.5px;font-weight:800;color:#ffd9a8;}
+  .bar-xwide-lbl .xl-md{font-size:10.5px;font-weight:700;color:#c9d4e6;}
   /* v6.85：这些状态会整体替换 box-shadow，必须**追加** inset 品级色层，否则色条消失 */
   .bar-task.dragging{cursor:grabbing;opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24));z-index:30;}
   /* Shift 拖拽复制：拖动中的源条加复制标识（虚线描边 + 右上角 ＋ 角标） */

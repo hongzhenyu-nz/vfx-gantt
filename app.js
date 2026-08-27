@@ -3407,6 +3407,7 @@ function paint(rows){
   alignStripes();          // v6.83：把所有 45° 斜纹块对齐到全局坐标系（固定瓦片+双轴补偿）
   // v5.0：渲染后按真实像素实测降级标签（横排隐藏低优先徽标 → 缩字号 → 竖排 → 省略号）
   requestAnimationFrame(fitBarLabels);
+  requestAnimationFrame(syncXWideLabels);   // v7.54：超宽条文字跟随视口（仅针对该条目显示问题）
   /* v7.12：今天日期胶囊——渲染完成后同步一次位置。
      胶囊本体常驻在 board 上方的 #todayRailTrack 里（见 syncTodayLabel），
      不再每次 paint 重建 DOM，也不再挂到 #sec-gantt（那样会被 overflow:hidden 裁 / 不随滚动走）。 */
@@ -3634,6 +3635,63 @@ function stripePeriod(layer){
      · 缩到下限仍溢出且是短名(≤5字) → 竖排(每字一列)，字号按条宽/条高双向再定；
      · 长名 → 锁 8.5px + 省略号兜底。
    全部用 clientWidth/scrollWidth 真实像素，杜绝 em 预测误差。 */
+/* ============ v7.54 宽条文字跟随视口（仅针对「支援·武器特效」这类条目的显示问题） ============
+   问题：该类条目在按人视图中条宽约一屏（1104px vs 容器 1113px），且条起点在视口左缘之外（x≈-373）；
+   条内文字固定在条的最左端 → 文字整体在视口外，屏幕上只剩一段没有文字的斜纹条，认不出是哪条需求。
+   方案：不改任何既有元素的样式/图标/标签/文字，只新增一层 position:fixed 的**浮动文字**。
+   触发条件（两条同时满足才出现，最大限度避免影响其他条目）：
+     ① 条宽 ≥ 视口宽 60%（短条滚出左缘时残余很短，不值得叠加）
+     ② 条左端已滚出视口左缘 30px 以上（条内文字本可见时不叠加，避免与条上文字重复）
+   条滚出视口（垂直或水平）即隐藏。内容直接读取条上既有文字（支角标/任务名/模块/人周），零信息变更。 */
+let _xwlLayer=null;
+function syncXWideLabels(){
+  const sc=document.querySelector('.scroll');
+  const grid=document.getElementById('grid');
+  if(!sc||!grid) return;
+  if(!_xwlLayer||!document.body.contains(_xwlLayer)){
+    _xwlLayer=document.createElement('div');
+    _xwlLayer.id='xwlLayer';
+    _xwlLayer.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:12;';
+    document.body.appendChild(_xwlLayer);
+  }
+  const vpW=sc.clientWidth||1200;
+  const scR=sc.getBoundingClientRect();
+  let html='';
+  grid.querySelectorAll('.bar-task').forEach(bar=>{
+    const br=bar.getBoundingClientRect();
+    if(br.width < vpW*0.6) return;                                  // 仅宽条
+    if(br.left >= scR.left-30) return;                              // 条内文字仍可见，不叠加
+    if(br.bottom<scR.top+2 || br.top>scR.bottom-2) return;          // 垂直不可见
+    if(br.right<scR.left+2 || br.left>scR.right-2) return;          // 水平不可见
+    const nm=bar.querySelector('.rt-nm'); if(!nm) return;
+    const mod=bar.querySelector('.rt-mod');
+    const md=bar.querySelector('.rt-md');
+    const mk=bar.querySelector('.sup-mk');
+    const esc=s=>(s||'').trim().replace(/</g,'&lt;');
+    const y=br.top+Math.min(6, Math.max(2,(br.height-20)/2));
+    html+=`<div class="bar-xwide-lbl" style="left:${Math.round(scR.left+8)}px;top:${Math.round(y)}px">`
+        + (mk?'<span class="xl-mk">'+esc(mk.textContent)+'</span>':'')
+        + `<span class="xl-nm">${esc(nm.textContent)}</span>`
+        + (mod?`<span class="xl-md">${esc(mod.textContent)}</span>`:'')
+        + (md?`<span class="xl-md">${esc(md.textContent)}</span>`:'')
+        + `</div>`;
+  });
+  _xwlLayer.innerHTML=html;
+}
+/* 滚动/缩放时刷新。rAF 节流 + passive 监听；.scroll 在视图切换时会被重建，
+   用 mousedown 捕获期补绑兜底（只绑一次/个实例）。 */
+(function bindXWideLabelSync(){
+  let raf=0;
+  const kick=()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; syncXWideLabels(); }); };
+  window.addEventListener('scroll',kick,true);
+  window.addEventListener('resize',kick);
+  const sc0=document.querySelector('.scroll');
+  if(sc0){ sc0.__xwlBound=true; sc0.addEventListener('scroll',kick,{passive:true}); }
+  document.addEventListener('mousedown',()=>{
+    const sc=document.querySelector('.scroll');
+    if(sc && !sc.__xwlBound){ sc.__xwlBound=true; sc.addEventListener('scroll',kick,{passive:true}); }
+  },true);
+})();
 function fitBarLabels(){
   const HMAX=13.5, HMIN=8.5, VMIN=7, GAP=5;
   /* v5.4 两行堆叠：够高的窄条单行放不下时，改纵向两行——任务名横排居中一行 + 模块横排居中补第二行，
