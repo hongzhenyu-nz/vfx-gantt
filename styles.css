@@ -236,13 +236,18 @@
      日期底纹 .daycol（周末/节假日灰列）画在一个全局绝对定位层上，该层在 DOM 中排在 .row 之前
      → 行的背景会盖在它上面。若 hover 用不透明色（旧版 #f0f4ff），周末底纹整行消失。
      改为 rgba(51,112,255,.07) 后，蓝色高亮与底纹叠加显示，底纹始终可见。 */
-  #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):hover{background:rgba(51,112,255,.07)!important;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4, inset 0 1px 0 rgba(29,111,214,.12)!important;}
+  /* v7.51：:not() 排除名单补 .ms-summary-row —— 该规则带 !important 会把关键节点行的不透明底色
+     var(--ms-bg) 整体换成 rgba(51,112,255,.07)，日期底纹透出来 = 用户看到的"悬停变透明"。
+     opacity 一直是 1，病根在这条背景替换，故直接把它排除在通用悬停高亮之外（悬停零视觉变化）。 */
+  #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):not(.ms-summary-row):hover{background:rgba(51,112,255,.07)!important;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4, inset 0 1px 0 rgba(29,111,214,.12)!important;}
   .row:last-child{box-shadow:none;}
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:7;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;}   /* v7.14 z-index 5→7：必须高于 .grp-header(3) 才能修复分组标题盖住表头的穿透，也高于 .load-heatmap(6) 保证双层冻结顺序；仍低于 today-layer(8)，红线贯穿语义不变 */
   /* 里程碑汇总行（v7.43 方案 C）：按人视图置顶，位于表头与内容行之间 */
   /* v7.46：底色走 --ms-bg（🎨 配色面板「关键节点行底色」可改，本机 localStorage 持久化），缺省回落 #fdfcf5 */
   /* v7.50：整行悬停同样保持不透明 —— 底色 var(--ms-bg) 若被色板设成带 alpha 的值（如 #rrggbbaa），
-     叠加在日期底纹上就会呈现半透。此处强制 opacity:1 兜底，并显式声明不叠任何 hover 半透层。 */
+     叠加在日期底纹上就会呈现半透。此处强制 opacity:1 兜底，并显式声明不叠任何 hover 半透层。
+     v7.51 补记：真正的"悬停变透明"病根在上方通用行 hover 规则（!important 替换本行底色为 7% 蓝），
+     已把 .ms-summary-row 加进其 :not() 排除名单；下面两条 :hover 规则留作双保险。 */
   .row.ms-summary-row{min-height:34px;height:34px;background:var(--ms-bg,#fdfcf5);box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #d4c9a8;z-index:6;opacity:1;}
   .row.ms-summary-row:hover{opacity:1;}
   .row.ms-summary-row:hover .cell-left{opacity:1;}
