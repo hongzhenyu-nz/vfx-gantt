@@ -896,7 +896,67 @@
   .row.is-loan{background:rgba(200,180,250,.20);}   /* v6.44 半透，透出日期底纹 */
   .row.is-loan .cell-left{background:#f3ecfd;box-shadow:inset 4px 0 0 #7c3aed;}
   .row.is-loan .who .nm{color:#5b21b6;}
-  .loan-note{font-size:10.5px;font-weight:600;color:#7c3aed;background:transparent;border:1px dashed #c9b6f3;border-radius:6px;padding:2px 7px;white-space:nowrap;line-height:1.4;}
+  .loan-note{font-size:10.5px;font-weight:600;color:#7c3aed;background:transparent;border:1px dashed #c9b6f3;border-radius:6px;padding:2px 7px;white-space:nowrap;line-height:1.4;cursor:pointer;}
+  .loan-note:hover{background:#f3ecfd;border-style:solid;}
+
+  /* ===== v7.48 借入支援（临时隶属）：青色系，与外借的紫/橙明确区分 ===== */
+  .row.is-loan-in{background:rgba(11,114,133,.10);}   /* 淡青底，透出日期底纹 */
+  .row.is-loan-in .cell-left{background:#e6fcf5;box-shadow:inset 4px 0 0 #0b7285;}
+  .row.is-loan-in .who .nm{color:#0b7285;}
+  .loan-in-note{font-size:10.5px;font-weight:600;color:#0b7285;background:transparent;border:1px dashed #87cfd8;border-radius:6px;padding:2px 7px;white-space:nowrap;line-height:1.4;cursor:pointer;}
+  .loan-in-note:hover{background:#e6fcf5;border-style:solid;}
+
+  /* ===== v7.48 HR 视图图例：借调卡片内可点人名与「＋登记」按钮 ===== */
+  .lg .mem-tag.ln-click{cursor:pointer;border-bottom:1px dashed currentColor;}
+  .lg .mem-tag.ln-click:hover{background:#fff7ed;color:#c2410c;border-radius:4px;}
+  .ln-add{display:inline-block;margin-left:4px;font-size:11px;font-weight:600;color:#0f9d58;background:#e9f8ee;
+    border:1px solid #b2e5c4;border-radius:6px;padding:1px 7px;cursor:pointer;white-space:nowrap;line-height:1.5;}
+  .ln-add:hover{background:#d3f2e0;border-color:#0f9d58;}
+
+  /* ===== v7.48 成员弹层：隶属类型三态单选（本队常规 / 外借出去 / 借入支援） ===== */
+  .loan-3way{margin:8px 0 4px;border:1px solid var(--bd,#e3e7ec);border-radius:8px;padding:8px 10px;background:var(--bg2,#fafbfc);}
+  .loan-3way .l3-t{font-size:11.5px;font-weight:700;color:var(--tx2,#646a73);margin-bottom:6px;}
+  .loan-3way .l3-row{display:flex;gap:6px;}
+  .loan-3way .l3{flex:1;display:flex;flex-direction:column;gap:2px;align-items:flex-start;
+    border:1.5px solid var(--bd,#e3e7ec);border-radius:7px;padding:6px 8px;cursor:pointer;background:#fff;
+    transition:border-color .12s, background .12s;}
+  .loan-3way .l3:hover{border-color:#c4ccdb;background:#f7f9fb;}
+  .loan-3way .l3.on{border-color:#0052d9;background:#eef4ff;}
+  .loan-3way .l3 input{margin:0 0 1px 0;accent-color:#0052d9;}
+  .loan-3way .l3 span{font-size:12px;font-weight:600;color:var(--tx,#1f2329);}
+  .loan-3way .l3 small{font-size:10px;color:var(--tx3,#8a9099);line-height:1.3;}
+  .loan-3way .l3-extra{margin-top:8px;padding-top:8px;border-top:1px dashed var(--bd,#e3e7ec);}
+
+  /* ===== v7.48 借调弹层（登记/回归/封存/归还/转正/历史） ===== */
+  .date-pop.loan-pop{min-width:340px;max-width:460px;}
+  .date-pop.loan-pop .dp-b{padding:10px 14px;}
+  .date-pop.loan-pop .fld{margin-bottom:8px;}
+  .date-pop.loan-pop .fld label{display:block;font-size:11px;font-weight:600;color:var(--tx2,#646a73);margin-bottom:3px;}
+  .date-pop.loan-pop .fld input,
+  .date-pop.loan-pop .fld select{width:100%;box-sizing:border-box;font-size:12px;padding:5px 7px;
+    border:1px solid var(--bd,#e3e7ec);border-radius:6px;background:#fff;color:var(--tx,#1f2329);}
+  .date-pop.loan-pop .row2{display:flex;gap:8px;}
+  .date-pop.loan-pop .row2>.fld{flex:1;min-width:0;}
+  .date-pop.loan-pop .ctx{font-size:12px;line-height:1.65;color:var(--tx2,#565c66);margin-bottom:8px;}
+  .date-pop.loan-pop .dp-tip{font-size:11px;color:var(--tx3,#8a9099);line-height:1.6;margin-top:6px;}
+  .date-pop.loan-pop .dp-ok.danger{background:#d32320;border-color:#d32320;}
+  .date-pop.loan-pop .dp-ok.danger:hover{background:#b01c1a;}
+
+  /* 借调历史记录列表 */
+  .loan-recs{max-height:320px;overflow-y:auto;}
+  .loan-rec{border:1px solid var(--bd,#e3e7ec);border-left-width:3px;border-radius:7px;padding:7px 10px;margin-bottom:6px;background:#fff;}
+  .loan-rec.on{border-left-color:#f08c00;background:#fffaf2;}      /* 进行中 */
+  .loan-rec.seal{border-left-color:#9aa2ad;background:#f7f8fa;}    /* 已封存 */
+  .loan-rec.end{border-left-color:#16a34a;background:#f4fbf6;}     /* 已结束 */
+  .loan-rec .lr-t{font-size:12px;font-weight:600;color:var(--tx,#1f2329);display:flex;align-items:center;gap:6px;}
+  .loan-rec .lr-st{font-size:10px;font-weight:700;padding:1px 6px;border-radius:9px;
+    background:#eef1f7;color:#56607a;margin-left:auto;}
+  .loan-rec.on .lr-st{background:#fff1e0;color:#c2410c;}
+  .loan-rec.end .lr-st{background:#e6f6ec;color:#17803d;}
+  .loan-rec .lr-d{font-size:11px;color:var(--tx2,#646a73);margin-top:3px;}
+  .loan-rec .lr-n{font-size:10.5px;color:var(--tx3,#8a9099);margin-top:2px;}
+  .loan-rec .lr-mig{font-style:italic;}
+
   .gap-pill{font-size:10px;font-weight:700;color:#d32320;background:var(--red-l);border:1px solid #ffc4c2;border-radius:5px;padding:2px 7px;margin-left:6px;flex-shrink:0;}
   /* 暂缺标签：无隶属/无带队归属的成员，红色醒目胶囊表示缺人 */
   .ltag.vacant{color:#d32320;background:#fef2f2;border:1.5px solid #fca5a5;font-weight:700;letter-spacing:.5px;}

@@ -296,12 +296,63 @@ function groupHeaderHTML(g,count,isArchived,tip){
 
 /* 「长期外借」判定：编制仍挂在本团队，但长期支援其他管线(如武器特效)、不隶属任何角色线。
    特征：support===true 且无正编导师归属(lead 为 — / -)。这类人不应被当作角色线在岗人力统计，
-   需在「按人看」姓名行用专属徽标醒目标注，避免被误读为可派给角色需求的基地人力。 */
+   需在「按人看」姓名行用专属徽标醒目标注，避免被误读为可派给角色需求的基地人力。
+
+   v7.48 改为「数据优先 + 兼容兜底」：
+     · 优先读正式借出记录 m.loan（dir='out' 且 state='active' → 确属外借中）
+     · 无记录时回落到旧口径（裸 support + 无 lead），保证历史数据与云端老快照行为不变
+     · 注意：state='sealed'（已封存）**不计为外借中**——封存只归档记录，人是否已回来由 ended 决定
+   这一处是本版唯一改动的判定表达式；corpStyle / personGroupKey / personSortCompare /
+   computeHR / renderHR / updateKPIs 等调用点全部零改动、数值与现状严格一致。 */
 function isExtLoan(m){
   if(!m) return false;
-  if(!m.support) return false;
+  const L=m.loan;
+  if(L && L.dir==='out') return L.state==='active';   // 有正式记录：以记录为准
+  if(!m.support) return false;                        // 兼容兜底：裸 support 的历史数据
   return !m.lead || m.lead==='—' || m.lead==='-';
 }
+
+/* ============ v7.48 借调记录（外借 / 借入）数据模型 ============
+   m.loan     : LoanRec | null   —— 当前生效借调（至多一条）
+   m.loanRecs : LoanRec[]        —— 历史归档（只增不改）
+
+   LoanRec = {
+     id:'ln_xxx', dir:'out'|'in', party:'对方管线', from:Date, to:Date|null,
+     mod:'', note:'',
+     snap:{corp,lead,mod,grade,line}|null,   // 借出前的原编制快照，供「回归」一键还原
+     state:'active'|'sealed'|'ended',
+     endAt:Date|null, endBy:'return'|'convert'|'seal:auto'|'seal:manual'|null,
+   }
+   state 语义（最易混淆，务必分清）：
+     active = 在借中（外借方向时 isExtLoan() 为真）
+     sealed = 记录已封存归档，**人还在外面**，只是不再计入活跃外借
+     ended  = 人已回归/已归还/已转正，m.loan 清空，记录进 loanRecs */
+function newLoanId(){ return 'ln_'+Math.random().toString(36).slice(2,9); }
+/* 借调记录 Date ↔ 日索引 往返（与 leftAt 同式：idx/i2d）。借调不涉及末日±1 口径，无需 SNAP_VER 转换。 */
+function serializeLoan(L){
+  if(!L) return null;
+  const o={};
+  for(const k in L) o[k]=L[k];
+  if(o.from)  o.from=idx(o.from);   else delete o.from;
+  if(o.to)    o.to=idx(o.to);       else delete o.to;
+  if(o.endAt) o.endAt=idx(o.endAt); else delete o.endAt;
+  return o;
+}
+function deserializeLoan(o){
+  if(!o) return null;
+  const L={};
+  for(const k in o) L[k]=o[k];
+  if(L.from!=null)  L.from=i2d(L.from);
+  if(L.to!=null)    L.to=i2d(L.to);
+  if(L.endAt!=null) L.endAt=i2d(L.endAt);
+  return L;
+}
+/* 是否「借入中」：外来人员以临时隶属身份在本队支援 */
+function isLoanIn(m){
+  return !!(m && m.loan && m.loan.dir==='in' && m.loan.state!=='ended');
+}
+/* 取当前生效借调（两方向通用） */
+function curLoan(m){ return (m && m.loan && m.loan.state!=='ended') ? m.loan : null; }
 
 /* 编制四态着色（统一口径，与「按人看·corp 分组」一致）：
    外借支援(橙) / 正编+子公司(蓝) / 基地(淡白)。
@@ -2865,7 +2916,19 @@ function personRowHTML(m,inArc){
     const focusCls = focusMode==='hl' ? (fr==='self'?' me-self':fr==='team'?' me-team':' dim') : (fr==='self'?' me-self':fr==='team'?' me-team':'');
     const isBase = m.corp === 'base';
     const isLoan=isExtLoan(m);
-    return `<div class="row${isLeft?' is-left':''}${isLoan?' is-loan':''}${isBase && !isLeft?' is-base':''}${inArc?' in-archived':''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
+    /* v7.48 借入人员：行标青色，与外借（橙/紫）区分 */
+    const isIn=isLoanIn(m);
+    const L0=curLoan(m);
+    /* v7.48 行内徽标改为读借调记录，显示对方与结束日，比原来写死的「外借支援 XXX」信息量大 */
+    let loanNoteHTML='';
+    if(isLoan||isIn){
+      const dirIc=isIn?'↙':'↗';
+      const party=(L0&&L0.party)?L0.party:(m.mod||'其他管线');
+      const toTxt=(L0&&L0.to)?('至 '+fmt(L0.to)):'长期';
+      const sealedTxt=(L0&&L0.state==='sealed')?'（已封存）':'';
+      loanNoteHTML=`<span class="${isIn?'loan-in-note':'loan-note'}" onclick="event.stopPropagation();openLoanHistory('${m.id}')" title="${isIn?'从其他管线借来支援（临时隶属）':'长期外借：编制保留在本团队，实际支援'}${escAttr(party)}，不参与角色线需求排期&#10;${toTxt}${sealedTxt}｜点击查看完整借调记录">${dirIc} ${isIn?'借入自':'外借去'} ${escAttr(party)} · ${toTxt}${sealedTxt}</span>`;
+    }
+    return `<div class="row${isLeft?' is-left':''}${isLoan?' is-loan':''}${isIn?' is-loan-in':''}${isBase && !isLeft?' is-base':''}${inArc?' in-archived':''}${focusCls}" data-mem="${m.id}" style="min-height:${rowH}px">
       <div class="cell-left">
         <i class="row-grip" title="按住上下拖动：自定义成员排序（同组内生效，自动保存并同步团队）" onpointerdown="rowGripDown(event,'${m.id}')">⋮⋮</i>
         <div class="emp-badge ${m.corp}" title="${m.corp==='reg'?'正编（带队）':m.corp==='sub'?'子公司':'基地'}">
@@ -2876,7 +2939,7 @@ function personRowHTML(m,inArc){
         <div class="who">
           <div class="nm"><span class="gdot-grade" style="background:${(G||HR_GRADE['']).col}" title="${G?G.label+'级':'未设品级'}"></span>${m.name}${(()=>{const rk=rookieFlag(m);return rk==='new'?'<span class="hr-flag new" title="新人（分配制作需求未满1个月，满月自动转正常）">新人</span>':rk==='tmp'?'<span class="tmp-tag" title="临时（分配制作需求未满1个月，满月自动转正常）">临</span>':'';})()}${isLeft?'<span class="hr-flag left">已离职</span>':(m.status==='left'?`<span class="hr-flag pend-left" title="已登记离职，离职日 ${fmt(m.leftAt)} 当天起生效；在此之前仍按在岗排期">待离职 ${fmt(m.leftAt)}</span>`:'')}${L.pct>110?'<span class="ol-badge" title="负载超过110%，已影响其参与需求的风险">⚠ 超载</span>':''}<button class="inl-edit" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openEditMember('${m.id}')" title="编辑成员信息（姓名/编制/隶属/模块/效率/状态）">✎</button><button class="inl-add" onpointerdown="event.stopPropagation()" onclick="event.stopPropagation();openAddTaskFor('${m.id}')" title="给 ${m.name} 新分配一条任务（选择需求与起止）"><span class="pl">＋</span>加任务</button></div>
           <div class="tags">
-            ${isLoan?`<span class="loan-note" title="长期外借：编制保留在本团队，实际支援${m.mod||'其他管线'}，不参与角色线需求排期（整行紫底标识）">↗ 外借支援 ${m.mod||'其他管线'}</span>`:(m.corp==='reg'||m.corp==='sub'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：负责的角色与模块（可下拉选择）">${formatLeadDisplay(m)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
+            ${loanNoteHTML||(m.corp==='reg'||m.corp==='sub'?`<span class="ltag lead editable" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','lead')" title="点击编辑：负责的角色与模块（可下拉选择）">${formatLeadDisplay(m)}<i class="edp">✎</i></span>`:`<span class="ltag belong editable ${(!m.lead||m.lead==='—'||m.lead==='-')?'vacant':''}" onpointerdown="event.stopPropagation()" onclick="startEditLead(event,'${m.id}','belong')" title="点击更换：隶属的正编带队${(m.line&&m.line!=='-')?'　·　'+lineName(m.line):''}">${(!m.lead||m.lead==='—'||m.lead==='-')?'<span class="vacant-ic">👑</span>暂缺':'隶属 '+escAttr(m.lead)}<i class="edp">✎</i></span>`)}
             <span class="ltag eff" title="效率系数（1.0 为基准产能，>1 更快、<1 更慢）">⚡ 效率 ${m.eff}</span>
           </div>
         </div>
@@ -3907,9 +3970,12 @@ function renderHR(){
   const regMems = legendMems.filter(m => m.corp==='reg'||m.corp==='sub');
   const baseMems = legendMems.filter(m => m.corp==='base');
   const loanMems = legendMems.filter(m => isExtLoan(m));
+  /* v7.48 借入人员：dir='in' 且记录未结束 —— 从其他管线借来支援，临时隶属本队 */
+  const loanInMems = legendMems.filter(m => isLoanIn(m));
   const newMems = members.filter(m => m.status==='new' && !isVacantMem(m));
   const leftMems = members.filter(m => effLeft(m));
-  const supMems = members.filter(m => m.support && !effLeft(m) && !isExtLoan(m));
+  /* 跨队支援：本队编制内、被派到其他带队需求上的人（排除外借与借入，两者各有专属栏） */
+  const supMems = members.filter(m => m.support && !effLeft(m) && !isExtLoan(m) && !isLoanIn(m));
   // 逐人格式化：名字（编制 / 负责信息）
   const fmtMem = (m) => {
     const corpLabel = m.corp==='reg'?'正编':m.corp==='sub'?'子公司':'基地';
@@ -3939,8 +4005,17 @@ function renderHR(){
       if(modInfo) parts.push(modInfo);
       detail = parts.join('/');
     }
-    if(isExtLoan(m)) detail = '外借支援'+(m.mod?'·'+m.mod:'');
-    if(m.support && !isExtLoan(m)) detail = detail ? detail+'·支援' : '跨队支援';
+    /* v7.48 表意优化：三类支援关系分开表述，各自带明确动词与方向，不再混在一个「支援」词里 */
+    if(isExtLoan(m)){
+      const L=curLoan(m);
+      detail='↗ 外借去 '+(L&&L.party?L.party:(m.mod||'其他管线'))+((L&&L.to)?('（至 '+fmt(L.to)+'）'):'（长期）')
+            +((L&&L.state==='sealed')?' · 记录已封存':'');
+    }else if(isLoanIn(m)){
+      const L=curLoan(m);
+      detail='↙ 借入自 '+(L&&L.party?L.party:'其他管线')+((L&&L.to)?('（至 '+fmt(L.to)+'）'):'（长期）');
+    }else if(m.support){
+      detail = detail ? detail+'·跨队支援' : '⇄ 跨队支援';
+    }
     return `${m.name}（${corpLabel}${detail ? '·'+detail : ''}）`;
   };
   html+=`<div class="hr-legend">
@@ -3953,15 +4028,28 @@ function renderHR(){
   if(baseMems.length){
     html+=`<span class="lg"><i class="corp-tag" style="background:#eef1f7;color:#56607a;border:1px solid #c4ccdb">基地${baseMems.length}人</i> ${baseMems.map(m=>`<span class="mem-tag" title="${fmtMem(m)}">${m.name}</span>`).join('')}</span>`;
   }
-  // 外借组
+  /* v7.48 外借组：可交互 —— 点人名看记录，「+ 登记」开登记弹层 */
   if(loanMems.length){
-    html+=`<span class="lg"><i class="corp-tag" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">外借${loanMems.length}人</i> ${loanMems.map(m=>`<span class="mem-tag" title="${fmtMem(m)}">${m.name}</span>`).join('')}</span>`;
+    html+=`<span class="lg"><i class="corp-tag" style="background:#fff7ed;color:#c2410c;border:1px solid #fed7aa">↗ 外借${loanMems.length}人</i> `
+      + loanMems.map(m=>`<span class="mem-tag ln-click" onclick="openLoanHistory('${escAttr(m.id)}')" title="${fmtMem(m)}｜点击查看借调记录">${m.name}</span>`).join('')
+      + `<span class="ln-add" onclick="openLoanOutPick()" title="登记一位成员外借去其他管线">＋ 登记外借</span></span>`;
   }
-  // 动态状态行（仅在有对应成员时显示；外借已在主列表展示，不重复）
+  /* v7.48 借入组：从其他管线借来支援的人（临时隶属），同样可点可加 */
+  if(loanInMems.length){
+    html+=`<span class="lg"><i class="corp-tag" style="background:#e6fcf5;color:#0b7285;border:1px solid #99e9f2">↙ 借入${loanInMems.length}人</i> `
+      + loanInMems.map(m=>`<span class="mem-tag ln-click" onclick="openLoanHistory('${escAttr(m.id)}')" title="${fmtMem(m)}｜点击查看借调记录">${m.name}</span>`).join('')
+      + `<span class="ln-add" onclick="openLoanInDialog()" title="登记一位从其他管线借来支援的人员">＋ 登记借入</span></span>`;
+  }
+  /* 借入为空时也常驻一个登记入口，否则「从其他管线借人」这条路径在界面上无处可点 */
+  if(!loanInMems.length){
+    html+=`<span class="lg"><i class="corp-tag" style="background:#f2f4f7;color:#7a8290;border:1px solid #e3e7ec">↙ 借入 0 人</i>`
+      + `<span class="ln-add" onclick="openLoanInDialog()" title="登记一位从其他管线借来支援的人员">＋ 登记借入</span></span>`;
+  }
+  // 动态状态行（仅在有对应成员时显示；外借/借入已在主列表展示，不重复）
   const statusParts = [];
   if(newMems.length) statusParts.push(`<span class="lg"><i class="hr-flag new" style="margin:0">新人</i> ${newMems.map(m=>m.name).join(',')}</span>`);
   if(leftMems.length) statusParts.push(`<span class="lg"><i class="hr-flag left" style="margin:0">已离职</i> ${leftMems.length}人</span>`);
-  if(supMems.length) statusParts.push(`<span class="lg"><i class="hr-flag sup" style="margin:0">支援</i> ${supMems.map(m=>m.name).join(',')}</span>`);
+  if(supMems.length) statusParts.push(`<span class="lg"><i class="hr-flag sup" style="margin:0">⇄ 跨队支援</i> ${supMems.map(m=>`<span class="mem-tag" title="${fmtMem(m)}">${m.name}</span>`).join('')}</span>`);
   if(statusParts.length){
     html += `<span class="lg-div">|</span><span class="lg-t">状态：</span>${statusParts.join('')}`;
   }
@@ -4638,6 +4726,27 @@ function openMemberAdminMenu(memId,x,y){
     items+=`<div class="mi" onclick="hideMenu();openMemStatusMenu('${mid}',${Math.round(x)},${Math.round(y)})"><i style="background:#0f9d58;border-radius:50%"></i>切换状态（当前：${cur}）</div>`;
   }
   items+=`<div class="mi" onclick="hideMenu();openAddTaskFor('${mid}')"><i style="background:#7c3aed"></i>给他加任务</div>`;
+  /* v7.48 借调操作（上下文相关）：
+     · 无生效借调 → 登记外借 / 登记借入（借入是外部人员，此处不提供，走 HR 面板「+登记借入」）
+     · 外借中    → 回归原编制 / 提前封存
+     · 借入中    → 归还 / 转正式隶属
+     · 有历史    → 查看借调记录 */
+  const L=curLoan(m);
+  const hasHis=(m.loanRecs||[]).length>0;
+  if(L && L.dir==='out'){
+    items+=`<div class="msep"></div>`;
+    items+=`<div class="mi" onclick="hideMenu();openReturnDialog('${mid}')"><i style="background:#16a34a"></i>↩ 回归原编制…<small>转回${escAttr((L.snap&&L.snap.lead&&L.snap.lead!=='—')?L.snap.lead:'原编制')}</small></div>`;
+    if(L.state==='active')
+      items+=`<div class="mi" onclick="hideMenu();sealLoan('${mid}','manual')"><i style="background:#9aa2ad"></i>🔒 提前封存此记录</div>`;
+  }else if(L && L.dir==='in'){
+    items+=`<div class="msep"></div>`;
+    items+=`<div class="mi" onclick="hideMenu();convertLoanIn('${mid}')"><i style="background:#0f9d58"></i>⇄ 转为正式隶属…</div>`;
+    items+=`<div class="mi danger" onclick="hideMenu();returnLoanIn('${mid}')"><i style="background:#d32320"></i>↩ 归还给${escAttr(L.party||'原管线')}</div>`;
+  }else{
+    items+=`<div class="msep"></div>`;
+    items+=`<div class="mi" onclick="hideMenu();openLoanOutDialog('${mid}')"><i style="background:#f08c00"></i>↗ 登记外借…<small>去其他管线支援</small></div>`;
+  }
+  if(hasHis) items+=`<div class="mi" onclick="hideMenu();openLoanHistory('${mid}')"><i style="background:#646a73"></i>📜 借调记录（${(m.loanRecs||[]).length}）</div>`;
   items+=`<div class="msep"></div>`;
   const cnt = st.segs ? `（${st.segs} 条任务`+(st.soloReqs.length?` · ${st.soloReqs.length} 条独占需求`:'')+`）` : '（无任务）';
   items+=`<div class="mi danger" onclick="hideMenu();deleteMemberAdmin('${mid}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>删除人员${cnt}</div>`;
@@ -4991,6 +5100,314 @@ function askLeaveDate(m){
 function fmtInputDate(d){
   const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${dd}`;
+}
+
+/* ================================================================================
+   v7.48 支援模块：外借回归 / 借入登记 —— 业务函数
+   --------------------------------------------------------------------------------
+   全部遵循既有约定：
+     · 每个写操作首行 requireWrite()（只读模式拦截）
+     · 写前 pushHistory()（Ctrl+Z 可撤）
+     · 写前设 _logDesc（变更留痕）
+     · 结尾 save();broadcast();rerender();
+     · 弹层复用 .date-pop-mask / .date-pop / .dp-h/.dp-b/.dp-f（与 askLeaveDate 同款）
+   ================================================================================ */
+
+/* 通用确认/表单浮层（与 askLeaveDate 同构，抽出来给借调各流程复用） */
+function _loanPop(title, bodyHTML, okText, onOk, opt){
+  const ov=document.createElement('div');
+  ov.className='date-pop-mask';
+  ov.innerHTML=`<div class="date-pop loan-pop" onclick="event.stopPropagation()">
+    <div class="dp-h">${title}</div>
+    <div class="dp-b">${bodyHTML}</div>
+    <div class="dp-f"><button class="dp-cancel" id="lpCancel">取消</button><button class="dp-ok" id="lpOk">${okText||'确定'}</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const close=()=>ov.remove();
+  ov.addEventListener('click',close);
+  ov.querySelector('#lpCancel').onclick=close;
+  const okBtn=ov.querySelector('#lpOk');
+  if((opt||{}).danger) okBtn.classList.add('danger');
+  okBtn.onclick=()=>{ if(onOk(ov)!==false) close(); };
+  setTimeout(()=>{const f=ov.querySelector('[data-autofocus]');if(f&&f.focus)f.focus();},30);
+  return ov;
+}
+/* 读 <input type=date> 的值 → Date（空则 null），本地时区构造避免串日 */
+function _dateOrNull(v){ return v ? new Date(v+'T00:00:00') : null; }
+/* 借调记录一句话摘要（列表/弹层共用） */
+function loanSummary(L){
+  if(!L) return '';
+  const dir=L.dir==='in'?'↙ 借入自':'↗ 外借去';
+  const span=(L.from?fmt(L.from):'?')+' → '+(L.to?fmt(L.to):'长期未定');
+  const st=L.state==='active'?'进行中':L.state==='sealed'?'已封存':'已结束';
+  return `${dir} ${escAttr(L.party||'未填')} · ${span} · ${st}`;
+}
+const LOAN_END_TXT={return:'回归/归还',convert:'转正式隶属','seal:auto':'到期自动封存','seal:manual':'手动封存'};
+
+/* ---------- ① 登记外借（本队人借出去） ---------- */
+function openLoanOutDialog(memId){
+  if(!requireWrite())return;
+  const m=members.find(z=>z.id===memId); if(!m)return;
+  if(curLoan(m)){ toast('该成员已有生效中的借调记录，请先结束它'); openLoanHistory(memId); return; }
+  const body=`
+    <div class="ctx">把 <b>${escAttr(m.name)}</b> 登记为<b>外借支援</b>：编制保留在本团队，实际去其他管线支援。
+      登记时会自动<b>拍下当前编制快照</b>（编制/隶属/模块/品级/管线），供日后「回归原编制」一键还原。</div>
+    <div class="fld"><label>去哪个管线 / 对方单位</label><input type="text" id="lnParty" data-autofocus value="${escAttr(m.mod||'')}" placeholder="如：武器特效"></div>
+    <div class="row2">
+      <div class="fld"><label>起始日</label><input type="date" id="lnFrom" value="${fmtInputDate(TODAY)}"></div>
+      <div class="fld"><label>约定结束日（留空=长期未定）</label><input type="date" id="lnTo" value=""></div>
+    </div>
+    <div class="fld"><label>备注</label><input type="text" id="lnNote" placeholder="选填，如：支援到版本上线"></div>
+    <div class="dp-tip">登记后该成员将脱离角色线（隶属置为「—」），在「按人看」里归入<b>外借支援</b>分组，不计入角色线在岗人力。</div>
+    <div class="warn" id="lnWarn"></div>`;
+  _loanPop(`↗ 登记外借 · ${escAttr(m.name)}`, body, '确认登记', ov=>{
+    const party=(ov.querySelector('#lnParty').value||'').trim();
+    if(!party){ const w=ov.querySelector('#lnWarn'); w.textContent='请填写去哪个管线'; w.classList.add('show'); return false; }
+    const from=_dateOrNull(ov.querySelector('#lnFrom').value);
+    const to=_dateOrNull(ov.querySelector('#lnTo').value);
+    if(from&&to&&to<from){ const w=ov.querySelector('#lnWarn'); w.textContent='结束日不能早于起始日'; w.classList.add('show'); return false; }
+    pushHistory();
+    if(!Array.isArray(m.loanRecs)) m.loanRecs=[];
+    /* 拍快照：记录外借「之前」的编制状态，回归时用它还原 */
+    m.loan={ id:newLoanId(), dir:'out', party, from, to,
+      mod:(m.mod||''), note:(ov.querySelector('#lnNote').value||'').trim(),
+      snap:{corp:(m.corp||'base'), lead:(m.lead&&m.lead!=='—'&&m.lead!=='-')?m.lead:'—',
+            mod:(m.mod||''), grade:(m.grade||''), line:(m.line||'-')},
+      state:'active', endAt:null, endBy:null };
+    m.lead='—';            // 脱离角色线
+    m.support=true;        // 兼容旧判定（isExtLoan 现已优先读 m.loan，此行为冗余保险）
+    m.mod=party;
+    _logDesc='登记外借：'+m.name+' → '+party+(to?'（至 '+fmt(to)+'）':'（长期）');
+    save();broadcast();rerender();
+    toast(`${m.name} 已登记外借 → ${party}`);
+  });
+}
+
+/* ---------- ② 外借回归（转回原编制） ---------- */
+function openReturnDialog(memId){
+  if(!requireWrite())return;
+  const m=members.find(z=>z.id===memId); if(!m)return;
+  const L=curLoan(m);
+  if(!L || L.dir!=='out'){ toast('该成员没有生效中的外借记录'); return; }
+  const s=L.snap||{};
+  const sLead=(s.lead&&s.lead!=='—'&&s.lead!=='-')?s.lead:'';
+  const sealed=L.state==='sealed';
+  const body=`
+    <div class="ctx">把 <b>${escAttr(m.name)}</b> 从「${escAttr(L.party||'外借')}」<b>转回原编制</b>。
+      下面已按<b>外借前快照</b>预填，可直接改；改完即生效，本次外借记录自动归档进历史（可随时查看）。</div>
+    ${sealed?'<div class="dp-tip">该记录已封存，回归不受影响。</div>':''}
+    <div class="row2">
+      <div class="fld"><label>编制</label><select id="rtCorp">
+        <option value="base" ${(s.corp||'base')==='base'?'selected':''}>基地</option>
+        <option value="sub"  ${s.corp==='sub'?'selected':''}>子公司</option>
+        <option value="reg"  ${s.corp==='reg'?'selected':''}>正编（带队）</option></select></div>
+      <div class="fld"><label>隶属带队</label><select id="rtLead">${regLeaderOpts(sLead||'—')}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>模块</label><select id="rtMod">${MOD_OPTS_LIST.map(o=>`<option value="${o}" ${(s.mod||'')===o?'selected':''}>${o}</option>`).join('')}</select></div>
+      <div class="fld"><label>品级</label><select id="rtGrade">${GRADE_OPTS_LIST.map(o=>`<option value="${o}" ${(s.grade||'')===o?'selected':''}>${o||'（未设）'}</option>`).join('')}</select></div>
+    </div>
+    <div class="dp-tip">历史记录：<b>${loanSummary(L)}</b></div>
+    <div class="warn" id="rtWarn"></div>`;
+  _loanPop(`↩ 回归原编制 · ${escAttr(m.name)}`, body, '确认回归', ov=>{
+    const corp=ov.querySelector('#rtCorp').value;
+    const lead=ov.querySelector('#rtLead').value||'—';
+    pushHistory();
+    m.corp=corp;
+    m.lead=lead;
+    m.mod=ov.querySelector('#rtMod').value;
+    m.grade=ov.querySelector('#rtGrade').value;
+    m.line=(s.line&&s.line!=='-')?s.line:'-';
+    delete m.support;                 // 回归后不再是支援性质（跨队支援由 isSupportInReq 动态判定）
+    /* 归档：记录进历史，当前借调清空 —— loanRecs 只增不改 */
+    L.state='ended'; L.endBy='return'; L.endAt=new Date(TODAY);
+    if(!Array.isArray(m.loanRecs)) m.loanRecs=[];
+    m.loanRecs.push(L);
+    m.loan=null;
+    _logDesc='外借回归：'+m.name+' 转回'+(corp==='reg'?'正编':corp==='sub'?'子公司':'基地')+'·隶属'+lead;
+    save();broadcast();rerender();
+    toast(`${m.name} 已回归原编制`);
+  });
+}
+
+/* ---------- ③ 封存外借记录（手动提前 / 自动到期走 scanLoanExpiry） ---------- */
+function sealLoan(memId, by){
+  if(!requireWrite())return;
+  const m=members.find(z=>z.id===memId); if(!m)return;
+  const L=m && m.loan;
+  if(!L || L.dir!=='out'){ toast('该成员没有可封存的外借记录'); return; }
+  if(L.state!=='active'){ toast('该记录已是'+(L.state==='sealed'?'封存':'结束')+'状态'); return; }
+  if(by==='manual'){
+    _loanPop(`🔒 提前封存外借记录 · ${escAttr(m.name)}`,
+      `<div class="ctx">把这条外借记录标记为<b>已封存</b>：<br>
+        · 记录归档，不再计入「活跃外借」（在编统计里不再算作外借中）<br>
+        · <b>人仍在外借</b>，编制与隶属<b>一律不动</b>；人回来时走「回归原编制」即可<br>
+        · 到约定结束日时系统也会自动封存，此处为提前手动封存</div>
+       <div class="dp-tip">当前记录：${loanSummary(L)}</div>`,
+      '确认封存', ()=>{
+        pushHistory();
+        L.state='sealed'; L.endBy='seal:manual'; L.endAt=new Date(TODAY);
+        _logDesc='手动封存外借记录：'+m.name+' → '+(L.party||'');
+        save();broadcast();rerender();
+        toast(`已封存 ${m.name} 的外借记录`);
+      }, {danger:true});
+    return;
+  }
+  pushHistory();
+  L.state='sealed'; L.endBy=by||'seal:manual'; L.endAt=new Date(TODAY);
+  _logDesc='封存外借记录：'+m.name;
+  save();broadcast();rerender();
+}
+
+/* ---------- ④ 登记借入（其他管线的人来本队支援，临时隶属） ---------- */
+function openLoanInDialog(){
+  if(!requireWrite())return;
+  const body=`
+    <div class="ctx">登记一位<b>从其他管线借来支援</b>的人员：他会作为<b>临时隶属</b>成员进入名单
+      （编制=基地、可参与排期与负载计算），并挂一条「借入」记录。之后可<b>归还</b>或<b>转为正式隶属</b>。</div>
+    <div class="row2">
+      <div class="fld"><label>姓名</label><input type="text" id="liName" data-autofocus placeholder="如：张三"></div>
+      <div class="fld"><label>来自哪个管线</label><input type="text" id="liParty" placeholder="如：场景特效"></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>起始日</label><input type="date" id="liFrom" value="${fmtInputDate(TODAY)}"></div>
+      <div class="fld"><label>约定结束日（留空=长期未定）</label><input type="date" id="liTo" value=""></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>临时隶属带队</label><select id="liLead">${regLeaderOpts('—')}</select></div>
+      <div class="fld"><label>模块</label><select id="liMod">${MOD_OPTS_LIST.map(o=>`<option value="${o}">${o}</option>`).join('')}</select></div>
+    </div>
+    <div class="row2">
+      <div class="fld"><label>品级</label><select id="liGrade">${GRADE_OPTS_LIST.map(o=>`<option value="${o}">${o||'（未设）'}</option>`).join('')}</select></div>
+      <div class="fld"><label>效率系数</label><input type="number" id="liEff" value="1" step="0.05" min="0"></div>
+    </div>
+    <div class="warn" id="liWarn"></div>`;
+  _loanPop('↙ 登记借入支援人员', body, '确认登记', ov=>{
+    const name=(ov.querySelector('#liName').value||'').trim();
+    const party=(ov.querySelector('#liParty').value||'').trim();
+    const warn=ov.querySelector('#liWarn');
+    if(!name){ warn.textContent='请填写姓名'; warn.classList.add('show'); return false; }
+    if(members.some(x=>x.name===name)){ warn.textContent='已存在同名成员，请用其它名称'; warn.classList.add('show'); return false; }
+    if(!party){ warn.textContent='请填写来自哪个管线'; warn.classList.add('show'); return false; }
+    const from=_dateOrNull(ov.querySelector('#liFrom').value);
+    const to=_dateOrNull(ov.querySelector('#liTo').value);
+    if(from&&to&&to<from){ warn.textContent='结束日不能早于起始日'; warn.classList.add('show'); return false; }
+    pushHistory();
+    const lead=ov.querySelector('#liLead').value||'—';
+    const nm={
+      id:genId('m_'), name, role:'基地·借入支援', corp:'base', lead,
+      mod:ov.querySelector('#liMod').value, grade:ov.querySelector('#liGrade').value,
+      line:'-', eff:(parseFloat(ov.querySelector('#liEff').value)||1), status:'on',
+      support:true, tmp:true,
+      loan:{ id:newLoanId(), dir:'in', party, from, to,
+             mod:ov.querySelector('#liMod').value, note:'',
+             snap:null, state:'active', endAt:null, endBy:null },
+      loanRecs:[],
+    };
+    members.push(nm);
+    _logDesc='登记借入支援：'+name+'（来自 '+party+'）';
+    save();broadcast();rerender();
+    toast(`已登记借入：${name} ← ${party}`);
+  });
+}
+
+/* ---------- ⑤ 借入归还 ---------- */
+function returnLoanIn(memId){
+  if(!requireWrite())return;
+  const m=members.find(z=>z.id===memId); if(!m)return;
+  const L=curLoan(m);
+  if(!L || L.dir!=='in'){ toast('该成员没有生效中的借入记录'); return; }
+  _loanPop(`↩ 归还借入人员 · ${escAttr(m.name)}`,
+    `<div class="ctx">把 <b>${escAttr(m.name)}</b> 归还给「${escAttr(L.party||'对方管线')}」。<br>
+      归还后他将<b>移出在岗名单</b>（按已离职口径灰化/归档），但借入记录会<b>完整保留</b>在历史里，随时可查。</div>
+     <div class="dp-tip">当前记录：${loanSummary(L)}</div>`,
+    '确认归还', ()=>{
+      pushHistory();
+      L.state='ended'; L.endBy='return'; L.endAt=new Date(TODAY);
+      if(!Array.isArray(m.loanRecs)) m.loanRecs=[];
+      m.loanRecs.push(L);
+      m.loan=null;
+      m.status='left'; m.leftAt=new Date(TODAY);   // 等效离场（保留 loanRecs 留痕）
+      delete m.support;
+      _logDesc='归还借入人员：'+m.name+' → '+(L.party||'');
+      save();broadcast();rerender();
+      if(typeof renderEffTable==='function') renderEffTable();
+      toast(`已归还 ${m.name}`);
+    }, {danger:true});
+}
+
+/* ---------- ⑥ 借入转正式隶属 ---------- */
+function convertLoanIn(memId){
+  if(!requireWrite())return;
+  const m=members.find(z=>z.id===memId); if(!m)return;
+  const L=curLoan(m);
+  if(!L || L.dir!=='in'){ toast('该成员没有生效中的借入记录'); return; }
+  const body=`
+    <div class="ctx">把 <b>${escAttr(m.name)}</b>（借入自「${escAttr(L.party||'')}」）<b>转为正式隶属</b>。
+      转正后他变成本队常规成员，「借入」徽标消失，借入记录归档进历史。</div>
+    <div class="row2">
+      <div class="fld"><label>编制</label><select id="cvCorp">
+        <option value="base" selected>基地</option>
+        <option value="sub">子公司</option>
+        <option value="reg">正编（带队）</option></select></div>
+      <div class="fld"><label>隶属带队</label><select id="cvLead">${regLeaderOpts((m.lead&&m.lead!=='—'&&m.lead!=='-')?m.lead:'—')}</select></div>
+    </div>
+    <div class="fld"><label>模块</label><select id="cvMod">${MOD_OPTS_LIST.map(o=>`<option value="${o}" ${m.mod===o?'selected':''}>${o}</option>`).join('')}</select></div>
+    <div class="dp-tip">当前记录：${loanSummary(L)}</div>`;
+  _loanPop(`⇄ 转为正式隶属 · ${escAttr(m.name)}`, body, '确认转正', ov=>{
+    pushHistory();
+    const corp=ov.querySelector('#cvCorp').value;
+    m.corp=corp;
+    m.lead=ov.querySelector('#cvLead').value||'—';
+    m.mod=ov.querySelector('#cvMod').value;
+    delete m.tmp;          // 不再是临时
+    delete m.support;      // 不再是支援性质
+    m.role=(corp==='reg'?'正编·带队':corp==='sub'?'子公司':'基地');
+    L.state='ended'; L.endBy='convert'; L.endAt=new Date(TODAY);
+    if(!Array.isArray(m.loanRecs)) m.loanRecs=[];
+    m.loanRecs.push(L);
+    m.loan=null;
+    _logDesc='借入转正式隶属：'+m.name+' → '+(corp==='reg'?'正编':corp==='sub'?'子公司':'基地');
+    save();broadcast();rerender();
+    toast(`${m.name} 已转为正式隶属`);
+  });
+}
+
+/* HR 面板的「＋登记外借」没有成员上下文 → 先选人再进登记弹层。
+   候选：在岗、非占位、当前无生效借调的成员。 */
+function openLoanOutPick(){
+  if(!requireWrite())return;
+  const cands=members.filter(m=>!effLeft(m) && !isVacantMem(m) && !curLoan(m));
+  if(!cands.length){ toast('没有可登记外借的成员（都有生效中的借调记录）'); return; }
+  const opts=cands.map(m=>`<option value="${escAttr(m.id)}">${escAttr(m.name)}${m.mod?'（'+escAttr(m.mod)+'）':''}</option>`).join('');
+  _loanPop('↗ 登记外借 · 选择成员',
+    `<div class="ctx">选择要登记外借的成员，下一步填写去哪个管线与起止日期。</div>
+     <div class="fld"><label>成员</label><select id="lpMem" data-autofocus>${opts}</select></div>`,
+    '下一步', ov=>{
+      const id=ov.querySelector('#lpMem').value;
+      setTimeout(()=>openLoanOutDialog(id),60);   // 等本层关闭后再开下一层
+    });
+}
+
+/* ---------- ⑦ 查看借调历史 ---------- */
+function openLoanHistory(memId){
+  const m=members.find(z=>z.id===memId); if(!m)return;
+  const recs=(m.loanRecs||[]).slice().concat(m.loan?[m.loan]:[]);
+  const rows=recs.length ? recs.slice().reverse().map(L=>{
+    const stCls=L.state==='active'?'on':L.state==='sealed'?'seal':'end';
+    const stTxt=L.state==='active'?'进行中':L.state==='sealed'?'已封存':'已结束';
+    const endTxt=L.endBy?('　·　'+(LOAN_END_TXT[L.endBy]||L.endBy)+(L.endAt?' '+fmt(L.endAt):'')):'';
+    return `<div class="loan-rec ${stCls}">
+      <div class="lr-t">${L.dir==='in'?'↙ 借入自':'↗ 外借去'} <b>${escAttr(L.party||'未填')}</b>
+        <span class="lr-st">${stTxt}</span></div>
+      <div class="lr-d">${L.from?fmt(L.from):'起始未填'} → ${L.to?fmt(L.to):'长期未定'}${endTxt}</div>
+      ${L.note?`<div class="lr-n">${escAttr(L.note)}</div>`:''}
+      ${L.migrated?'<div class="lr-n lr-mig">由历史标记自动迁移</div>':''}
+    </div>`;
+  }).join('') : '<div class="dp-tip">暂无外借 / 借入记录。</div>';
+  _loanPop(`📜 借调记录 · ${escAttr(m.name)}`, `<div class="loan-recs">${rows}</div>`, '关闭', ()=>{}, {});
+  /* 历史弹层的「确定」按钮当关闭用：改成取消文案，避免误以为是写操作 */
+  const ok=document.querySelector('.loan-pop #lpOk'); if(ok) ok.textContent='关闭';
 }
 grid.addEventListener('click',e=>{
   const ms=e.target.closest('.mstat');
@@ -5668,12 +6085,27 @@ function openNewMember(){
       <div class="fld"><label>效率系数</label><input type="number" id="nmEff" value="1.0" step="0.05" min="0"></div>
       <div class="fld"><label>状态</label><select id="nmStatus"><option value="on" selected>在岗</option><option value="new">新人</option><option value="busy">忙碌</option><option value="leave">请假</option></select></div>
     </div>
-    <label class="org-chk" style="font-size:12px;margin-bottom:6px"><input type="checkbox" id="nmSupport">外借支援（编制在本团队，不隶属角色线，如武器特效）</label>
+    /* v7.48 表意优化：与编辑弹层一致的三态单选（新建成员时默认「本队常规」） */
+    <div class="loan-3way">
+      <div class="l3-t">隶属类型</div>
+      <div class="l3-row">
+        <label class="l3 on"><input type="radio" name="nmLoanKind" value="normal" checked onchange="nmLoanKindChange()"><span>本队常规</span><small>编制与隶属都在本队</small></label>
+        <label class="l3"><input type="radio" name="nmLoanKind" value="out" onchange="nmLoanKindChange()"><span>↗ 外借出去</span><small>编制留本队，人去别管线</small></label>
+        <label class="l3"><input type="radio" name="nmLoanKind" value="in" onchange="nmLoanKindChange()"><span>↙ 借入支援</span><small>从别管线借来，临时隶属</small></label>
+      </div>
+      <div class="l3-extra" id="nmLoanExtra" style="display:none">
+        <div class="row2">
+          <div class="fld"><label id="nmPartyLab">对方管线</label><input type="text" id="nmParty" placeholder="如：武器特效"></div>
+          <div class="fld"><label>约定结束日（留空=长期）</label><input type="date" id="nmLoanTo"></div>
+        </div>
+      </div>
+    </div>
     <div class="warn" id="nmWarn"></div>`;
   renderAddModal('👤', '添加新成员', body, true);
   // 重新绑定确定按钮到本流程
   const ok=document.getElementById('addOk'); if(ok)ok.setAttribute('onclick','confirmNewMember()');
   nmCorpChange();
+  nmLoanKindChange();
 }
 function nmCorpChange(){
   const corp=document.getElementById('nmCorp').value;
@@ -5688,22 +6120,44 @@ function confirmNewMember(){
   if(!name){ warn.textContent='请填写姓名'; warn.classList.add('show'); return; }
   if(members.some(m=>m.name===name)){ warn.textContent='已存在同名成员，请用其它名称'; warn.classList.add('show'); return; }
   const corp=document.getElementById('nmCorp').value;
-  const support=document.getElementById('nmSupport').checked;
+  /* v7.48：三态单选取代原 nmSupport 勾选框（与编辑弹层同一套 m.loan 数据结构） */
+  const kindEl=document.querySelector('input[name="nmLoanKind"]:checked');
+  const kind=kindEl?kindEl.value:'normal';
+  const partyEl=document.getElementById('nmParty');
+  const toEl=document.getElementById('nmLoanTo');
+  const party=(partyEl&&partyEl.value||'').trim();
+  const loanTo=(toEl&&toEl.value)?_dateOrNull(toEl.value):null;
+  const mod=document.getElementById('nmMod').value;
   let lead=(corp==='reg'||corp==='sub')?name:(document.getElementById('nmLead').value||'—');
-  if(support) lead='—';   // 外借支援：无角色线归属
+  if(kind==='out'){
+    if(!party){ warn.textContent='请填写「去哪个管线」'; warn.classList.add('show'); return; }
+    lead='—';   // 外借：脱离角色线
+  }
+  if(kind==='in'){
+    if(!party){ warn.textContent='请填写「来自哪个管线」'; warn.classList.add('show'); return; }
+  }
   const eff=parseFloat(document.getElementById('nmEff').value)||1.0;
   pushHistory();
   const m={
     id:genId('m_'), name,
-    role:(corp==='reg'?'正编·带队':corp==='sub'?'子公司':'基地')+(support?'·外借支援':''),
+    role:(corp==='reg'?'正编·带队':corp==='sub'?'子公司':'基地')+(kind==='out'?'·外借支援':kind==='in'?'·借入支援':''),
     corp, lead,
-    mod:document.getElementById('nmMod').value,
+    mod,
     grade:'',      // 品级不再与成员绑定，由 memWorkGrade() 从角色线动态取
     line:'-',      // 管线同理，不再固定绑定
     eff:Math.round(eff*100)/100,
     status:document.getElementById('nmStatus').value,
+    loanRecs:[],
   };
-  if(support) m.support=true;
+  if(kind==='out'){
+    m.support=true;
+    m.loan={ id:newLoanId(), dir:'out', party, from:new Date(TODAY), to:loanTo, mod, note:'',
+      snap:{corp, lead:'—', mod, grade:'', line:'-'}, state:'active', endAt:null, endBy:null };
+  }else if(kind==='in'){
+    m.support=true; m.tmp=true;
+    m.loan={ id:newLoanId(), dir:'in', party, from:new Date(TODAY), to:loanTo, mod, note:'',
+      snap:null, state:'active', endAt:null, endBy:null };
+  }
   members.push(m);
   _logDesc='新增成员：'+m.name;
   save();broadcast();closeAdd();
@@ -5734,12 +6188,45 @@ function openEditMember(memId){
       <div class="fld"><label>效率系数</label><input type="number" id="nmEff" value="${m.eff}" step="0.05" min="0"></div>
       <div class="fld"><label>状态</label><select id="nmStatus"><option value="on" ${m.status==='on'?'selected':''}>在岗</option><option value="new" ${m.status==='new'?'selected':''}>新人</option><option value="busy" ${m.status==='busy'?'selected':''}>忙碌</option><option value="leave" ${m.status==='leave'?'selected':''}>请假</option><option value="left" ${m.status==='left'?'selected':''}>离职</option></select></div>
     </div>
-    <label class="org-chk" style="font-size:12px;margin-bottom:6px"><input type="checkbox" id="nmSupport" ${m.support?'checked':''}>外借支援（编制在本团队，不隶属角色线，如武器特效）</label>
+    /* v7.48 表意优化：原来只有一句长勾选框「外借支援（编制在本团队，不隶属角色线，如武器特效）」，
+       读不出「借出 / 借入 / 跨队支援」的区别。改为三态单选 + 条件展开对应字段，一眼看懂。
+       注意：这里只做「快捷表达」，正式借调记录（带起止日与快照）走右键菜单 / HR 面板的登记弹层，
+       两者共用同一套 m.loan 数据结构，不会各写一份导致打架。 */
+    <div class="loan-3way">
+      <div class="l3-t">隶属类型</div>
+      <div class="l3-row">
+        <label class="l3 ${(!curLoan(m)&&!m.support)?'on':''}"><input type="radio" name="nmLoanKind" value="normal" ${(!curLoan(m)&&!m.support)?'checked':''} onchange="nmLoanKindChange()"><span>本队常规</span><small>编制与隶属都在本队</small></label>
+        <label class="l3 ${(isExtLoan(m))?'on':''}"><input type="radio" name="nmLoanKind" value="out" ${isExtLoan(m)?'checked':''} onchange="nmLoanKindChange()"><span>↗ 外借出去</span><small>编制留本队，人去别管线</small></label>
+        <label class="l3 ${(isLoanIn(m))?'on':''}"><input type="radio" name="nmLoanKind" value="in" ${isLoanIn(m)?'checked':''} onchange="nmLoanKindChange()"><span>↙ 借入支援</span><small>从别管线借来，临时隶属</small></label>
+      </div>
+      <div class="l3-extra" id="nmLoanExtra" style="display:none">
+        <div class="row2">
+          <div class="fld"><label id="nmPartyLab">对方管线</label><input type="text" id="nmParty" value="${escAttr((curLoan(m)&&curLoan(m).party)||m.mod||'')}" placeholder="如：武器特效"></div>
+          <div class="fld"><label>约定结束日（留空=长期）</label><input type="date" id="nmLoanTo" value="${(curLoan(m)&&curLoan(m).to)?fmtInputDate(curLoan(m).to):''}"></div>
+        </div>
+        <div class="dp-tip">保存即写入借调记录<b>（带起止日与编制快照）</b>。要改「回归/归还/转正」等状态流转，请在成员上<b>右键</b>操作。</div>
+      </div>
+    </div>
     <div class="warn" id="nmWarn"></div>`;
   renderAddModal('👤', '编辑成员 · '+m.name, body, true);
   const ok=document.getElementById('addOk');
   if(ok){ ok.textContent='保存修改'; ok.setAttribute('onclick','confirmEditMember()'); }
   nmCorpChange();
+  nmLoanKindChange();
+}
+/* 三态单选联动：非「本队常规」时展开对方管线 / 结束日字段，并按方向改标签文案 */
+function nmLoanKindChange(){
+  const pick=document.querySelector('input[name="nmLoanKind"]:checked');
+  const ex=document.getElementById('nmLoanExtra');
+  if(!pick||!ex) return;
+  const v=pick.value;
+  ex.style.display=(v==='normal')?'none':'block';
+  const lab=document.getElementById('nmPartyLab');
+  if(lab) lab.textContent=(v==='in')?'来自哪个管线':'去哪个管线';
+  document.querySelectorAll('.loan-3way .l3').forEach(el=>{
+    const r=el.querySelector('input[name="nmLoanKind"]');
+    el.classList.toggle('on', !!(r&&r.checked));
+  });
 }
 function confirmEditMember(){
   if(!requireWrite())return;
@@ -5749,19 +6236,71 @@ function confirmEditMember(){
   if(!name){ warn.textContent='请填写姓名'; warn.classList.add('show'); return; }
   if(members.some(x=>x.id!==memId && x.name===name)){ warn.textContent='已存在同名成员，请用其它名称'; warn.classList.add('show'); return; }
   const corp=document.getElementById('nmCorp').value;
-  const support=document.getElementById('nmSupport').checked;
+  /* v7.48：三态单选取代原 nmSupport 勾选框。
+     · normal → 清 support，无借调
+     · out    → 登记外借（拍快照、lead 置 —）
+     · in     → 转为借入（临时隶属）
+     借调记录的起止日在展开区里填；若从「本队常规」切到借出，快照按**当前表单值**拍。 */
+  const kindEl=document.querySelector('input[name="nmLoanKind"]:checked');
+  const kind=kindEl?kindEl.value:'normal';
+  const partyEl=document.getElementById('nmParty');
+  const toEl=document.getElementById('nmLoanTo');
+  const party=(partyEl&&partyEl.value||'').trim();
+  const loanTo=(toEl&&toEl.value)?_dateOrNull(toEl.value):null;
+  const mod=document.getElementById('nmMod').value;
   let lead=(corp==='reg'||corp==='sub')?name:(document.getElementById('nmLead').value||'—');
-  if(support) lead='—';   // 外借支援：无角色线归属
+  if(kind==='out'){
+    if(!party){ warn.textContent='请填写「去哪个管线」'; warn.classList.add('show'); return; }
+    lead='—';   // 外借：脱离角色线
+  }
+  if(kind==='in'){
+    if(!party){ warn.textContent='请填写「来自哪个管线」'; warn.classList.add('show'); return; }
+  }
   const eff=parseFloat(document.getElementById('nmEff').value)||1.0;
+  /* ★ 快照必须在写回 m 之前拍：它记录的是「打开弹层时」的编制状态，
+       一旦下面把 corp/lead/mod/grade 覆盖成新值，就再也取不到原值了。 */
+  const _snap0={corp:m.corp||'base', lead:m.lead||'—', mod:m.mod||'', grade:m.grade||'', line:m.line||'-'};
   pushHistory();
   const oldName=m.name;
   m.name=name;
   m.corp=corp;
   m.lead=lead;
-  m.mod=document.getElementById('nmMod').value;
+  m.mod=mod;
   m.eff=Math.round(eff*100)/100;
   m.status=document.getElementById('nmStatus').value;
-  if(support) m.support=true; else delete m.support;
+  if(!Array.isArray(m.loanRecs)) m.loanRecs=[];
+  const prevLoan=curLoan(m);
+  if(kind==='normal'){
+    delete m.support;
+    /* 原本在借 → 本次相当于结束借调：归档进历史，编制不动（由上方表单值决定） */
+    if(prevLoan){
+      prevLoan.state='ended'; prevLoan.endBy='return'; prevLoan.endAt=new Date(TODAY);
+      m.loanRecs.push(prevLoan); m.loan=null;
+    }
+  }else if(kind==='out'){
+    m.support=true;                                  // 兼容旧判定冗余保险
+    if(prevLoan && prevLoan.dir==='out'){
+      /* 已在借：就地更新对方与结束日，保留原快照（回归仍还原到最初外借前的编制） */
+      prevLoan.party=party; prevLoan.to=loanTo; prevLoan.mod=mod;
+      if(prevLoan.state==='ended'){ prevLoan.state='active'; prevLoan.endBy=null; prevLoan.endAt=null; }
+    }else{
+      if(prevLoan){ prevLoan.state='ended'; prevLoan.endBy='return'; prevLoan.endAt=new Date(TODAY); m.loanRecs.push(prevLoan); }
+      /* 拍快照：用**改动前**的原始值（此时 m 尚未被上面的赋值覆盖到 loan 相关字段，
+         m.corp/lead/grade/line 仍是打开弹层时的值——读的是同一个 m，故在此处取即为原值） */
+      m.loan={ id:newLoanId(), dir:'out', party, from:prevLoan?prevLoan.from:new Date(TODAY), to:loanTo,
+        mod, note:'', snap:_snap0, state:'active', endAt:null, endBy:null };
+    }
+  }else if(kind==='in'){
+    m.support=true; m.tmp=true;
+    if(prevLoan && prevLoan.dir==='in'){
+      prevLoan.party=party; prevLoan.to=loanTo; prevLoan.mod=mod;
+      if(prevLoan.state==='ended'){ prevLoan.state='active'; prevLoan.endBy=null; prevLoan.endAt=null; }
+    }else{
+      if(prevLoan){ prevLoan.state='ended'; prevLoan.endBy='return'; prevLoan.endAt=new Date(TODAY); m.loanRecs.push(prevLoan); }
+      m.loan={ id:newLoanId(), dir:'in', party, from:new Date(TODAY), to:loanTo,
+        mod, note:'', snap:null, state:'active', endAt:null, endBy:null };
+    }
+  }
   // 改名后同步其名下任务的成员显示引用（任务条按 member id 关联，无需改需求；仅同步 leftAt/状态外的可见名）
   _logDesc=(oldName!==name?('成员改名：'+oldName+'→'+name):('修改成员信息：'+m.name));
   save();broadcast();
@@ -6147,7 +6686,10 @@ function snapshot(){
 function coreSnapshot(){
   return {
     // 成员：除原有 status 外，序列化全部字段，使「新增成员」可在刷新/分享/云端后保留
-    members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null),leadChars:m.leadChars||'',leadMods:m.leadMods||'',leadMap:m.leadMap||null,sort:(m.sort!=null?m.sort:null)})),
+    members:members.map(m=>({id:m.id,name:m.name,role:m.role||'',corp:m.corp,lead:m.lead,mod:m.mod||'',grade:m.grade||'',line:m.line||'-',eff:m.eff,status:m.status,support:!!m.support,tmp:!!m.tmp,leftAt:(m.leftAt?idx(m.leftAt):null),leadChars:m.leadChars||'',leadMods:m.leadMods||'',leadMap:m.leadMap||null,sort:(m.sort!=null?m.sort:null),
+      // v7.48 借调记录：loan=当前生效借调，loanRecs=历史归档（只增不改）。漏了这两键 → 云端同步后历史蒸发。
+      loan:serializeLoan(m.loan||null),
+      loanRecs:(Array.isArray(m.loanRecs)?m.loanRecs.map(serializeLoan):[])})),
     effTiers:EFF_TIERS.map(t=>({coef:t.coef,label:t.label,mems:(t.mems||[]).slice()})),
     effLocked:effLocked,
     stdCfg:STD_CFG.map(t=>({mod:t.mod||'',grade:t.grade,col:t.col,dur:t.dur||'',weeks:t.weeks,ppl:t.ppl})),
@@ -6198,12 +6740,18 @@ function applySnap(snap){
       if(ms.leadMap!==undefined)m.leadMap=(ms.leadMap==null?null:ms.leadMap);
       // ★ v7.24: sort（手动/智能排序序号）同步
       if(ms.sort!==undefined)m.sort=(ms.sort==null?null:ms.sort);
+      // ★ v7.48: 借调记录同步（loan=当前生效 / loanRecs=历史归档）。缺此步 → 云端覆盖后借调历史丢失。
+      if(ms.loan!==undefined) m.loan=deserializeLoan(ms.loan);
+      if(Array.isArray(ms.loanRecs)) m.loanRecs=ms.loanRecs.map(deserializeLoan);
     }else if(ms.name){
       const nm={id:ms.id,name:ms.name,role:ms.role||'',corp:ms.corp||'base',lead:ms.lead||'—',mod:ms.mod||'',grade:ms.grade||'',line:ms.line||'-',eff:(ms.eff!=null?ms.eff:1.0),status:ms.status||'on',leadChars:ms.leadChars||'',leadMods:ms.leadMods||'',leadMap:ms.leadMap||null};
       if(ms.support)nm.support=true;
       if(ms.tmp)nm.tmp=true;
       if(ms.leftAt!=null)nm.leftAt=i2d(ms.leftAt);
       if(ms.sort!=null)nm.sort=ms.sort;
+      // v7.48 借调记录（新增成员路径同样要带，否则云端新增的借入人员会丢记录）
+      nm.loan=deserializeLoan(ms.loan||null);
+      nm.loanRecs=Array.isArray(ms.loanRecs)?ms.loanRecs.map(deserializeLoan):[];
       members.push(nm);
     }
   });
@@ -6292,6 +6840,60 @@ function applySnap(snap){
   // v5.11 投入比区间模型迁移：任何来源(本地/云端/分享)的快照应用后都执行一次，把旧档上限/旧 seg.inv 升到新区间。
   if(typeof migrateInvModel==='function') migrateInvModel();
 }
+/* ============ v7.48 存量外借人员 → 正式外借记录（幂等，可重复调用）============
+   背景：v7.48 之前「外借」没有独立数据，仅由 support 布尔 + lead='—' 推断出来，
+   无法记录「借给谁 / 何时开始 / 何时到期 / 回归时还原到哪」。
+   本函数把这类存量人员自动升级为带快照的正式借调记录。
+
+   ⚠️ 关键约束：**只新增字段，绝不改动 support / lead / corp / mod 任何现有值**。
+   因此 isExtLoan() 在迁移前后的返回值完全相同 —— corpStyle / personGroupKey /
+   personSortCompare / computeHR / renderHR / updateKPIs 等 9 处调用点行为零变化，
+   KPI 与 HR 统计数字严格不变（验收 #1）。
+
+   快照取值：以「当前值」拍快照（历史数据没记录外借前的状态，当前编制状态是最合理推定），
+   回归时弹层会预填这些值并允许用户改动（验收 #3）。
+   to=null（存量无约定结束日 → 长期未定），因此**不会**被 scanLoanExpiry 自动封存。 */
+function _migrateLoanRecords(){
+  let n=0;
+  members.forEach(m=>{
+    if(!m || m.loan || Array.isArray(m.loanRecs)) return;   // 已迁移过 / 已有记录，跳过
+    if(!m.support) return;                                   // 非支援人员
+    if(m.lead && m.lead!=='—' && m.lead!=='-') return;       // 有角色线归属 → 属「跨队支援」，非外借
+    const lead0=(m.lead && m.lead!=='—' && m.lead!=='-') ? m.lead : '—';
+    m.loanRecs=[];
+    m.loan={
+      id:newLoanId(),
+      dir:'out',
+      party:(m.mod||'其他管线'),
+      from:null,                    // 存量无起始日记录，留空
+      to:null,                      // 存量无约定结束日 → 长期未定，不触发自动封存
+      mod:(m.mod||''),
+      note:'由历史「外借支援」标记自动迁移',
+      snap:{corp:(m.corp||'base'), lead:lead0, mod:(m.mod||''), grade:(m.grade||''), line:(m.line||'-')},
+      state:'active', endAt:null, endBy:null,
+      migrated:true,                // 标记迁移来源，便于回溯
+    };
+    n++;
+  });
+  if(n){ save(); console.log('[v7.48] 自动迁移外借记录',n,'条'); }
+  return n;
+}
+
+/* ============ v7.48 到期外借记录自动封存（幂等，只改 state）============
+   语义提醒：封存 = **记录**归档，**人还在外面**（不动编制、不动 lead、不改 status）。
+   只把 state 从 active 改为 sealed，使其不再计入「活跃外借」（isExtLoan 转 false）。
+   ⚠️ 绝不可在此处改人 —— 自动任务悄悄改业务数据会引发统计口径漂移。 */
+function scanLoanExpiry(){
+  let n=0;
+  members.forEach(m=>{
+    const L=m && m.loan;
+    if(!L || L.state!=='active' || !L.to || L.dir!=='out') return;
+    if(TODAY > L.to){ L.state='sealed'; L.endBy='seal:auto'; L.endAt=L.to; n++; }
+  });
+  if(n){ save(); toast(`已自动封存 ${n} 条到期外借记录`); }
+  return n;
+}
+
 /* 投入比区间模型迁移：把历史值升级到 v5.11 区间口径，幂等可重复调用。
    · INV_TIERS：完整跟进 hi 0.4/0.5→0.6、lo→0.4；部分跟进 hi 0.2→0.3、lo→0.1；缺 lo/hi 的补齐。
    · seg.inv（记录档上限）：0.4/0.5→0.6、0.2→0.3。仅命中旧默认值，自定义区间值不动。 */
@@ -9156,6 +9758,8 @@ try{const cs=localStorage.getItem('gantt_collapsed'); if(cs)collapsed=JSON.parse
 if(loadFromHash()){ hasHashSnap=true; toast('已载入分享链接中的排期'); }
 else { loadSaved(); }
 syncEffFromTiers();
+_migrateLoanRecords();   // v7.48 存量「裸 support」外借人员 → 正式外借记录（幂等，只加字段不改现值）
+scanLoanExpiry();        // v7.48 到期外借记录自动封存（幂等，只改 state，不动人/编制）
 // 首次/口径升级：用真实排期(Σ分摊后投入比×效率)重算占位工作量。applySnap 已对有快照的路径迁移过；
 // 这里兜底处理「无快照的全新环境」（localStorage/云端都为空，INV_TIERS 走硬编码初始区间值）。
 if(estRecalcVer < EST_RECALC_VER){
