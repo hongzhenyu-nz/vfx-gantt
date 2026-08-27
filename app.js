@@ -2384,6 +2384,24 @@ const MS_PALETTE_DEF={
   msD   :'#2fbf9a',
   msE   :'#b06bff',
   msF   :'#ff8c42',
+  /* v7.56 甘特图条配色：与「自定义节点色板」同构，但作用于**任务条本身**。
+     每项对应一类条，默认色取自 styles.css 里原有的硬编码值（改前什么样、默认就什么样）：
+       barGray  —— 外借支援条（isExtLoan 命中，本例中即支援·武器特效）原 b-gray #7d92b3
+       barBlue/barGreen/barAmber/barRed —— 状态色（blue/green/amber/red）
+       barDone  —— 已完成条 原 b-done #4ecba0
+     约束同其他色板：必须不透明 #RRGGBB（半透明条色叠在日期底纹上会混脏）。
+     作用域：本机 localStorage（同一 gantt_ms_palette），不进云端快照、不影响他人视图。 */
+  barGray :'#7d92b3',
+  barBlue :'#4d80ff',
+  barGreen:'#1fae5a',
+  barAmber:'#f59e0b',
+  barRed  :'#ef3b39',
+  barDone :'#4ecba0',
+  /* 开放条（前端/后端/两端无限，本例即支援·武器特效）的底色。
+     默认**空串** = 不注入 CSS 变量 = 保持 v7.55 的实体化实底 rgba(168,150,128,.20)。
+     不设默认色值的原因：它本就没有「原始硬编码色」可回退（v7.55 之前是透明），
+     若在此给一个默认色，会覆盖 v7.55 刚做的实体化效果，也会让「恢复默认」语义含混。 */
+  barOpen :'',
 };
 /* 色板的展示元数据：label 用于面板显示，desc 说明它影响哪里 */
 const MS_PALETTE_META=[
@@ -2400,6 +2418,15 @@ const MS_PALETTE_META=[
     {k:'msC',label:'色 3',desc:'新建/编辑关键节点时可选'},{k:'msD',label:'色 4',desc:'新建/编辑关键节点时可选'},
     {k:'msE',label:'色 5',desc:'新建/编辑关键节点时可选'},{k:'msF',label:'色 6',desc:'新建/编辑关键节点时可选'},
   ]},
+  {group:'甘特图条', items:[
+    {k:'barGray', label:'支援条',   desc:'外借支援的甘特图条（如支援·武器特效）'},
+    {k:'barOpen', label:'开放条',   desc:'起止不确定的无限条底色（默认沿用实体化实底，留空=不改）'},
+    {k:'barBlue', label:'蓝条',     desc:'状态色：蓝色任务条'},
+    {k:'barGreen',label:'绿条',     desc:'状态色：绿色任务条'},
+    {k:'barAmber',label:'橙条',     desc:'状态色：橙色任务条（含超期）'},
+    {k:'barRed',  label:'红条',     desc:'状态色：红色任务条'},
+    {k:'barDone', label:'已完成条', desc:'已完成的甘特图条（青绿）'},
+  ]},
 ];
 const MS_PAL_KEY='gantt_ms_palette';
 let MS_PALETTE=Object.assign({},MS_PALETTE_DEF);
@@ -2407,6 +2434,8 @@ try{
   const _p=JSON.parse(localStorage.getItem(MS_PAL_KEY)||'null');
   if(_p&&typeof _p==='object'){
     Object.keys(MS_PALETTE_DEF).forEach(k=>{
+      // v7.56：barOpen 允许空串（沿用默认实底），其余必须是不透明 #RRGGBB
+      if(k==='barOpen'){ if(typeof _p[k]==='string' && (_p[k]===''||/^#[0-9a-fA-F]{6}$/.test(_p[k]))) MS_PALETTE[k]=_p[k]; return; }
       if(typeof _p[k]==='string' && /^#[0-9a-fA-F]{6}$/.test(_p[k])) MS_PALETTE[k]=_p[k];   // 拒绝 rgba/8位hex，保证不透明
     });
   }
@@ -2414,8 +2443,18 @@ try{
 /* 应用色板：msBg 注入 CSS 变量（驱动汇总行底色），其余供 JS 渲染节点时读取 */
 /* noRedraw=true 时跳过面板重建：供「连续选色」场景使用（见 changeMsPalette），
    避免每次改色都把 #msPaletteBox 的 DOM 换掉导致误写分离节点、并让系统取色器失焦。 */
+/* v7.56：barXxx 一组注入 --bar-* CSS 变量，驱动甘特图条底色。
+   注意**不调 rerender()** —— 变量一变浏览器立即重绘，条色实时生效（无需重建 DOM），
+   这既满足「实时生效」，也不会在连续选第二个色时打断操作（与 v7.50 连续选色同一套约束）。 */
 function applyMsPalette(noRedraw){
   document.documentElement.style.setProperty('--ms-bg',MS_PALETTE.msBg);
+  ['barGray','barBlue','barGreen','barAmber','barRed','barDone'].forEach(k=>{
+    document.documentElement.style.setProperty('--'+k.replace(/^bar/,'bar-').toLowerCase(),MS_PALETTE[k]);
+  });
+  /* barOpen 特殊：空串表示「不改」，此时必须把变量**移除**（而非设成空值）——
+     否则 var(--bar-open, 兜底) 会拿到空值并按无效值处理，反而丢掉 v7.55 的实底兜底。 */
+  if(MS_PALETTE.barOpen) document.documentElement.style.setProperty('--bar-open',MS_PALETTE.barOpen);
+  else document.documentElement.style.removeProperty('--bar-open');
   // 自定义节点候选色列表：供新建/编辑弹层的色板使用
   MS_COLORS.length=0;
   ['msA','msB','msC','msD','msE','msF'].forEach(k=>MS_COLORS.push(MS_PALETTE[k]));
@@ -2423,7 +2462,10 @@ function applyMsPalette(noRedraw){
 }
 /* 改单个色。校验：仅接受 6 位 #RRGGBB（不透明），其余一律拒绝并提示。 */
 function changeMsPalette(k,val){
-  if(!/^#[0-9a-fA-F]{6}$/.test(val)){ toast('颜色必须是不透明的 #RRGGBB 格式'); return; }
+  /* v7.56：barOpen 允许空串（= 沿用默认实底），其余一律要求不透明 #RRGGBB */
+  const _allowEmpty = (k==='barOpen');
+  if(_allowEmpty && val===''){ /* 通过：清空=不改 */ }
+  else if(!/^#[0-9a-fA-F]{6}$/.test(val)){ toast('颜色必须是不透明的 #RRGGBB 格式'); return; }
   if(!(k in MS_PALETTE_DEF)) return;
   MS_PALETTE[k]=val;
   try{localStorage.setItem(MS_PAL_KEY,JSON.stringify(MS_PALETTE));}catch(_){}
@@ -2448,8 +2490,8 @@ function changeMsPalette(k,val){
     if(hit!=null){
       const el=document.querySelectorAll('#msPaletteBox .mp-item')[hit];
       if(el){
-        const hex=el.querySelector('.mp-hex'); if(hex) hex.textContent=val.toUpperCase();
-        const inp=el.querySelector('.mp-color'); if(inp && inp.value.toLowerCase()!==val.toLowerCase()) inp.value=val;
+        const hex=el.querySelector('.mp-hex'); if(hex) hex.textContent=(val==='')?'默认':val.toUpperCase();
+        const inp=el.querySelector('.mp-color'); if(inp && inp.value.toLowerCase()!==val.toLowerCase() && val!=='') inp.value=val;
       }
     }
   }
@@ -2458,7 +2500,7 @@ function resetMsPalette(){
   MS_PALETTE=Object.assign({},MS_PALETTE_DEF);
   try{localStorage.setItem(MS_PAL_KEY,JSON.stringify(MS_PALETTE));}catch(_){}
   applyMsPalette(); rerender();
-  toast('🎨 关键节点配色已恢复默认');
+  toast('🎨 配色已恢复默认（关键节点 + 甘特图条）');
 }
 /* 阶段节点默认色：需求未自定义时取色板值 */
 function msPhaseColor(r,key){
@@ -2475,10 +2517,14 @@ function renderMsPaletteUI(){
     h+=`<div class="mp-grp"><div class="mp-grp-t">${g.group}</div><div class="mp-items">`;
     g.items.forEach(it=>{
       const v=MS_PALETTE[it.k];
+      /* v7.56：barOpen 默认空串（= 不改，沿用实底兜底）。<input type="color"> 不接受空值，
+         故显示时用兜底色占位，hex 文本显示「默认」；用户一改即写入真值。 */
+      const empty=(v==='');
+      const shown=empty?'#a89680':v;
       h+=`<div class="mp-item" title="${escAttr(it.desc)}">
-        <input type="color" class="mp-color" value="${v}" oninput="changeMsPalette('${it.k}',this.value)">
+        <input type="color" class="mp-color" value="${shown}" oninput="changeMsPalette('${it.k}',this.value)">
         <span class="mp-lab">${escHtml(it.label)}</span>
-        <code class="mp-hex">${v.toUpperCase()}</code>
+        <code class="mp-hex">${empty?'默认':v.toUpperCase()}</code>
       </div>`;
     });
     h+=`</div></div>`;
