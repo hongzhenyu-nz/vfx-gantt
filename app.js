@@ -2412,12 +2412,14 @@ try{
   }
 }catch(_){}
 /* 应用色板：msBg 注入 CSS 变量（驱动汇总行底色），其余供 JS 渲染节点时读取 */
-function applyMsPalette(){
+/* noRedraw=true 时跳过面板重建：供「连续选色」场景使用（见 changeMsPalette），
+   避免每次改色都把 #msPaletteBox 的 DOM 换掉导致误写分离节点、并让系统取色器失焦。 */
+function applyMsPalette(noRedraw){
   document.documentElement.style.setProperty('--ms-bg',MS_PALETTE.msBg);
   // 自定义节点候选色列表：供新建/编辑弹层的色板使用
   MS_COLORS.length=0;
   ['msA','msB','msC','msD','msE','msF'].forEach(k=>MS_COLORS.push(MS_PALETTE[k]));
-  renderMsPaletteUI();
+  if(!noRedraw) renderMsPaletteUI();
 }
 /* 改单个色。校验：仅接受 6 位 #RRGGBB（不透明），其余一律拒绝并提示。 */
 function changeMsPalette(k,val){
@@ -2425,8 +2427,32 @@ function changeMsPalette(k,val){
   if(!(k in MS_PALETTE_DEF)) return;
   MS_PALETTE[k]=val;
   try{localStorage.setItem(MS_PAL_KEY,JSON.stringify(MS_PALETTE));}catch(_){}
-  applyMsPalette();
-  rerender();
+  /* v7.50 连续选色：置位「取色中」屏蔽外部点击误关，短时延后自动解除。
+     注意此处**不调 rerender() 重建面板** —— 那会在用户连续点第二个色块时把 DOM 换掉，
+     既打断操作又让系统取色器失焦。色值靠 applyMsPalette() 直接作用于页面（CSS 变量 + 重绘节点），
+     再手动把同项的 hex 文本刷新，观感与整块重绘一致但不重建 DOM。 */
+  msPalettePicking=true;
+  clearTimeout(changeMsPalette._t);
+  changeMsPalette._t=setTimeout(()=>{ msPalettePicking=false; },600);
+  /* 关键：传 noRedraw=true 跳过面板重建。
+     否则 applyMsPalette() 会调 renderMsPaletteUI() 换掉整个 #msPaletteBox 的 DOM ——
+     用户点第二个色块时面板已被重建，既打断连续操作、又会让系统取色器失焦。 */
+  applyMsPalette(true);
+  // 就地刷新该项的 hex 文本（DOM 未被替换，此处查询一定命中活节点）
+  if(MS_PALETTE_META){
+    let i=0, hit=null;
+    for(const g of MS_PALETTE_META){
+      for(const it of g.items){ if(it.k===k){ hit=i; break; } i++; }
+      if(hit!=null) break;
+    }
+    if(hit!=null){
+      const el=document.querySelectorAll('#msPaletteBox .mp-item')[hit];
+      if(el){
+        const hex=el.querySelector('.mp-hex'); if(hex) hex.textContent=val.toUpperCase();
+        const inp=el.querySelector('.mp-color'); if(inp && inp.value.toLowerCase()!==val.toLowerCase()) inp.value=val;
+      }
+    }
+  }
 }
 function resetMsPalette(){
   MS_PALETTE=Object.assign({},MS_PALETTE_DEF);
@@ -9333,10 +9359,18 @@ function toggleColorPop(){
   p.classList.toggle('show');
   if(p.classList.contains('show') && typeof renderMsPaletteUI==='function') renderMsPaletteUI();
 }
-/* 吸色进行中屏蔽面板误关（EyeDropper 等待 / 点击取色模式） */
+/* v7.50：色板选色期间也屏蔽误关 —— 点 <input type="color"> 会拉起系统取色器，
+   取色器关闭瞬间的那次 click 可能被判定为「面板外点击」而把配色面板收掉，
+   导致用户每选一个颜色面板就关一次，无法连续调整多个色值。
+   msPalettePicking 在 changeMsPalette() 里置位、短时延后自动解除（见该函数）。 */
 let COLOR_PICKING=false;
-/* 点击面板外区域关闭色盘（按钮在 #colorCtl 内，不触发关闭；吸色中不误关） */
-document.addEventListener('click',function(e){if(COLOR_PICKING)return;const p=document.getElementById('colorPop');if(!p||!p.classList.contains('show'))return;if(!p.contains(e.target)&&!e.target.closest('#colorCtl'))p.classList.remove('show');},true);
+let msPalettePicking=false;
+/* 点击面板外区域关闭色盘（按钮在 #colorCtl 内，不触发关闭；吸色/取色中不误关） */
+document.addEventListener('click',function(e){
+  if(COLOR_PICKING||msPalettePicking)return;
+  const p=document.getElementById('colorPop'); if(!p||!p.classList.contains('show'))return;
+  if(!p.contains(e.target)&&!e.target.closest('#colorCtl'))p.classList.remove('show');
+},true);
 
 /* ===== v7.32 颜色吸取（吸色器）：跨浏览器取色 + 预设生成 =====
    根因：原「颜色吸取」完全依赖原生 <input type=color> 自带的吸管按钮，该按钮

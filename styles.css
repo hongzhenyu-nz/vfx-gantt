@@ -241,7 +241,11 @@
   .row.head{height:54px;background:#fafbfc;position:sticky;top:0;z-index:7;box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #b0b8c4;}   /* v7.14 z-index 5→7：必须高于 .grp-header(3) 才能修复分组标题盖住表头的穿透，也高于 .load-heatmap(6) 保证双层冻结顺序；仍低于 today-layer(8)，红线贯穿语义不变 */
   /* 里程碑汇总行（v7.43 方案 C）：按人视图置顶，位于表头与内容行之间 */
   /* v7.46：底色走 --ms-bg（🎨 配色面板「关键节点行底色」可改，本机 localStorage 持久化），缺省回落 #fdfcf5 */
-  .row.ms-summary-row{min-height:34px;height:34px;background:var(--ms-bg,#fdfcf5);box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #d4c9a8;z-index:6;}
+  /* v7.50：整行悬停同样保持不透明 —— 底色 var(--ms-bg) 若被色板设成带 alpha 的值（如 #rrggbbaa），
+     叠加在日期底纹上就会呈现半透。此处强制 opacity:1 兜底，并显式声明不叠任何 hover 半透层。 */
+  .row.ms-summary-row{min-height:34px;height:34px;background:var(--ms-bg,#fdfcf5);box-shadow:inset 0 -2px 0 0 #e8e9eb, inset 0 -1px 0 0 #d4c9a8;z-index:6;opacity:1;}
+  .row.ms-summary-row:hover{opacity:1;}
+  .row.ms-summary-row:hover .cell-left{opacity:1;}
   .row.ms-summary-row .cell-left{display:flex;align-items:center;background:#f7f3e3;border-right:1px solid #d4c9a8;}
   .ms-summary-label{font-size:12px;font-weight:800;color:#8a6d2f;white-space:nowrap;padding-left:8px;}
   .row.ms-summary-row .timeline{position:relative;}
@@ -250,7 +254,11 @@
   .ms-node{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:4px;padding:1px 6px 1px 2px;
     background:#ffffff;border:1px solid rgba(0,0,0,.08);border-radius:10px;pointer-events:auto;cursor:grab;
     box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .12s,box-shadow .12s,background .12s;}
-  .ms-node:hover{transform:translateY(-50%) scale(1.04);background:#fff8e1;border-color:#e8d9a8;box-shadow:0 2px 5px rgba(0,0,0,.15);z-index:10;}
+  /* v7.50 悬停保持完全不透明：hover 只放大 + 换实底，不再叠任何半透明阴影。
+     原先 box-shadow 用 rgba(0,0,0,.15) 的柔和投影，在浅色汇总行上会呈现"蒙了一层灰"的半透观感；
+     改为实色描边式投影（0 不透明偏移 + 实心色），观感变"实"且对比更清晰。
+     注意：不改 transform / background / z-index，保留原有悬停反馈，只是把透明度拉满。 */
+  .ms-node:hover{transform:translateY(-50%) scale(1.04);background:#fff8e1;border-color:#d9c377;box-shadow:0 0 0 1px #e0c98a,0 2px 4px #00000026;z-index:10;opacity:1;}
   /* v7.47 对比度强化：菱形加白描边 + 深色外环，与条内圆点同一套三层结构，
      保证在浅色汇总行底与深色任务条底上都清晰。 */
   .ms-diamond{width:10px;height:10px;transform:rotate(45deg);border-radius:1.5px;flex-shrink:0;
