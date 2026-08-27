@@ -409,8 +409,8 @@
   .vline{position:absolute;top:0;bottom:0;width:1px;background:var(--line2);transform:translateX(-50%);}
   /* 节假日/双休灰列：贯穿全高、置于最底层，任务条与竖线覆盖其上；pointer-events:none 不挡交互 */
   .daycol{position:absolute;top:0;bottom:0;pointer-events:none;z-index:0;}
-  .daycol.we{background:rgba(120,130,145,calc(.10 * var(--hol-opacity,1)));}                 /* 双休：浅灰 */
-  .daycol.hol{background:rgba(224,90,90,calc(.10 * var(--hol-opacity,1)));}                  /* 法定节假日：淡红灰，与双休区分 */
+  .daycol.we{background:rgba(120,130,145,calc(.10 * var(--daycol-opacity,1)));}                 /* 双休：浅灰 */
+  .daycol.hol{background:rgba(224,90,90,calc(.10 * var(--daycol-opacity,1)));}                  /* 法定节假日：淡红灰，与双休区分 */
   /* v7.40 日期悬停层。v7.47：z-index 6→5，明确压在甘特行(1)之上、任务条之上，
      但严格低于负载热力带(6)、顶部冻结信息行 .row.head(7)、关键节点汇总行(6)与今天红线层(8)。
      需求：日期列的层级不得高于顶部冻结的信息行 —— 此处 5 < 7 已满足，且留出两级余量。 */

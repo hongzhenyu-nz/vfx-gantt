@@ -9371,6 +9371,19 @@ function initMsLinkOpac(){
   let v=100; try{const s=localStorage.getItem(MS_LINK_OPAC_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
   setMsLinkOpac(v);
 }
+/* 日期底纹透明度：独立控制日期列双休/节假日背景色可见度（0~200%，100%=默认） */
+const DAYCOL_OPAC_KEY='gantt_daycol_opac';
+function setDayColOpacity(v){
+  v=Math.max(0,Math.min(200,+v));
+  document.documentElement.style.setProperty('--daycol-opacity',v/100);
+  const val=document.getElementById('dayColOpacVal'); if(val)val.textContent=v+'%';
+  const rng=document.getElementById('dayColOpacRange'); if(rng)rng.value=v;
+  try{localStorage.setItem(DAYCOL_OPAC_KEY,v);}catch(_){}
+}
+function initDayColOpacity(){
+  let v=100; try{const s=localStorage.getItem(DAYCOL_OPAC_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
+  setDayColOpacity(v);
+}
 /* 条宽 / 时间轴密度：滑块缩放 DAY_W（100%~320%），觉得任务条太细可调宽，设置记本机 */
 const ZOOM_KEY='gantt_zoom';
 function setZoom(v,sync){
@@ -9972,6 +9985,7 @@ initVivid();
 initGridGap();
 initHolOpacity();
 initMsLinkOpac();
+initDayColOpacity();
 initZoom();
 initLeftW();
 applyLblShow();

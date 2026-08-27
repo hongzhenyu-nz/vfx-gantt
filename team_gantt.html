@@ -142,6 +142,12 @@
         <span class="vc-val" id="holOpacVal">100%</span>
         <button class="vc-reset" onclick="setHolOpacity(100)" title="恢复默认浓度">↺</button>
       </span>
+      <span class="vivid-ctrl" title="调试·日期底纹透明度：控制日期列双休/节假日背景色的可见程度（100%=默认；0%=完全透明无底纹，200%=加倍醒目）。仅影响日期列底纹，不影响条内阴影">
+        <span class="vc-ic">▒</span>
+        <input type="range" id="dayColOpacRange" min="0" max="200" step="5" value="100" oninput="setDayColOpacity(+this.value)">
+        <span class="vc-val" id="dayColOpacVal">100%</span>
+        <button class="vc-reset" onclick="setDayColOpacity(100)" title="恢复默认透明度">↺</button>
+      </span>
       <button class="ubtn" onclick="autoFitLeftW()" title="自动加宽左侧信息栏，让人名标签尽量不换行、各行宽度一致、版面整齐（也可拖动栏右侧分界线手动调，或双击分界线自动适配）">⇆ 适配栏宽</button>
       <button class="reset" onclick="resetData()">重置</button>
     </div>
@@ -385,7 +391,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.61"></script>
+<script src="app.js?v=7.62"></script>
 
 </body>
 </html>
