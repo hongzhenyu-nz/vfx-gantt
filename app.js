@@ -3658,6 +3658,14 @@ function syncXWideLabels(){
   const sc=document.querySelector('.scroll');
   const grid=document.getElementById('grid');
   if(!sc||!grid) return;
+  /* 兜底重打标：云端同步/重绘会重建 .bar-task，导致 .bar-xwide 丢失（实测线上出现）。
+     这里每次同步前都按当前条宽重算一次，保证打标永远与实际渲染一致。 */
+  {
+    const _vp=sc.clientWidth||1200;
+    grid.querySelectorAll('.bar-task').forEach(bar=>{
+      bar.classList.toggle('bar-xwide', bar.getBoundingClientRect().width >= _vp*1.5);
+    });
+  }
   if(!_xwlLayer||!document.body.contains(_xwlLayer)){
     _xwlLayer=document.createElement('div');
     _xwlLayer.id='xwlLayer';
