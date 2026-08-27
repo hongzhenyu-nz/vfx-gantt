@@ -1,0 +1,6 @@
+# 部署凭据（资产库 PAT 明文，禁止入库）
+.deploy_token
+
+# 系统/编辑器
+.DS_Store
+*.swp
