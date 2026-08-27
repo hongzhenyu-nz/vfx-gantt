@@ -2538,6 +2538,17 @@ function renderMsPaletteUI(){
         <span class="mp-lab">${escHtml(it.label)}</span>
         <code class="mp-hex">${empty?'默认':v.toUpperCase()}</code>
       </div>`;
+      /* v7.61：在「竖向虚线色」后面嵌入不透明度滑块 */
+      if(it.k==='msLine'){
+        const op=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ms-link-opacity'))||1;
+        const opPct=Math.round(op*100);
+        h+=`<div class="mp-item mp-opac-row" title="调节关键节点竖向虚线的可见度（100%=默认，调高更醒目，调低更淡）">
+          <span class="mp-lab">虚线浓度</span>
+          <input type="range" id="msLinkOpacRange" min="20" max="200" step="5" value="${opPct}" oninput="setMsLinkOpac(+this.value)" style="flex:1;min-width:80px">
+          <code class="mp-hex" id="msLinkOpacVal">${opPct}%</code>
+          <button class="mp-opac-reset" onclick="setMsLinkOpac(100)" title="恢复默认浓度">↺</button>
+        </div>`;
+      }
     });
     h+=`</div></div>`;
   });
@@ -9346,6 +9357,20 @@ function initHolOpacity(){
   let v=100; try{const s=localStorage.getItem(HOLOPAC_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
   setHolOpacity(v);
 }
+/* ===== 关键节点竖虚线不透明度（配色面板内嵌滑块） ===== */
+const MS_LINK_OPAC_KEY='gantt_ms_link_opac';
+function setMsLinkOpac(v){
+  v=Math.max(20,Math.min(200,Math.round(+v)));
+  document.documentElement.style.setProperty('--ms-link-opacity',(v/100).toFixed(2));
+  /* 同步面板内的显示值（如果面板当前打开） */
+  const val=document.getElementById('msLinkOpacVal'); if(val)val.textContent=v+'%';
+  const rng=document.getElementById('msLinkOpacRange'); if(rng)rng.value=v;
+  try{localStorage.setItem(MS_LINK_OPAC_KEY,v);}catch(_){}
+}
+function initMsLinkOpac(){
+  let v=100; try{const s=localStorage.getItem(MS_LINK_OPAC_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
+  setMsLinkOpac(v);
+}
 /* 条宽 / 时间轴密度：滑块缩放 DAY_W（100%~320%），觉得任务条太细可调宽，设置记本机 */
 const ZOOM_KEY='gantt_zoom';
 function setZoom(v,sync){
@@ -9946,6 +9971,7 @@ buildMeSel();
 initVivid();
 initGridGap();
 initHolOpacity();
+initMsLinkOpac();
 initZoom();
 initLeftW();
 applyLblShow();

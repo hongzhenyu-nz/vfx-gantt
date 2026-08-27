@@ -739,11 +739,11 @@
      改为「白色底衬 + 主色虚线」双层：底衬用 ::before 画一条 4px 宽的半透明白，
      主色虚线画在其上，深色区靠白衬托出、浅色区靠主色实心，双向可读。
      opacity 由 .32 提到 .9，宽度 2→3px。free=按人视图无需求行的全高兜底（仍淡显）。 */
-  .ms-link{position:absolute;width:3px;transform:translateX(-50%);opacity:.9;
+  .ms-link{position:absolute;width:3px;transform:translateX(-50%);opacity:var(--ms-link-opacity,.9);
     background:repeating-linear-gradient(to bottom,var(--msc,#ffb020) 0 5px,transparent 5px 10px);}
   .ms-link::before{content:'';position:absolute;top:0;bottom:0;left:-0.5px;right:-0.5px;
-    background:rgba(255,255,255,.55);border-radius:2px;}
-  .ms-link.free{opacity:.28;}
+    background:rgba(255,255,255,calc(.55 * var(--ms-link-opacity,1)));border-radius:2px;}
+  .ms-link.free{opacity:calc(var(--ms-link-opacity,.9) * .28);}
   /* v7.47：需求条内关键节点的文字标签层（挂 #grid、无 overflow 裁切 → 允许出框）。
      z-index:7 低于今天红线层(8)，与关键节点汇总行(6)/负载带(6)同级但不穿透冻结信息行(7)。 */
   .ms-label-layer{position:absolute;left:var(--left-w);top:0;right:0;bottom:0;pointer-events:none;z-index:7;}
@@ -1949,6 +1949,11 @@
 #colorPop .mp-color::-webkit-color-swatch{border:none;border-radius:4px;}
 #colorPop .mp-lab{font-size:10.5px;font-weight:600;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;}
 #colorPop .mp-hex{font-size:9px;font-weight:700;color:var(--tx3);font-family:ui-monospace,Menlo,Consolas,monospace;flex-shrink:0;}
+/* v7.61：关键节点竖虚线不透明度滑块行（跨两列占满宽） */
+#colorPop .mp-opac-row{grid-column:1/-1;gap:6px;padding:5px 4px;background:#f8f9fb;border-radius:6px;border:1px solid #eef0f2;}
+#colorPop .mp-opac-row input[type="range"]{height:18px;accent-color:var(--blue,#1d6fd6);}
+#colorPop .mp-opac-reset{flex-shrink:0;width:22px;height:22px;border:1px solid var(--line);border-radius:5px;background:#fff;cursor:pointer;font-size:11px;text-align:center;line-height:20px;color:var(--tx3);transition:background .12s;}
+#colorPop .mp-opac-reset:hover{background:#fdeef0;border-color:#f3b6bf;}
 #colorPop .mp-foot{margin-top:7px;}
 #colorPop .mp-reset{width:100%;border:1px solid var(--line);background:#fbfcfe;border-radius:7px;font-size:11.5px;font-weight:700;color:var(--tx2);cursor:pointer;padding:5px 0;transition:background .12s;}
 #colorPop .mp-reset:hover{background:#fdeef0;border-color:#f3b6bf;}
