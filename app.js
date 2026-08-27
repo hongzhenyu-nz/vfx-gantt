@@ -1885,8 +1885,6 @@ function memLoad(id){
 
 function barCls(r,seg,m){
   const k = r.kind==='lt'?' k-lt':r.kind==='qa'?' k-qa':'';
-  // 外借支援：不参与本团队风险判定，统一中性灰（表示「不判断风险」）
-  if(m && isExtLoan(m)) return 'b-gray'+k;
   // 终态需求的条体配色固定（不受 colorMode 影响）：已完成=绿，废弃=灰
   const rs=reqState(r);
   if(rs==='done') return 'b-done'+k;     // 已完成：青绿任务条（区别于低风险安全绿）
@@ -1899,6 +1897,8 @@ function barCls(r,seg,m){
   } else if(aggStatus(r)==='done'){
     return 'b-done'+k;                                // 整条需求所有段都完成 → 绿（即便生命周期未手动置 done）
   }
+  // 外借支援：非终态时统一中性灰（表示「不判断风险」）；已完成/废弃仍按终态色显示
+  if(m && isExtLoan(m)) return 'b-gray'+k;
   /* v7.24：联调条体改青碧色系（b-lt）。v7.09 的紫 #7e63b5 与超期区/「超N周」徽标的紫红同族撞色，
      用户反馈「联调需求与超期紫分不清」；未启动(todo)的联调用低饱和浅青 b-lt0，退到背景层不抢眼。 */
   if(r.mod === '联调'){
