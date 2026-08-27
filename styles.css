@@ -537,15 +537,9 @@
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
   /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上） */
-  /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上）。
-     v7.53：原为单字「支」+ 8.5px 字号，在超宽条（横跨十几周）上贴在条最右端，
-     横向滚动后整体滚出视口，等于没有标识 —— 用户无法分辨哪条是支援。
-     改为：双字「支援」+ 10px + 白描边（在深色/斜纹条上都跳出来）+ 钉在条左侧起点，
-     与任务名同处一屏，标签再长、条再宽都能第一眼看到。 */
-  .bar-task .sup-mk{position:absolute;right:auto;left:3px;top:2px;z-index:3;font-size:10px;font-weight:900;line-height:1;
-    color:#7c2d12;background:#fbbf24;border:1px solid rgba(255,255,255,.9);border-radius:4px;padding:1.5px 4px;
-    box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none;font-style:normal;
-    text-shadow:0 1px 0 rgba(255,255,255,.5);letter-spacing:.5px;}
+  .bar-task .sup-mk{position:absolute;right:3px;top:2px;z-index:2;font-size:8.5px;font-weight:800;line-height:1;
+    color:#fff;background:#f59e0b;border-radius:4px;padding:1px 4px;box-shadow:0 1px 2px rgba(0,0,0,.3);pointer-events:none;
+    text-shadow:none;letter-spacing:.5px;}
   /* v6.85：这些状态会整体替换 box-shadow，必须**追加** inset 品级色层，否则色条消失 */
   .bar-task.dragging{cursor:grabbing;opacity:.95;box-shadow:0 6px 18px rgba(0,0,0,.32),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24));z-index:30;}
   /* Shift 拖拽复制：拖动中的源条加复制标识（虚线描边 + 右上角 ＋ 角标） */
@@ -1152,30 +1146,9 @@
      任务名永远显示（超长省略号）。不再竖排 4 行、不再靠缩字号硬撑。
      data-sz 只分 2 档：1=正常(barH≥24)，2=紧凑(极矮多泳道条)。 */
   .bar-task .rt-line{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:5px;position:relative;z-index:1;max-width:100%;width:100%;pointer-events:none;line-height:1;height:100%;white-space:nowrap;overflow:hidden;}
-  /* v7.53：条上有「支援」角标时（角标钉在左上），标签行整体右移让位，避免任务名被角标压住。
-     让位宽度 = 角标实宽(约 34px) + 间隙，用 :has() 仅在有角标时生效，不影响其余所有条。 */
-  .bar-task:has(.sup-mk) .rt-line{padding-left:38px;}
-  /* v7.53 超宽条标签跟随视口：横跨十几周的超长条（如 17.2 周支援条，条宽 11200px 而滚动容器仅 ~1113px），
-     标签固定在条最左端，横向滚过一屏后标签整体滚出视野 —— 条还在屏幕上，却完全看不出是哪条需求。
-     踩坑记录：**position:sticky 在此完全失效** —— .rt-line 的父级 .bar-task 是 position:absolute，
-     sticky 依赖其滚动祖先内的普通流，此处实测滚到 600px 时标签左缘 -85px，仍在视口外。
-     最终方案：app.js 给超宽条打 .bar-xwide，并在滚动时把一份「浮动标签」用 position:fixed
-     钉在可视区左缘（见 syncXWideLabels）。纯 CSS 做不到「相对滚动容器定位」。 */
-  .bar-xwide-lbl{position:fixed;z-index:12;pointer-events:none;display:flex;align-items:center;gap:5px;
-    padding:1px 7px;border-radius:5px;background:rgba(0,0,0,.62);white-space:nowrap;
-    box-shadow:0 1px 4px rgba(0,0,0,.35);font-size:12.5px;font-weight:800;color:#fff;}
-  .bar-xwide-lbl .xl-mk{font-size:9.5px;font-weight:900;background:#fbbf24;color:#7c2d12;
-    border-radius:3px;padding:1px 3px;border:1px solid rgba(255,255,255,.85);}
-  .bar-xwide-lbl .xl-md{font-size:10.5px;font-weight:800;color:#dbe4f0;}
   /* 父条横向兜底裁切（防左溢压栏） */
   .bar-task:has(.rt-line){overflow:hidden;}
-  /* v7.53 对比度强化：任务名白字在浅色条（b-amber 2.15:1 / b-green 2.89:1 / b-gray 3.17:1）
-     上远未达 WCAG AA 4.5:1，实测观感发灰发糊。改为**四向包边描边**（上下左右各 1px 深色），
-     等效给每个字套一层暗色轮廓，在任何条色上都把字"抠"出来；再叠一层柔和投影增加立体感。
-     注意：不能用半透明底色块（会盖住条色语义、在斜纹/进度条上更脏），描边是唯一干净解法。 */
-  .bar-task .rt-line .rt-nm{color:#fff;font-size:13.5px;font-weight:800;letter-spacing:.2px;
-    text-shadow:0 -1px 0 rgba(0,0,0,.55),0 1px 0 rgba(0,0,0,.55),-1px 0 0 rgba(0,0,0,.55),1px 0 0 rgba(0,0,0,.55),0 2px 3px rgba(0,0,0,.40);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;flex:0 1 auto;min-width:0;}
+  .bar-task .rt-line .rt-nm{color:#fff;font-size:13.5px;font-weight:800;letter-spacing:.2px;text-shadow:0 1px 1px rgba(0,0,0,.28);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.25;flex:0 1 auto;min-width:0;}
   /* v4.9 任务名竖排（每字一列）：极窄条上短名放不下横排时转竖排，确保完整显示不截断 */
   .bar-task .rt-line .rt-nm[data-nm="v"]{writing-mode:vertical-rl;text-orientation:upright;letter-spacing:0;line-height:1.02;white-space:nowrap;overflow:visible;text-overflow:clip;max-height:100%;text-shadow:0 1px 1px rgba(0,0,0,.32);}
   /* v5.2 模块竖排补列：竖排任务名后横向仍有富余时，把模块名也竖排补一列（去底色/边框，纯白文字，秀气不抢戏） */

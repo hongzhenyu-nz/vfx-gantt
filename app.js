@@ -969,18 +969,7 @@ function charColor(cs){
 /* ============ 统一需求名称规范（两视图共用）============
    角色短名：去掉品级线/联动CP尾巴，保留主角色名（如「露西亚·誓焰 X 安琪儿」→「露西亚」）。
    完整角色名(含联动CP)作为副信息/悬停保留。 */
-const charShort = char => {
-  const s=String(char||'').trim(); if(!s) return '';
-  const main=s.split(/\s*[X×]\s*/)[0].trim();      // 去联动CP尾巴
-  /* v7.53：原实现按 [·（(] 一刀切两段并只取前段，会把「武器（支援）」切成「武器」，
-     丢掉括号里的核心语义（支援/联调/外借），用户无法分辨是哪一个需求。
-     改为**去掉括号符号、保留括号内的字**： 「武器（支援）」→「武器支援」。
-     括号内容为空（如「露西亚（）」）则只返回主体；「·」后的副标题仍按原规则丢弃。
-     上限 8 字，防止长尾撑爆窄条（超出由 fitBarLabels 实测降级兜底）。 */
-  const noDot=main.split('·')[0].trim();
-  const merged=noDot.replace(/[（(]\s*([^）)]*?)\s*[）)]/g,'$1').trim();
-  return (merged || noDot || main || s).slice(0,8);
-};
+const charShort = char => String(char||'').split(/\s*[X×]\s*/)[0].split(/[·（(]/)[0].trim();
 /* 统一规范的需求标题 HTML v4.8：横向单行、主次分明。
    任务名(白色大字)在左永远显示，模块/人天/投入比小徽标依次横排在右。
    opt = {pdays?: number, nShow?: 1..4}。nShow 控制显示几个信息位（含任务名）：
@@ -2948,7 +2937,7 @@ function personRowHTML(m,inArc){
       bars+=`<div class="bar-task ${barCls(r,autoSeg,m)}${slimCls}${doneCls}${floatCls}${openType?' open open-'+openType:''}" data-req="${r.id}" data-seg="${si}" style="left:${x}px;width:${w}px;top:${topPct}%;height:${hPct}%;--gcol:${(HR_GRADE[r.grade]||HR_GRADE['']).col}"
         onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
         <i class="sdot"></i><span class="rt-line" data-sz="${szTier}">${lblInner}${segInvBadge(sg,nShow)}${canFloat?'':segDoneBadge(r,sg)}${auto.status==='overdue'&&!reqIsDone(r)&&(m.corp!=='reg'&&m.corp!=='sub')?segOverdueBadge():''}${owd>0&&m.corp!=='reg'&&m.corp!=='sub'?segOverdueWDBadge(owd):''}</span>
-        ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援（本人编制不属于本需求所属模块）">支援</i>':''}
+        ${isSupportInReq(m,r)?'<i class="sup-mk" title="该任务为跨队支援">支</i>':''}
         ${(openType==='back'||openType==='both')?'<i class="open-r">»</i>':''}
         <div class="prog" style="--p:${Math.round(effProg*100)}">${openType?'':restBlocksHTML(it.si0,it.ei0)}</div>
         ${segStdOverflowZone(sg,r,m)}
@@ -3418,7 +3407,6 @@ function paint(rows){
   alignStripes();          // v6.83：把所有 45° 斜纹块对齐到全局坐标系（固定瓦片+双轴补偿）
   // v5.0：渲染后按真实像素实测降级标签（横排隐藏低优先徽标 → 缩字号 → 竖排 → 省略号）
   requestAnimationFrame(fitBarLabels);
-  requestAnimationFrame(syncXWideLabels);   // v7.53：超宽条浮动标签跟随横向滚动
   /* v7.12：今天日期胶囊——渲染完成后同步一次位置。
      胶囊本体常驻在 board 上方的 #todayRailTrack 里（见 syncTodayLabel），
      不再每次 paint 重建 DOM，也不再挂到 #sec-gantt（那样会被 overflow:hidden 裁 / 不随滚动走）。 */
@@ -3646,68 +3634,6 @@ function stripePeriod(layer){
      · 缩到下限仍溢出且是短名(≤5字) → 竖排(每字一列)，字号按条宽/条高双向再定；
      · 长名 → 锁 8.5px + 省略号兜底。
    全部用 clientWidth/scrollWidth 真实像素，杜绝 em 预测误差。 */
-/* v7.53 超宽条浮动标签：条宽远超一屏时（如 17.2 周支援条 11200px vs 视口 1113px），
-   条内标签钉在条左端，横向滚动后整体滚出视野 —— 条还在屏幕上却认不出是哪条。
-   CSS sticky 在此无效（.bar-task 是 position:absolute，sticky 无普通流可吸附），
-   故改为：为每条超宽条维护一个 position:fixed 的浮动标签，钉在该条当前可视区段的左缘。
-   · 条完全滚出视口 → 隐藏浮动标签
-   · 条部分可见 → 标签钉在「条的可视段左缘」（条左端已滚出时钉在视口左缘 + 8px）
-   · 条整条都在视口内（罕见）→ 钉在真实条左缘 */
-let _xwlLayer=null;
-function syncXWideLabels(){
-  const sc=document.querySelector('.scroll');
-  const grid=document.getElementById('grid');
-  if(!sc||!grid) return;
-  if(!_xwlLayer||!document.body.contains(_xwlLayer)){
-    _xwlLayer=document.createElement('div');
-    _xwlLayer.id='xwlLayer';
-    _xwlLayer.style.cssText='position:fixed;inset:0;pointer-events:none;z-index:12;';
-    document.body.appendChild(_xwlLayer);
-  }
-  const bars=[...grid.querySelectorAll('.bar-task.bar-xwide')];
-  if(!bars.length){ _xwlLayer.innerHTML=''; return; }
-  const scR=sc.getBoundingClientRect();
-  const leftEdge=Math.max(scR.left,0)+8;
-  let html='';
-  for(const bar of bars){
-    const br=bar.getBoundingClientRect();
-    // 垂直/水平可见性判定：与滚动容器视口求交
-    if(br.bottom<scR.top+2 || br.top>scR.bottom-2) continue;
-    if(br.right<scR.left+2 || br.left>scR.right-2) continue;
-    const nm=bar.querySelector('.rt-nm');
-    const mod=bar.querySelector('.rt-mod');
-    const md=bar.querySelector('.rt-md');
-    const mk=bar.querySelector('.sup-mk');
-    if(!nm) continue;
-    // 钉在条的可视段左缘；条左端已滚出视口则钉在视口左缘
-    const x=Math.max(br.left, leftEdge);
-    const y=br.top+Math.min(6, Math.max(2, (br.height-20)/2));
-    const txt=(nm.textContent||'').trim();
-    const mdTxt=md?(md.textContent||'').trim():'';
-    html+=`<div class="bar-xwide-lbl" style="left:${Math.round(x)}px;top:${Math.round(y)}px">`
-        + (mk?'<span class="xl-mk">支援</span>':'')
-        + `<span class="xl-nm">${txt.replace(/</g,'&lt;')}</span>`
-        + (mod?`<span class="xl-md">${(mod.textContent||'').trim().replace(/</g,'&lt;')}</span>`:'')
-        + (mdTxt?`<span class="xl-md">${mdTxt.replace(/</g,'&lt;')}</span>`:'')
-        + `</div>`;
-  }
-  _xwlLayer.innerHTML=html;
-}
-/* 滚动/缩放时刷新浮动标签。用 rAF 节流，避免每个 scroll 事件都重排；passive:true 不阻塞滚动。
-   绑定在 .scroll（横向）与 window（纵向/缩放）上，只绑一次。 */
-(function bindXWideLabelSync(){
-  let raf=0;
-  const kick=()=>{ if(raf) return; raf=requestAnimationFrame(()=>{ raf=0; syncXWideLabels(); }); };
-  window.addEventListener('scroll',kick,true);
-  window.addEventListener('resize',kick);
-  const sc0=document.querySelector('.scroll');
-  if(sc0) sc0.addEventListener('scroll',kick,{passive:true});
-  // 视图切换会重建 .scroll，故用事件委托兜底：任意 mousedown 后再尝试补绑一次
-  document.addEventListener('mousedown',()=>{
-    const sc=document.querySelector('.scroll');
-    if(sc && !sc.__xwlBound){ sc.__xwlBound=true; sc.addEventListener('scroll',kick,{passive:true}); }
-  },true);
-})();
 function fitBarLabels(){
   const HMAX=13.5, HMIN=8.5, VMIN=7, GAP=5;
   /* v5.4 两行堆叠：够高的窄条单行放不下时，改纵向两行——任务名横排居中一行 + 模块横排居中补第二行，
@@ -3738,15 +3664,6 @@ function fitBarLabels(){
     return true;
   }
   const lines=document.querySelectorAll('#grid .bar-task .rt-line');
-  /* v7.53 超宽条打标：条宽 ≥ 滚动容器可视宽 1.5 倍时，标签钉在条左端会随横向滚动整体滚出视野，
-     条在屏幕上却看不出是哪条需求。给这类条打 .bar-xwide，并由 syncXWideLabels() 维护一份
-     position:fixed 的浮动标签钉在可视区左缘。阈值取 1.5 倍，避免刚好一屏宽的条来回抖动。 */
-  const _vpW=(document.querySelector('.scroll')||document.documentElement).clientWidth||1200;
-  lines.forEach(line=>{
-    const bar=line.closest('.bar-task');
-    if(bar) bar.classList.toggle('bar-xwide', bar.getBoundingClientRect().width >= _vpW*1.5);
-  });
-  if(typeof syncXWideLabels==='function') requestAnimationFrame(syncXWideLabels);
   lines.forEach(line=>{
     const nm=line.querySelector('.rt-nm');
     if(!nm) return;
