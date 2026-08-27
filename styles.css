@@ -578,11 +578,16 @@
   .b-done{background:#4ecba0;}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分 */
   /* ===== 时间长度类型：前端无限 / 后端无限 / 两端无限 =====
      用 mask 让相应端淡出，叠加斜纹质感与 « » 箭头提示延伸方向。
-     不显示拖拽抓手（无精确边界可拖）。.open 保留作为 .open-both 的兼容别名。 */
+     不显示拖拽抓手（无精确边界可拖）。.open 保留作为 .open-both 的兼容别名。
+     v7.55 实体化（全板仅此 1 根开放条：WP_sup 支援·武器特效）：
+     原为透明底 + 10% 斜纹 + 白色箭头 —— 叠在 is-loan 淡紫行底上条体几乎隐形、箭头白上白不可见，
+     文字滚出视口后整根条认不出来。改为浅暖灰实底 + 22% 斜纹 + 描边 + 深色箭头/文字，
+     羽化 mask 与 « » 方向语义原样保留；选择器仍仅命中 .open*，不影响其余 173 根条。 */
   .bar-task.open,.bar-task.open-both,.bar-task.open-front,.bar-task.open-back{
-    background-color:transparent;
-    background-image:repeating-linear-gradient(45deg,rgba(180,160,140,.10) 0 8px,transparent 8px 16px);
-    border-left:none!important;opacity:1;box-shadow:none!important;}
+    background-color:rgba(168,150,128,.20);
+    background-image:repeating-linear-gradient(45deg,rgba(150,130,105,.22) 0 8px,transparent 8px 16px);
+    border:1px solid rgba(120,105,85,.45)!important;border-radius:5px;
+    opacity:1;box-shadow:0 1px 3px rgba(0,0,0,.10)!important;}
   .bar-task.open .grip,.bar-task.open-both .grip,.bar-task.open-front .grip,.bar-task.open-back .grip{display:none;}
   /* 两端无限：左右均羽化 */
   .bar-task.open,.bar-task.open-both{
@@ -596,12 +601,18 @@
   .bar-task.open-back{
     -webkit-mask-image:linear-gradient(90deg,#000 0,#000 92%,transparent 100%);
             mask-image:linear-gradient(90deg,#000 0,#000 92%,transparent 100%);}
-  /* 左箭头 «：前端无限或两端无限时显示 */
+  /* 左箭头 «：前端无限或两端无限时显示。v7.55：白→深棕灰（浅底上白色隐形），去投影 */
   .bar-task.open::before,.bar-task.open-both::before,.bar-task.open-front::before{content:'«';position:absolute;left:5px;top:50%;transform:translateY(-50%);z-index:2;
-    font-size:13px;font-weight:900;color:rgba(255,255,255,.8);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.35);}
-  /* 右箭头 »：后端无限或两端无限时显示（由 HTML 条件渲染 .open-r 元素） */
+    font-size:13px;font-weight:900;color:rgba(90,75,55,.85);pointer-events:none;text-shadow:none;}
+  /* 右箭头 »：后端无限或两端无限时显示（由 HTML 条件渲染 .open-r 元素）。v7.55 同上 */
   .bar-task.open .open-r,.bar-task.open-both .open-r,.bar-task.open-back .open-r{position:absolute;right:5px;top:50%;transform:translateY(-50%);z-index:2;
-    font-size:13px;font-weight:900;color:rgba(255,255,255,.8);pointer-events:none;text-shadow:0 1px 2px rgba(0,0,0,.35);}
+    font-size:13px;font-weight:900;color:rgba(90,75,55,.85);pointer-events:none;text-shadow:none;}
+  /* v7.55 开放条浅底上的文字与圆点：白字/白点在浅暖灰底上糊成一片，改深棕灰；
+     仅 .open* 作用域（全板仅 WP_sup 一根），其余条的文字样式零改动。
+     模块/人周/投入徽标自带白底芯片（.rt-mod/.rt-md/.rt-inv），浅底上原本可读，不动。 */
+  .bar-task.open .rt-line .rt-nm,.bar-task.open-both .rt-line .rt-nm,
+  .bar-task.open-front .rt-line .rt-nm,.bar-task.open-back .rt-line .rt-nm{color:#5a4a33;text-shadow:none;}
+  .bar-task.open .sdot,.bar-task.open-both .sdot,.bar-task.open-front .sdot,.bar-task.open-back .sdot{background:rgba(90,75,55,.6);}
   .grip{position:absolute;top:0;bottom:0;width:9px;cursor:ew-resize;z-index:3;}
   .grip.gl{left:0;border-radius:6px 0 0 6px;}
   .grip.gr{right:0;border-radius:0 6px 6px 0;}
