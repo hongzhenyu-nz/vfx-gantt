@@ -1204,6 +1204,10 @@ function restBlocksHTML(si0, ei0){
 const isWorkday = i => shadeType(i)===null;
 /* [a,b) 日索引区间内的工作日数（休息日不计） */
 function workdaysIdx(a,b){ let n=0; for(let i=a;i<b;i++){ if(isWorkday(i)) n++; } return n; }
+/* 给定 Date 对象，判断是否为工作日（与 isWorkday 完全一致口径：排除周末+法定节假日，
+   调休上班日 WORKMAKEUP 算工作日）。供「逐日累加」类工时统计（按人/按段消化人天、
+   投入比、负载窗口、并行峰值）统一使用，避免与超期/排期空隙/负载热力带口径不一致。 */
+const isWorkdayD = d => isWorkday(Math.round((d-START)/dayMs));
 /* ===== v5.8 按今天日期自动推进任务段的「状态 + 进度」（仅「按人看」） =====
    诉求：条颜色/进度不再靠手工字段，改为按当前日历日即时推算——到开始日自动由灰(未开始)变蓝(进行中)，
    进度随已过工作日增长（休息日不产出、进度不推进）。
@@ -1249,7 +1253,10 @@ const eOut = v => v-1;
 const fmtEnd = d => fmt(new Date(d.getTime()-dayMs));
 /* 同上，供 <input type="date"> 回填用：把排他终点转成含末日的日期对象 */
 const dEndObj = d => new Date(d.getTime()-dayMs);
-function workdays(a,b){let n=0;for(let t=a.getTime();t<b.getTime();t+=dayMs){const w=new Date(t).getDay();if(w!==0&&w!==6)n++;}return n;}
+/* v7.37：工作日计数统一走 workdaysIdx（= isWorkday → shadeType），与「超期」「排期空隙」
+   「负载热力带」完全同口径——排除周末+法定节假日，调休上班日算工作日。
+   旧实现仅按 getDay() 跳过周末、漏排法定节假日，会导致工时/剩余窗口/消化人天多算节假日。 */
+function workdays(a,b){ return workdaysIdx(Math.round((a-START)/dayMs), Math.round((b-START)/dayMs)); }
 const memName=id=>{const m=members.find(m=>m.id===id);return m?m.name:id;};
 const memById=id=>members.find(m=>m.id===id);
 /* 视角团队：基于"我是"meId，判断某成员与我的关系。
@@ -1522,7 +1529,7 @@ function segAvgEffInv(s){
   let sum=0, days=0, shared=false;
   const {hi}=segInvRange(s);
   for(let t=s.s.getTime(); t<s.e.getTime(); t+=dayMs){
-    const w=new Date(t).getDay(); if(w===0||w===6) continue;
+    if(!isWorkdayD(new Date(t))) continue;        // 仅工作日：排除周末+法定节假日（v7.37 口径统一）
     const e=segEffInvOnDay(s,t); sum+=e; days++;
     if(e < hi-1e-6) shared=true;                  // 低于独占上限 → 被并行摊薄过
   }
@@ -1677,7 +1684,7 @@ function personPeakPar(id){
     rr.segs.forEach(s=>{
       if(s.m!==id || s.open || segIsFollow(s)) return;
       for(let t=s.s.getTime(); t<s.e.getTime(); t+=dayMs){
-        const w=new Date(t).getDay(); if(w===0||w===6) continue;
+        if(!isWorkdayD(new Date(t))) continue;    // 仅工作日：排除周末+法定节假日（v7.37 口径统一）
         const n=personDayFullCount(id,t)||1; if(n>mx) mx=n;
       }
     });
@@ -1697,8 +1704,7 @@ function digestPersonReq(r, id){
     const df = segDigestFactor(seg);                  // 消化系数：全人力1 / 任何跟进型0
     const pgr = (seg.prog!=null?seg.prog:0);          // 该段进度(用于折算已消化)
     for(let t=seg.s.getTime(); t<seg.e.getTime(); t+=dayMs){
-      const w=new Date(t).getDay();
-      if(w===0||w===6) continue;                    // 仅工作日
+      if(!isWorkdayD(new Date(t))) continue;        // 仅工作日：排除周末+法定节假日（v7.37 口径统一）
       investWD++;
       const inv = segEffInvOnDay(seg, t) * df;       // 分摊后的当天有效投入比 × 消化系数
       invSum  += inv;
@@ -1719,7 +1725,7 @@ function segDigestOne(r, seg, id){
   const pgr = (seg.prog!=null?seg.prog:0);
   let invSum=0, doneSum=0;
   for(let t=seg.s.getTime(); t<seg.e.getTime(); t+=dayMs){
-    const w=new Date(t).getDay(); if(w===0||w===6) continue;
+    if(!isWorkdayD(new Date(t))) continue;          // 仅工作日：排除周末+法定节假日（v7.37 口径统一）
     const inv = segEffInvOnDay(seg, t) * df;
     invSum += inv; doneSum += inv * pgr;
   }
@@ -1864,7 +1870,7 @@ function memLoad(id){
   let assigned=0;
   const T0=TODAY.getTime(), T1=horizonEnd.getTime();
   for(let t=T0; t<T1; t+=dayMs){
-    const w=new Date(t).getDay(); if(w===0||w===6) continue;   // 仅工作日
+    if(!isWorkdayD(new Date(t))) continue;          // 仅工作日：排除周末+法定节假日（v7.37 口径统一）
     reqs.forEach(r=>{
       if(r.kind==='qa') return;   // 全量测试=bug修复阶段，不计入排期负载
       r.segs.forEach(s=>{
