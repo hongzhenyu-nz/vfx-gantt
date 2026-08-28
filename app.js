@@ -9759,6 +9759,7 @@ function closeAllPops(except){
     if(id===except)return;
     const el=document.getElementById(id); if(el)el.classList.remove('show');
   });
+  if(typeof syncCtlOn==='function')syncCtlOn();
 }
 function togglePop(id,onOpen){
   const p=document.getElementById(id); if(!p)return;
@@ -9767,6 +9768,7 @@ function togglePop(id,onOpen){
   if(!willOpen){ p.classList.remove('show'); return; }
   if(typeof onOpen==='function')onOpen();
   p.classList.add('show');
+  if(typeof syncCtlOn==='function')syncCtlOn();
 }
 function toggleColorPop(){ togglePop('colorPop',function(){ if(typeof renderMsPaletteUI==='function')renderMsPaletteUI(); }); }
 function toggleDisplayPop(){ togglePop('displayPop',syncDisplayPopValues); }
@@ -9775,6 +9777,21 @@ function toggleViewPop(){ togglePop('viewPop',syncViewPopValues); }
 function toggleAddPop(){ togglePop('addPop'); }
 function toggleSharePop(){ togglePop('sharePop'); }
 function toggleEditPop(){ togglePop('editPop'); }
+/* v7.75：面板开启态回写 —— 把「当前哪个面板开着」同步到触发胶囊的 .on 态（outline 反馈）。
+   此前 7 个面板打开时触发胶囊完全无变化，用户无法判断开的是哪一个。 */
+function syncCtlOn(){
+  document.querySelectorAll('.org-btn.on').forEach(function(b){b.classList.remove('on');});
+  let openId=null;
+  TB_POPS.forEach(function(id){
+    if(openId)return;
+    const p=document.getElementById(id);
+    if(p&&p.classList.contains('show'))openId=id;
+  });
+  if(!openId)return;
+  const ctl=TB_POP_CTL[openId]; if(!ctl)return;
+  const b=document.querySelector(ctl+' .org-btn');
+  if(b)b.classList.add('on');
+}
 /* v7.50：色板选色期间也屏蔽误关 —— 点 <input type="color"> 会拉起系统取色器，
    取色器关闭瞬间的那次 click 可能被判定为「面板外点击」而把配色面板收掉，
    导致用户每选一个颜色面板就关一次，无法连续调整多个色值。
@@ -9787,7 +9804,7 @@ document.addEventListener('click',function(e){
   TB_POPS.forEach(function(id){
     const p=document.getElementById(id); if(!p||!p.classList.contains('show'))return;
     const ctl=TB_POP_CTL[id];
-    if(!p.contains(e.target)&&!(ctl&&e.target.closest&&e.target.closest(ctl)))p.classList.remove('show');
+    if(!p.contains(e.target)&&!(ctl&&e.target.closest&&e.target.closest(ctl))){p.classList.remove('show');if(typeof syncCtlOn==='function')syncCtlOn();}
   });
 },true);
 
@@ -10261,7 +10278,8 @@ function changeSortRule(k,field,val,el){
 function resetSortRules(){for(const k in SORT_RULE_DEFS)SORT_RULES[k]={...SORT_RULE_DEFS[k].def};saveSortRules();renderSortRulePop();toast('⚖️ 已恢复默认排序规则');}
 function applySortRules(){smartSortMembers();}
 /* v7.74：排序面板的外部点击关闭已并入统一弹层管理器的 TB_POPS，原独立监听器删除。
-   触发胶囊由 #sortRuleBtn 上提为 #sortCtl（整个排序组）—— 点组内任一按钮都不误关。 */
+   v7.75：排序组改为单按钮胶囊（⇅ 排序），#sortCtl 仍为外层容器（app.js:236 按视图显隐 + TB_POP_CTL 判定共用），
+   触发按钮沿用 #sortRuleBtn。 */
 
 buildMeSel();
 initVivid();

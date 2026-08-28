@@ -2156,3 +2156,62 @@ body.cp-picking{cursor:crosshair!important;}
 /* 新增实体按钮：沿用原 .add-ent 的醒目紫色描边（不加 !important，避免压过 ro-mode 的 !important 置灰） */
 .ap-btn.add-ent-pop{border-color:#7c3aed;color:#6d28d9;background:#f5effe;}
 .ap-btn.add-ent-pop:hover{background:#ede3fd;border-color:#6d28d9;color:#5b21b6;}
+
+/* ==================================================================================
+   v7.75 工具栏视觉分级：按「功能域 + 使用频次」把 8 个胶囊分 4 级
+   ----------------------------------------------------------------------------------
+   特异性核算（避免重蹈 v7.74 的 .tb-pop 覆辙）：
+     .org-group / .org-btn          (0,0,1,0)
+     .org-btn:hover                 (0,0,2,0)
+     #xxxCtl                        (1,0,0,0)   ← 胶囊级，稳胜
+     #xxxCtl .org-btn               (1,0,1,0)   ← 按钮级，稳胜
+     #xxxCtl .org-btn:hover         (1,0,2,0)   ← 悬停，稳胜
+   全部不使用 !important：改色只改本块，ro-mode 的 !important 永远胜。
+   ================================================================================== */
+
+/* ── 通用易用性：加大热区 / 键盘可达 / 面板开启态 / 入场动效 ── */
+.org-btn{padding:5px 11px;min-height:26px;white-space:nowrap;
+  transition:background .14s,border-color .14s,box-shadow .14s,transform .14s;}
+/* line-height:1 —— 消除 emoji 字形高度差异：👁 比 ⇅/🎨/↶ 高 5px，不固定会让「👁 视图」胶囊比其他高 5px */
+.org-btn{line-height:1;}
+/* 工具栏 8 个胶囊统一高度，保证 3 个功能域分区内垂直对齐（内部可用 38-10-2=26px，正好容纳 min-height:26px 的按钮） */
+.bar-org .org-group{height:38px;box-sizing:border-box;}
+.bar-org .org-sel{height:24px;padding:0 4px;}
+.org-btn:hover{transform:translateY(-1px);}
+.org-btn:active{transform:translateY(1px);}
+.org-btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+/* 面板已开：触发胶囊保持描边态（此前完全无「哪个面板开着」的反馈） */
+.org-btn.on{outline:2px solid rgba(29,111,214,.45);outline-offset:1px;}
+
+/* ── P0 主操作（紫）：＋ 新增 —— 唯一写入口，全栏最高优先级 ── */
+#addCtl{background:#f6f1ff;border-color:#c9b0f5;
+  box-shadow:0 0 0 3px rgba(124,58,237,.09),0 2px 7px rgba(124,58,237,.14);}
+#addCtl .org-btn{background:#ede3fd;border-color:#a78bfa;color:#6d28d9;font-weight:800;}
+#addCtl .org-btn:hover{background:#e2d3fb;border-color:#7c3aed;color:#5b21b6;
+  box-shadow:0 2px 9px rgba(124,58,237,.32);}
+
+/* ── P1 常用（蓝）：👁 视图 · ⇅ 排序 · ↶ 编辑 —— 决定「看什么 / 怎么排 / 回退」，日频 ── */
+#viewCtl,#sortCtl,#editCtl{background:#f1f6ff;border-color:#c5d8fb;}
+#viewCtl .org-btn,#sortCtl .org-btn,#editCtl .org-btn{background:#e6efff;border-color:#94baf7;
+  color:#1d6fd6;font-weight:700;box-shadow:0 1px 3px rgba(29,111,214,.10);}
+#viewCtl .org-btn:hover,#sortCtl .org-btn:hover,#editCtl .org-btn:hover{background:#d5e5ff;border-color:#5b8ee8;
+  color:#1554b0;box-shadow:0 3px 9px rgba(29,111,214,.24);}
+
+/* ── P2 工具（中性）：🗂 分组 · 🎨 配色 · ⚙️ 显示 · 🔗 协同
+   不写任何规则 —— .org-group / .org-btn 的默认值即中性态，避免视觉噪音 ── */
+
+/* ── D 危险（灰 → 红）：重置 —— 常态弱化，悬停转红示警
+   ro-mode 下用 !important 强制紫态（「点我抢编辑锁」语义），本规则不带 !important 会被正确压制。 */
+.reset{font-weight:600;transition:background .14s,border-color .14s,color .14s;}
+.reset:hover{background:#fff0f0;border-color:#ffc9c7;color:#d63a39;}
+
+/* ── 面板入场动效：复用既有 @keyframes addpop ── */
+#colorPop.show,#displayPop.show,#sortRulePop.show,
+#viewPop.show,#addPop.show,#sharePop.show,#editPop.show{animation:addpop .15s ease-out;}
+
+/* ── 无障碍兜底：系统开启「减弱动效」时关闭全部位移/入场动画 ── */
+@media (prefers-reduced-motion:reduce){
+  .org-btn,.org-btn:hover,.org-btn:active{transform:none!important;transition:none!important;}
+  #colorPop.show,#displayPop.show,#sortRulePop.show,
+  #viewPop.show,#addPop.show,#sharePop.show,#editPop.show{animation:none!important;}
+}
