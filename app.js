@@ -2271,17 +2271,28 @@ function reqPhaseNodesHTML(r,ph){
    层：left:var(--left-w) 与内容同原点；每条 .ms-link left=idx(date)*DAY_W。
    高度由 syncMsLinks() 实测需求行 offsetTop 设定 → 精确停在需求行中线（按需求视图）。
    按人视图行=成员、无单一需求行 → .ms-link 加 .free 淡显全高兜底。 */
+/* v7.73d：菱形图标中心相对 .ms-node 左边缘的固定偏移（px）。
+   节点/虚线都用 left=d*DAY_W 定位，但 .ms-node 有 padding-left:2px 且
+   菱形 .ms-diamond 自身宽 10px+2px 白描边*2=16px、位于 padding 内侧，
+   → 菱形视觉中心 = 节点 left + 2(padding) + 8(半宽) = +10px（实测 9~10）。
+   虚线用 translateX(-50%) 居中于 left 值本身，未补这个偏移，
+   实测虚线中心 883 vs 菱形中心 888，偏左 5px，视觉上虚线没对准菱形。
+   该常量把两者的中心重新对齐（实测校准值，勿随意改动）。 */
+const MS_DIAMOND_OFFSET_X=10;
 function msLinkLayerHTML(){
   const links=allMilestones().map(m=>{
     const d=idx(m.date);
     if(d<0||d>=DAYS) return '';
-    return `<div class="ms-link" data-req="${m.reqId||''}" data-msidx="${m.msIdx!=null?m.msIdx:''}" style="left:${d*DAY_W}px;--msc:${m.color||msDefaultColor()}"></div>`;
+    return `<div class="ms-link" data-req="${m.reqId||''}" data-msidx="${m.msIdx!=null?m.msIdx:''}" style="left:${d*DAY_W+MS_DIAMOND_OFFSET_X}px;--msc:${m.color||msDefaultColor()}"></div>`;
   }).join('');
   return `<div class="ms-link-layer" id="msLinkLayer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:9">${links}</div>`;
   /* v7.73b：z-index 2→9 —— 竖虚线必须渲染在所有内容之上（含高亮条 .req-glow z:8），
      否则虚线被高亮条遮挡、在高亮区域截断不可见（截图反馈）。
      层级：甘特条(1) < 选中条(3) < 汇总行(6) < 高亮条/表头(8) < 虚线层/今天红线(9)。
-     pointer-events:none 保证不拦截鼠标事件。 */
+     pointer-events:none 保证不拦截鼠标事件。
+     v7.73d：z-index 保持 9（不能下压，否则 wieder 被高亮条截断），
+     但改用 clip-path 裁掉「汇总行所占纵向区间」——见 syncMsLinks() 的 msClip，
+     解决虚线穿透菱形图标（实测重叠 9.5px）的红框层级问题。 */
 }
 /* paint 后/滚动/缩放时同步虚线：top=汇总行底，height=需求行中线-汇总行底；并按 scrollLeft 裁掉漏进冻结左栏的部分。
    v7.46：终点语义由「该需求行中线」升级为「该需求所属分组的最后一行底边」——
@@ -2292,7 +2303,16 @@ function msLinkLayerHTML(){
 function syncMsLinks(){
   const layer=document.getElementById('msLinkLayer'); if(!layer) return;
   const sc=document.getElementById('scroll');
-  if(sc) layer.style.clipPath=`inset(0 0 0 ${Math.max(0,sc.scrollLeft)}px)`;   // 同 v7.19 红线防穿透
+  /* v7.73d：clip-path 由「只裁左边冻结栏」升级为「左边冻结栏 + 上边关键节点行」——
+     虚线层 z-index 9 高于汇总行(7)，起点又是汇总行中线（v7.73c），
+     导致虚线从菱形图标正中穿过：实测与节点纵向重叠 9.5px，
+     虚线盖在菱形上、且比图标本身还高一层，红框区域看着就是「层级反了」。
+     z-index 不能下调（会重新被高亮条 .req-glow z:8 截断，那是 v7.73b 修过的问题），
+     故沿用今天红线同款手法：用 clip-path 把虚线在汇总行区间内裁掉，
+     虚线从节点下沿开始可见 —— 保住 v7.73b（穿透高亮条）与 v7.73c（起点贴合节点）两项成果。 */
+  const srEl=document.querySelector('.ms-summary-row');
+  const clipTop=srEl ? (srEl.offsetTop + srEl.offsetHeight) : 0;   // 汇总行底边（#grid 内容坐标）
+  if(sc) layer.style.clipPath=`inset(${clipTop}px 0 0 ${Math.max(0,sc.scrollLeft)}px)`;   // 同 v7.19 红线防穿透
   const sr=document.querySelector('.ms-summary-row');
   /* v7.73c：虚线起点由「汇总行底边」上移到「汇总行中线」——
      .ms-node 在汇总行内 top:50%+translateY(-50%)，其中心即汇总行中线；
