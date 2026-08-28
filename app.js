@@ -2277,10 +2277,11 @@ function msLinkLayerHTML(){
     if(d<0||d>=DAYS) return '';
     return `<div class="ms-link" data-req="${m.reqId||''}" data-msidx="${m.msIdx!=null?m.msIdx:''}" style="left:${d*DAY_W}px;--msc:${m.color||msDefaultColor()}"></div>`;
   }).join('');
-  return `<div class="ms-link-layer" id="msLinkLayer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:2">${links}</div>`;
-  /* v7.73：z-index 7→2 —— 竖虚线渲染到甘特条下方（.bar-task z:1, 本层 z:2, .bar-task.sel z:3）。
-     原 z:7 在条之上导致虚线视觉上"浮"在任务条表面；降至 z:2 后虚线从条底透出，
-     既保留指向性又不遮挡条内信息（高亮条 .req-glow z:8 仍在上，不受影响）。 */
+  return `<div class="ms-link-layer" id="msLinkLayer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:9">${links}</div>`;
+  /* v7.73b：z-index 2→9 —— 竖虚线必须渲染在所有内容之上（含高亮条 .req-glow z:8），
+     否则虚线被高亮条遮挡、在高亮区域截断不可见（截图反馈）。
+     层级：甘特条(1) < 选中条(3) < 汇总行(6) < 高亮条/表头(8) < 虚线层/今天红线(9)。
+     pointer-events:none 保证不拦截鼠标事件。 */
 }
 /* paint 后/滚动/缩放时同步虚线：top=汇总行底，height=需求行中线-汇总行底；并按 scrollLeft 裁掉漏进冻结左栏的部分。
    v7.46：终点语义由「该需求行中线」升级为「该需求所属分组的最后一行底边」——
