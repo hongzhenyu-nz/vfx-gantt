@@ -2278,12 +2278,16 @@ function reqPhaseNodesHTML(r,ph){
    虚线用 translateX(-50%) 居中于 left 值本身，未补这个偏移，
    实测虚线中心 883 vs 菱形中心 888，偏左 5px，视觉上虚线没对准菱形。
    该常量把两者的中心重新对齐（实测校准值，勿随意改动）。 */
-const MS_DIAMOND_OFFSET_X=10;
+/* 菱形中心相对 .ms-node 左边缘的偏移：padding-left:2px + 半宽 5px + padding-left 2px + 节点左边框 1px = 8px。
+   v7.73e：注意 .ms-diamond 带 rotate(45deg)，getBoundingClientRect 返回旋转外接矩形（实测 15.84px），
+   不能用它反推中心；这里用布局尺寸（padding + offsetWidth/2）算，不受 transform 影响。 */
+const MS_DIAMOND_CX=8;
 function msLinkLayerHTML(){
   const links=allMilestones().map(m=>{
     const d=idx(m.date);
     if(d<0||d>=DAYS) return '';
-    return `<div class="ms-link" data-req="${m.reqId||''}" data-msidx="${m.msIdx!=null?m.msIdx:''}" style="left:${d*DAY_W+MS_DIAMOND_OFFSET_X}px;--msc:${m.color||msDefaultColor()}"></div>`;
+    /* data-x 存原始日期横坐标，供 syncMsLinks() 叠加原点差重算精确 left */
+    return `<div class="ms-link" data-req="${m.reqId||''}" data-msidx="${m.msIdx!=null?m.msIdx:''}" data-x="${d*DAY_W}" style="left:${d*DAY_W}px;--msc:${m.color||msDefaultColor()}"></div>`;
   }).join('');
   return `<div class="ms-link-layer" id="msLinkLayer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:9">${links}</div>`;
   /* v7.73b：z-index 2→9 —— 竖虚线必须渲染在所有内容之上（含高亮条 .req-glow z:8），
@@ -2311,9 +2315,32 @@ function syncMsLinks(){
      故沿用今天红线同款手法：用 clip-path 把虚线在汇总行区间内裁掉，
      虚线从节点下沿开始可见 —— 保住 v7.73b（穿透高亮条）与 v7.73c（起点贴合节点）两项成果。 */
   const srEl=document.querySelector('.ms-summary-row');
-  const clipTop=srEl ? (srEl.offsetTop + srEl.offsetHeight) : 0;   // 汇总行底边（#grid 内容坐标）
+  /* v7.73e：裁剪边界由「汇总行底边」下调到「菱形图标底边」——
+     v7.73d 用 srEl.offsetTop+offsetHeight=120 作边界，实测虚线视觉起点 638.5，
+     而菱形底边 629.4 → 节点与虚线之间留了 9.1px 的可见断裂，
+     正是用户反馈的「虚线没连到关键节点图标上」。
+     菱形在汇总行内 top:50%+translateY(-50%)、高 16px（10px + 2px 白描边×2），
+     → 菱形底边 = 汇总行中线 + 8px。留 1px 余量让它恰好贴住图标下沿不断裂。
+     同时虚线层 z-index 仍为 9，但 styles.css 已把 .ms-summary-row 提到 z:10，
+     菱形盖在虚线上沿，形成「虚线自图标底部引出」的正确层次。 */
+  const MS_DIA_HALF=8, MS_CLIP_PAD=1;
+  const clipTop=srEl
+    ? (srEl.offsetTop + srEl.offsetHeight/2 + MS_DIA_HALF + MS_CLIP_PAD)
+    : 0;
   if(sc) layer.style.clipPath=`inset(${clipTop}px 0 0 ${Math.max(0,sc.scrollLeft)}px)`;   // 同 v7.19 红线防穿透
   const sr=document.querySelector('.ms-summary-row');
+  /* v7.73e：横向对齐改为「实测原点差 + 固定菱形偏移」，取代写死的 MS_DIAMOND_OFFSET_X=10。
+     原常量假设「节点与虚线共用同一横向原点」，实测不成立：
+     虚线层 left:var(--left-w) 以 #grid 为原点，节点挂在 .ms-summary-row .timeline 内，
+     两原点实测相差 3.84px；菱形中心在节点内偏移实为 9px 而常量写了 10px，
+     → 累计偏差 4.88px（虚线偏右），表现为「虚线没有对准菱形图标」。
+     这里用 .timeline 与 layer 的实测 rect 差（两者均无 transform，不受 .ms-active 的
+     scale(1.12) 干扰 → 悬停时不会跳动）作为原点差，逐帧重算 left。 */
+  let originDelta=0;
+  if(sr){
+    const tl=sr.querySelector('.timeline');
+    if(tl) originDelta=tl.getBoundingClientRect().left - layer.getBoundingClientRect().left;
+  }
   /* v7.73c：虚线起点由「汇总行底边」上移到「汇总行中线」——
      .ms-node 在汇总行内 top:50%+translateY(-50%)，其中心即汇总行中线；
      原起点取底边会让虚线从节点下方约 17px 处才开始画，节点与虚线之间出现明显断裂，
@@ -2323,6 +2350,9 @@ function syncMsLinks(){
   layer.querySelectorAll('.ms-link').forEach(link=>{
     const reqId=link.dataset.req;
     const row=reqId?document.querySelector(`.req-row[data-req-row="${reqId}"]`):null;
+    /* v7.73e：按实测原点差重算 left（data-x 为原始日期横坐标） */
+    if(link.dataset.x!==undefined&&link.dataset.x!=='')
+      link.style.left=(parseFloat(link.dataset.x)+originDelta+MS_DIAMOND_CX)+'px';
     link.style.top=base+'px';
     if(!row){
       /* v7.72：按人视图（无 .req-row）——原逻辑直接退化成 .free 全高贯穿虚线，

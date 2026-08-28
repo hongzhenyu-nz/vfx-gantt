@@ -253,7 +253,12 @@
   .row.ms-summary-row .timeline{position:relative;}
   /* v7.46：节点底色改实白（原 rgba(255,255,255,.75) 半透明会透出周末底纹/虚线，显脏）；
      hover 用不透明暖底 #fff8e1（与汇总行同族），不再叠半透明。二者均 100% 不透明。 */
-  .ms-node{position:absolute;top:50%;transform:translateY(-50%);display:flex;align-items:center;gap:4px;padding:1px 6px 1px 2px;
+  /* v7.73e：transform-origin 由默认 center 改为 8px center（= 菱形中心，见 MS_DIAMOND_CX）。
+     原以元素中心为原点时，.ms-active 的 scale(1.12) 会把菱形中心横向推移
+     0.06×节点宽 ≈ 3.88px（节点越宽推得越多）→ 悬停放大后菱形与竖虚线错开，
+     正是「虚线没对准菱形图标」，且偏移量随标签长短浮动、无法用固定常量补偿。
+     改以菱形中心为原点后：放大部分只向右伸展，菱形中心恒定不动 → 虚线恒对齐。 */
+  .ms-node{position:absolute;top:50%;transform:translateY(-50%);transform-origin:8px center;display:flex;align-items:center;gap:4px;padding:1px 6px 1px 2px;
     background:#ffffff;border:1px solid rgba(0,0,0,.08);border-radius:10px;pointer-events:auto;cursor:grab;
     box-shadow:0 1px 2px rgba(0,0,0,.08);transition:transform .12s,box-shadow .12s,background .12s;}
   /* v7.50 悬停保持完全不透明：hover 只放大 + 换实底，不再叠任何半透明阴影。
@@ -757,10 +762,24 @@
      「按成员看」视图的条只有 .bar-task（无 .req-bar）→ 原规则完全不匹配 → 非关联条不参与弱化，
      表现为"悬停关键节点时无关条仍然满亮"（截图红框区域：余洪震/女指挥官等非关联条未被淡化）。
      现改为 .bar-task:not(.req-glow) 统一覆盖两种视图。 */
-  body.ms-focus-mode .row:not(.ms-focused-row),
+  /* v7.73e：排除 .ms-summary-row —— 它是 .row（app.js L2219 生成 `class="row ms-summary-row"`），
+     但 applyMsHighlight() 只给「高亮条所属行」加 .ms-focused-row（app.js L5749-5753），
+     汇总行里只有 .ms-node 没有 .bar-task → 永远不会被标记 → 命中本规则第一段被降到 0.35。
+     实测：悬停节点后 rowOp 由 1 → 0.35（节点自身因 .ms-active 仍是 1，但行背景/文字全透明），
+     表现为「关键节点行整体变半透明」。加 :not(.ms-summary-row) 使其恒保持满亮。 */
+  body.ms-focus-mode .row:not(.ms-focused-row):not(.ms-summary-row),
   body.ms-focus-mode .bar-task:not(.req-glow),
   body.ms-focus-mode .ms-node:not(.ms-active),
   body.ms-focus-mode .ms-mark:not(.ms-active){opacity:var(--ms-dim-opacity,.35)!important;transition:opacity .3s ease;}
+  /* v7.73e 备忘：汇总行与虚线层的层级（实测 summaryRowZ=7 < linkZ=9）。
+     曾尝试在聚焦时把 .ms-summary-row 提到 z-index:10 让菱形盖住虚线起点，
+     ① app.js L2219 的行内 style="z-index:7" 优先级高于本表规则，未加 !important 时不生效；
+     ② 即便生效，汇总行 sticky 悬浮于 top:86px，会把今天红线层(.today-layer z:8)
+        在 86~120px 区间整段遮断，红线视觉断成两截，得不偿失。
+     故沿用 v7.73d 的 clip-path 方案：虚线层的纵向裁剪边界落在菱形底边之下 1px
+     （见 syncMsLinks 的 clipTop），虚线与图标零重叠，视觉层次等价于「图标在虚线之上」，
+     且不触碰红线。另注意 .ms-node 无法单独提层——父级 .ms-summary-row 是
+     position:sticky + z-index:7，已创建层叠上下文，子元素的 z-index 被囚禁其内。 */
   body.ms-focus-mode .vline{opacity:var(--ms-dim-vline,.15)!important;transition:opacity .3s ease;}
   body.ms-focus-mode .daycol.we,body.ms-focus-mode .daycol.hol{opacity:var(--ms-dim-daycol,.18)!important;transition:opacity .3s ease;}
   body.ms-focus-mode .prog{--bar-grid-opacity:var(--ms-dim-grid,.05);}
