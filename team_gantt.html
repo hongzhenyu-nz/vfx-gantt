@@ -12,7 +12,7 @@
      cache-control:max-age=600 独立缓存，会出现「index.html 已更新、styles.css/app.js 仍是旧缓存」
      的版本错配 → 视图崩坏（左栏空白/任务条不渲染）。版本号一变 URL 即变，强制重新拉取。
      ⚠️ 改动 styles.css 或 app.js 后，必须同步递增此处 ?v= 版本号。 -->
-<link rel="stylesheet" href="styles.css?v=7.65">
+<link rel="stylesheet" href="styles.css?v=7.66">
 
 </head>
 <body>
@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.65 · build 2026-08-28 11:04</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.66 · build 2026-08-28 11:47</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -118,18 +118,6 @@
     </div>
     <div class="spacer"></div>
     <div class="bar-section">
-      <span class="vivid-ctrl" title="调节任务条底色的色彩浓度：往左拖越淡（泛白柔和护眼），往右拖越浓（原色鲜明）。仅作用于时间轴任务条。">
-        <span class="vc-ic">🎨</span>
-        <input type="range" id="vividRange" min="0" max="100" step="5" value="100" oninput="setVivid(this.value)">
-        <span class="vc-val" id="vividVal">100%</span>
-        <button class="vc-reset" onclick="setVivid(100,true)" title="恢复原色浓度">↺</button>
-      </span>
-      <span class="vivid-ctrl" title="调节时间轴密度 / 任务条宽度，觉得条太细可调宽，方便看清">
-        <span class="vc-ic">↔</span>
-        <input type="range" id="zoomRange" min="100" max="320" step="10" value="100" oninput="setZoom(this.value)">
-        <span class="vc-val" id="zoomVal">100%</span>
-        <button class="vc-reset" onclick="setZoom(100,true)" title="恢复默认条宽">↺</button>
-      </span>
       <button class="ubtn" onclick="autoFitLeftW()" title="自动加宽左侧信息栏，让人名标签尽量不换行、各行宽度一致、版面整齐（也可拖动栏右侧分界线手动调，或双击分界线自动适配）">⇆ 适配栏宽</button>
       <button class="reset" onclick="resetData()">重置</button>
     </div>
@@ -222,6 +210,22 @@
   <div id="displayPop">
     <h4>⚙️ 显示设置</h4>
     <p class="dp-sub">调节视觉参数，<b>实时预览</b>并自动保存到本机；仅你自己的浏览器可见，不影响他人与任何数据。</p>
+
+    <div class="dp-sec">
+      <div class="dp-sec-t">🎨 色彩 &amp; 条宽</div>
+      <div class="dp-row">
+        <label for="dpVivid">饱和度</label>
+        <input type="range" id="dpVividRange" min="0" max="100" step="5" value="100" oninput="setVivid(this.value)">
+        <span class="dp-val" id="dpVividVal">100%</span>
+        <button class="dp-reset" onclick="setVivid(100,true)" title="恢复默认">↺</button>
+      </div>
+      <div class="dp-row">
+        <label for="dpZoom">条宽/密度</label>
+        <input type="range" id="dpZoomRange" min="100" max="320" step="10" value="100" oninput="setZoom(this.value)">
+        <span class="dp-val" id="dpZoomVal">100%</span>
+        <button class="dp-reset" onclick="setZoom(100,true)" title="恢复默认">↺</button>
+      </div>
+    </div>
 
     <div class="dp-sec">
       <div class="dp-sec-t">🌫 条内阴影 &amp; 底纹</div>
@@ -413,7 +417,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.65"></script>
+<script src="app.js?v=7.66"></script>
 
 </body>
 </html>

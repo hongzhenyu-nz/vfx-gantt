@@ -9318,6 +9318,9 @@ function setVivid(v,sync){
   document.documentElement.style.setProperty('--wash',wash);
   const val=document.getElementById('vividVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('vividRange'); if(rng&&(sync||+rng.value!==v))rng.value=v;
+  /* 同步面板内滑块 */
+  const dv=document.getElementById('dpVividVal'); if(dv)dv.textContent=v+'%';
+  const dr=document.getElementById('dpVividRange'); if(dr&&(sync||+dr.value!==v))dr.value=v;
   try{localStorage.setItem(VIVID_KEY,v);}catch(_){}
 }
 function initVivid(){
@@ -9439,6 +9442,9 @@ function setZoom(v,sync){
   document.documentElement.style.setProperty('--day-w',DAY_W+'px');  // v5.5 进度格线按天：同步每天像素宽
   const val=document.getElementById('zoomVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('zoomRange'); if(rng&&(sync||+rng.value!==v))rng.value=v;
+  /* 同步面板内滑块 */
+  const dv=document.getElementById('dpZoomVal'); if(dv)dv.textContent=v+'%';
+  const dr=document.getElementById('dpZoomRange'); if(dr&&(sync||+dr.value!==v))dr.value=v;
   try{localStorage.setItem(ZOOM_KEY,v);}catch(_){}
   if(typeof rerender==='function') rerender();
   if(sc && anchorDay!==null){
@@ -9598,6 +9604,8 @@ function toggleDisplayPop(){
 function syncDisplayPopValues(){
   /* 打开面板时，从当前 CSS 变量/localStorage 同步滑块显示值 */
   const pairs=[
+    ['vivid','dpVivid',null,100],
+    ['zoom','dpZoom',null,100],
     ['holOpac','dpHolOpac','setHolOpacity',100],
     ['daycolOpac','dpDayColOpac','setDayColOpacity',100],
     ['gridOpac','dpGridOpac','setGridOpacity',100]
@@ -9610,6 +9618,8 @@ function syncDisplayPopValues(){
   });
 }
 function resetDisplaySettings(){
+  setVivid(100,true);
+  setZoom(100,true);
   setHolOpacity(100);
   setDayColOpacity(100);
   setGridOpacity(100);
