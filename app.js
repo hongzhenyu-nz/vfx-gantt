@@ -9351,6 +9351,9 @@ function setHolOpacity(v){
   document.documentElement.style.setProperty('--hol-opacity',(v/100).toFixed(2));
   const val=document.getElementById('holOpacVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('holOpacRange'); if(rng)rng.value=v;
+  /* 同步面板内滑块 */
+  const dv=document.getElementById('dpHolOpacVal'); if(dv)dv.textContent=v+'%';
+  const dr=document.getElementById('dpHolOpacRange'); if(dr)dr.value=v;
   try{localStorage.setItem(HOLOPAC_KEY,v);}catch(_){}
 }
 function initHolOpacity(){
@@ -9378,6 +9381,9 @@ function setDayColOpacity(v){
   document.documentElement.style.setProperty('--daycol-opacity',v/100);
   const val=document.getElementById('dayColOpacVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('dayColOpacRange'); if(rng)rng.value=v;
+  /* 同步面板内滑块 */
+  const dv=document.getElementById('dpDayColOpacVal'); if(dv)dv.textContent=v+'%';
+  const dr=document.getElementById('dpDayColOpacRange'); if(dr)dr.value=v;
   try{localStorage.setItem(DAYCOL_OPAC_KEY,v);}catch(_){}
 }
 function initDayColOpacity(){
@@ -9395,6 +9401,9 @@ function setGridOpacity(v){
   document.documentElement.style.setProperty('--bar-grid-opacity',(.16*mult).toFixed(3));
   const val=document.getElementById('gridOpacVal'); if(val)val.textContent=v+'%';
   const rng=document.getElementById('gridOpacRange'); if(rng)rng.value=v;
+  /* 同步面板内滑块 */
+  const dv=document.getElementById('dpGridOpacVal'); if(dv)dv.textContent=v+'%';
+  const dr=document.getElementById('dpGridOpacRange'); if(dr)dr.value=v;
   try{localStorage.setItem(GRID_OPAC_KEY,v);}catch(_){}
 }
 function initGridOpacity(){
@@ -9574,7 +9583,39 @@ document.addEventListener('click',function(e){
   if(COLOR_PICKING||msPalettePicking)return;
   const p=document.getElementById('colorPop'); if(!p||!p.classList.contains('show'))return;
   if(!p.contains(e.target)&&!e.target.closest('#colorCtl'))p.classList.remove('show');
+  /* 显示设置面板也同步关闭 */
+  const dp=document.getElementById('displayPop'); if(dp&&dp.classList.contains('show')){
+    if(!dp.contains(e.target)&&!e.target.closest('#displayCtl'))dp.classList.remove('show');
+  }
 },true);
+
+/* ── v7.65 显示设置弹层（#displayPop）── */
+function toggleDisplayPop(){
+  const p=document.getElementById('displayPop'); if(!p) return;
+  p.classList.toggle('show');
+  if(p.classList.contains('show')) syncDisplayPopValues();
+}
+function syncDisplayPopValues(){
+  /* 打开面板时，从当前 CSS 变量/localStorage 同步滑块显示值 */
+  const pairs=[
+    ['holOpac','dpHolOpac','setHolOpacity',100],
+    ['daycolOpac','dpDayColOpac','setDayColOpacity',100],
+    ['gridOpac','dpGridOpac','setGridOpacity',100]
+  ];
+  pairs.forEach(([storeKey,Prefix,resetFn,def])=>{
+    let v=def;
+    try{const s=localStorage.getItem('gantt_'+storeKey);if(s!==null&&s!=='')v=+s;}catch(_){}
+    const rng=document.getElementById(Prefix+'Range'); if(rng)rng.value=v;
+    const val=document.getElementById(Prefix+'Val'); if(val)val.textContent=v+'%';
+  });
+}
+function resetDisplaySettings(){
+  setHolOpacity(100);
+  setDayColOpacity(100);
+  setGridOpacity(100);
+  syncDisplayPopValues();
+  toast('⚙️ 已恢复默认显示设置');
+}
 
 /* ===== v7.32 颜色吸取（吸色器）：跨浏览器取色 + 预设生成 =====
    根因：原「颜色吸取」完全依赖原生 <input type=color> 自带的吸管按钮，该按钮

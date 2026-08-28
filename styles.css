@@ -1994,6 +1994,26 @@
 #colorPop .cp-undo,#colorPop .cp-redo{border:1px solid var(--line);background:var(--panel);border-radius:7px;font-size:11px;font-weight:600;color:var(--tx2);cursor:pointer;padding:6px 10px;transition:background .12s,color .12s;white-space:nowrap;}
 #colorPop .cp-undo:hover:not(:disabled),#colorPop .cp-redo:hover:not(:disabled){background:#eef3ff;color:var(--tx);}
 #colorPop .cp-undo:disabled,#colorPop .cp-redo:disabled{opacity:.4;cursor:not-allowed;}
+/* ── v7.65 显示设置弹层（#displayPop，与 #colorPop 同风格）── */
+#displayPop{position:fixed;top:58px;right:14px;z-index:80;display:none;width:270px;
+  background:var(--panel,#fff);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 8px 28px rgba(20,30,60,.15),0 2px 8px rgba(20,30,60,.08);
+  padding:12px 14px 14px;font-size:12.5px;color:var(--tx);box-sizing:border-box;}
+#displayPop.show{display:block;}
+#displayPop h4{margin:0 0 4px;font-size:13px;font-weight:800;color:var(--tx);}
+#displayPop .dp-sub{margin:0 0 9px;font-size:10.5px;color:var(--tx2);line-height:1.45;}
+#displayPop .dp-sec{margin:11px 0 7px;padding-top:9px;border-top:1px dashed var(--line);}
+#displayPop .dp-sec-t{font-size:11.5px;font-weight:800;color:var(--tx);margin-bottom:7px;}
+#displayPop .dp-row{display:flex;align-items:center;gap:6px;margin:7px 0;font-size:11.5px;color:var(--tx2);}
+#displayPop .dp-row label{flex:1;min-width:0;white-space:nowrap;cursor:default;}
+#displayPop .dp-row input[type="range"]{flex:1;height:18px;accent-color:var(--blue,#1d6fd6);min-width:0;}
+#displayPop .dp-val{font-size:11px;font-weight:700;color:var(--blue,#1d6fd6);min-width:36px;text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace;}
+#displayPop .dp-reset{flex-shrink:0;width:24px;height:24px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-size:11px;text-align:center;line-height:22px;color:var(--tx3);transition:background .12s;}
+#displayPop .dp-reset:hover{background:#fdeef0;border-color:#f3b6bf;}
+#displayPop .dp-note{margin:6px 0 0;font-size:9.5px;color:var(--tx3);line-height:1.5;}
+#displayPop .dp-foot{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
+#displayPop .dp-reset-all{width:100%;border:1px solid var(--line);background:#fbfcfe;border-radius:7px;font-size:11.5px;font-weight:700;color:var(--tx2);cursor:pointer;padding:5px 0;transition:background .12s;}
+#displayPop .dp-reset-all:hover{background:#fdeef0;border-color:#f3b6bf;}
 /* 点击取色模式（降级路径）：十字光标 + 顶部提示条 */
 body.cp-picking{cursor:crosshair!important;}
 #cpPickHint{position:fixed;top:0;left:50%;transform:translateX(-50%);z-index:999;background:#3146a8;color:#fff;font-size:13px;font-weight:700;padding:9px 18px;border-radius:0 0 10px 10px;box-shadow:0 6px 20px rgba(20,30,60,.25);pointer-events:none;}
