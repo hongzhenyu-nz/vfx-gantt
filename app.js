@@ -5671,14 +5671,18 @@ function applyMsHighlight(){
     document.body.classList.add('ms-focus-mode');
     const sel=`[data-req="${id}"][data-msidx="${msIdx}"]`;
     document.querySelectorAll(`.ms-node${sel},.ms-mark${sel},.ms-link${sel}`).forEach(el=>el.classList.add('ms-active'));
-    document.querySelectorAll(`.bar-task.req-bar[data-req="${id}"]`).forEach(el=>el.classList.add('req-glow'));
-    /* 所属成员行保持可见 */
-    const row=document.querySelector(`.req-row[data-req-row="${id}"]`);
-    if(row){ let r=row.previousElementSibling; while(r&&!r.classList.contains('grp-header')){r.classList.add('ms-focused-row');r=r.previousElementSibling;} }
+    /* 需求条高亮：兼容「按需求看」(.bar-task.req-bar) 与「按成员看」(仅带 data-req 的 .bar-task) 两种结构 */
+    document.querySelectorAll(`.bar-task[data-req="${id}"]`).forEach(el=>el.classList.add('req-glow'));
+    /* 所属行保持可见：精确标记高亮条所在 .row（仅命中行，不蔓延整组以免弱化过弱） */
+    const _seen=new Set();
+    document.querySelectorAll(`.bar-task[data-req="${id}"]`).forEach(bar=>{
+      const r=bar.closest('.row');
+      if(r&&!_seen.has(r)){r.classList.add('ms-focused-row');_seen.add(r);}
+    });
   }else{
     /* 原有行为：高亮该需求所有节点（悬停在需求条上时） */
     document.querySelectorAll(`.ms-node[data-req="${id}"],.ms-mark[data-req="${id}"],.ms-link[data-req="${id}"]`).forEach(el=>el.classList.add('ms-active'));
-    document.querySelectorAll(`.bar-task.req-bar[data-req="${id}"]`).forEach(el=>el.classList.add('req-glow'));
+    document.querySelectorAll(`.bar-task[data-req="${id}"]`).forEach(el=>el.classList.add('req-glow'));
   }
 }
 grid.addEventListener('pointerover',e=>{
