@@ -753,8 +753,12 @@
      body 加 .ms-focus-mode 类时生效，引导注意力到当前节点及其关联需求。
      v7.71：所有弱化值改为 CSS 变量（--ms-dim-*），可通过⚙️显示面板「悬停聚焦」滑块统一调节。
      默认值经调优：条/行/节点 0.35（浅色条仍可辨识）、竖线 0.15、日期底纹 0.18、栅格 0.05。 */
+  /* v7.73：去掉 .req-bar 前缀 —— 该类仅存在于「按需求看」视图（app.js L3205/3217 生成）。
+     「按成员看」视图的条只有 .bar-task（无 .req-bar）→ 原规则完全不匹配 → 非关联条不参与弱化，
+     表现为"悬停关键节点时无关条仍然满亮"（截图红框区域：余洪震/女指挥官等非关联条未被淡化）。
+     现改为 .bar-task:not(.req-glow) 统一覆盖两种视图。 */
   body.ms-focus-mode .row:not(.ms-focused-row),
-  body.ms-focus-mode .bar-task.req-bar:not(.req-glow),
+  body.ms-focus-mode .bar-task:not(.req-glow),
   body.ms-focus-mode .ms-node:not(.ms-active),
   body.ms-focus-mode .ms-mark:not(.ms-active){opacity:var(--ms-dim-opacity,.35)!important;transition:opacity .3s ease;}
   body.ms-focus-mode .vline{opacity:var(--ms-dim-vline,.15)!important;transition:opacity .3s ease;}
