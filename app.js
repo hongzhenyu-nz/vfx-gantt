@@ -178,8 +178,7 @@ function personGroupKey(m){
   const mode=GROUP_MODE.person;
   if(mode==='lead'){ const L=leadOf(m); return L?{key:'lead:'+L,label:'隶属 '+L,color:leadColor(L)}:{key:'lead:free',label:'游离 / 无带队归属',color:'#a3acba'}; }
   if(mode==='corp'){
-    if(isExtLoan(m)) return {key:'corp:loan',label:'外借支援（非角色线）',color:'#f08c00'};
-    if(isLoanIn(m)) return {key:'corp:loanin',label:'借入支援',color:'#0b7285'};
+    if(isExtLoan(m)||isLoanIn(m)) return {key:'corp:support',label:'支援',color:'#f08c00'};
     if(m.corp==='reg'||m.corp==='sub') return {key:'corp:reg',label:'正编 / 子公司',color:'#0052d9'};
     return {key:'corp:base',label:'基地',color:'#56607a'};
   }
@@ -192,7 +191,7 @@ function reqGroupKey(r){
   return null;   // none
 }
 /* 分组顺序：corp 用固定优先级，其余按出现顺序。 */
-const CORP_GROUP_ORDER=['corp:reg','corp:base','corp:loanin','corp:loan'];
+const CORP_GROUP_ORDER=['corp:reg','corp:base','corp:support'];
 function groupSortVal(key){ const i=CORP_GROUP_ORDER.indexOf(key); return i<0?99:i; }
 
 /* 按人视图成员排序规则（v6.87 引入，彻底解决新成员恒排末尾的顽疾）：
@@ -361,8 +360,7 @@ function curLoan(m){ return (m && m.loan && m.loan.state!=='ended') ? m.loan : n
    供「一人一行甘特」的条色与标签编制徽标统一取色——即甘特按"编制"上色，而非"隶属带队"。short 为标签徽标单字。
    注：基地用淡白底，需深字 txt + 描边 bord 才能在深色需求条上可见(纯白条/白字会看不见)；正编/子公司为实色底配白字。 */
 function corpStyle(m){
-  if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借',txt:'#fff',bord:'',tex:'',outline:''};
-  if(isLoanIn(m)) return {key:'loanin',label:'借入支援',col:'#0b7285',short:'借入',txt:'#fff',bord:'',tex:'',outline:''};
+  if(isExtLoan(m)||isLoanIn(m)) return {key:'support',label:'支援',col:'#f08c00',short:'援',txt:'#fff',bord:'',tex:'',outline:''};
   // 已离职：冷调淡蓝白 + 无纹理 + 虚线描边 + 贯穿划除线（strike）—— 一条线把人划掉，语义最直接
   if(effLeft(m)) return {key:'gone',label:'已离职',col:'#e6ecf6',short:'离',txt:'#6b7385',bord:'#a9b8d0',
     tex:'', outline:'dashed', strike:'#222'};
@@ -2751,6 +2749,14 @@ function renderPerson(){
       groups[k].arr.push(m);
     });
     order.sort((a,b)=> groupSortVal(a)-groupSortVal(b) || groups[a].g.label.localeCompare(groups[b].g.label,'zh-Hans-CN'));
+    /* v7.69：支援组（外借+借入统一）即使无成员也保留显示，不因人员为空而隐藏 */
+    const SUPP_KEY='corp:support';
+    if(!groups[SUPP_KEY]){
+      groups[SUPP_KEY]={g:{key:SUPP_KEY,label:'支援',color:'#f08c00'},arr:[]};
+      let inserted=false;
+      for(let i=0;i<order.length;i++){ if(groupSortVal(order[i])>groupSortVal(SUPP_KEY)){ order.splice(i,0,SUPP_KEY); inserted=true; break; } }
+      if(!inserted) order.push(SUPP_KEY);
+    }
     order.forEach(k=>{
       const {g,arr}=groups[k];
       // 组内排序：状态 → 编制 → 隶属 → 品级 → 支援 → 拼音（同 personSortCompare 规则）
