@@ -12,7 +12,7 @@
      cache-control:max-age=600 独立缓存，会出现「index.html 已更新、styles.css/app.js 仍是旧缓存」
      的版本错配 → 视图崩坏（左栏空白/任务条不渲染）。版本号一变 URL 即变，强制重新拉取。
      ⚠️ 改动 styles.css 或 app.js 后，必须同步递增此处 ?v= 版本号。 -->
-<link rel="stylesheet" href="styles.css?v=7.73e2">
+<link rel="stylesheet" href="styles.css?v=7.74">
 
 </head>
 <body>
@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.73e2 · build 2026-08-28 17:46</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.74 · build 2026-08-28 20:23</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -97,32 +97,9 @@
     </div>
   </div>
 
-  <div class="bar" style="margin-top:-4px">
-    <div class="bar-section">
-      <span class="seg-lab">编辑</span>
-      <div class="undo-grp">
-        <button class="ubtn" id="undoBtn" onclick="undo()" title="撤销 (Ctrl+Z)" disabled>↶ 撤销</button>
-        <button class="ubtn" id="redoBtn" onclick="redo()" title="重做 (Ctrl+Y)" disabled>↷ 重做</button>
-        <button class="ubtn" id="logBtn" onclick="toggleLogPanel()" title="查看变更记录，可一键回退到任意历史版本">🕑 变更记录</button>
-      </div>
-    </div>
-    <div class="bar-section">
-      <span class="seg-lab">新增</span>
-      <button class="ubtn add-ent" id="addMemBtn" onclick="openNewMember()" title="添加一名新成员（姓名、编制、隶属、模块、品级、效率）">＋ 新成员</button>
-      <button class="ubtn add-ent" id="addReqBtn" onclick="openNewReq()" title="添加一条新需求（角色、模块、品级、工作量、起止）">＋ 新需求</button>
-    </div>
-    <div class="bar-section">
-      <span class="seg-lab">协同</span>
-      <button class="ubtn share-btn" onclick="shareLink()" title="把当前排期生成一个链接，发给同事打开即见最新版本">🔗 团队链接</button>
-      <button class="ubtn sync-btn" onclick="exportSync()" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">📋 一键复制排期</button>
-    </div>
-    <div class="spacer"></div>
-    <div class="bar-section">
-      <button class="ubtn" onclick="autoFitLeftW()" title="自动加宽左侧信息栏，让人名标签尽量不换行、各行宽度一致、版面整齐（也可拖动栏右侧分界线手动调，或双击分界线自动适配）">⇆ 适配栏宽</button>
-      <button class="reset" onclick="resetData()">重置</button>
-    </div>
-  </div>
-
+  <!-- v7.74 工具栏统一收纳：原第 2 行（编辑 / 新增 / 协同 / 版面）整行删除，按功能相似度归入右侧弹层；
+       本行只留「分组下拉 + 排序组 + 6 个语义胶囊 + 重置」。
+       迁移元素的 id 一律逐字保留（JS 状态回写与 ro-mode 置灰均按 id 绑定，改名即断链）。 -->
   <div class="bar bar-org" style="margin-top:-4px">
     <span class="org-group">
       <span class="org-lab">🗂 分组</span>
@@ -130,9 +107,12 @@
     </span>
     <span class="org-group" id="sortCtl" title="成员排序：按住行首 ⋮⋮ 手柄上下拖动可手动自定义排序（同组内生效，自动保存并同步团队）；「智能排序」按甘特条布局整齐度一键优化相邻关系；「默认」恢复系统规则排序">
       <span class="org-lab">⇅ 排序</span>
-      <button class="org-btn" onclick="smartSortMembers()" title="按「共享需求相邻、同带队相邻、档期相近相邻」自动优化成员顺序，让相关甘特条聚成整齐的块；带过渡动画">✨ 智能排序</button>
-      <button class="org-btn" onclick="resetMemberSort()" title="清除手动/智能排序结果，恢复「状态→编制→隶属→品级→支援→拼音」系统默认排序">↺ 默认</button>
-      <button class="org-btn" id="sortRuleBtn" onclick="toggleSortRulePop()" title="自定义智能排序的维度与权重：需求相近/模块相近/隶属相近/档期整齐度/编制聚合，可勾选组合并调权，冲突按权重折中">⚖️ 排序规则</button>
+      <button class="org-btn" onclick="smartSortMembers()" title="智能排序 —— 按「共享需求相邻、同带队相邻、档期相近相邻」自动优化成员顺序，让相关甘特条聚成整齐的块；带过渡动画">✨ 智能</button>
+      <button class="org-btn" onclick="resetMemberSort()" title="默认排序 —— 清除手动/智能排序结果，恢复「状态→编制→隶属→品级→支援→拼音」系统默认排序">↺ 默认</button>
+      <button class="org-btn" id="sortRuleBtn" onclick="toggleSortRulePop()" title="排序规则 —— 自定义智能排序的维度与权重：需求相近/模块相近/隶属相近/档期整齐度/编制聚合，可勾选组合并调权，冲突按权重折中">⚖️ 规则</button>
+    </span>
+    <span class="org-group" id="viewCtl" title="👁 视图：超期归档 / 隐藏已完成 / 条内标签 —— 统一控制「看到什么」">
+      <button class="org-btn" onclick="toggleViewPop()" title="打开视图面板：超期归档天数、隐藏已完成、条内标签开关">👁 视图</button>
     </span>
     <span class="org-group" id="colorCtl" title="🎨 自定义配色：本机自助改 联调(待启动/进行中) 与 超期 的颜色，实时预览并自动保存，不影响其他成员与任何数据">
       <button class="org-btn" onclick="toggleColorPop()" title="打开配色色盘，自行选择联调/超期条的颜色">🎨 配色</button>
@@ -140,22 +120,18 @@
     <span class="org-group" id="displayCtl" title="⚙️ 显示设置：调节栅格透明度、底纹、阴影浓度等视觉参数，实时预览">
       <button class="org-btn" onclick="toggleDisplayPop()" title="打开显示设置面板，调节视觉参数">⚙️ 显示</button>
     </span>
-    <span class="org-group" title="已离职超过N天的成员 / 已完结超过N天的需求，自动折叠进底部「已归档」区，让视图聚焦当前。改这里的天数即时生效。">
-      <span class="org-lab">📦 超期归档</span>
-      <input type="number" id="archiveVal" class="org-num" min="0" max="999" step="1" value="2" onchange="changeArchiveVal(this.value)">
-      <select id="archiveUnit" class="org-sel org-unit-sel" onchange="changeArchiveUnit(this.value)" title="超期单位：天 / 周 / 月">
-        <option value="day">天</option>
-        <option value="week">周</option>
-        <option value="month">月</option>
-      </select>
-      <span class="org-unit">后自动收纳</span>
-      <label class="org-chk"><input type="checkbox" id="archiveOn" checked onchange="changeArchiveOn(this.checked)">启用</label>
+    <span class="org-group" id="addCtl" title="＋ 新增：添加新成员 / 新需求（会同步给全团队）">
+      <button class="org-btn" onclick="toggleAddPop()" title="打开新增面板：＋新成员 / ＋新需求">＋ 新增</button>
     </span>
-    <span class="org-group" title="隐藏已完成/已废弃的需求，仅改变当前视图「看到什么」，各视图独立记忆。&#10;注意：这是纯观看过滤 —— 缺口、配置人数、负载率、空闲标识等统计一律基于全量数据，勾选与否结果完全一致（v6.64 起）。">
-      <label class="org-chk"><input type="checkbox" id="hideDoneOn" onchange="changeHideDone(this.checked)">🙈 隐藏已完成 <small class="page-hint">（仅影响显示）</small></label>
+    <span class="org-group" id="shareCtl" title="🔗 协同：把当前排期发给同事，或复制回企微表">
+      <button class="org-btn" onclick="toggleSharePop()" title="打开协同面板：🔗 团队链接 / 📋 一键复制排期">🔗 协同</button>
+    </span>
+    <span class="org-group" id="editCtl" title="↶ 编辑：撤销 / 重做 / 变更记录（Ctrl+Z、Ctrl+Y 快捷键不受收纳影响）">
+      <button class="org-btn" onclick="toggleEditPop()" title="打开编辑面板：↶ 撤销 / ↷ 重做 / 🕑 变更记录">↶ 编辑</button>
     </span>
     <span class="spacer"></span>
     <span class="org-hint" id="orgHint"></span>
+    <button class="reset" onclick="resetData()" title="清空全部改动，恢复为初始排期（团队共享，操作会广播给所有成员）">重置</button>
   </div>
 
   <!-- v7.35 配色色盘弹层：本机自助改色 + 吸管 + 预设CRUD + 最近颜色 + 撤销重做 -->
@@ -200,6 +176,25 @@
     <p class="sr-sub">勾选参与排序的<b>维度</b>并拖动<b>权重</b>（权重 = 优先级，多维度冲突按权重折中）。仅本机偏好，不影响他人与任何数据。</p>
     <div id="srList"></div>
     <div class="sr-note">组合得分 = Σ 启用维度 × 权重，由 2-opt 算法优化相邻关系，让相关甘特条聚成整齐的块；分组视图内按组分别优化。</div>
+
+    <!-- v7.74：原工具栏「✨ 智能排序 / ↺ 默认」迁入此面板，与权重规则同属「排序」 -->
+    <div class="dp-sec">
+      <div class="dp-sec-t">⚡ 一键排序</div>
+      <div class="dp-row">
+        <button class="ap-btn" style="margin:0" onclick="smartSortMembers();closeAllPops();" title="按「共享需求相邻、同带队相邻、档期相近相邻」自动优化成员顺序；带过渡动画">
+          <span class="ap-t">✨ 智能排序</span>
+          <span class="ap-d">一键重排成员顺序，让相关甘特条聚成整齐的块</span>
+        </button>
+      </div>
+      <div class="dp-row">
+        <button class="ap-btn" style="margin:0" onclick="resetMemberSort();closeAllPops();" title="清除手动/智能排序结果">
+          <span class="ap-t">↺ 默认排序</span>
+          <span class="ap-d">恢复「状态→编制→隶属→品级→支援→拼音」系统默认顺序</span>
+        </button>
+      </div>
+      <p class="dp-note">「应用并排序」按下方自定义权重执行；「智能排序」用内置默认维度，两者结果可能不同。</p>
+    </div>
+
     <div class="sr-btns">
       <button class="sr-apply" type="button" onclick="applySortRules()">✨ 应用并排序</button>
       <button class="sr-reset" type="button" onclick="resetSortRules()">↺ 恢复默认</button>
@@ -265,19 +260,126 @@
       <p class="dp-note">悬停关键节点时，非关联元素的淡化程度。0%=不弱化（全正常），100%=最大弱化（条仍可辨识）。同时影响：甘特条/成员行/其他节点 → 竖线 → 日期底纹 → 栅格线。</p>
     </div>
 
+    <!-- v7.74：原工具栏「⇆ 适配栏宽」迁入此面板，属视觉/版面参数，与栅格、底纹同类 -->
+    <div class="dp-sec">
+      <div class="dp-sec-t">📐 版面</div>
+      <div class="dp-row">
+        <button class="ap-btn" style="margin:0" onclick="autoFitLeftW();closeAllPops();" title="自动加宽左侧信息栏，让人名标签尽量不换行、各行宽度一致、版面整齐">
+          <span class="ap-t">⇆ 自动适配栏宽</span>
+          <span class="ap-d">按最长人名一次性调宽；也可拖动栏右侧分界线手动调，或双击分界线自动适配</span>
+        </button>
+      </div>
+    </div>
+
     <div class="dp-foot">
       <button class="dp-reset-all" type="button" onclick="resetDisplaySettings()">↺ 全部恢复默认</button>
     </div>
   </div>
 
+  <!-- v7.74 视图面板：统一收纳「控制看到什么」的三类过滤开关（原散落在第 3 行与第 4 行） -->
+  <div id="viewPop">
+    <h4>👁 视图设置</h4>
+    <p class="dp-sub">控制「看到什么」——归档、过滤与条内标签，改动<b>即时生效</b>。</p>
+
+    <div class="dp-sec">
+      <div class="dp-sec-t">📦 超期归档</div>
+      <div class="dp-row">
+        <label class="org-chk" title="已离职超过 N 天/周/月的成员、已完结超过 N 天/周/月的需求，自动折叠进底部「已归档」区，让视图聚焦当前">
+          <span class="org-unit">超过</span>
+          <input type="number" id="archiveVal" class="org-num" min="0" max="999" step="1" value="2" onchange="changeArchiveVal(this.value)" title="超期阈值">
+          <select id="archiveUnit" class="org-sel org-unit-sel" onchange="changeArchiveUnit(this.value)" title="超期单位：天 / 周 / 月">
+            <option value="day">天</option>
+            <option value="week">周</option>
+            <option value="month">月</option>
+          </select>
+          <span class="org-unit">自动收纳</span>
+        </label>
+      </div>
+      <div class="dp-row">
+        <label class="org-chk" title="关闭后所有成员/需求常驻，不再折叠归档">
+          <input type="checkbox" id="archiveOn" checked onchange="changeArchiveOn(this.checked)">启用归档
+        </label>
+      </div>
+      <p class="dp-note">🌐 <b>团队共享</b>：改动会保存并广播，全团队看到的归档范围一致。</p>
+    </div>
+
+    <div class="dp-sec">
+      <div class="dp-sec-t">🙈 需求过滤</div>
+      <div class="dp-row">
+        <label class="org-chk" title="隐藏已完成/已废弃的需求，仅改变当前视图「看到什么」，各视图独立记忆">
+          <input type="checkbox" id="hideDoneOn" onchange="changeHideDone(this.checked)">隐藏已完成 <small class="page-hint">（仅影响显示）</small>
+        </label>
+      </div>
+      <p class="dp-note">纯观看过滤 —— 缺口、配置人数、负载率、空闲标识等统计一律基于全量数据，勾选与否结果完全一致（v6.64 起）。</p>
+    </div>
+
+    <div class="dp-sec">
+      <div class="dp-sec-t">🏷 条内标签</div>
+      <div class="dp-row" style="flex-wrap:wrap;gap:10px">
+        <label class="org-chk" title="甘特条内的「占·投入比」标签"><input type="checkbox" id="lblInvOn" checked onchange="changeLblShow('inv',this.checked)">占·投入比</label>
+        <label class="org-chk" title="甘特条内的「≈周·消化工时」标签"><input type="checkbox" id="lblMdOn" checked onchange="changeLblShow('md',this.checked)">≈周·消化工时</label>
+        <label class="org-chk" title="甘特条内的「⚡效率」标签"><input type="checkbox" id="lblEffOn" checked onchange="changeLblShow('eff',this.checked)">⚡ 效率</label>
+      </div>
+      <p class="dp-note">💻 <b>本机记忆</b>：仅影响你自己看到什么，不改动数据、不影响他人。</p>
+    </div>
+
+    <div class="dp-foot">
+      <button class="dp-reset-all" type="button" onclick="resetViewPop()">↺ 恢复默认</button>
+    </div>
+  </div>
+
+  <!-- v7.74 新增面板：录入实体（＋新成员 / ＋新需求） -->
+  <div id="addPop">
+    <h4>＋ 新增</h4>
+    <p class="dp-sub">添加后<b>立即同步给全团队</b>，所有成员都会看到。</p>
+    <button class="ap-btn add-ent-pop" id="addMemBtn" onclick="openNewMember();closeAllPops();" title="添加一名新成员（姓名、编制、隶属、模块、品级、效率）">
+      <span class="ap-t">＋ 新成员</span>
+      <span class="ap-d">录入姓名、编制、隶属、模块、品级与效率</span>
+    </button>
+    <button class="ap-btn add-ent-pop" id="addReqBtn" onclick="openNewReq();closeAllPops();" title="添加一条新需求（角色、模块、品级、工作量、起止）">
+      <span class="ap-t">＋ 新需求</span>
+      <span class="ap-d">录入角色、模块、品级、工作量与起止日期</span>
+    </button>
+  </div>
+
+  <!-- v7.74 协同面板：把当前排期给别人（链接 / 复制回企微表） -->
+  <div id="sharePop">
+    <h4>🔗 协同与分享</h4>
+    <p class="dp-sub">把当前排期发给同事，或写回企微表。</p>
+    <button class="ap-btn" onclick="shareLink();closeAllPops();" title="把当前排期生成一个链接，发给同事打开即见最新版本">
+      <span class="ap-t">🔗 团队链接</span>
+      <span class="ap-d">生成分享链接，同事打开即见最新版本</span>
+    </button>
+    <button class="ap-btn" onclick="exportSync();closeAllPops();" title="一键复制当前排期，粘贴到对话发我即可写回企微表（无需下载/上传文件）">
+      <span class="ap-t">📋 一键复制排期</span>
+      <span class="ap-d">复制到剪贴板，粘贴到对话即可写回企微表</span>
+    </button>
+  </div>
+
+  <!-- v7.74 编辑面板：历史回退（撤销 / 重做 / 变更记录） -->
+  <div id="editPop">
+    <h4>↶ 编辑历史</h4>
+    <p class="dp-sub">撤销/重做最近操作；快捷键 <b>Ctrl+Z</b> / <b>Ctrl+Y</b> 不受收纳影响。</p>
+    <div class="ap-pair">
+      <button class="ap-btn" id="undoBtn" onclick="undo()" title="撤销 (Ctrl+Z)" disabled>
+        <span class="ap-t">↶ 撤销</span>
+        <span class="ap-d">回退上一步操作</span>
+      </button>
+      <button class="ap-btn" id="redoBtn" onclick="redo()" title="重做 (Ctrl+Y)" disabled>
+        <span class="ap-t">↷ 重做</span>
+        <span class="ap-d">重做被撤销的操作</span>
+      </button>
+    </div>
+    <button class="ap-btn" id="logBtn" onclick="toggleLogPanel();closeAllPops();" title="查看变更记录，可一键回退到任意历史版本">
+      <span class="ap-t">🕑 变更记录</span>
+      <span class="ap-d">查看全部历史改动，可一键回退到任意版本</span>
+    </button>
+    <p class="dp-note">撤销/重做点击后面板保持打开，可连续操作。</p>
+  </div>
+
   <div class="bar" style="margin-top:-6px">
     <span class="hint" id="hintBar">💡 拖中间=改期，上下拖到别人行=改派 · 拖两端=改工期 · 单击任务条=改状态/删除/需求操作（改信息·删需求）· 选中任务条后 Del 删除 / Ctrl+C 复制 / Ctrl+X 剪切 / Ctrl+V 粘贴到选中需求</span>
     <div class="spacer"></div>
-    <span class="lbl-toggle" title="一键显示/隐藏甘特图中的这些标签（仅影响显示，不改动数据，本机记忆）">
-      <label class="org-chk"><input type="checkbox" id="lblInvOn" checked onchange="changeLblShow('inv',this.checked)">占·投入比</label>
-      <label class="org-chk"><input type="checkbox" id="lblMdOn" checked onchange="changeLblShow('md',this.checked)">≈周·消化工时</label>
-      <label class="org-chk"><input type="checkbox" id="lblEffOn" checked onchange="changeLblShow('eff',this.checked)">⚡ 效率</label>
-    </span>
     <div class="legend" id="legend"></div>
   </div>
 
@@ -428,7 +530,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.73e2"></script>
+<script src="app.js?v=7.74"></script>
 
 </body>
 </html>

@@ -1933,6 +1933,8 @@
   body.lbl-hide-md .rt-md{display:none!important;}
   body.lbl-hide-eff .ltag.eff{display:none!important;}
   body.lbl-hide-eff .vc-eff{display:none!important;}
+  /* v7.74：条内标签三个开关已迁入 #viewPop「🏷 条内标签」分节，此处成为死规则。
+     保留以防回滚，勿删；真正生效的开关样式走 .dp-row .org-chk。 */
   .lbl-toggle{display:inline-flex;align-items:center;gap:10px;margin-right:10px;font-size:12px;}
   .lbl-toggle .org-chk small{font-weight:400;}
 
@@ -2081,3 +2083,76 @@ body.cp-picking{cursor:crosshair!important;}
 #sortRulePop .sr-apply:hover{background:#dde6ff;}
 #sortRulePop .sr-reset{flex:0 0 auto;border:1px solid var(--line);background:#fbfcfe;border-radius:7px;font-size:12px;font-weight:700;color:var(--tx);cursor:pointer;padding:7px 12px;transition:background .12s;}
 #sortRulePop .sr-reset:hover{background:#fdeef0;border-color:#f3b6bf;}
+
+/* ==================================================================================
+   v7.74 工具栏统一收纳：7 个弹层共用一套「壳 + 分节 + 动作按钮」样式
+   ----------------------------------------------------------------------------------
+   【为什么用 id 选择器族，而不是 .tb-pop class】
+   .tb-pop.show 特异性 (0,0,2,0) 会被 #sortRulePop{display:none} (0,1,0,0) 压过 ——
+   即给 #sortRulePop 加 class 反而打不开。统一写成 id 选择器族，新旧特异性一致、
+   本块位于文件末尾（后者胜），可安全覆盖三个旧块，无陷阱。
+   ================================================================================== */
+
+/* ── 4.1 统一弹层壳：与既有 #displayPop 同 top/right/圆角/阴影 ── */
+#colorPop,#displayPop,#sortRulePop,#viewPop,#addPop,#sharePop,#editPop{
+  position:fixed;top:58px;right:14px;z-index:80;display:none;width:270px;
+  background:var(--panel,#fff);border:1px solid var(--line);border-radius:10px;
+  box-shadow:0 8px 28px rgba(20,30,60,.15),0 2px 8px rgba(20,30,60,.08);
+  padding:12px 14px 14px;font-size:12.5px;color:var(--tx);box-sizing:border-box;
+  /* v7.74：矮窗口（笔记本 768 高、分屏）下面板会顶出视口，底部按钮够不着 ——
+     限高 100vh-72px（58 上边距 + 14 下留白）并允许内部滚动。大窗口不触发。 */
+  max-height:calc(100vh - 72px);overflow-y:auto;overscroll-behavior:contain;}
+/* 滚动条细化，避免粗滚动条挤占面板内容宽度 */
+#colorPop::-webkit-scrollbar,#displayPop::-webkit-scrollbar,#sortRulePop::-webkit-scrollbar,
+#viewPop::-webkit-scrollbar,#addPop::-webkit-scrollbar,#sharePop::-webkit-scrollbar,#editPop::-webkit-scrollbar{width:8px;}
+#colorPop::-webkit-scrollbar-thumb,#displayPop::-webkit-scrollbar-thumb,#sortRulePop::-webkit-scrollbar-thumb,
+#viewPop::-webkit-scrollbar-thumb,#addPop::-webkit-scrollbar-thumb,#sharePop::-webkit-scrollbar-thumb,
+#editPop::-webkit-scrollbar-thumb{background:#c9d0da;border-radius:4px;}
+#viewPop{width:288px;}
+#sortRulePop{width:284px;}
+#colorPop.show,#displayPop.show,#sortRulePop.show,
+#viewPop.show,#addPop.show,#sharePop.show,#editPop.show{display:block;}
+/* 面板标题：既有 #colorPop/#displayPop/#sortRulePop 各写一份，此处补齐新面板 */
+#viewPop h4,#addPop h4,#sharePop h4,#editPop h4{margin:0 0 4px;font-size:13px;font-weight:800;color:var(--tx);}
+
+/* ── 4.2 分节样式去 id 限定：.dp-* 前缀供 #viewPop / #sortRulePop 新分节复用 ──
+   【冲突已 grep 验证】.date-pop（日期弹层）也用 .dp- 前缀，但类名集合零重叠：
+     date-pop → dp-h / dp-b / dp-tip / dp-ok / dp-cancel / dp-f
+     displayPop → dp-sub / dp-sec / dp-sec-t / dp-row / dp-val / dp-note / dp-reset / dp-reset-all / dp-foot
+   且 date-pop 规则全带 .date-pop 父限定，特异性 (0,0,2,0) 高于本组 (0,0,1,0)，不会被反向覆盖。 */
+.dp-sub{margin:0 0 9px;font-size:10.5px;color:var(--tx2);line-height:1.45;}
+.dp-sec{margin:11px 0 7px;padding-top:9px;border-top:1px dashed var(--line);}
+.dp-sec-t{font-size:11.5px;font-weight:800;color:var(--tx);margin-bottom:7px;}
+.dp-row{display:flex;align-items:center;gap:6px;margin:7px 0;font-size:11.5px;color:var(--tx2);}
+.dp-row label{flex:1;min-width:0;white-space:nowrap;cursor:default;}
+.dp-row input[type="range"]{flex:1;height:18px;accent-color:var(--blue,#1d6fd6);min-width:0;}
+.dp-val{font-size:11px;font-weight:700;color:var(--blue,#1d6fd6);min-width:36px;text-align:right;font-family:ui-monospace,Menlo,Consolas,monospace;}
+.dp-reset{flex-shrink:0;width:24px;height:24px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-size:11px;text-align:center;line-height:22px;color:var(--tx3);transition:background .12s;}
+.dp-reset:hover{background:#fdeef0;border-color:#f3b6bf;}
+.dp-note{margin:6px 0 0;font-size:9.5px;color:var(--tx3);line-height:1.5;}
+.dp-foot{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line);}
+.dp-reset-all{width:100%;border:1px solid var(--line);background:#fbfcfe;border-radius:7px;font-size:11.5px;font-weight:700;color:var(--tx2);cursor:pointer;padding:5px 0;transition:background .12s;}
+.dp-reset-all:hover{background:#fdeef0;border-color:#f3b6bf;}
+/* v7.74：分组下拉原本被最长选项「按编制（正编/子公司/基地/外借）」撑到 213px，
+   导致 8 个胶囊合计超宽、最后一个换行到第二排。限宽 140px 后可压回一行。
+   注意：max-width 只影响收起状态，展开的 option 列表仍完整显示全文本。 */
+#groupSel{max-width:140px;}
+/* 面板内行内控件回退到既有 .org-* 语义时，不要被 .dp-row 的 flex:1 拉变形 */
+.dp-row .org-chk{flex:0 0 auto;white-space:nowrap;}
+.dp-row .org-num,.dp-row .org-sel{flex:0 0 auto;}
+.dp-row .org-unit{flex:0 0 auto;}
+
+/* ── 4.3 面板内竖排动作按钮（新增/协同/编辑/排序一键区/版面）── */
+.ap-btn{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fbfcfe;
+  border-radius:7px;padding:8px 10px;margin:7px 0;cursor:pointer;transition:background .12s,border-color .12s;}
+.ap-btn:hover{background:#eef4ff;border-color:#b9d0f5;}
+.ap-btn:active{transform:translateY(1px);}
+.ap-btn:disabled{opacity:.4;cursor:not-allowed;background:#fbfcfe;border-color:var(--line);}
+.ap-btn:disabled:hover{background:#fbfcfe;border-color:var(--line);}
+.ap-t{display:block;font-size:12.5px;font-weight:700;color:var(--tx);}
+.ap-d{display:block;font-size:10px;color:var(--tx3);line-height:1.45;margin-top:2px;}
+.ap-pair{display:flex;gap:8px;}
+.ap-pair .ap-btn{margin:7px 0;}
+/* 新增实体按钮：沿用原 .add-ent 的醒目紫色描边（不加 !important，避免压过 ro-mode 的 !important 置灰） */
+.ap-btn.add-ent-pop{border-color:#7c3aed;color:#6d28d9;background:#f5effe;}
+.ap-btn.add-ent-pop:hover{background:#ede3fd;border-color:#6d28d9;color:#5b21b6;}

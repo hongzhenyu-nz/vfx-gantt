@@ -9675,6 +9675,7 @@ function autoFitLeftW(){
 }
 function updateLegend(){
   const el=document.getElementById('legend');
+  if(!el)return;   /* v7.74：空值守卫 —— 图例容器缺失时不阻断后续渲染 */
   if(colorMode==='status'){
     el.innerHTML=STATUS_ORDER.map(k=>`<span class="dot"><i style="background:${STATUS[k].col}"></i>${STATUS[k].label}</span>`).join('');
   }else{
@@ -9740,34 +9741,79 @@ function changeColor(k,val){if(!/^#[0-9a-fA-F]{6}$/.test(val))return;USER_COLORS
 function resetUserColors(){USER_COLORS={lt0:'#c8b6ec',lt:'#0e9aa7',ovr:'#bd5eb0'};applyUserColors();saveUserColors();_pushColorHistory();toast('🎨 已恢复默认配色');}
 /* v7.47：打开面板时重绘「关键节点统一色板」—— 该面板内容由 JS 生成，
    而 rerender() 会重建 #grid（不影响 #colorPop），但色值改动后需保证展示与内存一致。 */
-function toggleColorPop(){
-  const p=document.getElementById('colorPop'); if(!p) return;
-  p.classList.toggle('show');
-  if(p.classList.contains('show') && typeof renderMsPaletteUI==='function') renderMsPaletteUI();
+/* ==================================================================================
+   v7.74 工具栏统一弹层管理器（7 个面板共用一套开/关逻辑）
+   ----------------------------------------------------------------------------------
+   互斥：同时最多 1 个 .show（7 个面板 top/right 完全相同，不互斥就会叠在一起）。
+   外部点击：点击面板外、且不在其触发胶囊内 → 关闭。
+
+   【顺带修掉的既有缺陷】原实现把 #displayPop 的关闭判断写在 #colorPop 的
+   `if(!p||!p.classList.contains('show'))return;` 之后 —— 只要配色面板没打开，
+   这条 early-return 就先生效，显示面板永远关不掉。现改为逐面板独立判断。
+   ================================================================================== */
+const TB_POPS=['colorPop','displayPop','sortRulePop','viewPop','addPop','sharePop','editPop'];
+const TB_POP_CTL={colorPop:'#colorCtl',displayPop:'#displayCtl',sortRulePop:'#sortCtl',
+                  viewPop:'#viewCtl',addPop:'#addCtl',sharePop:'#shareCtl',editPop:'#editCtl'};
+function closeAllPops(except){
+  TB_POPS.forEach(function(id){
+    if(id===except)return;
+    const el=document.getElementById(id); if(el)el.classList.remove('show');
+  });
 }
+function togglePop(id,onOpen){
+  const p=document.getElementById(id); if(!p)return;
+  const willOpen=!p.classList.contains('show');
+  closeAllPops(willOpen?id:null);
+  if(!willOpen){ p.classList.remove('show'); return; }
+  if(typeof onOpen==='function')onOpen();
+  p.classList.add('show');
+}
+function toggleColorPop(){ togglePop('colorPop',function(){ if(typeof renderMsPaletteUI==='function')renderMsPaletteUI(); }); }
+function toggleDisplayPop(){ togglePop('displayPop',syncDisplayPopValues); }
+function toggleSortRulePop(){ togglePop('sortRulePop',renderSortRulePop); }
+function toggleViewPop(){ togglePop('viewPop',syncViewPopValues); }
+function toggleAddPop(){ togglePop('addPop'); }
+function toggleSharePop(){ togglePop('sharePop'); }
+function toggleEditPop(){ togglePop('editPop'); }
 /* v7.50：色板选色期间也屏蔽误关 —— 点 <input type="color"> 会拉起系统取色器，
    取色器关闭瞬间的那次 click 可能被判定为「面板外点击」而把配色面板收掉，
    导致用户每选一个颜色面板就关一次，无法连续调整多个色值。
    msPalettePicking 在 changeMsPalette() 里置位、短时延后自动解除（见该函数）。 */
 let COLOR_PICKING=false;
 let msPalettePicking=false;
-/* 点击面板外区域关闭色盘（按钮在 #colorCtl 内，不触发关闭；吸色/取色中不误关） */
+/* 点击面板外区域关闭（按钮在各自 #xxxCtl 胶囊内，不触发关闭；吸色/取色中不误关） */
 document.addEventListener('click',function(e){
   if(COLOR_PICKING||msPalettePicking)return;
-  const p=document.getElementById('colorPop'); if(!p||!p.classList.contains('show'))return;
-  if(!p.contains(e.target)&&!e.target.closest('#colorCtl'))p.classList.remove('show');
-  /* 显示设置面板也同步关闭 */
-  const dp=document.getElementById('displayPop'); if(dp&&dp.classList.contains('show')){
-    if(!dp.contains(e.target)&&!e.target.closest('#displayCtl'))dp.classList.remove('show');
-  }
+  TB_POPS.forEach(function(id){
+    const p=document.getElementById(id); if(!p||!p.classList.contains('show'))return;
+    const ctl=TB_POP_CTL[id];
+    if(!p.contains(e.target)&&!(ctl&&e.target.closest&&e.target.closest(ctl)))p.classList.remove('show');
+  });
 },true);
 
-/* ── v7.65 显示设置弹层（#displayPop）── */
-function toggleDisplayPop(){
-  const p=document.getElementById('displayPop'); if(!p) return;
-  p.classList.toggle('show');
-  if(p.classList.contains('show')) syncDisplayPopValues();
+/* ── v7.74 视图面板（#viewPop）：打开时把当前生效值回写进控件 ──
+   不新增状态源 —— 直接复用既有的三个回写入口（三者都自带 id 空值守卫）：
+     syncOrgUI()            → archiveVal / archiveUnit / archiveOn
+     syncHideDoneCheckbox() → hideDoneOn
+     applyLblShow()         → lblInvOn / lblMdOn / lblEffOn */
+function syncViewPopValues(){
+  if(typeof syncOrgUI==='function')syncOrgUI();
+  if(typeof syncHideDoneCheckbox==='function')syncHideDoneCheckbox();
+  if(typeof applyLblShow==='function')applyLblShow();
 }
+/* 「↺ 恢复默认」：归档 2 天 + 启用归档 + 不隐藏已完成 + 三个条内标签全开。
+   复用既有 change* 入口，保证「团队共享 / 本机记忆」两条持久化路径各自照常触发。 */
+function resetViewPop(){
+  const av=document.getElementById('archiveVal'); if(av){av.value=2;changeArchiveVal(2);}
+  const au=document.getElementById('archiveUnit'); if(au){au.value='day';changeArchiveUnit('day');}
+  const ao=document.getElementById('archiveOn'); if(ao){ao.checked=true;changeArchiveOn(true);}
+  const hd=document.getElementById('hideDoneOn'); if(hd){hd.checked=false;changeHideDone(false);}
+  changeLblShow('inv',true); changeLblShow('md',true); changeLblShow('eff',true);
+  syncViewPopValues();
+  if(typeof toast==='function')toast('👁 视图设置已恢复默认');
+}
+
+/* ── v7.65 显示设置弹层（#displayPop）── */
 function syncDisplayPopValues(){
   /* 打开面板时，从当前 CSS 变量/localStorage 同步滑块显示值 */
   const pairs=[
@@ -10187,8 +10233,8 @@ function resetMemberSort(){
   toast('↺ 已恢复系统默认排序');
 }
 
-/* ===== v7.33 排序规则配置面板（勾选维度 + 调权重，实时持久化） ===== */
-function toggleSortRulePop(){const p=document.getElementById('sortRulePop');if(!p)return;const open=!p.classList.contains('show');if(open)renderSortRulePop();p.classList.toggle('show');}
+/* ===== v7.33 排序规则配置面板（勾选维度 + 调权重，实时持久化） =====
+   v7.74：toggleSortRulePop() 已上移进「工具栏统一弹层管理器」，此处不再重复定义。 */
 function renderSortRulePop(){
   const box=document.getElementById('srList');if(!box)return;
   box.innerHTML='';
@@ -10214,8 +10260,8 @@ function changeSortRule(k,field,val,el){
 }
 function resetSortRules(){for(const k in SORT_RULE_DEFS)SORT_RULES[k]={...SORT_RULE_DEFS[k].def};saveSortRules();renderSortRulePop();toast('⚖️ 已恢复默认排序规则');}
 function applySortRules(){smartSortMembers();}
-/* 点击面板外区域关闭排序规则面板（按钮 #sortRuleBtn 不触发关闭） */
-document.addEventListener('click',function(e){const p=document.getElementById('sortRulePop');if(!p||!p.classList.contains('show'))return;if(!p.contains(e.target)&&!e.target.closest('#sortRuleBtn'))p.classList.remove('show');},true);
+/* v7.74：排序面板的外部点击关闭已并入统一弹层管理器的 TB_POPS，原独立监听器删除。
+   触发胶囊由 #sortRuleBtn 上提为 #sortCtl（整个排序组）—— 点组内任一按钮都不误关。 */
 
 buildMeSel();
 initVivid();
