@@ -2277,7 +2277,7 @@ function msLinkLayerHTML(){
   const links=allMilestones().map(m=>{
     const d=idx(m.date);
     if(d<0||d>=DAYS) return '';
-    return `<div class="ms-link" data-req="${m.reqId||''}" style="left:${d*DAY_W}px;--msc:${m.color||msDefaultColor()}"></div>`;
+    return `<div class="ms-link" data-req="${m.reqId||''}" data-msidx="${m.msIdx!=null?m.msIdx:''}" style="left:${d*DAY_W}px;--msc:${m.color||msDefaultColor()}"></div>`;
   }).join('');
   return `<div class="ms-link-layer" id="msLinkLayer" style="position:absolute;left:var(--left-w);top:0;bottom:0;right:0;pointer-events:none;z-index:7">${links}</div>`;
 }
@@ -5643,28 +5643,54 @@ function reapplySelection(){
   _msHoverReq=null; _msApplied='__none__'; if(typeof applyMsHighlight==='function') applyMsHighlight();
 }
 /* ===== v7.45：需求条 ↔ 关键节点/竖虚线 联动高亮 =====
+   v7.68 扩展：悬停具体节点时进入「聚焦模式」——仅显示该节点竖线 + 弱化其他元素。
    hover（瞬时）与 选中（持久，selectedBar）两路汇聚到 applyMsHighlight。
    高亮对象：该需求的任务条(.req-glow 脉冲动画) + 其关键节点(.ms-node 汇总/.ms-mark 条内) + 竖虚线(.ms-link)。 */
-let _msHoverReq=null, _msApplied='__none__';
+let _msHoverReq=null, _msHoverMsIdx=null, _msApplied='__none__', _msAppliedMsIdx='__none__';
 function applyMsHighlight(){
   const id=_msHoverReq || (selectedBar&&selectedBar.reqId) || null;
-  if(id===_msApplied) return;
+  const msIdx=_msHoverMsIdx;
+  const focusMode=!!msIdx;
+  if(id===_msApplied && msIdx===_msAppliedMsIdx) return;
   _msApplied=id||'__none__';
+  _msAppliedMsIdx=msIdx||'__none__';
+  /* 清除旧状态 */
   document.querySelectorAll('.ms-active').forEach(el=>el.classList.remove('ms-active'));
   document.querySelectorAll('.req-glow').forEach(el=>el.classList.remove('req-glow'));
+  document.querySelectorAll('.ms-focused-row').forEach(el=>el.classList.remove('ms-focused-row'));
+  document.body.classList.remove('ms-focus-mode');
   if(!id) return;
-  document.querySelectorAll(`.ms-node[data-req="${id}"],.ms-mark[data-req="${id}"],.ms-link[data-req="${id}"]`).forEach(el=>el.classList.add('ms-active'));
-  document.querySelectorAll(`.bar-task.req-bar[data-req="${id}"]`).forEach(el=>el.classList.add('req-glow'));
+  if(focusMode){
+    /* 节点级聚焦：只激活该节点+其竖线+所属需求条，其余弱化 */
+    document.body.classList.add('ms-focus-mode');
+    const sel=`[data-req="${id}"][data-msidx="${msIdx}"]`;
+    document.querySelectorAll(`.ms-node${sel},.ms-mark${sel},.ms-link${sel}`).forEach(el=>el.classList.add('ms-active'));
+    document.querySelectorAll(`.bar-task.req-bar[data-req="${id}"]`).forEach(el=>el.classList.add('req-glow'));
+    /* 所属成员行保持可见 */
+    const row=document.querySelector(`.req-row[data-req-row="${id}"]`);
+    if(row){ let r=row.previousElementSibling; while(r&&!r.classList.contains('grp-header')){r.classList.add('ms-focused-row');r=r.previousElementSibling;} }
+  }else{
+    /* 原有行为：高亮该需求所有节点（悬停在需求条上时） */
+    document.querySelectorAll(`.ms-node[data-req="${id}"],.ms-mark[data-req="${id}"],.ms-link[data-req="${id}"]`).forEach(el=>el.classList.add('ms-active'));
+    document.querySelectorAll(`.bar-task.req-bar[data-req="${id}"]`).forEach(el=>el.classList.add('req-glow'));
+  }
 }
 grid.addEventListener('pointerover',e=>{
   const el=e.target.closest&&e.target.closest('.bar-task.req-bar,.ms-node,.ms-mark');
-  const prev=_msHoverReq;
-  _msHoverReq = el ? (el.dataset.req||null) : null;
+  const prevReq=_msHoverReq;
+  const prevMsIdx=_msHoverMsIdx;
+  if(el){
+    _msHoverReq=el.dataset.req||null;
+    /* 悬停在节点元素上（而非需求条）→ 记录具体 msIdx → 触发聚焦模式 */
+    _msHoverMsIdx=(el.classList.contains('ms-node')||el.classList.contains('ms-mark'))
+      ?(el.getAttribute('data-msidx')!==null&&el.getAttribute('data-msidx')!==''?el.getAttribute('data-msidx'):null):null;
+  }else{
+    _msHoverReq=null;_msHoverMsIdx=null;
+  }
   applyMsHighlight();
-  // v7.47：出框标签层跟随高亮。放在 applyMsHighlight 之外 —— 那个函数有
-  // 「id 未变则 early-return」的短路，高亮从 A 切回 null 时它仍会走完（id 变了），
-  // 但 null→null 的重复 pointerover 不会重绘；此处统一兜底，保证标签态与高亮态一致。
-  if(prev!==_msHoverReq && typeof syncMsBarLabels==='function') syncMsBarLabels();
+  if(prevReq!==_msHoverReq||prevMsIdx!==_msHoverMsIdx){
+    if(typeof syncMsBarLabels==='function') syncMsBarLabels();
+  }
 });
 /* ============ v7.40 日期悬停提示（v7.47 简化：去掉单击钉选） ============
    v7.47 变更：

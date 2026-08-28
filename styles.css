@@ -735,11 +735,22 @@
   .bar-task.req-bar .ms-mark.ms-active .ms-dot,.bar-task.req-bar .ms-mark.ms-active .ms-pdot{box-shadow:0 0 0 3px rgba(255,176,32,.65),0 1px 4px rgba(0,0,0,.5);}
   .ms-link.ms-active{opacity:1;width:3px;}
   /* 关键节点 → 需求条目 竖向虚线。
+     v7.68 改为默认隐藏（opacity:0），仅悬停节点时显示对应虚线。
      v7.63 精简：去掉 ::before 白色底衬（避免浅色条上脏白块），
      去掉 .ms-link.free 淡显兜底（不再按人视图降权），
-     仅保留主色虚线，颜色取 --msc（色板·竖向虚线色），强度由 --ms-link-opacity 控制。 */
-  .ms-link{position:absolute;width:3px;transform:translateX(-50%);opacity:var(--ms-link-opacity,1);
-    background:repeating-linear-gradient(to bottom,var(--msc,#ffb020) 0 5px,transparent 5px 10px);}
+     仅保留主色虚线，颜色取 --msc（色板·竖向虚线色）。 */
+  .ms-link{position:absolute;width:3px;transform:translateX(-50%);opacity:0;
+    background:repeating-linear-gradient(to bottom,var(--msc,#ffb020) 0 5px,transparent 5px 10px);
+    transition:opacity .25s ease,width .2s ease;}
+  /* ── v7.68 聚焦模式：悬停关键节点时弱化非关联元素 ──
+     body 加 .ms-focus-mode 类时生效，引导注意力到当前节点及其关联需求。 */
+  body.ms-focus-mode .row:not(.ms-focused-row),
+  body.ms-focus-mode .bar-task.req-bar:not(.req-glow),
+  body.ms-focus-mode .ms-node:not(.ms-active),
+  body.ms-focus-mode .ms-mark:not(.ms-active){opacity:.12!important;transition:opacity .3s ease;}
+  body.ms-focus-mode .vline{opacity:.06!important;transition:opacity .3s ease;}
+  body.ms-focus-mode .daycol.we,body.ms-focus-mode .daycol.hol{opacity:.07!important;transition:opacity .3s ease;}
+  body.ms-focus-mode .prog{--bar-grid-opacity:.04;}
   /* v7.47：需求条内关键节点的文字标签层（挂 #grid、无 overflow 裁切 → 允许出框）。
      z-index:7 低于今天红线层(8)，与关键节点汇总行(6)/负载带(6)同级但不穿透冻结信息行(7)。 */
   .ms-label-layer{position:absolute;left:var(--left-w);top:0;right:0;bottom:0;pointer-events:none;z-index:7;}
