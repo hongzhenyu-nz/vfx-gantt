@@ -9447,7 +9447,34 @@ function initGridOpacity(){
   let v=100; try{const s=localStorage.getItem(GRID_OPAC_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
   setGridOpacity(v);
 }
-/* 条宽 / 时间轴密度：滑块缩放 DAY_W（100%~320%），觉得任务条太细可调宽，设置记本机 */
+/* 悬停聚焦弱化强度：控制悬停关键节点时非关联元素的淡化程度。
+   0%=不弱化（全正常显示），100%=最大弱化（默认35%不透明度）。
+   同时驱动 4 个 CSS 变量：--ms-dim-opacity(条/行/节点), --ms-dim-vline(竖线),
+   --ms-dim-daycol(日期底纹), --ms-dim-grid(栅格)。比例系数经调优确保浅色条仍可辨识。 */
+const MS_DIM_KEY='gantt_ms_dim';
+function setMsDimOpacity(v){
+  v=Math.max(0,Math.min(100,+v));
+  const level=v/100;
+  /* 基准值（100%时）：条/行=0.35, 竖线=0.15, 底纹=0.18, 栅格=0.05
+     0% 时全部=1（不弱化），线性插值 */
+  const barOpac=(1 - level*(1-0.35)).toFixed(2);
+  const vlineOpac=(1 - level*(1-0.15)).toFixed(2);
+  const daycolOpac=(1 - level*(1-0.18)).toFixed(2);
+  const gridOpac=(0.16 - level*(0.16-0.05)).toFixed(3);
+  document.documentElement.style.setProperty('--ms-dim-opacity',barOpac);
+  document.documentElement.style.setProperty('--ms-dim-vline',vlineOpac);
+  document.documentElement.style.setProperty('--ms-dim-daycol',daycolOpac);
+  document.documentElement.style.setProperty('--ms-dim-grid',gridOpac);
+  const val=document.getElementById('msDimVal'); if(val)val.textContent=v+'%';
+  const rng=document.getElementById('msDimRange'); if(rng)rng.value=v;
+  const dv=document.getElementById('dpMsDimVal'); if(dv)dv.textContent=v+'%';
+  const dr=document.getElementById('dpMsDimRange'); if(dr)dr.value=v;
+  try{localStorage.setItem(MS_DIM_KEY,v);}catch(_){}
+}
+function initMsDimOpacity(){
+  let v=100; try{const s=localStorage.getItem(MS_DIM_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
+  setMsDimOpacity(v);
+}
 const ZOOM_KEY='gantt_zoom';
 function setZoom(v,sync){
   v=Math.max(100,Math.min(320,Math.round(+v/10)*10));
@@ -9642,7 +9669,8 @@ function syncDisplayPopValues(){
     ['zoom','dpZoom',null,100],
     ['holOpac','dpHolOpac','setHolOpacity',100],
     ['daycolOpac','dpDayColOpac','setDayColOpacity',100],
-    ['gridOpac','dpGridOpac','setGridOpacity',100]
+    ['gridOpac','dpGridOpac','setGridOpacity',100],
+    ['msDim','dpMsDim','setMsDimOpacity',100]
   ];
   pairs.forEach(([storeKey,Prefix,resetFn,def])=>{
     let v=def;
@@ -9657,6 +9685,7 @@ function resetDisplaySettings(){
   setHolOpacity(100);
   setDayColOpacity(100);
   setGridOpacity(100);
+  setMsDimOpacity(100);
   syncDisplayPopValues();
   toast('⚙️ 已恢复默认显示设置');
 }
@@ -10089,6 +10118,7 @@ initHolOpacity();
 initMsLinkOpac();
 initDayColOpacity();
 initGridOpacity();
+initMsDimOpacity();
 initZoom();
 initLeftW();
 applyLblShow();
