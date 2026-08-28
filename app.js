@@ -2294,7 +2294,12 @@ function syncMsLinks(){
   const sc=document.getElementById('scroll');
   if(sc) layer.style.clipPath=`inset(0 0 0 ${Math.max(0,sc.scrollLeft)}px)`;   // 同 v7.19 红线防穿透
   const sr=document.querySelector('.ms-summary-row');
-  const base=sr ? (sr.offsetTop + sr.offsetHeight) : 120;   // 汇总行底（#grid 内容坐标，约 86+34）
+  /* v7.73c：虚线起点由「汇总行底边」上移到「汇总行中线」——
+     .ms-node 在汇总行内 top:50%+translateY(-50%)，其中心即汇总行中线；
+     原起点取底边会让虚线从节点下方约 17px 处才开始画，节点与虚线之间出现明显断裂，
+     视觉上像两个独立元素（对比参考效果：虚线应从节点菱形中心引出、与节点一体）。
+     改为中线后：节点中心 ≈ 虚线起点，节点→虚线→甘特条 形成一条连续垂线。 */
+  const base=sr ? (sr.offsetTop + sr.offsetHeight/2) : 103;   // 汇总行中线（#grid 内容坐标，约 86+17）
   layer.querySelectorAll('.ms-link').forEach(link=>{
     const reqId=link.dataset.req;
     const row=reqId?document.querySelector(`.req-row[data-req-row="${reqId}"]`):null;
@@ -2316,10 +2321,18 @@ function syncMsLinks(){
           bot=Math.max(bot,t+b.offsetHeight);
         });
         if(isFinite(top)&&isFinite(bot)){
+          /* v7.73c：区间起点由「第一条顶」改为「min(汇总行中线, 第一条顶)」——
+             原逻辑虚线直接从第一条任务条的顶部开始画，导致关键节点（汇总行内）
+             与虚线之间留下一大段空白（实测 582px），节点与虚线看起来是两个独立元素。
+             参考效果要求「虚线从节点出发、向下贯穿到甘特条」，故起点必须上提到节点所在的
+             汇总行中线，让节点→虚线→甘特条成为一条连续垂线。
+             取 min 而非硬性用 base：若某需求的条恰好渲染在汇总行上方（极端布局），
+             仍以条的顶端为准，避免虚线反向向上画。 */
           link.classList.remove('free');
           link.style.bottom='auto';
-          link.style.top=top+'px';
-          link.style.height=Math.max(0,bot-top)+'px';
+          const start=Math.min(base, top);
+          link.style.top=start+'px';
+          link.style.height=Math.max(0,bot-start)+'px';
           return;
         }
       }
