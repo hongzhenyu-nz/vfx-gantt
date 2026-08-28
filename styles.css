@@ -726,10 +726,17 @@
     box-shadow:0 0 0 2px #ffb020,0 4px 10px rgba(0,0,0,.3);}
   .bar-task.req-bar .ms-mark.ms-custom.dragging{z-index:9;}
   .bar-task.req-bar .ms-mark.ms-custom.dragging .ms-dot{box-shadow:0 0 0 3px rgba(255,210,63,.55),0 2px 6px rgba(0,0,0,.4);}
-  /* 需求条联动高亮（hover/选中）：醒目描边环 + 脉冲动画。用 outline+filter，不覆盖 box-shadow（保住品级色条/进度/水洗蒙版） */
-  .bar-task.req-bar.req-glow{z-index:8;outline:3px solid #ffb020;outline-offset:1.5px;animation:reqGlowPulse 1.1s ease-in-out infinite;}
+  /* 需求条联动高亮（hover/选中）：醒目描边环 + 脉冲动画。用 outline+filter，不覆盖 box-shadow（保住品级色条/进度/水洗蒙版）
+     v7.72 修复：原规则带 .req-bar 限定，而该类**仅存在于「按需求看」视图**（app.js L3205/3217 生成）。
+     「按成员看」视图的条只有 .bar-task（无 .req-bar）→ 整条规则不匹配 → outline-style 回落 none
+     → JS 虽已加上 .req-glow 类（实测 8 条）却完全看不见描边与脉冲，表现为"节点亮了但需求条没反应"。
+     现拆为「视图无关基础规则」+「按需求视图下的层级加强」两段，两种视图均生效。 */
+  .bar-task.req-glow{z-index:8;outline:3px solid #ffb020;outline-offset:1.5px;animation:reqGlowPulse 1.1s ease-in-out infinite;}
+  .bar-task.req-bar.req-glow{z-index:8;}
   @keyframes reqGlowPulse{0%,100%{outline-color:#ffb020;outline-offset:1.5px;filter:drop-shadow(0 0 2px rgba(255,176,32,.45));}
     50%{outline-color:#ffd23f;outline-offset:3px;filter:drop-shadow(0 0 7px rgba(255,176,32,.8));}}
+  /* v7.72：条内节点高亮同样去掉 .req-bar 前缀依赖 —— 按人视图的条内 .ms-mark 也需要亮起 */
+  .ms-mark.ms-active .ms-dot,.ms-mark.ms-active .ms-pdot{box-shadow:0 0 0 3px rgba(255,176,32,.65),0 1px 4px rgba(0,0,0,.5);}
   /* 节点/虚线联动高亮 */
   .ms-node.ms-active{transform:translateY(-50%) scale(1.12);box-shadow:0 0 0 2px #ffb020,0 3px 8px rgba(255,150,0,.4);z-index:11;}
   .bar-task.req-bar .ms-mark.ms-active .ms-dot,.bar-task.req-bar .ms-mark.ms-active .ms-pdot{box-shadow:0 0 0 3px rgba(255,176,32,.65),0 1px 4px rgba(0,0,0,.5);}

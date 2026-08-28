@@ -2296,7 +2296,30 @@ function syncMsLinks(){
     const row=reqId?document.querySelector(`.req-row[data-req-row="${reqId}"]`):null;
     link.style.top=base+'px';
     if(!row){
-      link.classList.add('free');   // 无目标需求行（按人视图 / 所属组被折叠）：全高淡显
+      /* v7.72：按人视图（无 .req-row）——原逻辑直接退化成 .free 全高贯穿虚线，
+         一根线从顶拉到底、与目标需求条毫无指向关系，用户自然觉得"虚线没连到需求上"。
+         改为：按该需求的所有任务条实测首尾，让虚线精确覆盖「第一条顶 → 最后一条底」的纵向区间，
+         视觉上就是把散落在不同成员行里的同一需求条真正串起来。 */
+      const bars=reqId?Array.from(document.querySelectorAll(`.bar-task[data-req="${reqId}"]`)):[];
+      if(bars.length){
+        /* 注意坐标系：.bar-task 是 .timeline 内的绝对定位元素，其 offsetTop 参照 .timeline（行内层），
+           而本虚线层与 .req-row 一样以 #grid 为参照 → 必须叠加所属行的 offsetTop 换算到 #grid 坐标。 */
+        let top=Infinity, bot=-Infinity;
+        bars.forEach(b=>{
+          const row=b.closest('.row');
+          const t=b.offsetTop + (row?row.offsetTop:0);
+          top=Math.min(top,t);
+          bot=Math.max(bot,t+b.offsetHeight);
+        });
+        if(isFinite(top)&&isFinite(bot)){
+          link.classList.remove('free');
+          link.style.bottom='auto';
+          link.style.top=top+'px';
+          link.style.height=Math.max(0,bot-top)+'px';
+          return;
+        }
+      }
+      link.classList.add('free');   // 真的无目标（所属组被折叠 / 需求已删）：全高淡显兜底
       link.style.height='';
       link.style.bottom='0';
       return;
@@ -5657,7 +5680,19 @@ function applyMsHighlight(){
   const id=_msHoverReq || (selectedBar&&selectedBar.reqId) || null;
   const msIdx=_msHoverMsIdx;
   const focusMode=!!msIdx;
-  if(id===_msApplied && msIdx===_msAppliedMsIdx) return;
+  /* v7.72 修复：原缓存判据只看内存变量 _msApplied/_msAppliedMsIdx，而重渲染（切视图、改节点日期、
+     增删需求等）会重建整个 DOM —— 所有 .ms-active/.req-glow 类被清空，但缓存变量纹丝不动。
+     此时再悬停同一个节点：id/msIdx 与缓存相同 → 直接 return → 一个高亮类都不加，
+     而 CSS 的弱化规则（body.ms-focus-mode）却照常生效 → 整个视图变灰且零高亮（实测 glowCount=0）。
+     修复：缓存命中时追加一次 DOM 实存校验——目标 id 至少要能查到已生效的高亮元素，
+     否则判定为「缓存失效（DOM 已被重建）」，强制重算。 */
+  if(id===_msApplied && msIdx===_msAppliedMsIdx){
+    const stillApplied = !id
+      || (focusMode
+            ? document.querySelectorAll(`.ms-node[data-req="${id}"][data-msidx="${msIdx}"].ms-active`).length>0
+            : document.querySelectorAll(`.ms-node[data-req="${id}"].ms-active,.bar-task[data-req="${id}"].req-glow`).length>0);
+    if(stillApplied) return;
+  }
   _msApplied=id||'__none__';
   _msAppliedMsIdx=msIdx||'__none__';
   /* 清除旧状态 */
