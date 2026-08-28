@@ -179,6 +179,7 @@ function personGroupKey(m){
   if(mode==='lead'){ const L=leadOf(m); return L?{key:'lead:'+L,label:'隶属 '+L,color:leadColor(L)}:{key:'lead:free',label:'游离 / 无带队归属',color:'#a3acba'}; }
   if(mode==='corp'){
     if(isExtLoan(m)) return {key:'corp:loan',label:'外借支援（非角色线）',color:'#f08c00'};
+    if(isLoanIn(m)) return {key:'corp:loanin',label:'借入支援',color:'#0b7285'};
     if(m.corp==='reg'||m.corp==='sub') return {key:'corp:reg',label:'正编 / 子公司',color:'#0052d9'};
     return {key:'corp:base',label:'基地',color:'#56607a'};
   }
@@ -191,7 +192,7 @@ function reqGroupKey(r){
   return null;   // none
 }
 /* 分组顺序：corp 用固定优先级，其余按出现顺序。 */
-const CORP_GROUP_ORDER=['corp:reg','corp:base','corp:loan'];
+const CORP_GROUP_ORDER=['corp:reg','corp:base','corp:loanin','corp:loan'];
 function groupSortVal(key){ const i=CORP_GROUP_ORDER.indexOf(key); return i<0?99:i; }
 
 /* 按人视图成员排序规则（v6.87 引入，彻底解决新成员恒排末尾的顽疾）：
@@ -361,6 +362,7 @@ function curLoan(m){ return (m && m.loan && m.loan.state!=='ended') ? m.loan : n
    注：基地用淡白底，需深字 txt + 描边 bord 才能在深色需求条上可见(纯白条/白字会看不见)；正编/子公司为实色底配白字。 */
 function corpStyle(m){
   if(isExtLoan(m)) return {key:'loan',label:'外借支援',col:'#f08c00',short:'借',txt:'#fff',bord:'',tex:'',outline:''};
+  if(isLoanIn(m)) return {key:'loanin',label:'借入支援',col:'#0b7285',short:'借入',txt:'#fff',bord:'',tex:'',outline:''};
   // 已离职：冷调淡蓝白 + 无纹理 + 虚线描边 + 贯穿划除线（strike）—— 一条线把人划掉，语义最直接
   if(effLeft(m)) return {key:'gone',label:'已离职',col:'#e6ecf6',short:'离',txt:'#6b7385',bord:'#a9b8d0',
     tex:'', outline:'dashed', strike:'#222'};
