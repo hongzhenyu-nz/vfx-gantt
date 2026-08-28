@@ -767,7 +767,7 @@
      汇总行里只有 .ms-node 没有 .bar-task → 永远不会被标记 → 命中本规则第一段被降到 0.35。
      实测：悬停节点后 rowOp 由 1 → 0.35（节点自身因 .ms-active 仍是 1，但行背景/文字全透明），
      表现为「关键节点行整体变半透明」。加 :not(.ms-summary-row) 使其恒保持满亮。 */
-  body.ms-focus-mode .row:not(.ms-focused-row):not(.ms-summary-row),
+  body.ms-focus-mode .row:not(.ms-focused-row):not(.ms-summary-row):not(.row.head):not(.load-heatmap),
   body.ms-focus-mode .bar-task:not(.req-glow),
   body.ms-focus-mode .ms-node:not(.ms-active),
   body.ms-focus-mode .ms-mark:not(.ms-active){opacity:var(--ms-dim-opacity,.35)!important;transition:opacity .3s ease;}
@@ -781,7 +781,8 @@
      且不触碰红线。另注意 .ms-node 无法单独提层——父级 .ms-summary-row 是
      position:sticky + z-index:7，已创建层叠上下文，子元素的 z-index 被囚禁其内。 */
   body.ms-focus-mode .vline{opacity:var(--ms-dim-vline,.15)!important;transition:opacity .3s ease;}
-  body.ms-focus-mode .daycol.we,body.ms-focus-mode .daycol.hol{opacity:var(--ms-dim-daycol,.18)!important;transition:opacity .3s ease;}
+  /* v7.73e2：排除表头行内的 .daycol（日期列底纹）—— 聚焦时顶部日期栏必须保持可读，周末/假日底纹不应变暗。 */
+  body.ms-focus-mode .row:not(.row.head) .daycol.we,body.ms-focus-mode .row:not(.row.head) .daycol.hol{opacity:var(--ms-dim-daycol,.18)!important;transition:opacity .3s ease;}
   body.ms-focus-mode .prog{--bar-grid-opacity:var(--ms-dim-grid,.05);}
   /* v7.47：需求条内关键节点的文字标签层（挂 #grid、无 overflow 裁切 → 允许出框）。
      z-index:7 低于今天红线层(8)，与关键节点汇总行(6)/负载带(6)同级但不穿透冻结信息行(7)。 */
