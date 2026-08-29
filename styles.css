@@ -344,7 +344,24 @@
 
   .cell-left{width:var(--left-w);min-width:var(--left-w);border-right:1px solid var(--line);display:flex;align-items:center;padding:8px 14px;gap:10px;position:sticky;left:0;background:var(--panel);z-index:4;transition:background .12s;}   /* v7.23 z-index 9→4 回退：v7.18 提到 9 是为挡红线，v7.19 起红线已改由 today-layer 的 clip-path 几何裁剪（syncTodayLabel），z9 失去意义且反超 load-heatmap(6)/row.head(7)，导致纵向滚动时数据行左栏卡片盖到冻结表头与「团队负载」热力带上（层级穿透）。降回 4 恢复 v7.14 阶梯，红线行为不变。 */
   .row.head .cell-left{background:#fafbfc;z-index:9;}
-  .timeline{position:relative;flex:1;display:flex;align-items:center;}
+  /* v7.81 层级隔离（与 v7.14 .grp-header 同构的穿透修复）：
+     .timeline 原本只有 position:relative、z-index 为 auto → 不构成层叠上下文，
+     其内部的任务条把 z-index 直接「逃逸」到 #grid 根层叠上下文，与行级/栏级元素同场竞争。
+     实测后果（把条拖到左栏正上方做 elementFromPoint 命中测试）：
+       .bar-task             z=1  → 命中冻结栏，正常被挡
+       .bar-task.sel         z=3  → 命中冻结栏，正常被挡
+       .bar-task.req-glow    z=8  → 命中条自身的 .grip，已穿透左栏
+       .bar-task.dragging    z=30 → 穿透
+       .bar-task.sel.dragging z=31 → 穿透
+     即：需求定位高亮、拖拽中、「选中+拖拽」三种状态下，任务条会盖住左侧冻结名栏（z-index 4），
+     同理也会盖住冻结表头(7)与「团队负载」热力带(6)。横向滚动时表现为条压在左栏之上，
+     纵向滚动时表现为条钻到表头之上——这正是「甘特条层级显示异常」的根源。
+     修法沿用 v7.14 范式：给 .timeline 补 z-index:0，让它成为独立层叠上下文，
+     把任务的全部 z-index（1/3/8/30/31）关回甘特区内部，只在同行条之间竞争，不再参与根阶梯。
+     阶梯关系：timeline 0 < grp-header 3 < cell-left 4 < load-heatmap 6 < row.head 7 < today-layer 8
+     红线/拖拽参考线/落点带都在 .timeline 之外，层级不受影响；条内相对顺序（选中>普通、
+     拖拽>选中、glow>普通）在 timeline 内部照旧生效。 */
+  .timeline{position:relative;flex:1;display:flex;align-items:center;z-index:0;}
   /* v7.20：冻结名栏右缘给出连续的蓝色锚线，并向时间轴延伸一小段淡色导轨。
      不改变任务条颜色或数据，只让眼睛能一眼把左侧名字和同一水平行的时间条连起来。 */
   #grid > .row:not(.head):not(.load-heatmap):not(.vacant-row):not(.row-target):not(.chip-target) .cell-left::after{content:'';position:absolute;right:0;top:0;bottom:0;width:3px;background:rgba(29,111,214,.32);pointer-events:none;}
