@@ -1387,14 +1387,25 @@
   .req-row.chip-target .cell-left{background:#fff3e0;box-shadow:inset 4px 0 0 #f08c00!important;}
   .req-row.chip-target .cell-left::after{content:'拖到此需求改派';position:absolute;right:10px;top:8px;background:#f08c00;color:#fff;font-size:10px;font-weight:700;padding:2px 8px;border-radius:10px;z-index:3;}
   /* 任务条选中（复制/剪切目标）
-     v7.79：移除 outline + outline-offset（outline 绘制在 border-box 外，不受 overflow:hidden 裁剪，
-     导致选中条靠近视口边缘时 outline 溢出容器边界，视觉上"超出边框"）。
-     改用 box-shadow 完全模拟选中效果：
-       - 内描边：inset 0 0 0 2px #1d6fd6（替代原 outline，受 overflow 裁剪，不溢出）
-       - 外光晕：0 0 0 3px rgba(29,111,214,.22)（替代原 outline-offset 扩展区，同样受裁剪）
-       - 阴影深度：0 2px 8px rgba(0,0,0,.28)（保留立体感）
-       - 品级色条：inset 3px 0 0 var(--gcol)（v6.85 遗留，选中时色条不消失） */
-  .bar-task.sel{outline:none;box-shadow:inset 0 0 0 2px #1d6fd6,0 0 0 3px rgba(29,111,214,.22),0 2px 8px rgba(0,0,0,.28),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))!important;z-index:3;}
+     v7.79：移除 outline + outline-offset。outline 绘制在 border-box 之外，向外扩 2.5px+1px offset，
+     形成一圈硬边蓝框，紧贴容器边缘时看起来"超出边框"。
+     注：元素自身的 overflow:hidden 只裁剪后代内容，对自身的 outline/外阴影均无效；
+     真正裁剪外扩效果的是祖先 .scroll(overflow:auto) 与 .board(overflow:hidden)。
+     故不能靠 overflow 兜底，只能把硬边描边改为向内绘制。
+     v7.80：.sel 改用 :not(.dragging) 限定，见下方说明。 */
+  .bar-task.sel:not(.dragging){outline:none;box-shadow:inset 0 0 0 2px #1d6fd6,0 0 0 3px rgba(29,111,214,.22),0 2px 8px rgba(0,0,0,.28),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))!important;z-index:3;}
+  /* v7.80 层级修复：.bar-task.dragging{z-index:30} 在 L559，.bar-task.sel 在本处更靠后，
+     两者特异性同为 (0,2,0)，后写的 .sel 会反向覆盖 —— 实测选中条被拖拽时 z-index 被压成 3，
+     钻到其它条下方，且 dragging 的抬升阴影被 .sel 的 !important 顶掉。
+     处理：.sel 用 :not(.dragging) 让位给拖拽态；「选中 + 拖拽」单独抬到 31（高于普通拖拽 30），
+     既保留选中蓝描边，又保留拖拽的 0 6px 18px 抬升阴影。 */
+  .bar-task.sel.dragging{z-index:31;box-shadow:inset 0 0 0 2px #1d6fd6,0 0 0 3px rgba(29,111,214,.22),0 6px 18px rgba(0,0,0,.32),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))!important;}
+  /* v7.80 描边可见度修复：inset box-shadow 属于父元素背景层，绘制顺序在后代内容之下，
+     会被铺满全条的 .prog（进度色 + 格线）覆盖，实测 #1d6fd6 被冲淡约 50% 成 rgb(142,183,235)，
+     且冲淡程度随进度位置变化，描边深浅不一致。
+     改由 .prog 自己画同色内描边，叠在进度色之上，颜色稳定纯正（border-radius:inherit 跟随圆角）。
+     .prog 隐藏的条（如 .k-qa）自动回退到上方父元素的 inset 描边。 */
+  .bar-task.sel .prog{box-shadow:inset 0 0 0 2px #1d6fd6;}
   .bar-task.cut-mark{opacity:.45;filter:grayscale(.5);}
   /* 粘贴目标行高亮 */
   .row.paste-target .cell-left{background:#e7f7ee;box-shadow:inset 4px 0 0 #1fae5a;}
