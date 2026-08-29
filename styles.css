@@ -587,7 +587,10 @@
   .b-lt{background:var(--c-lt);}
   .b-lt0{background:var(--c-lt0);color:var(--c-lt0-tx);text-shadow:none;}   /* v7.30 淡紫，色值由 --c-lt0 变量驱动（色盘可改） */
   .bar-task.b-lt0:not(.vacant-bar) .sdot{background:var(--c-lt0-sdot);}
-  .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(61,47,79,var(--bar-grid-opacity,.07)) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),color-mix(in srgb, var(--c-lt0-tx) 15%, transparent) calc(var(--p,0)*1%) 100%);}
+  /* v7.78：b-lt0 格线颜色统一为白色，与普通条一致。
+     历史用 rgba(61,47,79,.07) 深紫黑是 v7.25 为防浅底过曝的妥协，
+     实际效果导致深色条内栅格呈黑色、与白栅格视觉不一致（用户反馈）。 */
+  .bar-task.b-lt0:not(.vacant-bar) .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,var(--bar-grid-opacity,.16)) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),color-mix(in srgb, var(--c-lt0-tx) 15%, transparent) calc(var(--p,0)*1%) 100%);}
   .b-done{background:var(--bar-done,#4ecba0);}  /* 已完成专用青绿，与低风险安全绿 #1fae5a 区分。v7.56 变量化，兜底=原值 */
   /* v7.57 终态色优先级最高：**已完成/废弃必须压过开放条 .open 的底色**（规则实体见下方 .open 之后）。
      原因见「v7.57 终态色优先级」注释块——.open 用 background-color 整片盖掉 .b-done，
