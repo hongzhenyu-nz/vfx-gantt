@@ -1278,7 +1278,7 @@ const memEff =id=>{const m=members.find(m=>m.id===id);return m?m.eff:1;};
    每档：{coef:系数, label:对应人群说明, mems:[成员id]}。
    档位的 coef 是该档全部成员 eff 的唯一来源；改档即改算法基线。 */
 let EFF_TIERS = buildDefaultTiers();
-let effLocked = true;  // 系数标定默认锁定，防误操作（在 snapshot/ORIG 之前声明，避免 TDZ）
+let effLocked = true;  // 系数标定默认锁定，防误操作（在 snapshot 之前声明，避免 TDZ）
 let estRecalc = false; // 是否已用真实排期(投入比×效率)重算过占位工作量；一次性，随快照持久化
 const EST_RECALC_VER = 4; // 重算口径版本：v1=初始；v2=投入比系数调整+跟进并行分摊；v3=所有跟进型消化系数归零（不消化人天）；v4=投入比区间模型(clamp(hi/并行数,lo,hi))
 let estRecalcVer = 0;     // 已重算到的版本，随快照持久化
@@ -7232,7 +7232,9 @@ function syncOrgUI(){
   const ao=document.getElementById('archiveOn'); if(ao)ao.checked=ARCHIVE.on;
   if(typeof updateGroupSelUI==='function') updateGroupSelUI();
 }
-const ORIG=JSON.parse(JSON.stringify(snapshot()));
+/* v7.76：ORIG（内置初始排期的内存快照）随旧 resetData() 一并移除。
+   该按钮已从「用出厂数据覆盖全团队排期」改为「仅重置本机查看设置」，不再需要业务数据基线。
+   如需恢复此能力，重建方式：const ORIG=JSON.parse(JSON.stringify(snapshot())); */
 function localSnapshot(){
   const s=snapshot();
   if(Array.isArray(s._log) && s._log.length>LOCAL_LOG_MAX) s._log=s._log.slice(-LOCAL_LOG_MAX);
@@ -7267,7 +7269,73 @@ function save(){
   }
 }
 function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.parse(v));}catch(e){console.warn('local snapshot load failed',e);}}
-function resetData(){if(!requireWrite())return;pushHistory();applySnap(JSON.parse(JSON.stringify(ORIG)));try{localStorage.removeItem(KEY);}catch(_){}_logDesc='重置为初始排期';broadcast();rerender();if(typeof applyEffLockUI==='function')applyEffLockUI();if(typeof applyStdLockUI==='function')applyStdLockUI();if(typeof applyInvLockUI==='function')applyInvLockUI();toast('已重置为初始排期');}
+/* ─────────────────────────────────────────────────────────────────────────────
+   v7.76「重置」= 仅重置本机查看设置，绝不触碰任何业务数据。
+   （旧实现 resetData() 会用内置初始排期 applySnap 覆盖全团队数据并 broadcast，
+     那是破坏性的团队级操作，已于 v7.76 移除，详见下方排除清单。）
+   ─────────────────────────────────────────────────────────────────────────────
+   【允许覆盖 —— 纯本机查看偏好，每项只写自己的 localStorage key】
+     1. 配色 · 联调/超期三色            → resetUserColors()
+     2. 配色 · 关键节点色板              → resetMsPalette()
+     3. 显示 · 六项滑块（饱和/条宽/阴影/底纹/栅格/弱化）→ resetDisplaySettings()
+     4. 显示 · 竖虚线浓度                → setMsLinkOpac(100)
+     5. 显示 · 栅格间隙                  → setGridGap(0)（0=自动）
+     6. 版面 · 左侧栏宽                  → setLeftW(340)（LEFTW_DEF）
+     7. 排序 · 规则权重（5 维度）         → resetSortRules()
+     8. 标签 · 条内三开关                → changeLblShow() ×3
+     9. 布局 · 分组折叠状态              → collapsed 清空 + removeItem('gantt_collapsed')
+    10. 筛选 · 焦点模式                  → #focusSel='off' + changeFocus()
+
+   【必须排除 —— 任何会改动业务数据或影响他人的操作】
+     ✗ applySnap() / ORIG 内置排期基线  —— 会用出厂数据覆盖全团队排期
+     ✗ save()                           —— 业务快照写盘
+     ✗ broadcast()                      —— 团队广播（内部还含 save + cloudPush）
+     ✗ pushHistory()                    —— 不进撤销栈，避免撤销时误改数据
+     ✗ localStorage.removeItem(KEY)     —— 业务快照
+     ✗ resetMemberSort()                —— m.sort 是云端业务数据（成员顺序）
+     ✗ changeArchiveVal/Unit/On()       —— ARCHIVE 超期归档，团队共享
+     ✗ changeHideDone()                 —— HIDE_DONE 隐藏已完成，团队共享
+     ✗ GROUP_MODE 分组方式               —— 半共享，本地重置会被下次云端同步覆盖
+     ✗ CUSTOM_PRESETS / RECENT_COLORS   —— 用户手工积累的配色资产，清空不可恢复
+     ✗ gantt_me / ME_CONFIRM_KEY / WECOM_VERIFIED_KEY —— 身份信息
+     ✗ requireWrite()                   —— 纯本机操作，只读模式下同样可用
+
+   注：多个 reset* 内部各自会 toast，但 toast 实现为「直接替换文本」，同步执行下
+       只显示最后一条，故末尾统一再提示一次即可。 */
+function resetLocalView(){
+  if(!confirm('恢复本机查看设置为默认？\n\n'
+    +'将重置：配色（含关键节点色板）、显示参数、左侧栏宽、排序规则权重、条内标签、分组折叠、焦点筛选。\n\n'
+    +'不会影响：任何排期数据、成员顺序、超期归档、隐藏已完成（后两项为团队共享）、你保存的自定义配色预设。\n\n'
+    +'此操作只作用于你自己的浏览器，不影响其他成员。'))return;
+
+  /* ① 配色 */
+  if(typeof resetUserColors==='function')resetUserColors();
+  if(typeof resetMsPalette==='function')resetMsPalette();
+  /* ② 显示参数 */
+  if(typeof resetDisplaySettings==='function')resetDisplaySettings();
+  if(typeof setMsLinkOpac==='function')setMsLinkOpac(100);
+  if(typeof setGridGap==='function')setGridGap(0);
+  /* ③ 版面 */
+  if(typeof setLeftW==='function')setLeftW(340);
+  /* ④ 排序规则权重（本机偏好；成员顺序 m.sort 属云端业务数据，不动） */
+  if(typeof resetSortRules==='function')resetSortRules();
+  /* ⑤ 条内标签 */
+  if(typeof changeLblShow==='function'){changeLblShow('inv',true);changeLblShow('md',true);changeLblShow('eff',true);}
+  /* ⑥ 分组折叠（collapsed 不在快照里，纯本机） */
+  try{
+    if(typeof collapsed==='object'&&collapsed){for(const k in collapsed)delete collapsed[k];}
+    localStorage.removeItem('gantt_collapsed');
+  }catch(_){}
+  /* ⑦ 焦点筛选 */
+  try{
+    const fs=document.getElementById('focusSel');
+    if(fs&&typeof changeFocus==='function'){fs.value='off';changeFocus();}
+  }catch(_){}
+
+  if(typeof syncViewPopValues==='function')syncViewPopValues();
+  if(typeof rerender==='function')rerender();
+  toast('↺ 已恢复本机查看设置为默认 · 排期数据未改动');
+}
 
 /* ============ Supabase 云端协作（全员实时读写 + 自动汇集，免后端） ============ */
 const SB_URL='https://pwjowpkaypfwykejhosp.supabase.co';
