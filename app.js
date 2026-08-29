@@ -9535,20 +9535,19 @@ function initVivid(){
   let v=100; try{const s=localStorage.getItem(VIVID_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}
   setVivid(v,true);
 }
-/* ===== 调试：条内栅格间距 ===== */
+/* ===== 栅格宽度 =====
+   v7.77 语义收敛：栅格宽度 = 时间轴单个时间单位（天）的像素宽，由 --day-w 唯一决定，
+   随缩放等比联动，与任务条长度完全无关。
+   历史遗留的「固定像素间距」(--grid-gap) 会让栅格与时间轴脱钩，其面板控件此前已从
+   index.html 移除，但本函数仍会读 localStorage 把旧值写回 CSS，属隐蔽回归源。
+   现一律清除，确保栅格严格锚定时间单位宽。保留函数签名以兼容重置流程调用。 */
 const GRIDGAP_KEY='gantt_gridgap';
 function setGridGap(v){
-  /* v=0 表示自动（跟随 --day-w 即每天一格）；否则为固定像素间距 */
-  v=Math.max(0,Math.min(48,Math.round(+v)));
+  document.documentElement.style.removeProperty('--grid-gap');
   const val=document.getElementById('gridGapVal');
-  if(val)val.textContent=v===0?'自动':v+'px';
-  const rng=document.getElementById('gridGapRange'); if(rng)rng.value=v;
-  if(v===0){
-    document.documentElement.style.removeProperty('--grid-gap');
-  }else{
-    document.documentElement.style.setProperty('--grid-gap',v+'px');
-  }
-  try{localStorage.setItem(GRIDGAP_KEY,v);}catch(_){}
+  if(val)val.textContent='自动';
+  const rng=document.getElementById('gridGapRange'); if(rng)rng.value=0;
+  try{localStorage.removeItem(GRIDGAP_KEY);}catch(_){}
 }
 function initGridGap(){
   let v=0; try{const s=localStorage.getItem(GRIDGAP_KEY); if(s!==null&&s!=='')v=+s;}catch(_){}

@@ -517,9 +517,11 @@
      改为 left:-3px 让 .prog 左缘顶到条的边框外缘（= 整天边界 si0*DAY_W），格线/休息日块自动对齐日期列。宽度用 right:-1px 覆盖到条右外缘。 */
   /* v6.85：品级色条改为 inset box-shadow 后 .bar-task 已无 border-left，
      故 .prog 不再需要 -3px 反向补偿，直接 inset:0 即与条外缘（=整天边界）对齐。 */
+  /* v7.77：格线周期直接取 var(--day-w)，删除 --grid-gap 覆盖分支。
+     栅格宽度必须严格 = 时间轴单个时间单位的像素宽，任何固定像素间距都会让栅格与时间轴脱钩。 */
   .bar-task .prog{position:absolute;top:0;bottom:0;left:0;right:0;z-index:0;pointer-events:none;border-radius:inherit;overflow:hidden;
     background-image:
-      repeating-linear-gradient(90deg,rgba(255,255,255,var(--bar-grid-opacity,.16)) 0 1px,rgba(255,255,255,0) 1px var(--grid-gap,var(--day-w,12px))),
+      repeating-linear-gradient(90deg,rgba(255,255,255,var(--bar-grid-opacity,.16)) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px)),
       linear-gradient(90deg,rgba(255,255,255,0) 0 calc(var(--p,0)*1%),rgba(255,255,255,.50) calc(var(--p,0)*1%) 100%);}
   /* v5.7 休息日暗块：周末/节假日在条内叠一层 45° 斜纹暗块，表达「这天停工·不算人天产出」。
      left 从条起始整天边界起算(k*DAY_W)自动对齐日期列。
@@ -538,7 +540,7 @@
   .bar-task .prog[style*="--p:0"]::after{display:none;}                   /* 0% 起步：整条浅色空槽、不画起点竖线 */
   .bar-task.open .prog::after,.bar-task.open-both .prog::after,.bar-task.open-front .prog::after,.bar-task.open-back .prog::after{display:none;} /* 无限延长：无明确起止，不画进度分界竖线 */
   /* 无限延长条：去掉基于 --p 的「已完成/未完成」深浅分区覆盖层，整条统一底色，只保留天格线 */
-  .bar-task.open .prog,.bar-task.open-both .prog,.bar-task.open-front .prog,.bar-task.open-back .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,var(--bar-grid-opacity,.16)) 0 1px,rgba(255,255,255,0) 1px var(--grid-gap,var(--day-w,12px)));}
+  .bar-task.open .prog,.bar-task.open-both .prog,.bar-task.open-front .prog,.bar-task.open-back .prog{background-image:repeating-linear-gradient(90deg,rgba(255,255,255,var(--bar-grid-opacity,.16)) 0 1px,rgba(255,255,255,0) 1px var(--day-w,12px));}
   .bar-task span{position:relative;z-index:1;text-overflow:ellipsis;overflow:hidden;pointer-events:none;text-shadow:0 1px 1px rgba(0,0,0,.18);}
   .bar-task .sdot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.95);margin-right:5px;flex-shrink:0;position:relative;z-index:1;pointer-events:none;}
   /* 任务条右上角「支援」角标：该任务跨队支援时标注（从姓名旁移到条上） */
@@ -1109,7 +1111,13 @@
   /* v5.34 暂缺占位行：区别于真人行的「缺人状态卡」
      v6.44：整行背景改半透 rgba（原为实心渐变 → 遮住时间轴日期/周末底纹）；
      名栏由 .cell-left 的 sticky 实心底覆盖，不受影响。 */
-  .row.vacant-row{background:rgba(255,240,220,.30);border-left:3px dashed #f87171;}
+  /* v7.77 栅格对齐修复：原 border-left:3px dashed 会占据布局空间，使本行内容（含 .timeline、
+     日期底纹 .daycol、任务条、条内格线）整体右移 3px，导致该行栅格与全局日期列错位 3px
+     （实测 457px vs 460px）。普通行在 v6.85 已改用 inset box-shadow 规避，占位行漏改。
+     现改为 ::before 绝对定位绘制同款红色虚线：不占布局空间，时间轴原点与其他行严格一致。 */
+  .row.vacant-row{background:rgba(255,240,220,.30);}
+  .row.vacant-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;
+    border-left:3px dashed #f87171;box-sizing:border-box;pointer-events:none;z-index:6;}
   .row.vacant-row .cell-left{display:flex;align-items:center;padding:6px 10px;background:linear-gradient(90deg,#fef9f0 0%,#fff5eb 100%);}
   .row.vacant-row .vacant-card{
     display:flex;align-items:center;gap:8px;flex:1;
