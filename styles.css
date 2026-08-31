@@ -1597,6 +1597,7 @@
   .add-modal .am-h .am-x:hover{background:#f1f2f5;color:#3a3f4a;}
   .add-modal .am-body{padding:14px 18px 4px;}
   .add-modal .fld{margin-bottom:13px;}
+  .add-modal .fld-hint{display:block;font-size:10px;color:var(--tx3);margin-top:3px;line-height:1.4;}
   .add-modal .fld>label{display:block;font-size:11px;font-weight:800;color:#7a828f;margin-bottom:5px;letter-spacing:.4px;}
   .add-modal select,.add-modal input[type=date],.add-modal input[type=number],.add-modal input[type=text]{
     width:100%;box-sizing:border-box;font-size:13px;padding:8px 10px;border:1.5px solid #dde2ea;border-radius:9px;

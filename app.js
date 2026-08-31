@@ -4620,10 +4620,12 @@ function renderCfgCharts(HR){
       {k:'金角品级', v:HR.gradeCount['金']||0, c:'#f6cf3f'},
       {k:'橙角品级', v:HR.gradeCount['橙']||0, c:'#f59e0b'},
       {k:'红角品级', v:HR.gradeCount['红']||0, c:'#ef3b39'},
+      /* v7.85：通用级单列（与 L4215 品级统计条口径一致），此前并入「未标品级」会误标 */
+      {k:'通用级', v:HR.gradeCount['通用']||0, c:(HR_GRADE['通用']||{}).col||'#3b82f6'},
     ];
     // 其余非零 key（空串等）合并为「未标品级」，不再整组丢弃
     let other = 0;
-    Object.keys(HR.gradeCount||{}).forEach(k => { if(k!=='金' && k!=='橙' && k!=='红') other += HR.gradeCount[k]||0; });
+    Object.keys(HR.gradeCount||{}).forEach(k => { if(k!=='金' && k!=='橙' && k!=='红' && k!=='通用') other += HR.gradeCount[k]||0; });
     if(other > 0) items.push({k:'未标品级', v:other, c:'#9aa1af'});
   }else if(cfgDim === 'corp'){
     /* v7.84：sub 正式名为「子公司」（与 app.js L370 badge 语义一致，此前误标「其他」）；
@@ -6967,8 +6969,12 @@ function openEditMember(memId){
       <div class="fld"><label>模块</label><select id="nmMod">${modOpt}</select></div>
     </div>
     <div class="row2">
+      <div class="fld"><label>品级</label><select id="nmGrade">${GRADE_OPTS_LIST.map(o=>`<option value="${o}" ${(m.grade||'')===o?'selected':''}>${o?o+'级':'（未标）'}</option>`).join('')}</select><small class="fld-hint">用于编制构成/品级统计；留「未标」则归入未标品级组</small></div>
       <div class="fld"><label>效率系数</label><input type="number" id="nmEff" value="${m.eff}" step="0.05" min="0"></div>
+    </div>
+    <div class="row2">
       <div class="fld"><label>状态</label><select id="nmStatus"><option value="on" ${m.status==='on'?'selected':''}>在岗</option><option value="new" ${m.status==='new'?'selected':''}>新人</option><option value="busy" ${m.status==='busy'?'selected':''}>忙碌</option><option value="leave" ${m.status==='leave'?'selected':''}>请假</option><option value="left" ${m.status==='left'?'selected':''}>离职</option></select></div>
+      <div class="fld"></div>
     </div>
     /* v7.48 表意优化：原来只有一句长勾选框「外借支援（编制在本团队，不隶属角色线，如武器特效）」，
        读不出「借出 / 借入 / 跨队支援」的区别。改为三态单选 + 条件展开对应字段，一眼看懂。
@@ -7048,6 +7054,7 @@ function confirmEditMember(){
   m.corp=corp;
   m.lead=lead;
   m.mod=mod;
+  m.grade=document.getElementById('nmGrade').value||'';   // v7.85 编辑器补回品级标定口
   m.eff=Math.round(eff*100)/100;
   m.status=document.getElementById('nmStatus').value;
   if(!Array.isArray(m.loanRecs)) m.loanRecs=[];
