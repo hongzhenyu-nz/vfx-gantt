@@ -4626,32 +4626,54 @@ function renderCfgCharts(HR){
     Object.keys(HR.gradeCount||{}).forEach(k => { if(k!=='金' && k!=='橙' && k!=='红') other += HR.gradeCount[k]||0; });
     if(other > 0) items.push({k:'未标品级', v:other, c:'#9aa1af'});
   }else if(cfgDim === 'corp'){
-    const CN = {reg:'正编', base:'基地', loan:'外借', sub:'其他'};
-    const CC = {reg:'#1d6fd6', base:'#1fae5a', loan:'#8b5cf6', sub:'#9aa1af'};
+    /* v7.84：sub 正式名为「子公司」（与 app.js L370 badge 语义一致，此前误标「其他」）；
+       配色对齐甘特编制徽标：正编/子公司蓝系、基地绿、外借橙 */
+    const CN = {reg:'正编', sub:'子公司', base:'基地', loan:'外借'};
+    const CC = {reg:'#0052d9', sub:'#2b6fe3', base:'#1fae5a', loan:'#f59e0b'};
     items = Object.keys(CN).map(k => ({k:CN[k], v:HR.corpCount[k]||0, c:CC[k]}));
+  }else if(cfgDim === 'modReq'){
+    /* v7.84 需求管线口径：九条管线按角色线标配人数（std）加权，与「人力分配」视图同源；
+       色取 modFamC 模块色族（与甘特条/角色线一致），同族同色由图例名称区分 */
+    // 按显示名聚合：modMeta('入局').s 与 modMeta('入局Cuts').s 同为「入局Cuts」，不合并会出现同名两行
+    const agg = {};
+    buildRoleLines().forEach(g => {
+      const k = modMeta(g.mod).s;
+      if(!agg[k]) agg[k] = {k, v:0, c:modFamC(g.mod)};
+      agg[k].v += g.roles.reduce((s,x) => s + (x.std||0), 0);
+    });
+    items = Object.values(agg).filter(x => x.v > 0).sort((a,b) => b.v - a.v);
   }else{
     const agg = {};
     members.forEach(m => { if(effLeft(m) || isVacantMem(m)) return; const md = m.mod || '未分配'; agg[md] = (agg[md]||0) + 1; });
     items = Object.entries(agg).map(([k,v]) => ({k:modMeta(k).s, v, c:modFamC(k)})).sort((a,b) => b.v - a.v);
     if(items.length > 6){ const rest = items.splice(6); items.push({k:'其他', v:rest.reduce((s,x)=>s+x.v,0), c:'#9aa1af'}); }
   }
-  // 暂缺占位单列灰色组（三维度统一），账目闭合：实人各组 + 暂缺 = HR.base
+  /* v7.84 暂缺占位改红色系：与甘特缺人占位条（.vacant-bar 红斜纹 / .vacant-badge #dc2626）语义一致——
+     红 = 缺人告警；灰 = 元数据缺失（未标品级）。donut 段用纯色 #f87171，图例色块用甘特同款红斜纹 */
   const vacN = HR.vacantCount || 0;
-  if(vacN > 0) items.push({k:'暂缺占位', v:vacN, c:'#d7dce3'});
+  if(vacN > 0 && cfgDim !== 'modReq') items.push({k:'暂缺占位', v:vacN, c:'#f87171', stripe:true});
   items = items.filter(x => x.v > 0);
   const total = items.reduce((s,x) => s + x.v, 0);   // 分母 = 各组之和，必闭合
   if(!total || !items.length){ el.innerHTML = '<div class="kpd-empty">暂无在岗成员数据</div>'; return; }
   let acc = 0;
   const segs = items.map(it => { const from = acc/total*100; acc += it.v; const to = acc/total*100; return `${it.c} ${from.toFixed(2)}% ${to.toFixed(2)}%`; }).join(',');
-  const legend = items.map(it => `<div class="dc-row"><i style="background:${it.c}"></i><span class="dc-k">${effEsc(it.k)}</span><b>${it.v} 人</b><span class="dc-p">${Math.round(it.v/total*100)}%</span></div>`).join('');
+  const unit = cfgDim === 'modReq' ? ' 人·标配' : ' 人';
+  const legend = items.map(it => {
+    const sw = it.stripe ? 'repeating-linear-gradient(-45deg,#f87171 0 3px,#fca5a5 3px 6px)' : it.c;
+    return `<div class="dc-row"><i style="background:${sw}"></i><span class="dc-k">${effEsc(it.k)}</span><b>${it.v}${unit}</b><span class="dc-p">${Math.round(it.v/total*100)}%</span></div>`;
+  }).join('');
+  const holeSub = cfgDim === 'modReq' ? '标配' : '在岗';
   el.innerHTML = `<div class="cfg-wrap">
-    <div class="dc-donut" style="background:conic-gradient(${segs})"><div class="dc-hole"><b>${total}</b><span>在岗</span></div></div>
+    <div class="dc-donut" style="background:conic-gradient(${segs})"><div class="dc-hole"><b>${total}</b><span>${holeSub}</span></div></div>
     <div class="dc-legend">${legend}</div>
   </div>
-  <div class="kpd-foot">口径：computeHR() 实时聚合（在岗 = 未 effLeft；暂缺占位单列灰组）；品级 = members[].grade（空 → 未标品级），编制 = members[].corp，模块 = members[].mod（色取模块色族）。${cfgDim==='mod' ? ' 需求侧其余管线（本体/3C、MVP、TPP 等）由上述成员跨线支援，不另占人头。' : ''}</div>`;
+  <div class="kpd-foot">口径：computeHR() 实时聚合（在岗 = 未 effLeft；暂缺占位单列红组，与甘特缺人占位同色）；品级 = members[].grade（空 → 未标品级），编制 = members[].corp，模块 = members[].mod / 需求管线 = buildRoleLines() 标配加权（色取模块色族）。${cfgDim==='mod' ? ' 需求侧其余管线（本体/3C、MVP、TPP 等）由上述成员跨线支援，不另占人头；全管线标配分布见「需求管线」页签。' : ''}</div>`;
 }
 
-/* ③ 高风险需求清单 */
+/* ③ 高风险需求清单
+   v7.84 图表化：顶部主因构成横条（逾期/缺口/超载/偏紧 优先级互斥归类）；
+   「剩余」列改倒计时进度条（≤3 天红 / ≤7 天橙 / 其余绿，逾期满格红）；
+   「缺口」列加人形圆点（1 点 = 1 人，上限 5 点）。 */
 function renderRiskList(){
   const el = document.getElementById('kpdRiskBody'); if(!el) return;
   const list = reqs.map(r => ({r, rk:reqRisk(r)})).filter(x => x.rk.lvl === '高');
@@ -4659,9 +4681,23 @@ function renderRiskList(){
   const noteEl = document.getElementById('kpdRiskNote');
   if(noteEl) noteEl.textContent = `共 ${list.length} 条 · 按排期末日升序`;
   if(!list.length){ el.innerHTML = '<div class="kpd-empty">✅ 当前无高风险需求</div>'; return; }
+  // 主因互斥归类（与行内 chips 同优先级：逾期 > 缺口 > 超载 > 偏紧）
+  const CAT = [
+    {k:'late', t:'逾期未完', c:'#dc2626', n:0},
+    {k:'gap',  t:'人力缺口', c:'#f87171', n:0},
+    {k:'over', t:'人员超载', c:'#f59e0b', n:0},
+    {k:'tight',t:'工期偏紧', c:'#facc15', n:0},
+  ];
+  const catOf = (r, rk) => (r.end < TODAY) ? 'late' : (rk.gapPpl > 0 ? 'gap' : ((rk.overloaded && rk.overloaded.length) ? 'over' : 'tight'));
+  list.forEach(({r, rk}) => { CAT.find(c => c.k === catOf(r, rk)).n++; });
+  const sumBar = CAT.filter(c => c.n > 0).map(c => `<i style="width:${(c.n/list.length*100).toFixed(1)}%;background:${c.c}" title="${c.t} ${c.n} 条"></i>`).join('');
+  const sumLegend = CAT.filter(c => c.n > 0).map(c => `<span><i style="background:${c.c}"></i>${c.t} ${c.n}</span>`).join('');
   const rows = list.map(({r, rk}) => {
     const overdue = r.end < TODAY;
     const leftTxt = overdue ? '已逾期' : `剩 ${rk.left} 工作日`;
+    // 倒计时进度条：刻度 15 个工作日
+    const dueW = overdue ? 100 : Math.min(100, Math.round((rk.left||0)/15*100));
+    const dueC = overdue || (rk.left||0) <= 3 ? '#dc2626' : (rk.left||0) <= 7 ? '#f59e0b' : '#22c55e';
     const chips = [];
     if(overdue) chips.push('<span class="rk-chip c-late">⚠ 逾期未完</span>');
     if(rk.gapPpl > 0) chips.push(`<span class="rk-chip c-gap">人力缺口 ${rk.gapPpl} 人</span>`);
@@ -4670,18 +4706,20 @@ function renderRiskList(){
     const g = r.grade || '';
     const gCol = g==='金' ? '#a37c00' : g==='橙' ? '#c2610a' : g==='红' ? '#ef3b39' : '#5c7080';
     const safeId = String(r.id).replace(/[^\w-]/g, '');
+    const dots = rk.gapPpl > 0 ? `<span class="rk-dots">${'●'.repeat(Math.min(rk.gapPpl,5))}</span>` : '';
     return `<tr>
       <td class="rt-name"><span class="rt-g" style="color:${gCol};border-color:${gCol}">${effEsc(g||'—')}</span><b>${effEsc(charShort(r.char)||r.name||'')}</b><span class="rt-mod">${effEsc(modMeta(r.mod).s)}</span></td>
-      <td class="${overdue?'rt-bad':''}">${leftTxt}</td>
+      <td class="${overdue?'rt-bad':''}"><div class="rk-duet">${leftTxt}</div><div class="rk-due"><i style="width:${dueW}%;background:${dueC}"></i></div></td>
       <td>${rk.ppl} 人</td>
-      <td class="${rk.gapPpl>0?'rt-bad':''}">${rk.gapPpl>0?'缺 '+rk.gapPpl:'—'}</td>
+      <td class="${rk.gapPpl>0?'rt-bad':''}">${dots}${rk.gapPpl>0?' 缺 '+rk.gapPpl:'—'}</td>
       <td>${chips.join(' ')}</td>
       <td><button class="rk-loc" onclick="kpiLocateReq('${safeId}')">📍 定位</button></td>
     </tr>`;
   }).join('');
-  el.innerHTML = `<div class="rt-wrap"><table class="rt-tbl">
+  el.innerHTML = `<div class="rk-sum"><div class="rk-sum-bar">${sumBar}</div><div class="rk-sum-legend">${sumLegend}</div></div>
+  <div class="rt-wrap"><table class="rt-tbl">
     <tr><th>需求</th><th>剩余</th><th>人力</th><th>缺口</th><th>主因</th><th></th></tr>${rows}</table></div>
-  <div class="kpd-foot">口径：reqRisk().lvl='高'（产能紧迫度 与 人力缺口 两维取高）；主因取 reqRisk().cause / overloaded / gapPpl；「定位」滚动到任务条并持续高亮 3.6s。</div>`;
+  <div class="kpd-foot">口径：reqRisk().lvl='高'（产能紧迫度 与 人力缺口 两维取高）；主因取 reqRisk().cause / overloaded / gapPpl（横条按 逾期>缺口>超载>偏紧 互斥归类）；「定位」滚动到任务条并持续高亮 3.6s。</div>`;
 }
 
 /* ④ 高峰负载率 · 色带峰值解读 */
@@ -4733,6 +4771,21 @@ function renderGapMatrix(){
   const colRanges = []; let off = 0;
   cols.forEach(c => { colRanges.push([off, c.weeks.length]); off += c.weeks.length; });
   const colPeak = (arr, rg) => { let pk = 0, pi = rg[0]; for(let i = rg[0]; i < rg[0]+rg[1]; i++){ if((arr[i]||0) > pk){ pk = arr[i]; pi = i; } } return {v:pk, wl:wkStartLabel(flatW[pi])}; };
+  /* v7.84 图表化：组头左侧管线色条（modFamC 色族）；区间峰值列加迷你条形（长度=缺口/区间最大缺口）；
+     合计行加 SVG 迷你趋势曲线（逐周总缺口折线，峰值点加重）。 */
+  let pkMax = 0;
+  groups.forEach(g => g.lines.forEach(l => l.cells.forEach(c => { if(c.gap > pkMax) pkMax = c.gap; })));
+  const sparkSVG = (vals) => {
+    const n = vals.length; if(!n) return '';
+    const maxV = Math.max(...vals, 1);
+    const W = Math.max(56, n*12), H = 26, padX = 5, padY = 4;
+    const px = i => n === 1 ? W/2 : padX + i*(W-2*padX)/(n-1);
+    const py = v => H - padY - (v/maxV)*(H-2*padY);
+    const pkI = vals.indexOf(Math.max(...vals));
+    const pts = vals.map((v,i) => `${px(i).toFixed(1)},${py(v).toFixed(1)}`).join(' ');
+    const dots = vals.map((v,i) => `<circle cx="${px(i).toFixed(1)}" cy="${py(v).toFixed(1)}" r="${i===pkI?3:1.8}" fill="${i===pkI?'#dc2626':'#f87171'}"/>`).join('');
+    return `<svg class="gm-spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="#ef3b39" stroke-width="1.6" stroke-linejoin="round"/>${dots}</svg>`;
+  };
   const head = `<tr><th class="gm-l">角色线</th><th>标配</th>${cols.map(c => `<th>${c.label}${c.sub?`<br><span>${c.sub}</span>`:''}</th>`).join('')}<th>区间峰值</th></tr>`;
   let body = '';
   let shownLines = 0, totalLines = 0;
@@ -4742,7 +4795,7 @@ function renderGapMatrix(){
     totalLines += g.lines.length;
     if(!visLines.length) return;
     shownLines += visLines.length;
-    body += `<tr class="gm-grp"><td colspan="${cols.length+3}">${effEsc(modMeta(g.mod).s)}管线</td></tr>`;
+    body += `<tr class="gm-grp"><td colspan="${cols.length+3}" style="box-shadow:inset 4px 0 0 ${modFamC(g.mod)}">${effEsc(modMeta(g.mod).s)}管线</td></tr>`;
     visLines.forEach(l => {
       let ci = 0;
       const tds = cols.map((c, k) => {
@@ -4757,7 +4810,8 @@ function renderGapMatrix(){
       }).join('');
       let rp = {gap:0, wl:''};
       l.cells.forEach((cell, i) => { if(cell.gap > rp.gap) rp = {gap:cell.gap, wl:wkStartLabel(flatW[i])}; });
-      body += `<tr><td class="gm-l">${effEsc(l.label)}</td><td>${l.std}</td>${tds}<td class="gm-pk">${rp.gap>0?'-'+rp.gap:'0'} <span class="gm-w">${rp.wl||''}</span></td></tr>`;
+      const mbar = rp.gap > 0 && pkMax > 0 ? `<span class="gm-mbar"><i style="width:${Math.round(rp.gap/pkMax*100)}%"></i></span>` : '';
+      body += `<tr><td class="gm-l">${effEsc(l.label)}</td><td>${l.std}</td>${tds}<td class="gm-pk">${mbar}${rp.gap>0?'-'+rp.gap:'0'} <span class="gm-w">${rp.wl||''}</span></td></tr>`;
     });
     const subTds = colRanges.map(rg => { const p = colPeak(wkTotByGrp[gi], rg); return `<td>${p.v>0?'-'+p.v:'0'}</td>`; }).join('');
     const subAll = colPeak(wkTotByGrp[gi], [0, flatW.length]);
@@ -4765,7 +4819,7 @@ function renderGapMatrix(){
   });
   const totTds = colRanges.map(rg => { const p = colPeak(wkTot, rg); return `<td>${p.v>0?'-'+p.v:'0'}</td>`; }).join('');
   const totAll = colPeak(wkTot, [0, flatW.length]);
-  body += `<tr class="gm-total"><td class="gm-l">合计（全管线）</td><td>—</td>${totTds}<td>${totAll.v>0?'-'+totAll.v:'0'} <span class="gm-w">${totAll.wl}</span></td></tr>`;
+  body += `<tr class="gm-total"><td class="gm-l">合计（全管线）</td><td>—</td>${totTds}<td><div class="gm-totpk">${totAll.v>0?'-'+totAll.v:'0'} <span class="gm-w">${totAll.wl}</span></div>${sparkSVG(wkTot)}</td></tr>`;
   const rangeTxt = {week:'近 4 周', month:'近 3 个月', custom:'自定义区间'}[gapRangeMode] || '';
   if(!shownLines){
     el.innerHTML = ctrls + `<div class="kpd-empty">✅ ${rangeTxt}内各管线均无缺口（点右上角「全部」可查看所有 ${totalLines} 条角色线）</div>`;
