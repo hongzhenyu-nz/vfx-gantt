@@ -12,7 +12,7 @@
      cache-control:max-age=600 独立缓存，会出现「index.html 已更新、styles.css/app.js 仍是旧缓存」
      的版本错配 → 视图崩坏（左栏空白/任务条不渲染）。版本号一变 URL 即变，强制重新拉取。
      ⚠️ 改动 styles.css 或 app.js 后，必须同步递增此处 ?v= 版本号。 -->
-<link rel="stylesheet" href="styles.css?v=7.81">
+<link rel="stylesheet" href="styles.css?v=7.82">
 
 </head>
 <body>
@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.81 · build 2026-08-29 16:31</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.82 · build 2026-08-31 15:59</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -53,11 +53,36 @@
   </div>
 
   <div class="kpis" id="sec-top">
-    <div class="kpi"><div class="lab">在岗编制人数</div><div class="val" id="kp-mem">—</div></div>
-    <div class="kpi"><div class="lab">高峰并行角色数量</div><div class="val" id="kp-maker">—</div></div>
-    <div class="kpi"><div class="lab">高峰负载率</div><div class="val w" id="kp-cfg">—</div></div>
-    <div class="kpi"><div class="lab">高风险需求</div><div class="val d" id="kp-gap">—</div></div>
-    <div class="kpi"><div class="lab">常规管线缺口</div><div class="val d" id="kp-lack">—</div></div>
+    <div class="kpi"><div class="lab">👥 在岗编制人数</div><div class="val" id="kp-mem">—</div><div class="sub" id="kp-mem-sub"></div></div>
+    <div class="kpi"><div class="lab">🎭 高峰并行角色数量</div><div class="val" id="kp-maker">—</div><div class="sub" id="kp-maker-sub"></div></div>
+    <div class="kpi"><div class="lab">⚡ 高峰负载率</div><div class="val w" id="kp-cfg">—</div><div class="sub" id="kp-cfg-sub"></div></div>
+    <div class="kpi"><div class="lab">⚠️ 高风险需求</div><div class="val d" id="kp-gap">—</div><div class="sub" id="kp-gap-sub"></div></div>
+    <div class="kpi"><div class="lab">🧩 常规管线缺口</div><div class="val d" id="kp-lack">—</div><div class="sub" id="kp-lack-sub"></div></div>
+  </div>
+
+  <!-- v7.82 KPI 详区（需求①–⑤）：与顶部五卡同一数据源，逐卡展开口径、构成与明细。
+       ① 编制构成图表 ② 口径已并入 kp-maker ③ 高风险清单 ④ 高峰负载率×色带 ⑤ 缺口×时间维度 -->
+  <div class="kpd-grid">
+    <div class="kpd">
+      <div class="kpd-h"><span class="kpd-t">👥 编制构成</span><span class="kpd-req">需求①</span>
+        <span class="kpd-tabs" id="cfgDimTabs"><button class="on" onclick="setCfgDim('grade',this)">品级构成</button><button onclick="setCfgDim('corp',this)">编制类型</button><button onclick="setCfgDim('mod',this)">模块分布</button></span>
+      </div>
+      <div class="kpd-b" id="kpdCfgBody"></div>
+    </div>
+    <div class="kpd">
+      <div class="kpd-h"><span class="kpd-t">⚠️ 高风险需求清单</span><span class="kpd-req">需求③</span><span class="kpd-note" id="kpdRiskNote"></span></div>
+      <div class="kpd-b" id="kpdRiskBody"></div>
+    </div>
+    <div class="kpd">
+      <div class="kpd-h"><span class="kpd-t">⚡ 高峰负载率 · 色带峰值解读</span><span class="kpd-req">需求④</span><span class="kpd-note">窗口 = 团队负载色带全周期</span></div>
+      <div class="kpd-b" id="kpdPeakBody"></div>
+    </div>
+    <div class="kpd">
+      <div class="kpd-h"><span class="kpd-t">🧩 管线缺口明细</span><span class="kpd-req">需求⑤</span>
+        <span class="kpd-tabs" id="gapRangeTabs"><button class="on" onclick="setGapRange('week',this)">按周</button><button onclick="setGapRange('month',this)">按月</button><button onclick="setGapRange('custom',this)">自定义</button></span>
+      </div>
+      <div class="kpd-b" id="kpdGapBody"></div>
+    </div>
   </div>
 
   <div class="bar">
@@ -542,7 +567,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.81"></script>
+<script src="app.js?v=7.82"></script>
 
 </body>
 </html>

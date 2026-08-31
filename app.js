@@ -1932,12 +1932,15 @@ function barCls(r,seg,m){
    - 深红：严重超载（>130%）
    - 灰色带闪烁标记：当天有活跃成员完全空闲（0任务）
    计算口径：仅统计在岗非离职、非暂缺成员；按需求段覆盖天数求和。 */
-function loadHeatmapHTML(){
+/* v7.82：周聚合统计抽为 teamLoadWeeks() —— 热力带渲染与 KPI「高峰负载率」卡（需求④）
+   共用同一周序列 / 成员过滤 / 工作日历 / 利用率口径（同源先例：v6.49 排期空隙标记复用 gapData）。
+   返回 {weeks, dayLoad, totalActive, activeMembers, memberHasTaskOnDay, idleMembers, wkStats, loadColor}；
+   wkStats[i] = {wi, s, e, workdays, totalAssignments, capacity, ratio, ratioPct, parallel, color, hasIdleInWk, leftPx, widthPx, counted} */
+function teamLoadWeeks(){
   // 1. 筛选有效在岗成员
   const activeMembers = members.filter(m =>
     !isVacantMem(m) && !effLeft(m) && !leftLong(m)
   );
-  if(activeMembers.length === 0) return '';
   const totalActive = activeMembers.length;
 
   // 2. 预计算每天的「被分配人次数」（一人同天多段=多次，并行度）
@@ -2002,11 +2005,7 @@ function loadHeatmapHTML(){
     return '#dc2626';
   };
 
-  // 6. 生成周粒度色带
-  let bars = '';
-  /* v7.14 负载行配平：额外收集每周指标，用于
-     ① 左侧标签的「峰 X% · 均 Y%」聚合数（原先左边只有「📊 负载」四字，与右侧整条大色带视觉失衡）
-     ② 色段下沿的「N人·X%」微标注（把颜色翻译成数字，让色带自解释） */
+  // 6. 逐周统计（v7.14 起原在 loadHeatmapHTML 内收集，行为不变：workdays 为 0 的周不计入聚合）
   const wkStats = [];
   weeks.forEach((wk, wi) => {
     const wkDays = wk.e - wk.s;
@@ -2037,19 +2036,29 @@ function loadHeatmapHTML(){
 
     const leftPx = wk.s * DAY_W;
     const widthPx = Math.min((wk.e - wk.s) * DAY_W, DAYS * DAY_W - leftPx);
-    const idleCls = hasIdleInWk ? ' idle-wk' : '';
-
     const ratioPct = Math.round(ratio * 100);
-    const tipParts = [`第${wi+1}周 利用率 ${ratioPct}%（${totalAssignments}人次/${capacity}容量）`];
-    if(hasIdleInWk && idleMembers.length > 0) tipParts.push(`⚠ ${idleMembers.map(m=>m.name).join('、')} 空闲`);
+    const parallel = workdays > 0 ? totalAssignments / workdays : 0;
+    wkStats.push({wi, s:wk.s, e:wk.e, workdays, totalAssignments, capacity, ratio, ratioPct, parallel, color, hasIdleInWk, leftPx, widthPx, counted: workdays > 0});
+  });
+
+  return {weeks, dayLoad, totalActive, activeMembers, memberHasTaskOnDay, idleMembers, wkStats, loadColor};
+}
+
+function loadHeatmapHTML(){
+  const LW = teamLoadWeeks();
+  if(LW.totalActive === 0) return '';
+  const {totalActive, idleMembers, wkStats} = LW;
+
+  // 6. 生成周粒度色带（数据全部来自 teamLoadWeeks，色值/hover 提示口径与此前完全一致）
+  let bars = '';
+  wkStats.forEach(w => {
+    const idleCls = w.hasIdleInWk ? ' idle-wk' : '';
+    const tipParts = [`第${w.wi+1}周 利用率 ${w.ratioPct}%（${w.totalAssignments}人次/${w.capacity}容量）`];
+    if(w.hasIdleInWk && idleMembers.length > 0) tipParts.push(`⚠ ${idleMembers.map(m=>m.name).join('、')} 空闲`);
     const tip = tipParts.join('　');
 
-    bars += `<div class="load-seg${idleCls}" style="left:${leftPx}px;width:${widthPx}px;background:${color}"
+    bars += `<div class="load-seg${idleCls}" style="left:${w.leftPx}px;width:${w.widthPx}px;background:${w.color}"
       onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()"></div>`;
-
-    // v7.14 记录本周指标（workdays 为 0 的周不计入聚合，避免把假期周算成 0% 拉低均值）
-    const parallel = workdays > 0 ? totalAssignments / workdays : 0;
-    wkStats.push({ratioPct, parallel, leftPx, widthPx, counted: workdays > 0});
   });
 
   /* v7.20：移除色段底部的「人数·占比」逐周微标注。
@@ -4404,33 +4413,422 @@ function renderHR(){
   document.getElementById('grid').innerHTML = html;
 }
 
+/* ============ v7.82 KPI 区增强（需求①–⑤） ============
+   ① renderCfgCharts   编制构成环形图（品级 / 编制类型 / 模块 三维度，数据源 computeHR）
+   ② peakParallelRoles 高峰并行角色数 = 未来30天「进行中需求覆盖的去重角色线数」峰值（替代原「角色线总数」口径）
+   ③ renderRiskList    高风险需求清单（reqRisk lvl='高'，主因标签 + 📍定位跳转甘特条）
+   ④ computePeakLoad + renderPeakPanel  高峰负载率 = 团队负载色带峰值周的供需人力比（与色带同一 teamLoadWeeks 数据源）
+   ⑤ gapMatrixByWeek + renderGapMatrix  管线缺口明细 = 角色线 × 周 缺口热力矩阵（按周 / 按月 / 自定义区间）
+   全部只读复用现有统计函数（computeHR / buildRoleLines / reqRisk / stdCfgBaseForReq / teamLoadWeeks），
+   不改任何数据采集；渲染入口统一挂在 updateKPIs 尾部。 */
+
+let cfgDim = 'grade';                          // ① 当前维度（paint 重渲染后保持）
+let gapRangeMode = 'week';                     // ⑤ 时间段模式：week / month / custom
+let gapRangeCustom = {from:null, to:null};     // ⑤ 自定义区间（teamLoadWeeks().weeks 下标）
+
+/* 周起点短标签（M/D），w = {s: dayIdx} */
+function wkStartLabel(w){ const d = new Date(START.getTime() + w.s*dayMs); return (d.getMonth()+1)+'/'+d.getDate(); }
+
+/* 需求②：未来30天逐周统计「进行中需求覆盖的去重角色线数」，取峰值及所在周。
+   角色线键 = 模块 × 角色 × 品级（与 buildRoleLines 聚合键一致）；周序列复用 teamLoadWeeks()。 */
+function peakParallelRoles(){
+  const LW = teamLoadWeeks();
+  const t0 = idx(TODAY), t1 = t0 + 30;
+  let best = {count:0, w:null};
+  LW.weeks.forEach(w => {
+    if(w.e <= t0 || w.s >= t1) return;          // 只看未来30天窗口
+    const lines = new Set();
+    reqs.forEach(r => {
+      if(r.kind !== 'fx' || reqIsCompleted(r)) return;
+      const hit = (r.segs||[]).some(sg => {
+        if(!segHasDuration(sg)) return false;
+        let si = idx(sg.s), ei = idx(sg.e);
+        const ot = segOpenType(sg);
+        if(ot==='front') si=0; else if(ot==='back') ei=DAYS; else if(ot==='both'){ si=0; ei=DAYS; }
+        return ei > w.s && si < w.e;
+      });
+      if(hit) lines.add((r.mod||'')+'::'+(r.char||'')+'::'+(r.grade||''));
+    });
+    if(lines.size > best.count) best = {count:lines.size, w};
+  });
+  return best;
+}
+
+/* 需求④：高峰负载率 = 色带峰值周的「供需人力比」。
+   峰值周 = teamLoadWeeks() 中排程利用率最高的一周（即色带最红色段，全周期，与色带标签「峰 X%」同一周）；
+   需求侧 = 该周并行（有排期覆盖）的未完成需求 × stdCfgBaseForReq 标配人力 加总；
+   供给侧 = 色带同一批在岗成员数（!isVacantMem && !effLeft && !leftLong）。 */
+function computePeakLoad(){
+  const LW = teamLoadWeeks();
+  const counted = LW.wkStats.filter(w => w.counted);
+  if(!counted.length || LW.totalActive === 0) return null;
+  let peak = counted[0];
+  counted.forEach(w => { if(w.ratioPct > peak.ratioPct) peak = w; });
+  const list = [];
+  reqs.forEach(r => {
+    if(r.kind !== 'fx' || reqIsCompleted(r)) return;
+    const std = stdCfgBaseForReq(r);
+    if(std <= 0) return;                        // 无标配模块不参与（与缺口统计口径一致）
+    const hit = (r.segs||[]).some(sg => {
+      if(!segHasDuration(sg)) return false;
+      let si = idx(sg.s), ei = idx(sg.e);
+      const ot = segOpenType(sg);
+      if(ot==='front') si=0; else if(ot==='back') ei=DAYS; else if(ot==='both'){ si=0; ei=DAYS; }
+      return ei > peak.s && si < peak.e;
+    });
+    if(hit) list.push({r, std});
+  });
+  const demand = list.reduce((s,x) => s + x.std, 0);
+  const supply = LW.totalActive;
+  return {LW, peak, list, demand, supply, rate: supply > 0 ? demand / supply : 0};
+}
+
+/* 需求⑤：管线缺口矩阵（角色线 × 周切片）。
+   线集合 / 聚合键与 buildRoleLines 同源（mod × char × grade，kind='fx'，仅保留有标配且未全完成的线）；
+   该周有未完成需求覆盖 ⇒ 标配 std 生效；gap(w) = max(0, std(w) − cfg)。
+   cfg 与 buildRoleLines 同口径：在岗基地真人（离职 / 暂缺 / 支援 / 正编带队均不占）。 */
+function gapMatrixByWeek(wkList){
+  const fxReqs = reqs.filter(r => r.kind === 'fx');
+  const modGroups = {};
+  fxReqs.forEach(r => { const m = r.mod || '其他'; (modGroups[m] = modGroups[m] || []).push(r); });
+  const modOrder = {'出场':0,'检视':1,'组队':2};
+  const gradeOrder = {'金':0,'橙':1,'红':2,'通用':3};
+  const groups = [];
+  for(const [mod, reqsOfMod] of Object.entries(modGroups)){
+    const charMap = {};
+    reqsOfMod.forEach(r => {
+      const key = (r.char||'') + '::' + (r.grade||'');
+      (charMap[key] = charMap[key] || {char:r.char, grade:r.grade, reqs:[]}).reqs.push(r);
+    });
+    const lines = [];
+    for(const {char:cname, grade, reqs:rl} of Object.values(charMap)){
+      if(!rl.some(r => stdCfgBaseForReq(r) > 0)) continue;    // 无标配模块：与 buildRoleLines 一致不统计
+      if(rl.every(r => reqIsCompleted(r))) continue;          // 全部完成：不计缺口
+      const baseSet = new Set();
+      rl.forEach(r => { (r.segs||[]).forEach(s => {
+        if(!segHasDuration(s)) return;
+        const m = memById(s.m); if(!m) return;
+        if(leftLong(m)) return;                               // 与 buildRoleLines（未完成线）一致：离职超期不计
+        if(effLeft(m) || isVacantMem(m)) return;
+        if(isSupportInReq(m, r)) return;
+        if(m.corp === 'reg') return;                          // 正编不占基地编制
+        baseSet.add(m.name);
+      });});
+      const cfg = baseSet.size;
+      const stdAll = rl.reduce((s,r) => s + stdCfgBaseForReq(r), 0);
+      const cells = wkList.map(w => {
+        let stdW = 0; const hitNames = [];
+        rl.forEach(r => {
+          if(reqIsCompleted(r)) return;
+          const std = stdCfgBaseForReq(r); if(std <= 0) return;
+          const hit = (r.segs||[]).some(sg => {
+            if(!segHasDuration(sg)) return false;
+            let si = idx(sg.s), ei = idx(sg.e);
+            const ot = segOpenType(sg);
+            if(ot==='front') si=0; else if(ot==='back') ei=DAYS; else if(ot==='both'){ si=0; ei=DAYS; }
+            return ei > w.s && si < w.e;
+          });
+          if(hit){ stdW += std; hitNames.push(charShort(r.char) || r.name || ''); }
+        });
+        return {std:stdW, gap: stdW > 0 ? Math.max(0, stdW - cfg) : 0, cfg, hitNames};
+      });
+      const shortC = charShort(cname);
+      const lineTag = rl[0] && rl[0].line && rl[0].line !== '-' ? ('·' + rl[0].line) : '';
+      lines.push({label:`${grade}（${shortC}${lineTag}）`, grade, mod, cfg, std:stdAll, cells});
+    }
+    if(lines.length){
+      lines.sort((a,b) => (gradeOrder[a.grade]??9) - (gradeOrder[b.grade]??9));
+      groups.push({mod, lines});
+    }
+  }
+  groups.sort((a,b) => (modOrder[a.mod]??9) - (modOrder[b.mod]??9));
+  return groups;
+}
+
+/* ⑤ 时间段 → 列模型：每列 {label, sub, weeks[]}。
+   按周 = 当前周起 4 周（1周/列）；按月 = 当前月起 3 个自然月（月内各周峰值聚合）；自定义 = 任选起止周。 */
+function gapRangeWeeks(mode){
+  const LW = teamLoadWeeks();
+  const all = LW.weeks.map((w,i) => ({s:w.s, e:w.e, wi:i}));
+  const todayI = idx(TODAY);
+  let curWi = all.findIndex(w => todayI >= w.s && todayI < w.e);
+  if(curWi < 0) curWi = Math.max(0, all.findIndex(w => w.e > todayI));
+  if(mode === 'month'){
+    const cols = []; let curKey = null;
+    all.forEach(w => {
+      const d = new Date(START.getTime() + w.s*dayMs);
+      const key = d.getFullYear() + '-' + (d.getMonth()+1);
+      if(key !== curKey){ cols.push({key, label:(d.getMonth()+1)+'月', sub:'', weeks:[w]}); curKey = key; }
+      else cols[cols.length-1].weeks.push(w);
+    });
+    const td = new Date(START.getTime() + todayI*dayMs);
+    const todayKey = td.getFullYear() + '-' + (td.getMonth()+1);
+    let si = cols.findIndex(c => c.key === todayKey); if(si < 0) si = 0;
+    return {cols: cols.slice(si, si+3), all, curWi};
+  }
+  if(mode === 'custom'){
+    let f = gapRangeCustom.from, t = gapRangeCustom.to;
+    if(f == null || t == null || f > t || f < 0 || t >= all.length){ f = curWi; t = Math.min(all.length-1, curWi+3); gapRangeCustom = {from:f, to:t}; }
+    return {cols: all.slice(f, t+1).map(w => ({label:wkStartLabel(w), sub:'W'+(w.wi+1), weeks:[w]})), all, curWi};
+  }
+  return {cols: all.slice(curWi, curWi+4).map(w => ({label:wkStartLabel(w), sub:'W'+(w.wi+1), weeks:[w]})), all, curWi};
+}
+
+/* 📍 高风险清单定位：横向滚到任务条所在日期 + 纵向定位行（展开折叠分组）+ 脉冲高亮 */
+function kpiLocateReq(id){
+  const r = reqs.find(x => String(x.id) === String(id)); if(!r) return;
+  // req 视图：复用 revealEntity（展开折叠分组 + 滚动到需求行 + just-new 脉冲）
+  if(typeof revealEntity === 'function') revealEntity('req', r.id);
+  // 成员视图兜底：.req-row 不存在时，直接平滑滚动到任务条本身（水平+垂直居中）。
+  // 注意：勿与 kpiScrollToDay 并用——两段 smooth 滚动会同轴互冲，后者取消前者。
+  requestAnimationFrame(()=>{
+    if(document.querySelector(`.req-row[data-req-row="${r.id}"]`)) return;
+    const bar = document.querySelector(`.bar-task[data-req="${r.id}"]`);
+    if(bar){ try{ bar.scrollIntoView({behavior:'smooth', block:'center', inline:'center'}); }catch(_){ bar.scrollIntoView(); } }
+  });
+  // 任务条脉冲高亮（与既有定位一致的 .flash 动画），等平滑滚动落地后触发
+  setTimeout(() => flashReq(r.id), 480);
+}
+/* ④ mini 色带点击：把该周滚到时间轴可视区左侧 1/3 处（与 scrollToToday 同一容器与算法） */
+function kpiScrollToDay(dayIdx){
+  const sc = document.getElementById('scroll'); if(!sc) return;
+  const lw = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-w')) || 340;
+  const viewW = Math.max(120, sc.clientWidth - lw);
+  const target = dayIdx * DAY_W - viewW/3;
+  const max = Math.max(0, sc.scrollWidth - sc.clientWidth);
+  const left = Math.max(0, Math.min(max, target));
+  if(sc.scrollTo) sc.scrollTo({left, behavior:'smooth'}); else sc.scrollLeft = left;
+  if(typeof syncTodayLabel === 'function') syncTodayLabel();
+}
+
+/* ① 编制构成环形图 */
+function renderCfgCharts(HR){
+  const el = document.getElementById('kpdCfgBody'); if(!el) return;
+  const total = HR.base || 0;
+  let items = [];
+  if(cfgDim === 'grade'){
+    items = [
+      {k:'金角品级', v:HR.gradeCount['金']||0, c:'#f6cf3f'},
+      {k:'橙角品级', v:HR.gradeCount['橙']||0, c:'#f59e0b'},
+      {k:'红角品级', v:HR.gradeCount['红']||0, c:'#ef3b39'},
+    ];
+  }else if(cfgDim === 'corp'){
+    const CN = {reg:'正编', base:'基地', loan:'外借', sub:'其他'};
+    const CC = {reg:'#1d6fd6', base:'#1fae5a', loan:'#8b5cf6', sub:'#9aa1af'};
+    items = Object.keys(CN).map(k => ({k:CN[k], v:HR.corpCount[k]||0, c:CC[k]}));
+  }else{
+    const agg = {};
+    members.forEach(m => { if(effLeft(m) || isVacantMem(m)) return; const md = m.mod || '未分配'; agg[md] = (agg[md]||0) + 1; });
+    items = Object.entries(agg).map(([k,v]) => ({k:modMeta(k).s, v, c:modFamC(k)})).sort((a,b) => b.v - a.v);
+    if(items.length > 6){ const rest = items.splice(6); items.push({k:'其他', v:rest.reduce((s,x)=>s+x.v,0), c:'#9aa1af'}); }
+  }
+  items = items.filter(x => x.v > 0);
+  if(!total || !items.length){ el.innerHTML = '<div class="kpd-empty">暂无在岗成员数据</div>'; return; }
+  let acc = 0;
+  const segs = items.map(it => { const from = acc/total*100; acc += it.v; const to = acc/total*100; return `${it.c} ${from.toFixed(2)}% ${to.toFixed(2)}%`; }).join(',');
+  const legend = items.map(it => `<div class="dc-row"><i style="background:${it.c}"></i><span class="dc-k">${effEsc(it.k)}</span><b>${it.v} 人</b><span class="dc-p">${Math.round(it.v/total*100)}%</span></div>`).join('');
+  el.innerHTML = `<div class="cfg-wrap">
+    <div class="dc-donut" style="background:conic-gradient(${segs})"><div class="dc-hole"><b>${total}</b><span>在岗</span></div></div>
+    <div class="dc-legend">${legend}</div>
+  </div>
+  <div class="kpd-foot">口径：computeHR() 实时聚合（在岗 = 未 effLeft 且非暂缺占位）；品级 = members[].grade，编制 = members[].corp，模块 = members[].mod（色取模块色族）。</div>`;
+}
+
+/* ③ 高风险需求清单 */
+function renderRiskList(){
+  const el = document.getElementById('kpdRiskBody'); if(!el) return;
+  const list = reqs.map(r => ({r, rk:reqRisk(r)})).filter(x => x.rk.lvl === '高');
+  list.sort((a,b) => (a.r.end||0) - (b.r.end||0));   // 排期末日升序 → 逾期/临近的排最前
+  const noteEl = document.getElementById('kpdRiskNote');
+  if(noteEl) noteEl.textContent = `共 ${list.length} 条 · 按排期末日升序`;
+  if(!list.length){ el.innerHTML = '<div class="kpd-empty">✅ 当前无高风险需求</div>'; return; }
+  const rows = list.map(({r, rk}) => {
+    const overdue = r.end < TODAY;
+    const leftTxt = overdue ? '已逾期' : `剩 ${rk.left} 工作日`;
+    const chips = [];
+    if(overdue) chips.push('<span class="rk-chip c-late">⚠ 逾期未完</span>');
+    if(rk.gapPpl > 0) chips.push(`<span class="rk-chip c-gap">人力缺口 ${rk.gapPpl} 人</span>`);
+    if(rk.overloaded && rk.overloaded.length) chips.push(`<span class="rk-chip c-over">超载 ${effEsc(rk.overloaded.join('、'))}</span>`);
+    if(!chips.length) chips.push(`<span class="rk-chip c-tight">${effEsc(rk.cause || '产能紧迫')}</span>`);
+    const g = r.grade || '';
+    const gCol = g==='金' ? '#a37c00' : g==='橙' ? '#c2610a' : g==='红' ? '#ef3b39' : '#5c7080';
+    const safeId = String(r.id).replace(/[^\w-]/g, '');
+    return `<tr>
+      <td class="rt-name"><span class="rt-g" style="color:${gCol};border-color:${gCol}">${effEsc(g||'—')}</span><b>${effEsc(charShort(r.char)||r.name||'')}</b><span class="rt-mod">${effEsc(modMeta(r.mod).s)}</span></td>
+      <td class="${overdue?'rt-bad':''}">${leftTxt}</td>
+      <td>${rk.ppl} 人</td>
+      <td class="${rk.gapPpl>0?'rt-bad':''}">${rk.gapPpl>0?'缺 '+rk.gapPpl:'—'}</td>
+      <td>${chips.join(' ')}</td>
+      <td><button class="rk-loc" onclick="kpiLocateReq('${safeId}')">📍 定位</button></td>
+    </tr>`;
+  }).join('');
+  el.innerHTML = `<div class="rt-wrap"><table class="rt-tbl">
+    <tr><th>需求</th><th>剩余</th><th>人力</th><th>缺口</th><th>主因</th><th></th></tr>${rows}</table></div>
+  <div class="kpd-foot">口径：reqRisk().lvl='高'（产能紧迫度 与 人力缺口 两维取高）；主因取 reqRisk().cause / overloaded / gapPpl；「定位」复用 flashReq 滚动定位+高亮。</div>`;
+}
+
+/* ④ 高峰负载率 · 色带峰值解读 */
+function renderPeakPanel(pl){
+  const el = document.getElementById('kpdPeakBody'); if(!el) return;
+  if(!pl){ el.innerHTML = '<div class="kpd-empty">暂无负载数据</div>'; return; }
+  const {LW, peak, list, demand, supply, rate} = pl;
+  const todayI = idx(TODAY);
+  const cells = LW.wkStats.map(w => {
+    const isPk = w.wi === peak.wi;
+    const isToday = todayI >= w.s && todayI < w.e;
+    const tip = `第${w.wi+1}周（${wkStartLabel(w)} 起）利用率 ${w.ratioPct}%` + (isPk ? '　▲ 峰值周' : '');
+    return `<div class="mb-cell${isPk?' pk':''}${isToday?' mb-today':''}" style="background:${w.color}" onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()" onclick="kpiScrollToDay(${w.s})">${isPk?'<span class="pk-flag">▲峰值</span>':''}</div>`;
+  }).join('');
+  const pct = Math.round(rate*100);
+  const chip = pct > 110 ? '<span class="pk-chip bad">超载 &gt;110%</span>' : pct > 85 ? '<span class="pk-chip warn">预警 85–110%</span>' : '<span class="pk-chip ok">正常 ≤85%</span>';
+  const scale = Math.max(demand, supply, 1) * 1.15;
+  const dTxt = Math.round(demand*10)/10;
+  const rows = list.slice().sort((a,b) => b.std - a.std).slice(0, 8)
+    .map(x => `<div class="bd-r"><span>${effEsc(charShort(x.r.char)||'')} · ${effEsc(modMeta(x.r.mod).s)}</span><b>${x.std}</b></div>`).join('');
+  el.innerHTML = `
+  <div class="mb-wrap"><div class="mini-band">${cells}</div></div>
+  <div class="sd-head"><span class="sd-week">峰值周 ${wkStartLabel(peak)} 当周</span> 色带排程利用率 <b>${peak.ratioPct}%</b>（最红色段）· 并行需求 <b>${list.length} 条</b> · 点击色段定位该周</div>
+  <div class="sd-row"><span class="sd-name" style="color:var(--red)">并行需求折算人力</span><div class="sd-track"><i style="width:${(demand/scale*100).toFixed(1)}%;background:linear-gradient(90deg,#f59e0b,#ef3b39)"></i></div><span class="sd-val" style="color:var(--red)">${dTxt}</span></div>
+  <div class="sd-row"><span class="sd-name" style="color:var(--blue)">高峰并行人员</span><div class="sd-track"><i style="width:${(supply/scale*100).toFixed(1)}%;background:var(--blue)"></i></div><span class="sd-val" style="color:var(--blue)">${supply} 人</span></div>
+  <div class="pk-formula"><span class="fx">高峰负载率 = ${dTxt} ÷ ${supply} = ${pct}%</span>${chip}<span class="fx-note">＝ 色带峰值格的含义</span></div>
+  <div class="bd-t">需求侧拆解（该周并行需求 × STD_CFG 标配人力）</div>
+  <div class="bd-grid">${rows || '<div class="bd-r"><span>该周无标配需求</span><b>0</b></div>'}</div>
+  <div class="kpd-foot">口径：周序列 / 成员过滤 / 工作日历与团队负载色带同一 teamLoadWeeks()；峰值周 = 色带排程利用率最高周（全周期）。色带格 ${peak.ratioPct}% = 已排口径（含一人多段并行）；本卡 ${pct}% = 需求口径（stdCfgBaseForReq 标配折算）；差值 ≈ 缺口未排人力。</div>`;
+}
+
+/* ⑤ 管线缺口明细（缺口热力矩阵） */
+function renderGapMatrix(){
+  const el = document.getElementById('kpdGapBody'); if(!el) return;
+  const {cols, all} = gapRangeWeeks(gapRangeMode);
+  const flatW = cols.flatMap(c => c.weeks);
+  let ctrls = '';
+  if(gapRangeMode === 'custom'){
+    const optsF = all.map(w => `<option value="${w.wi}"${w.wi===gapRangeCustom.from?' selected':''}>${wkStartLabel(w)}（W${w.wi+1}）</option>`).join('');
+    const optsT = all.map(w => `<option value="${w.wi}"${w.wi===gapRangeCustom.to?' selected':''}>${wkStartLabel(w)}（W${w.wi+1}）</option>`).join('');
+    ctrls = `<div class="gm-ctrl">自 <select onchange="setGapCustom('from',this)">${optsF}</select> 至 <select onchange="setGapCustom('to',this)">${optsT}</select><span class="gm-hint">按周切片</span></div>`;
+  }
+  if(!flatW.length){ el.innerHTML = ctrls + '<div class="kpd-empty">无可统计周</div>'; return; }
+  const groups = gapMatrixByWeek(flatW);
+  if(!groups.length){ el.innerHTML = ctrls + '<div class="kpd-empty">✅ 所选区间无标配缺口</div>'; return; }
+  // flatW 粒度的每周小计/总计（列合计 = 列覆盖周内「周合计」的峰值）
+  const wkTotByGrp = groups.map(g => flatW.map((_,i) => g.lines.reduce((s,l) => s + (l.cells[i].gap||0), 0)));
+  const wkTot = flatW.map((_,i) => wkTotByGrp.reduce((s,a) => s + a[i], 0));
+  const colRanges = []; let off = 0;
+  cols.forEach(c => { colRanges.push([off, c.weeks.length]); off += c.weeks.length; });
+  const colPeak = (arr, rg) => { let pk = 0, pi = rg[0]; for(let i = rg[0]; i < rg[0]+rg[1]; i++){ if((arr[i]||0) > pk){ pk = arr[i]; pi = i; } } return {v:pk, wl:wkStartLabel(flatW[pi])}; };
+  const head = `<tr><th class="gm-l">角色线</th><th>标配</th>${cols.map(c => `<th>${c.label}${c.sub?`<br><span>${c.sub}</span>`:''}</th>`).join('')}<th>区间峰值</th></tr>`;
+  let body = '';
+  groups.forEach((g, gi) => {
+    body += `<tr class="gm-grp"><td colspan="${cols.length+3}">${effEsc(modMeta(g.mod).s)}管线</td></tr>`;
+    g.lines.forEach(l => {
+      let ci = 0;
+      const tds = cols.map((c, k) => {
+        let pk = {gap:0, std:0, wl:'', hits:[]};
+        c.weeks.forEach(w => { const cell = l.cells[ci++]; if(cell.gap > pk.gap) pk = {gap:cell.gap, std:cell.std, wl:wkStartLabel(w), hits:cell.hitNames}; });
+        const cls = pk.gap >= 2 ? 'gm-2' : pk.gap === 1 ? 'gm-1' : 'gm-0';
+        const txt = pk.gap > 0 ? '-'+pk.gap : '—';
+        const tip = `${l.label}｜${c.label}<br>标配 ${pk.std||l.std} · 在岗 ${l.cfg} · 缺口 ${pk.gap}`
+          + (c.weeks.length > 1 && pk.wl ? `<br>峰值周 ${pk.wl}` : '')
+          + (pk.hits && pk.hits.length ? `<br>涉及：${pk.hits.slice(0,3).join('、')}` : '');
+        return `<td><span class="gm-cell ${cls}" onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">${txt}</span></td>`;
+      }).join('');
+      let rp = {gap:0, wl:''};
+      l.cells.forEach((cell, i) => { if(cell.gap > rp.gap) rp = {gap:cell.gap, wl:wkStartLabel(flatW[i])}; });
+      body += `<tr><td class="gm-l">${effEsc(l.label)}</td><td>${l.std}</td>${tds}<td class="gm-pk">${rp.gap>0?'-'+rp.gap:'0'} <span class="gm-w">${rp.wl||''}</span></td></tr>`;
+    });
+    const subTds = colRanges.map(rg => { const p = colPeak(wkTotByGrp[gi], rg); return `<td>${p.v>0?'-'+p.v:'0'}</td>`; }).join('');
+    const subAll = colPeak(wkTotByGrp[gi], [0, flatW.length]);
+    body += `<tr class="gm-sub"><td class="gm-l">${effEsc(modMeta(g.mod).s)}小计</td><td>—</td>${subTds}<td>${subAll.v>0?'-'+subAll.v:'0'} <span class="gm-w">${subAll.wl}</span></td></tr>`;
+  });
+  const totTds = colRanges.map(rg => { const p = colPeak(wkTot, rg); return `<td>${p.v>0?'-'+p.v:'0'}</td>`; }).join('');
+  const totAll = colPeak(wkTot, [0, flatW.length]);
+  body += `<tr class="gm-total"><td class="gm-l">合计（全管线）</td><td>—</td>${totTds}<td>${totAll.v>0?'-'+totAll.v:'0'} <span class="gm-w">${totAll.wl}</span></td></tr>`;
+  el.innerHTML = ctrls + `<div class="gm-scroll"><table class="gm">${head}${body}</table></div>
+  <div class="gm-legend"><span><i class="gm-cell gm-0">—</i> 无缺口</span><span><i class="gm-cell gm-1">-1</i> 缺 1 人</span><span><i class="gm-cell gm-2">-2</i> 缺 ≥2 人</span><span style="margin-left:auto">按月 = 月内各周峰值 ｜ 列合计 = 该时段最紧一周</span></div>
+  <div class="kpd-foot">口径：角色线集合与聚合键同 buildRoleLines()（与「人力分配」视图同源）；该周有未完成需求覆盖 ⇒ 标配 std 生效；cfg = 在岗基地真人（离职/暂缺/支援/正编不占）；gap(w)=max(0, std−cfg)。悬停单元格查看该周构成。</div>`;
+}
+
+function setCfgDim(dim, btn){
+  cfgDim = dim;
+  document.querySelectorAll('#cfgDimTabs button').forEach(b => b.classList.toggle('on', b === btn));
+  try{ renderCfgCharts(computeHR()); }catch(e){ console.warn('[kpi①]', e); }
+}
+function setGapRange(mode, btn){
+  gapRangeMode = mode;
+  document.querySelectorAll('#gapRangeTabs button').forEach(b => b.classList.toggle('on', b === btn));
+  try{ renderGapMatrix(); }catch(e){ console.warn('[kpi⑤]', e); }
+}
+function setGapCustom(which, sel){
+  gapRangeCustom[which] = parseInt(sel.value, 10) || 0;
+  if(gapRangeCustom.from > gapRangeCustom.to){ const t = gapRangeCustom.from; gapRangeCustom.from = gapRangeCustom.to; gapRangeCustom.to = t; }
+  try{ renderGapMatrix(); }catch(e){ console.warn('[kpi⑤]', e); }
+}
+
+/* 详区统一渲染入口（updateKPIs 尾部调用） */
+function renderKpiDetails(HR, pl){
+  try{ renderCfgCharts(HR); }catch(e){ console.warn('[kpi①]', e); }
+  try{ renderRiskList(); }catch(e){ console.warn('[kpi③]', e); }
+  try{ renderPeakPanel(pl); }catch(e){ console.warn('[kpi④]', e); }
+  try{ renderGapMatrix(); }catch(e){ console.warn('[kpi⑤]', e); }
+}
+
 function updateKPIs(){
   const HR = computeHR();
 
   // 1. 在岗编制人数：花名册在岗总人头（排除已离职）
   document.getElementById('kp-mem').textContent = HR.base;
+  const memSub = document.getElementById('kp-mem-sub');
+  if(memSub) memSub.textContent = `金 ${HR.gradeCount['金']||0} · 橙 ${HR.gradeCount['橙']||0} · 红 ${HR.gradeCount['红']||0} ｜ 正编 ${HR.corpCount.reg||0} · 基地 ${HR.corpCount.base||0} · 外借 ${HR.corpCount.loan||0}`;
 
-  // 2. 高峰并行角色数量：HR 角色线总数（buildRoleLines 输出的角色行数，如红蔻/金角/橙角等）
-  const roleLines = buildRoleLines();
-  const roleLineCount = roleLines.reduce((sum, g) => sum + g.roles.length, 0);
-  document.getElementById('kp-maker').textContent = roleLineCount;
+  // 2. 高峰并行角色数量（v7.82 口径升级，需求②）：未来30天「进行中需求覆盖的去重角色线数」峰值
+  const ppr = peakParallelRoles();
+  document.getElementById('kp-maker').textContent = ppr.count;
+  const makerSub = document.getElementById('kp-maker-sub');
+  if(makerSub) makerSub.textContent = ppr.w ? `峰值周 ${wkStartLabel(ppr.w)} · 按各角色实际需求统计` : '未来 30 天无进行中需求';
 
-  // 3. 高峰负载率：在岗成员中个人负载率的最大值（%）
-  const activeMems = members.filter(m => !effLeft(m) && !isVacantMem(m) && !isExtLoan(m));
-  const loads = activeMems.map(m => memLoad(m.id).pct);
-  const peakLoad = loads.length ? Math.max(...loads, 0) : 0;
+  // 3. 高峰负载率（v7.82 与团队负载色带同源，需求④）：色带峰值周的 需求标配人力 ÷ 在岗人数
+  const pl = computePeakLoad();
+  const pct = pl ? Math.round(pl.rate*100) : 0;
   const loadEl = document.getElementById('kp-cfg');
-  loadEl.textContent = Math.round(peakLoad) + '%';
-  loadEl.className = 'val ' + (peakLoad <= 85 ? 's' : peakLoad <= 110 ? 'w' : 'd');
+  loadEl.textContent = pct + '%';
+  loadEl.className = 'val ' + (pct <= 85 ? 's' : pct <= 110 ? 'w' : 'd');
+  const loadSub = document.getElementById('kp-cfg-sub');
+  if(loadSub) loadSub.textContent = pl ? `峰值周 ${wkStartLabel(pl.peak)}：需求 ${Math.round(pl.demand*10)/10} ÷ 供给 ${pl.supply}` : '暂无负载数据';
 
-  // 4. 高风险需求：风险等级为"高"的需求数量
-  const highRiskCount = reqs.filter(r => reqRisk(r).lvl === '高').length;
+  // 4. 高风险需求：风险等级为"高"的需求数量（需求③，明细见下方清单）
+  const highRisk = reqs.filter(r => reqRisk(r).lvl === '高');
   const riskEl = document.getElementById('kp-gap');
-  riskEl.textContent = highRiskCount;
-  riskEl.className = 'val ' + (highRiskCount > 0 ? 'd' : 's');
+  riskEl.textContent = highRisk.length;
+  riskEl.className = 'val ' + (highRisk.length > 0 ? 'd' : 's');
+  const riskSub = document.getElementById('kp-gap-sub');
+  if(riskSub) riskSub.textContent = highRisk.length
+    ? highRisk.slice(0,3).map(r => `${charShort(r.char)||r.name||''}·${modMeta(r.mod).s}`).join(' ｜ ') + (highRisk.length > 3 ? ` 等 ${highRisk.length} 条` : '')
+    : '当前无高风险需求';
 
-  // 5. 常规管线缺口：标配缺口 + 暂缺占位（与 HR 汇总卡一致）
-  document.getElementById('kp-lack').textContent = HR.lack + '人';
+  // 5. 常规管线缺口（v7.82 与 ⑤ 明细同源，需求⑤）：按周区间（当前周起 4 周）峰值周合计
+  let lackTxt = HR.lack + '人', lackCls = 'val ' + (HR.lack > 0 ? 'd' : 's'), lackSub = '';
+  try{
+    const cols = gapRangeWeeks('week').cols;
+    const flatW = cols.flatMap(c => c.weeks);
+    const groups = gapMatrixByWeek(flatW);
+    const wkTot = flatW.map((_,i) => groups.reduce((s,g) => s + g.lines.reduce((ss,l) => ss + (l.cells[i].gap||0), 0), 0));
+    let pkI = 0; wkTot.forEach((t,i) => { if(t > wkTot[pkI]) pkI = i; });
+    const peakTotal = wkTot[pkI] || 0;
+    const modParts = groups.map(g => ({mod:g.mod, v:g.lines.reduce((s,l) => s + (l.cells[pkI].gap||0), 0)})).filter(x => x.v > 0);
+    lackTxt = peakTotal + '人';
+    lackCls = 'val ' + (peakTotal > 0 ? 'd' : 's');
+    lackSub = peakTotal > 0 ? `峰值周 ${wkStartLabel(flatW[pkI])}：` + modParts.map(x => `${modMeta(x.mod).s} -${x.v}`).join(' · ') : '未来 4 周无标配缺口';
+  }catch(e){ console.warn('[kpi⑤ lack]', e); }
+  const lackEl = document.getElementById('kp-lack');
+  lackEl.textContent = lackTxt;
+  lackEl.className = lackCls;
+  const lackSubEl = document.getElementById('kp-lack-sub');
+  if(lackSubEl) lackSubEl.textContent = lackSub;
+
+  // v7.82 详区面板（与顶部五卡同一数据源）。
+  // 防抖 60ms：拖拽/连刷时把 ~28ms 的详区渲染移出 paint 热路径，交互停顿后一次性渲染。
+  clearTimeout(window._kpdT);
+  window._kpdT = setTimeout(()=>{ try{ renderKpiDetails(HR, pl); }catch(e){ console.warn('[kpi详区]', e); } }, 60);
 }
 
 /* ============ tooltip ============ */
