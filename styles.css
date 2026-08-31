@@ -114,6 +114,19 @@
   .gm-chart-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--tx3);margin-top:2px;align-items:center;}
   .gm-chart-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px;vertical-align:-1px;}
   .gm-chart-legend .dash i{width:13px;height:0;border-top:2px dashed #ef3b39;border-radius:0;vertical-align:3px;background:none;}
+  /* v7.87 按需求双柱状图（面板⑤） */
+  .gm-req2{display:flex;gap:12px;flex-wrap:wrap;}
+  .gm-reqchart{flex:1 1 260px;min-width:260px;}
+  .gm-req-t{font-size:10.5px;font-weight:700;color:var(--tx2);margin:2px 0 2px;display:flex;align-items:baseline;gap:6px;}
+  .gm-req-t span{font-weight:600;font-size:9.5px;color:var(--tx3);margin-left:auto;}
+  .gm-reqchart svg{width:100%;height:auto;display:block;}
+  /* v7.87 产能与需求趋势（面板④底部） */
+  .pk-trend{margin:8px 0 4px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fbfcfe;}
+  .pk-trend svg{width:100%;height:auto;display:block;}
+  .pk-eff{margin-left:auto;font-size:10px;font-weight:600;color:var(--tx3);}
+  .pk-eff b{color:var(--blue);font-size:11px;}
+  .pk-link{margin-top:6px;font-size:10.5px;line-height:1.6;color:var(--tx2);background:#f6f8fb;border:1px solid var(--line);border-radius:8px;padding:6px 9px;}
+  .pk-link b{color:var(--tx);}
   /* v7.86 高风险清单图表（到期分布 + 排名横条） */
   .rk-charts{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 8px;}
   .rk-chart{flex:1;min-width:270px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fbfcfe;}
@@ -127,6 +140,20 @@
   .rk-rank-val{font-size:10px;color:var(--tx3);white-space:nowrap;display:inline-flex;align-items:center;gap:4px;}
   .rk-rank-val b{font-size:11px;color:var(--tx);}
   .rk-rank-val em{font-style:normal;color:var(--tx3);}
+  /* v7.87 调度参考信息六卡（面板③） */
+  .ref-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:10px;margin:2px 0 8px;}
+  .ref-card{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fbfcfe;min-width:0;}
+  .ref-t{font-size:11px;font-weight:700;color:var(--tx2);margin-bottom:5px;display:flex;align-items:baseline;gap:5px;}
+  .ref-t span{font-weight:600;font-size:9.5px;color:var(--tx3);margin-left:auto;}
+  .ref-row{display:flex;align-items:center;gap:6px;padding:2.5px 2px;font-size:11px;border-bottom:1px dashed #eef1f5;min-width:0;}
+  .ref-row:last-child{border-bottom:none;}
+  .ref-when{flex:none;font-size:10px;color:var(--tx3);white-space:nowrap;}
+  .ref-who{flex:none;font-size:11px;color:var(--tx);font-weight:600;white-space:nowrap;}
+  .ref-txt{flex:1;min-width:0;color:var(--tx2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .ref-txt b{color:var(--tx);}
+  .ref-tag{flex:none;font-size:10px;font-weight:700;white-space:nowrap;}
+  .ref-empty{font-size:11px;color:var(--tx3);padding:10px 4px;text-align:center;}
+  .ref-row .rk-loc{flex:none;padding:1px 6px;font-size:10px;}
   .gm{width:100%;border-collapse:collapse;font-size:11px;}
   .gm th{font-size:9.5px;color:var(--tx3);font-weight:700;padding:3px 4px;border-bottom:1px solid var(--line);text-align:center;line-height:1.35;white-space:nowrap;}
   .gm th span{font-weight:600;color:var(--tx3);}

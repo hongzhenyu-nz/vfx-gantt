@@ -4426,7 +4426,7 @@ let cfgDim = 'grade';                          // ① 当前维度（paint 重�
 let gapRangeMode = 'week';                     // ⑤ 时间段模式：week / month / custom
 let gapRangeCustom = {from:null, to:null};     // ⑤ 自定义区间（teamLoadWeeks().weeks 下标）
 let gapShowAll = false;                        // ⑤ 行过滤：false=仅显示区间内有缺口的角色线（v7.83）
-let gapChartMode = 'bar';                      // ⑤ 缺口分布图模式：bar=逐周堆叠柱 / line=管线趋势线（v7.86）
+let gapChartMode = 'req';                      // ⑤ 缺口分布图模式：req=按需求双柱状图（v7.87）/ line=管线趋势线
 
 /* 周起点短标签（M/D），w = {s: dayIdx} */
 function wkStartLabel(w){ const d = new Date(START.getTime() + w.s*dayMs); return (d.getMonth()+1)+'/'+d.getDate(); }
@@ -4673,103 +4673,163 @@ function renderCfgCharts(HR){
   <div class="kpd-foot">口径：computeHR() 实时聚合（在岗 = 未 effLeft；暂缺占位单列红组，与甘特缺人占位同色）；品级 = members[].grade（空 → 未标品级），编制 = members[].corp，模块 = members[].mod / 需求管线 = buildRoleLines() 标配加权（色取模块色族）。${cfgDim==='mod' ? ' 需求侧其余管线（本体/3C、MVP、TPP 等）由上述成员跨线支援，不另占人头；全管线标配分布见「需求管线」页签。' : ''}</div>`;
 }
 
-/* ③ 高风险需求清单
-   v7.84 图表化：顶部主因构成横条（逾期/缺口/超载/偏紧 优先级互斥归类）；
-   「剩余」列改倒计时进度条（≤3 天红 / ≤7 天橙 / 其余绿，逾期满格红）；
-   「缺口」列加人形圆点（1 点 = 1 人，上限 5 点）。 */
-function renderRiskList(){
+/* ③ 调度参考信息（v7.87：应需求替换原「高风险需求清单」）
+   六卡：①需求更新记录（CHANGELOG 审计日志，需求相关倒序）②下一关键节点（未来 milestones + 最近排期末日）
+        ③空闲可排人员（memLoad 未来30天 <50%）④排期异常人员（memLoad >110% 超载）
+        ⑤标配差异需求（|实际投入 − STD_CFG 标配| ≥ 2）⑥特别备注（r.comment 非空）。
+   定位按钮复用 kpiLocateReq（滚动 + 3.6s 高亮）。 */
+function renderRefPanel(){
   const el = document.getElementById('kpdRiskBody'); if(!el) return;
-  const list = reqs.map(r => ({r, rk:reqRisk(r)})).filter(x => x.rk.lvl === '高');
-  list.sort((a,b) => (a.r.end||0) - (b.r.end||0));   // 排期末日升序 → 逾期/临近的排最前
-  const noteEl = document.getElementById('kpdRiskNote');
-  if(noteEl) noteEl.textContent = `共 ${list.length} 条 · 按排期末日升序`;
-  if(!list.length){ el.innerHTML = '<div class="kpd-empty">✅ 当前无高风险需求</div>'; return; }
-  // 主因互斥归类（与行内 chips 同优先级：逾期 > 缺口 > 超载 > 偏紧）
-  const CAT = [
-    {k:'late', t:'逾期未完', c:'#dc2626', n:0},
-    {k:'gap',  t:'人力缺口', c:'#f87171', n:0},
-    {k:'over', t:'人员超载', c:'#f59e0b', n:0},
-    {k:'tight',t:'工期偏紧', c:'#facc15', n:0},
-  ];
-  const catOf = (r, rk) => (r.end < TODAY) ? 'late' : (rk.gapPpl > 0 ? 'gap' : ((rk.overloaded && rk.overloaded.length) ? 'over' : 'tight'));
-  list.forEach(({r, rk}) => { CAT.find(c => c.k === catOf(r, rk)).n++; });
-  const sumBar = CAT.filter(c => c.n > 0).map(c => `<i style="width:${(c.n/list.length*100).toFixed(1)}%;background:${c.c}" title="${c.t} ${c.n} 条"></i>`).join('');
-  const sumLegend = CAT.filter(c => c.n > 0).map(c => `<span><i style="background:${c.c}"></i>${c.t} ${c.n}</span>`).join('');
-  const rows = list.map(({r, rk}) => {
-    const overdue = r.end < TODAY;
-    const leftTxt = overdue ? '已逾期' : `剩 ${rk.left} 工作日`;
-    // 倒计时进度条：刻度 15 个工作日
-    const dueW = overdue ? 100 : Math.min(100, Math.round((rk.left||0)/15*100));
-    const dueC = overdue || (rk.left||0) <= 3 ? '#dc2626' : (rk.left||0) <= 7 ? '#f59e0b' : '#22c55e';
-    const chips = [];
-    if(overdue) chips.push('<span class="rk-chip c-late">⚠ 逾期未完</span>');
-    if(rk.gapPpl > 0) chips.push(`<span class="rk-chip c-gap">人力缺口 ${rk.gapPpl} 人</span>`);
-    if(rk.overloaded && rk.overloaded.length) chips.push(`<span class="rk-chip c-over">超载 ${effEsc(rk.overloaded.join('、'))}</span>`);
-    if(!chips.length) chips.push(`<span class="rk-chip c-tight">${effEsc(rk.cause || '产能紧迫')}</span>`);
-    const g = r.grade || '';
-    const gCol = g==='金' ? '#a37c00' : g==='橙' ? '#c2610a' : g==='红' ? '#ef3b39' : '#5c7080';
-    const safeId = String(r.id).replace(/[^\w-]/g, '');
-    const dots = rk.gapPpl > 0 ? `<span class="rk-dots">${'●'.repeat(Math.min(rk.gapPpl,5))}</span>` : '';
-    return `<tr>
-      <td class="rt-name"><span class="rt-g" style="color:${gCol};border-color:${gCol}">${effEsc(g||'—')}</span><b>${effEsc(charShort(r.char)||r.name||'')}</b><span class="rt-mod">${effEsc(modMeta(r.mod).s)}</span></td>
-      <td class="${overdue?'rt-bad':''}"><div class="rk-duet">${leftTxt}</div><div class="rk-due"><i style="width:${dueW}%;background:${dueC}"></i></div></td>
-      <td>${rk.ppl} 人</td>
-      <td class="${rk.gapPpl>0?'rt-bad':''}">${dots}${rk.gapPpl>0?' 缺 '+rk.gapPpl:'—'}</td>
-      <td>${chips.join(' ')}</td>
-      <td><button class="rk-loc" onclick="kpiLocateReq('${safeId}')">📍 定位</button></td>
-    </tr>`;
+  const mdL = d => (d.getMonth()+1)+'/'+d.getDate();
+  const safeId = id => String(id).replace(/[^\w-]/g, '');
+  const locBtn = r => `<button class="rk-loc" title="定位到甘特条" onclick="kpiLocateReq('${safeId(r.id)}')">📍</button>`;
+  const card = (icon, title, note, rows, empty) =>
+    `<div class="ref-card"><div class="ref-t">${icon} ${title}<span>${note}</span></div>${rows || `<div class="ref-empty">${empty}</div>`}</div>`;
+
+  /* 卡① 需求更新记录：CHANGELOG 中需求相关条目，按时间倒序 */
+  const REQ_KW = ['需求','任务','排期','拖拽','改派','进度','评论','关键节点','阶段节点','工时','拆分','设为','改期','新增'];
+  const logs = (typeof CHANGELOG !== 'undefined' ? CHANGELOG : []).filter(e => e && e.desc && REQ_KW.some(k => String(e.desc).includes(k)));
+  logs.sort((a,b) => (b.t||0) - (a.t||0));
+  const logRows = logs.slice(0,6).map(e => {
+    const d = new Date(e.t||0);
+    const hm = String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+    return `<div class="ref-row"><span class="ref-when">${mdL(d)} ${hm}</span><span class="ref-who">${effEsc(e.who||'—')}</span><span class="ref-txt" title="${effEsc(e.desc||'')}">${effEsc(e.desc||'')}</span></div>`;
   }).join('');
-  /* v7.86 图表化补充：①到期分布柱状图（X=剩余时间 5 桶，Y=高风险条数，红→绿色阶，看灭火时间集中度）；
-     ②风险排名横条 Top5（条长=到期缺口人天 rk.gap，颜色=主因，条尾●=缺口人数，点击定位甘特条）。 */
-  const BK = [
-    {t:'已逾期', c:'#dc2626', n:0, names:[]},
-    {t:'≤3天',  c:'#f87171', n:0, names:[]},
-    {t:'4–7天', c:'#f59e0b', n:0, names:[]},
-    {t:'8–15天',c:'#facc15', n:0, names:[]},
-    {t:'>15天', c:'#22c55e', n:0, names:[]},
-  ];
-  list.forEach(({r, rk}) => {
-    const b = (r.end < TODAY) ? BK[0] : (rk.left||0) <= 3 ? BK[1] : (rk.left||0) <= 7 ? BK[2] : (rk.left||0) <= 15 ? BK[3] : BK[4];
-    b.n++; b.names.push(effEsc(charShort(r.char) || r.name || ''));
+
+  /* 卡② 下一关键节点：未来里程碑（需求自带 milestones）优先，不足 3 个以最近排期末日补足 */
+  const nodes = [];
+  reqs.forEach(r => {
+    if(reqClosed(r) || aggStatus(r) === 'done') return;
+    (r.milestones||[]).forEach(ms => {
+      const d = ms.date instanceof Date ? ms.date : new Date(ms.date);
+      if(!isNaN(d) && d >= TODAY) nodes.push({d, r, label: ms.label || '节点', ms: true});
+    });
   });
-  const bkMax = Math.max(...BK.map(b => b.n), 1);
-  const HW = 340, HH = 118, hPadL = 22, hPadB = 22, hPadT = 14;
-  const hStep = (HW - hPadL - 6) / BK.length, hBw = Math.min(40, hStep * 0.56);
-  const hy = v => hPadT + (HH - hPadT - hPadB) - (v / bkMax) * (HH - hPadT - hPadB);
-  const histSvg = `<svg viewBox="0 0 ${HW} ${HH}" role="img" aria-label="风险到期分布">
-    ${[0, bkMax].map(t => `<line x1="${hPadL}" y1="${hy(t)}" x2="${HW-6}" y2="${hy(t)}" stroke="${t===0?'#c9ced6':'#e6e9ee'}"/><text x="${hPadL-4}" y="${hy(t)+3}" text-anchor="end" font-size="9" fill="#8f959e">${t}</text>`).join('')}
-    ${BK.map((b,i) => {
-      const x = hPadL + hStep * i + (hStep - hBw) / 2;
-      return `<rect x="${x.toFixed(1)}" y="${hy(b.n).toFixed(1)}" width="${hBw}" height="${Math.max(b.n>0?2:0,(hy(0)-hy(b.n))).toFixed(1)}" rx="2" fill="${b.c}" onmousemove="showTip(event,'${b.t}：${b.n} 条${b.names.length?'<br>'+b.names.slice(0,6).join('、'):''}')" onmouseleave="hideTip()"><title>${b.t} ${b.n} 条</title></rect>
-      ${b.n ? `<text x="${(x+hBw/2).toFixed(1)}" y="${(hy(b.n)-4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${b.c}">${b.n}</text>` : ''}
-      <text x="${(x+hBw/2).toFixed(1)}" y="${HH-7}" text-anchor="middle" font-size="9" fill="#8f959e">${b.t}</text>`;
-    }).join('')}</svg>`;
-  const CATV = {late:{t:'逾期',c:'#dc2626',p:0}, gap:{t:'缺口',c:'#f87171',p:1}, over:{t:'超载',c:'#f59e0b',p:2}, tight:{t:'偏紧',c:'#b58900',p:3}};
-  const ranked = list.map(({r, rk}) => ({r, rk, cat:catOf(r, rk)}))
-    .sort((a,b) => CATV[a.cat].p - CATV[b.cat].p || (b.rk.gap||0) - (a.rk.gap||0) || (a.rk.left||99) - (b.rk.left||99))
-    .slice(0, 5);
-  const rkMaxGap = Math.max(...ranked.map(x => Math.max(x.rk.gap||0, 0)), 0.1);
-  const rankRows = ranked.map(({r, rk, cat}) => {
-    const g0 = Math.max(rk.gap||0, 0);
-    const wPct = g0 > 0 ? Math.max(4, Math.round(g0 / rkMaxGap * 100)) : 4;
-    const dots = rk.gapPpl > 0 ? `<span class="rk-dots">${'●'.repeat(Math.min(rk.gapPpl,5))}</span>` : '';
-    const val = g0 > 0 ? `<b>-${g0}</b>人天` : `缺${rk.gapPpl}人`;
-    const leftT = r.end < TODAY ? '已逾期' : `剩${rk.left}天`;
-    const safeId = String(r.id).replace(/[^\w-]/g, '');
-    return `<div class="rk-rank-row" onclick="kpiLocateReq('${safeId}')" title="${effEsc(r.name||'')}｜${CATV[cat].t}｜到期缺口 ${g0} 人天｜人力缺口 ${rk.gapPpl} 人｜${leftT}（点击定位）">
-      <span class="rk-rank-name">${effEsc(charShort(r.char)||r.name||'')}</span>
-      <span class="rk-rank-track"><i style="width:${wPct}%;background:${CATV[cat].c};${g0<=0?'opacity:.45':''}"></i></span>
-      <span class="rk-rank-val">${val}${dots}<em>${leftT}</em></span>
-    </div>`;
+  nodes.sort((a,b) => a.d - b.d);
+  const picked = nodes.slice(0,3), pickedReq = new Set(picked.map(n => n.r.id));
+  if(picked.length < 3){
+    reqs.filter(r => !reqClosed(r) && aggStatus(r) !== 'done' && r.end && r.end >= TODAY && !pickedReq.has(r.id))
+      .sort((a,b) => a.end - b.end)
+      .slice(0, 3 - picked.length)
+      .forEach(r => picked.push({d: r.end, r, label: '排期末', ms: false}));
+    picked.sort((a,b) => a.d - b.d);
+  }
+  const nodeRows = picked.map(n => {
+    const left = Math.max(workdays(TODAY, n.d), 0);
+    const rk = reqRisk(n.r);
+    const lvlC = rk.lvl === '高' ? '#dc2626' : rk.lvl === '中' ? '#f59e0b' : '#22c55e';
+    return `<div class="ref-row"><span class="ref-when" style="font-weight:700;color:${left<=3?'#dc2626':'#1f2329'}">${mdL(n.d)}</span><span class="ref-txt"><b>${effEsc(charShort(n.r.char)||n.r.name||'')}</b> · ${effEsc(n.label)}${n.ms?'':''}</span><span class="ref-tag" style="color:${lvlC}">${rk.lvl==='高'?'高风险':rk.lvl==='中'?'中风险':'低风险'} · 剩${left}天</span>${locBtn(n.r)}</div>`;
   }).join('');
-  el.innerHTML = `<div class="rk-sum"><div class="rk-sum-bar">${sumBar}</div><div class="rk-sum-legend">${sumLegend}</div></div>
-  <div class="rk-charts">
-    <div class="rk-chart"><div class="rk-chart-t">到期分布（剩余工作日 → 条数）</div>${histSvg}</div>
-    <div class="rk-chart"><div class="rk-chart-t">风险排名 Top ${ranked.length}（条长 = 到期缺口人天，● = 缺口人数）</div>${rankRows}</div>
-  </div>
-  <div class="rt-wrap"><table class="rt-tbl">
-    <tr><th>需求</th><th>剩余</th><th>人力</th><th>缺口</th><th>主因</th><th></th></tr>${rows}</table></div>
-  <div class="kpd-foot">口径：reqRisk().lvl='高'（产能紧迫度 与 人力缺口 两维取高）；主因取 reqRisk().cause / overloaded / gapPpl（横条按 逾期>缺口>超载>偏紧 互斥归类）；到期分布 = 按剩余工作日 rk.left 分桶（已逾期/≤3/4–7/8–15/&gt;15 天）；排名条长 = 到期缺口人天 rk.gap（剩余工作量 − 剩余窗口可消化产能，与产能消化分解同口径），排序 = 主因优先级 → 缺口人天 → 剩余天数；「定位」滚动到任务条并持续高亮 3.6s。</div>`;
+
+  /* 卡③ 空闲可排人员：memLoad（未来 30 天负载窗口）< 50% 的在岗成员，升序 */
+  const crew = members.filter(m => !effLeft(m) && !leftLong(m) && !isVacantMem(m)).map(m => ({m, ld: memLoad(m.id)}));
+  const idle = crew.filter(x => x.ld.pct < 50).sort((a,b) => a.ld.pct - b.ld.pct);
+  const idleRows = idle.slice(0,6).map(({m, ld}) =>
+    `<div class="ref-row"><span class="ref-who">${effEsc(m.name)}</span><span class="ref-txt">${effEsc(modMeta(m.mod).s)} · eff ${m.eff}</span><span class="ref-tag" style="color:#16a34a">负载 ${ld.pct}%</span></div>`).join('');
+
+  /* 卡④ 排期异常人员：memLoad > 110% 超载，降序 */
+  const over = crew.filter(x => x.ld.pct > 110).sort((a,b) => b.ld.pct - a.ld.pct);
+  const overRows = over.slice(0,6).map(({m, ld}) =>
+    `<div class="ref-row"><span class="ref-who">${effEsc(m.name)}</span><span class="ref-txt">${effEsc(modMeta(m.mod).s)} · 已排 ${ld.assigned}/${ld.avail} 人天</span><span class="ref-tag" style="color:#dc2626">超载 ${ld.pct}%</span></div>`).join('');
+
+  /* 卡⑤ 标配差异：|实际投入人数 − STD_CFG 标配| ≥ 2 的未完成 fx 需求（负 = 缺配，正 = 超配） */
+  const diffs = reqs.filter(r => r.kind === 'fx' && !reqClosed(r) && aggStatus(r) !== 'done')
+    .map(r => { const std = stdCfgBaseForReq(r); const rk = reqRisk(r); return {r, std, ppl: rk.ppl, diff: rk.ppl - std}; })
+    .filter(x => x.std > 0 && Math.abs(x.diff) >= 2)
+    .sort((a,b) => Math.abs(b.diff) - Math.abs(a.diff));
+  const diffRows = diffs.slice(0,6).map(({r, std, ppl, diff}) => {
+    const c = diff < 0 ? '#dc2626' : '#2b6fe3';
+    const t = diff < 0 ? `缺配 ${-diff}` : `超配 +${diff}`;
+    return `<div class="ref-row"><span class="ref-txt"><b>${effEsc(charShort(r.char)||r.name||'')}</b> · ${effEsc(modMeta(r.mod).s)} · 标配 ${std}/实际 ${ppl}</span><span class="ref-tag" style="color:${c}">${t}</span>${locBtn(r)}</div>`;
+  }).join('');
+
+  /* 卡⑥ 特别备注：comment 非空的未完成需求，按排期末日升序（紧迫在前） */
+  const noted = reqs.filter(r => !reqClosed(r) && aggStatus(r) !== 'done' && (r.comment||'').trim())
+    .sort((a,b) => (a.end||0) - (b.end||0));
+  const noteRows = noted.slice(0,6).map(r =>
+    `<div class="ref-row"><span class="ref-who">${effEsc(charShort(r.char)||r.name||'')}</span><span class="ref-txt" title="${effEsc(r.comment)}">${effEsc(r.comment.length > 40 ? r.comment.slice(0,40)+'…' : r.comment)}</span>${locBtn(r)}</div>`).join('');
+
+  const noteEl = document.getElementById('kpdRiskNote');
+  if(noteEl) noteEl.textContent = `更新 ${logs.length} ｜ 空闲 ${idle.length} ｜ 超载 ${over.length} ｜ 差异 ${diffs.length} ｜ 备注 ${noted.length}`;
+  el.innerHTML = `<div class="ref-grid">`
+    + card('🕘', '需求更新记录', '近 6 条', logRows, '暂无需求相关改动记录')
+    + card('🎯', '下一关键节点', '最近 3 个', nodeRows, '未来暂无节点/排期末')
+    + card('🟢', '空闲可排人员', '负载<50%', idleRows, '当前无空闲人员')
+    + card('🔴', '排期异常人员', '负载>110%', overRows, '当前无超载人员')
+    + card('⚖️', '标配差异需求', '|差|≥2', diffRows, '各需求投入均在标配 ±1 内')
+    + card('📝', '特别备注', 'comment 非空', noteRows, '暂无备注')
+    + `</div>
+  <div class="kpd-foot">口径：更新记录 = CHANGELOG 审计日志（需求相关关键词过滤，含操作人与时间）；关键节点 = 需求 milestones（未来）优先、最近排期末日补足；空闲/超载 = memLoad() 未来 30 天负载窗口（与左栏负载灯同源）；标配差异 = reqRisk().ppl（参与人数）− stdCfgBaseForReq()（STD_CFG 标配），|差|≥2 列出；备注 = 需求 comment 字段。📍 点击定位甘特条并高亮 3.6s。</div>`;
+}
+
+/* ④b 产能与需求趋势（v7.87，挂在高峰负载率面板底部）
+   线A 蓝 = 产能当量：当周在岗成员 eff 之和（人·当量；成员无入职日期 → 当前在岗视为历史在岗，leftAt 已知则离场周后剔除）；
+   线B 橙 = 需求标配人头：gapMatrixByWeek 全管线逐周 Σstd（与缺口矩阵同源）；
+   两线间竖带：标配 > 产能 → 红（缺口挤压，与面板⑤缺口同向）；产能 ≥ 标配 → 蓝（有产能余量）。
+   联动口径（修正「人效↑→缺口↑→负载率↑」的假设）：
+     · 管线缺口 = 标配人头 − 在岗人头（纯人头口径，不含 eff）——人效提升不改变缺口；
+     · 缺口未补 → 峰值周并行人力（分母）不足 → 高峰负载率升高（同向成立）；
+     · 人效提升 → reqRisk 可消化产能 cap↑ → 缺口人天↓ → 高风险需求减少（负相关）。 */
+function pkTrendHtml(LW){
+  if(!LW || !LW.weeks || !LW.weeks.length) return '';
+  const wks = LW.weeks.map((w,i) => ({s:w.s, e:w.e, wi:i}));
+  const groups = gapMatrixByWeek(wks);
+  const stdW = wks.map((_,i) => groups.reduce((s,g) => s + g.lines.reduce((s2,l) => s2 + (l.cells[i].std||0), 0), 0));
+  const capW = wks.map(w => {
+    const wEnd = new Date(START.getTime() + w.e*dayMs);
+    return Math.round(members.filter(m => {
+      if(isVacantMem(m) || leftLong(m)) return false;
+      if(m.status === 'left'){ if(!m.leftAt) return false; if(m.leftAt < wEnd) return false; }
+      return true;
+    }).reduce((s,m) => s + (m.eff||1), 0) * 10) / 10;
+  });
+  const n = wks.length;
+  const maxV = Math.max(...stdW, ...capW, 1);
+  const W = 760, H = 168, padL = 30, padR = 10, padT = 18, padB = 24;
+  const iw = W - padL - padR, ih = H - padT - padB;
+  const step = iw / n;
+  const px = i => padL + step * i + step / 2;
+  const gy = v => padT + ih - (v / maxV) * ih;
+  const todayI = idx(TODAY);
+  const ticks = [0, Math.ceil(maxV/2), maxV];
+  const grid = ticks.map(t => `<line x1="${padL}" y1="${gy(t)}" x2="${W-padR}" y2="${gy(t)}" stroke="${t===0?'#c9ced6':'#e6e9ee'}"/><text x="${padL-5}" y="${gy(t)+3}" text-anchor="end" font-size="9" fill="#8f959e">${t}</text>`).join('');
+  // 供需竖带（每周一条，红=标配超产能，蓝=产能有余）
+  const bands = wks.map((w,i) => {
+    const s = stdW[i], c = capW[i];
+    if(s <= 0 && c <= 0) return '';
+    const red = s > c;
+    const y1 = gy(Math.max(s,c)), y2 = gy(Math.min(s,c));
+    const bw2 = Math.min(14, step*0.5);
+    const tip = `第${w.wi+1}周（${wkStartLabel(w)}起）<br>需求标配 ${s} 人<br>产能当量 ${c} 人<br>${red?`缺口挤压 -${Math.round((s-c)*10)/10} 人`:`产能余量 +${Math.round((c-s)*10)/10} 人`}`;
+    return `<rect x="${(px(i)-bw2/2).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw2.toFixed(1)}" height="${Math.max(1,(y2-y1)).toFixed(1)}" fill="${red?'#ef3b39':'#2b6fe3'}" opacity="${red?0.22:0.14}" onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()"><title>${red?'缺口':'余量'}</title></rect>`;
+  }).join('');
+  const capPts = capW.map((v,i) => `${px(i).toFixed(1)},${gy(v).toFixed(1)}`).join(' ');
+  const stdPts = stdW.map((v,i) => `${px(i).toFixed(1)},${gy(v).toFixed(1)}`).join(' ');
+  // 缺口最大周 ▲
+  let worstI = 0, worstD = -1e9;
+  wks.forEach((w,i) => { const d = stdW[i] - capW[i]; if(d > worstD){ worstD = d; worstI = i; } });
+  const worst = worstD > 0 ? `<text x="${px(worstI).toFixed(1)}" y="${(gy(stdW[worstI])-6).toFixed(1)}" text-anchor="middle" font-size="10" fill="#dc2626">▲</text>` : '';
+  // 本周列红底
+  const nowBand = wks.map((w,i) => (w.s <= todayI && todayI < w.e) ? `<rect x="${(px(i)-step/2+1).toFixed(1)}" y="${padT-4}" width="${(step-2).toFixed(1)}" height="${(ih+8).toFixed(1)}" fill="#dc2626" opacity="0.05"/>` : '').join('');
+  const labEvery = Math.max(1, Math.ceil(n / 14));   // 全周期可达 200 周：标签最多 ~14 个
+  const xlabs = wks.map((w,i) => (i % labEvery === 0) ? `<text x="${px(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="${w.s<=todayI&&todayI<w.e?'#dc2626':'#8f959e'}">W${w.wi+1}</text>` : '').join('');
+  const dots = n <= 60;   // 周数过多时不画数据点，只留折线（避免糊成一片）
+  // 平均人效（当前在岗）
+  const act = members.filter(m => !isVacantMem(m) && !effLeft(m) && !leftLong(m));
+  const avgEff = act.length ? Math.round(act.reduce((s,m) => s + (m.eff||1), 0) / act.length * 100) / 100 : 0;
+  const effMax = act.length ? Math.max(...act.map(m => m.eff||1)) : 0;
+  const effMin = act.length ? Math.min(...act.map(m => m.eff||1)) : 0;
+  return `<div class="pk-trend">
+    <div class="gm-chart-head">产能与需求趋势（全周期 · 与色带/缺口矩阵同源）<span class="pk-eff">当前平均人效 eff <b>${avgEff}</b>（区间 ${effMin}–${effMax}，${act.length} 人）</span></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="产能与需求趋势">${grid}${nowBand}${bands}
+      <polyline points="${capPts}" fill="none" stroke="#2b6fe3" stroke-width="2" stroke-linejoin="round"><title>产能当量（Σ在岗 eff）</title></polyline>
+      ${dots ? capW.map((v,i) => `<circle cx="${px(i).toFixed(1)}" cy="${gy(v).toFixed(1)}" r="1.7" fill="#2b6fe3"/>`).join('') : ''}
+      <polyline points="${stdPts}" fill="none" stroke="#e8590c" stroke-width="2" stroke-linejoin="round"><title>需求标配人头</title></polyline>
+      ${dots ? stdW.map((v,i) => `<circle cx="${px(i).toFixed(1)}" cy="${gy(v).toFixed(1)}" r="1.7" fill="#e8590c"/>`).join('') : ''}
+      ${worst}${xlabs}</svg>
+    <div class="gm-chart-legend"><span><i style="background:#2b6fe3"></i>产能当量（Σ在岗 eff，人·当量）</span><span><i style="background:#e8590c"></i>需求标配人头（Σstd）</span><span><i style="background:#ef3b39;opacity:.35"></i>红带 = 标配超产能（缺口挤压）</span><span><i style="background:#2b6fe3;opacity:.25"></i>蓝带 = 产能余量</span></div>
+    <div class="pk-link"><b>三视图联动：</b>① 缺口未补（面板⑤）→ 峰值周并行人力（分母）不足 → 高峰负载率升高（本卡，同向成立）；② 人效提升 → 可消化产能 cap↑ → 高风险需求减少（负相关，reqRisk 产能口径）；③ 人效与管线缺口无直接关系——缺口 = 标配人头 − 在岗人头，纯人头口径不含效率系数，故「人效↑ → 缺口↑ → 负载率↑」链条不成立，真实主线是「缺口 → 负载率」。</div>
+  </div>`;
 }
 
 /* ④ 高峰负载率 · 色带峰值解读 */
@@ -4798,74 +4858,108 @@ function renderPeakPanel(pl){
   <div class="pk-formula"><span class="fx">高峰负载率 = ${dTxt} ÷ ${supply} = ${pct}%</span>${chip}<span class="fx-note">＝ 色带峰值格的含义</span></div>
   <div class="bd-t">需求侧拆解（该周并行需求 × STD_CFG 标配人力）</div>
   <div class="bd-grid">${rows || '<div class="bd-r"><span>该周无标配需求</span><b>0</b></div>'}</div>
-  <div class="kpd-foot">口径：周序列 / 成员过滤 / 工作日历与团队负载色带同一 teamLoadWeeks()；峰值周 = 色带排程利用率最高周（全周期）。色带格 ${peak.ratioPct}% = 已排口径（含一人多段并行）；本卡 ${pct}% = 需求口径（stdCfgBaseForReq 标配折算）；差值 ≈ 缺口未排人力。</div>`;
+  ${pkTrendHtml(LW)}
+  <div class="kpd-foot">口径：周序列 / 成员过滤 / 工作日历与团队负载色带同一 teamLoadWeeks()；峰值周 = 色带排程利用率最高周（全周期）。色带格 ${peak.ratioPct}% = 已排口径（含一人多段并行）；本卡 ${pct}% = 需求口径（stdCfgBaseForReq 标配折算）；差值 ≈ 缺口未排人力。产能与需求趋势：产能当量 = 当周在岗成员 eff 之和（成员无入职日期，当前在岗视为历史在岗；leftAt 已知则离场周后剔除），需求标配 = gapMatrixByWeek 全管线逐周 Σstd（与缺口矩阵同源）。</div>`;
 }
 
 /* ⑤ 管线缺口明细（缺口热力矩阵） */
-/* v7.86 缺口分布图（与矩阵同一 wkTotByGrp/wkTot/flatW，口径严格一致）：
-   bar 模式 = 逐周缺口堆叠柱状图（X=周，Y=缺口人数，堆叠段=管线 modFamC 色族；柱顶=合计；▲=峰值周；点击柱定位该周）；
-   line 模式 = 管线缺口趋势曲线图（每管线一条折线，红色虚线=全管线合计；升=恶化、降=缓解）。 */
+/* v7.87 缺口分布图改版（与矩阵同一 gapMatrixByWeek 数据）：
+   req 模式（默认）= 按需求双柱状图——橙系（出场类）/ 紫系（协作类）两族拆成两张独立图，
+     每柱 = 该需求区间内压着的一条角色线的峰值缺口（标配 − 在岗真人），颜色 = 管线个体色（不再同族混色），
+     X 轴 = 需求名称（角色线 hitNames 多数票），点击柱定位需求甘特条；
+   line 模式 = 管线缺口趋势曲线图（按周：每管线一折线 + 全管线合计红虚线，升=恶化、降=缓解）。 */
+const GM_MODC = {'出场':'#e8590c','入局':'#f08519','入局Cuts':'#d9480f','MVP':'#ffa94d','组队':'#7048e8','检视':'#9775fa','TPP':'#5f3dc4','大厅':'#b197fc'};
+function gmGapBars(groups, mods){
+  const bars = [];
+  groups.filter(g => mods.includes(g.mod)).forEach(g => {
+    g.lines.forEach(l => {
+      let pk = 0; const hitCnt = {};
+      l.cells.forEach(c => {
+        if(c.gap > pk) pk = c.gap;
+        if(c.gap > 0) (c.hitNames||[]).forEach(nm => hitCnt[nm] = (hitCnt[nm]||0)+1);
+      });
+      if(pk <= 0) return;
+      let name = Object.keys(hitCnt).sort((a,b) => hitCnt[b]-hitCnt[a])[0];
+      if(!name){ const m = l.label.match(/（(.+?)）/); name = m ? m[1] : l.label; }
+      const rq = reqs.find(r => !reqClosed(r) && (charShort(r.char)||r.name||'') === name);
+      bars.push({name, label:l.label, mod:g.mod, grade:l.grade, gap:pk, std:l.std, cfg:l.cfg, reqId: rq ? rq.id : null});
+    });
+  });
+  bars.sort((a,b) => b.gap - a.gap);
+  return bars;
+}
+function gmReqBarSVG(bars){
+  if(!bars.length) return '<div class="ref-empty">✅ 该族管线区间内无缺口</div>';
+  const n = bars.length;
+  const W = 340, H = 152, padL = 24, padR = 6, padT = 16, padB = 30;
+  const iw = W-padL-padR, ih = H-padT-padB;
+  const maxV = Math.max(...bars.map(b => b.gap), 1);
+  const step = iw/n, bw = Math.max(9, Math.min(30, step*0.58));
+  const x = i => padL + step*i + (step-bw)/2;
+  const y = v => padT + ih - (v/maxV)*ih;
+  const grid = [0, maxV].map(t => `<line x1="${padL}" y1="${y(t)}" x2="${W-padR}" y2="${y(t)}" stroke="${t===0?'#c9ced6':'#e6e9ee'}"/><text x="${padL-4}" y="${y(t)+3}" text-anchor="end" font-size="9" fill="#8f959e">${t}</text>`).join('');
+  const body = bars.map((b,i) => {
+    const col = GM_MODC[b.mod] || modFamC(b.mod);
+    const bx = x(i), by = y(b.gap);
+    const safeId = b.reqId ? String(b.reqId).replace(/[^\w-]/g, '') : '';
+    const clk = safeId ? `style="cursor:pointer" onclick="kpiLocateReq('${safeId}')"` : '';
+    const tip = `${effEsc(b.name)}｜${effEsc(b.label)}<br>标配 ${b.std} · 在岗 ${b.cfg} · 区间峰值缺口 -${b.gap}${safeId?'<br>点击定位甘特条':''}`;
+    const nm = b.name.length > 5 ? b.name.slice(0,4)+'…' : b.name;
+    return `<g ${clk} onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
+      <rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2,(y(0)-by)).toFixed(1)}" rx="2" fill="${col}"/>
+      <text x="${(bx+bw/2).toFixed(1)}" y="${(by-4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${col}">-${b.gap}</text>
+      <text x="${(bx+bw/2).toFixed(1)}" y="${H-16}" text-anchor="middle" font-size="9" fill="#646a73">${effEsc(nm)}</text>
+      <text x="${(bx+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" font-size="8" fill="#8f959e">${effEsc(b.grade||'')}角·${effEsc(modMeta(b.mod).s)}</text>
+    </g>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="按需求缺口柱状图">${grid}${body}</svg>`;
+}
 function gmChartHtml(groups, wkTotByGrp, wkTot, flatW){
   const n = flatW.length; if(!n) return '';
-  const maxV = Math.max(...wkTot, 1);
+  const maxW = Math.max(...wkTot, 1);
+  const pkI = wkTot.indexOf(Math.max(...wkTot));
+  const tabs = `<span class="kpd-tabs"><button class="${gapChartMode==='req'?'on':''}" onclick="setGapChartMode('req',this)">按需求</button><button class="${gapChartMode==='line'?'on':''}" onclick="setGapChartMode('line',this)">趋势线</button></span>`;
+  const head = `<div class="gm-chart-head">缺口分布（与下表同源 · 区间峰值合计 -${Math.max(...wkTot)} 人）${tabs}</div>`;
+  if(gapChartMode === 'req'){
+    const FAMS = [
+      {t:'出场类管线（橙色系）', mods:['出场','入局','入局Cuts','MVP'], note:'橙 = 出场/入局类'},
+      {t:'协作类管线（紫色系）', mods:['组队','检视','TPP','大厅'], note:'紫 = 组队/检视/TPP'},
+    ];
+    const charts = FAMS.map(f =>
+      `<div class="gm-reqchart"><div class="gm-req-t">${f.t}<span>${f.note}</span></div>${gmReqBarSVG(gmGapBars(groups, f.mods))}</div>`).join('');
+    return `<div class="gm-chart">${head}<div class="gm-req2">${charts}</div>
+    <div class="gm-chart-legend"><span>每柱 = 该需求区间内一条角色线的峰值缺口（标配 − 在岗真人）；柱下 = 需求名 + 品级·管线；悬停看明细，点击柱定位甘特条</span></div></div>`;
+  }
+  /* line 模式：管线缺口趋势曲线（按周） */
   const W = 760, H = 172, padL = 30, padR = 10, padT = 20, padB = 26;
   const iw = W - padL - padR, ih = H - padT - padB;
-  const step = iw / n, bw = Math.max(7, Math.min(34, step * 0.62));
-  const px = i => padL + step * i + step / 2;          // 列中心
-  const gy = v => padT + ih - (v / maxV) * ih;
-  const pkI = wkTot.indexOf(Math.max(...wkTot));
+  const step = iw / n;
+  const px = i => padL + step * i + step / 2;
+  const gy = v => padT + ih - (v / maxW) * ih;
   const todayI = idx(TODAY);
-  // 纵轴网格：0 / 中值 / 峰值
-  const ticks = maxV >= 4 ? [0, Math.ceil(maxV/2), maxV] : [0, maxV];
+  const ticks = maxW >= 4 ? [0, Math.ceil(maxW/2), maxW] : [0, maxW];
   const grid = ticks.map(t => `<line x1="${padL}" y1="${gy(t)}" x2="${W-padR}" y2="${gy(t)}" stroke="${t===0?'#c9ced6':'#e6e9ee'}" stroke-width="1"/><text x="${padL-5}" y="${gy(t)+3}" text-anchor="end" font-size="9" fill="#8f959e">${t}</text>`).join('');
-  // 周标签（过密隔一显示）
   const labEvery = n > 14 ? 2 : 1;
   const xlabs = flatW.map((w,i) => (i % labEvery === 0) ? `<text x="${px(i)}" y="${H-8}" text-anchor="middle" font-size="9" fill="${w.s<=todayI&&todayI<w.e?'#dc2626':'#8f959e'}" font-weight="${w.s<=todayI&&todayI<w.e?'700':'400'}">W${w.wi+1}</text>` : '').join('');
-  let inner = '', legend = '';
-  if(gapChartMode === 'bar'){
-    inner = flatW.map((w,i) => {
-      let acc = 0, segs = '', tipRows = '';
-      groups.forEach((g,gi) => {
-        const v = wkTotByGrp[gi][i] || 0; if(v <= 0) return;
-        const y1 = gy(acc + v), y0 = gy(acc);
-        segs += `<rect x="${(px(i)-bw/2).toFixed(1)}" y="${y1.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(1,(y0-y1)).toFixed(1)}" fill="${modFamC(g.mod)}"><title>${effEsc(modMeta(g.mod).s)}管线 -${v}</title></rect>`;
-        tipRows += `<br>${effEsc(modMeta(g.mod).s)}管线 -${v}`;
-        acc += v;
-      });
-      const isPk = i === pkI && wkTot[i] > 0;
-      const isNow = w.s <= todayI && todayI < w.e;
-      const top = wkTot[i] > 0 ? `<text x="${px(i)}" y="${(gy(acc)-4).toFixed(1)}" text-anchor="middle" font-size="9.5" font-weight="700" fill="${isPk?'#dc2626':'#646a73'}">-${wkTot[i]}</text>` : '';
-      const pkFlag = isPk ? `<text x="${px(i)}" y="${(gy(acc)-14).toFixed(1)}" text-anchor="middle" font-size="10" fill="#dc2626">▲</text>` : '';
-      const hl = isNow ? `<rect x="${(px(i)-step/2+1).toFixed(1)}" y="${padT-4}" width="${(step-2).toFixed(1)}" height="${(ih+8).toFixed(1)}" fill="#dc2626" opacity="0.05"/>` : '';
-      const hit = `<rect x="${(px(i)-step/2+1).toFixed(1)}" y="${padT-4}" width="${(step-2).toFixed(1)}" height="${(ih+8).toFixed(1)}" fill="transparent" style="cursor:pointer" onmousemove="showTip(event,'第${w.wi+1}周（${wkStartLabel(w)}起）${tipRows||'<br>无缺口'}<br>合计 -${wkTot[i]} 人${isPk?' · ▲峰值周':''}')" onmouseleave="hideTip()" onclick="kpiScrollToDay(${w.s})"/>`;
-      return hl + segs + top + pkFlag + hit;
-    }).join('');
-    legend = groups.filter((g,gi) => wkTotByGrp[gi].some(v => v > 0)).map(g => `<span><i style="background:${modFamC(g.mod)}"></i>${effEsc(modMeta(g.mod).s)}管线</span>`).join('');
-  }else{
-    const lines = groups.map((g,gi) => {
-      const vals = wkTotByGrp[gi]; if(!vals.some(v => v > 0)) return '';
-      const col = modFamC(g.mod);
-      const pts = vals.map((v,i) => `${px(i).toFixed(1)},${gy(v).toFixed(1)}`).join(' ');
-      const pkLi = vals.indexOf(Math.max(...vals));
-      const dots = vals.map((v,i) => `<circle cx="${px(i).toFixed(1)}" cy="${gy(v).toFixed(1)}" r="${i===pkLi?3:1.7}" fill="${col}"/>`).join('');
-      return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round" opacity="0.9"><title>${effEsc(modMeta(g.mod).s)}管线</title></polyline>${dots}`;
-    }).join('');
-    const totPts = wkTot.map((v,i) => `${px(i).toFixed(1)},${gy(v).toFixed(1)}`).join(' ');
-    const totDots = wkTot.map((v,i) => `<circle cx="${px(i).toFixed(1)}" cy="${gy(v).toFixed(1)}" r="${i===pkI?3.4:2}" fill="${i===pkI?'#dc2626':'#ef3b39'}"/>`).join('');
-    const hits = flatW.map((w,i) => {
-      const rows = groups.map((g,gi) => (wkTotByGrp[gi][i]||0) > 0 ? `<br>${effEsc(modMeta(g.mod).s)}管线 -${wkTotByGrp[gi][i]}` : '').join('');
-      const isNow = w.s <= todayI && todayI < w.e;
-      const hl = isNow ? `<rect x="${(px(i)-step/2+1).toFixed(1)}" y="${padT-4}" width="${(step-2).toFixed(1)}" height="${(ih+8).toFixed(1)}" fill="#dc2626" opacity="0.05"/>` : '';
-      return hl + `<rect x="${(px(i)-step/2+1).toFixed(1)}" y="${padT-4}" width="${(step-2).toFixed(1)}" height="${(ih+8).toFixed(1)}" fill="transparent" style="cursor:pointer" onmousemove="showTip(event,'第${w.wi+1}周（${wkStartLabel(w)}起）${rows||'<br>无缺口'}<br>合计 -${wkTot[i]} 人')" onmouseleave="hideTip()" onclick="kpiScrollToDay(${w.s})"/>`;
-    }).join('');
-    inner = lines + `<polyline points="${totPts}" fill="none" stroke="#ef3b39" stroke-width="2.2" stroke-dasharray="5 3" stroke-linejoin="round"><title>全管线合计</title></polyline>${totDots}` + hits;
-    legend = groups.filter((g,gi) => wkTotByGrp[gi].some(v => v > 0)).map(g => `<span><i style="background:${modFamC(g.mod)}"></i>${effEsc(modMeta(g.mod).s)}</span>`).join('') + `<span class="dash"><i></i>全管线合计</span>`;
-  }
-  return `<div class="gm-chart">
-    <div class="gm-chart-head">缺口分布（与下表同源：${n} 周 · 峰值 -${Math.max(...wkTot)} 人 @W${flatW[pkI].wi+1}）
-      <span class="kpd-tabs"><button class="${gapChartMode==='bar'?'on':''}" onclick="setGapChartMode('bar',this)">堆叠柱</button><button class="${gapChartMode==='line'?'on':''}" onclick="setGapChartMode('line',this)">趋势线</button></span>
-    </div>
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="缺口分布图">${grid}${inner}${xlabs}</svg>
+  const lines = groups.map((g,gi) => {
+    const vals = wkTotByGrp[gi]; if(!vals.some(v => v > 0)) return '';
+    const col = GM_MODC[g.mod] || modFamC(g.mod);
+    const pts = vals.map((v,i) => `${px(i).toFixed(1)},${gy(v).toFixed(1)}`).join(' ');
+    const pkLi = vals.indexOf(Math.max(...vals));
+    const dots = vals.map((v,i) => `<circle cx="${px(i).toFixed(1)}" cy="${gy(v).toFixed(1)}" r="${i===pkLi?3:1.7}" fill="${col}"/>`).join('');
+    return `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.8" stroke-linejoin="round" opacity="0.9"><title>${effEsc(modMeta(g.mod).s)}管线</title></polyline>${dots}`;
+  }).join('');
+  const totPts = wkTot.map((v,i) => `${px(i).toFixed(1)},${gy(v).toFixed(1)}`).join(' ');
+  const totDots = wkTot.map((v,i) => `<circle cx="${px(i).toFixed(1)}" cy="${gy(v).toFixed(1)}" r="${i===pkI?3.4:2}" fill="${i===pkI?'#dc2626':'#ef3b39'}"/>`).join('');
+  const hits = flatW.map((w,i) => {
+    const rows = groups.map((g,gi) => (wkTotByGrp[gi][i]||0) > 0 ? `<br>${effEsc(modMeta(g.mod).s)}管线 -${wkTotByGrp[gi][i]}` : '').join('');
+    const isNow = w.s <= todayI && todayI < w.e;
+    const hl = isNow ? `<rect x="${(px(i)-step/2+1).toFixed(1)}" y="${padT-4}" width="${(step-2).toFixed(1)}" height="${(ih+8).toFixed(1)}" fill="#dc2626" opacity="0.05"/>` : '';
+    return hl + `<rect x="${(px(i)-step/2+1).toFixed(1)}" y="${padT-4}" width="${(step-2).toFixed(1)}" height="${(ih+8).toFixed(1)}" fill="transparent" style="cursor:pointer" onmousemove="showTip(event,'第${w.wi+1}周（${wkStartLabel(w)}起）${rows||'<br>无缺口'}<br>合计 -${wkTot[i]} 人')" onmouseleave="hideTip()" onclick="kpiScrollToDay(${w.s})"/>`;
+  }).join('');
+  const legend = groups.filter((g,gi) => wkTotByGrp[gi].some(v => v > 0)).map(g => `<span><i style="background:${GM_MODC[g.mod]||modFamC(g.mod)}"></i>${effEsc(modMeta(g.mod).s)}</span>`).join('') + `<span class="dash"><i></i>全管线合计</span>`;
+  return `<div class="gm-chart">${head}
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="缺口趋势图">${grid}${lines}<polyline points="${totPts}" fill="none" stroke="#ef3b39" stroke-width="2.2" stroke-dasharray="5 3" stroke-linejoin="round"><title>全管线合计</title></polyline>${totDots}${hits}${xlabs}</svg>
     <div class="gm-chart-legend">${legend}<span style="margin-left:auto">hover 看管线构成 · 点击定位该周 ｜ 红底列 = 本周</span></div>
   </div>`;
 }
@@ -4908,7 +5002,12 @@ function renderGapMatrix(){
     const dots = vals.map((v,i) => `<circle cx="${px(i).toFixed(1)}" cy="${py(v).toFixed(1)}" r="${i===pkI?3:1.8}" fill="${i===pkI?'#dc2626':'#f87171'}"/>`).join('');
     return `<svg class="gm-spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="#ef3b39" stroke-width="1.6" stroke-linejoin="round"/>${dots}</svg>`;
   };
-  const head = `<tr><th class="gm-l">角色线</th><th>标配</th>${cols.map(c => `<th>${c.label}${c.sub?`<br><span>${c.sub}</span>`:''}</th>`).join('')}<th>区间峰值</th></tr>`;
+  /* v7.87：列头去日期化——周/自定义模式只显 W 编号（日期收进悬停 title），月模式显月份 */
+  const head = `<tr><th class="gm-l">角色线</th><th>标配</th>${cols.map(c => {
+    const w0 = c.weeks[0], wN = c.weeks[c.weeks.length-1];
+    const rng = c.weeks.length > 1 ? `${wkStartLabel(w0)} – ${wkStartLabel(wN)}` : `${wkStartLabel(w0)} 起`;
+    return `<th title="${rng}">${c.sub || c.label}</th>`;
+  }).join('')}<th>区间峰值</th></tr>`;
   let body = '';
   let shownLines = 0, totalLines = 0;
   groups.forEach((g, gi) => {
@@ -4917,7 +5016,7 @@ function renderGapMatrix(){
     totalLines += g.lines.length;
     if(!visLines.length) return;
     shownLines += visLines.length;
-    body += `<tr class="gm-grp"><td colspan="${cols.length+3}" style="box-shadow:inset 4px 0 0 ${modFamC(g.mod)}">${effEsc(modMeta(g.mod).s)}管线</td></tr>`;
+    body += `<tr class="gm-grp"><td colspan="${cols.length+3}" style="box-shadow:inset 4px 0 0 ${GM_MODC[g.mod]||modFamC(g.mod)}">${effEsc(modMeta(g.mod).s)}管线</td></tr>`;
     visLines.forEach(l => {
       let ci = 0;
       const tds = cols.map((c, k) => {
@@ -4933,15 +5032,15 @@ function renderGapMatrix(){
       let rp = {gap:0, wl:''};
       l.cells.forEach((cell, i) => { if(cell.gap > rp.gap) rp = {gap:cell.gap, wl:wkStartLabel(flatW[i])}; });
       const mbar = rp.gap > 0 && pkMax > 0 ? `<span class="gm-mbar"><i style="width:${Math.round(rp.gap/pkMax*100)}%"></i></span>` : '';
-      body += `<tr><td class="gm-l">${effEsc(l.label)}</td><td>${l.std}</td>${tds}<td class="gm-pk">${mbar}${rp.gap>0?'-'+rp.gap:'0'} <span class="gm-w">${rp.wl||''}</span></td></tr>`;
+      body += `<tr><td class="gm-l">${effEsc(l.label)}</td><td>${l.std}</td>${tds}<td class="gm-pk">${mbar}${rp.gap>0?'-'+rp.gap:'0'}</td></tr>`;
     });
     const subTds = colRanges.map(rg => { const p = colPeak(wkTotByGrp[gi], rg); return `<td>${p.v>0?'-'+p.v:'0'}</td>`; }).join('');
     const subAll = colPeak(wkTotByGrp[gi], [0, flatW.length]);
-    body += `<tr class="gm-sub"><td class="gm-l">${effEsc(modMeta(g.mod).s)}小计</td><td>—</td>${subTds}<td>${subAll.v>0?'-'+subAll.v:'0'} <span class="gm-w">${subAll.wl}</span></td></tr>`;
+    body += `<tr class="gm-sub"><td class="gm-l">${effEsc(modMeta(g.mod).s)}小计</td><td>—</td>${subTds}<td>${subAll.v>0?'-'+subAll.v:'0'}</td></tr>`;
   });
   const totTds = colRanges.map(rg => { const p = colPeak(wkTot, rg); return `<td>${p.v>0?'-'+p.v:'0'}</td>`; }).join('');
   const totAll = colPeak(wkTot, [0, flatW.length]);
-  body += `<tr class="gm-total"><td class="gm-l">合计（全管线）</td><td>—</td>${totTds}<td><div class="gm-totpk">${totAll.v>0?'-'+totAll.v:'0'} <span class="gm-w">${totAll.wl}</span></div>${sparkSVG(wkTot)}</td></tr>`;
+  body += `<tr class="gm-total"><td class="gm-l">合计（全管线）</td><td>—</td>${totTds}<td><div class="gm-totpk">${totAll.v>0?'-'+totAll.v:'0'}</div>${sparkSVG(wkTot)}</td></tr>`;
   const rangeTxt = {week:'近 4 周', month:'近 3 个月', custom:'自定义区间'}[gapRangeMode] || '';
   if(!shownLines){
     el.innerHTML = ctrls + `<div class="kpd-empty">✅ ${rangeTxt}内各管线均无缺口（点右上角「全部」可查看所有 ${totalLines} 条角色线）</div>`;
@@ -4976,7 +5075,7 @@ function setGapCustom(which, sel){
 /* 详区统一渲染入口（updateKPIs 尾部调用） */
 function renderKpiDetails(HR, pl){
   try{ renderCfgCharts(HR); }catch(e){ console.warn('[kpi①]', e); }
-  try{ renderRiskList(); }catch(e){ console.warn('[kpi③]', e); }
+  try{ renderRefPanel(); }catch(e){ console.warn('[kpi③]', e); }
   try{ renderPeakPanel(pl); }catch(e){ console.warn('[kpi④]', e); }
   try{ renderGapMatrix(); }catch(e){ console.warn('[kpi⑤]', e); }
 }
