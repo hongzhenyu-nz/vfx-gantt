@@ -106,6 +106,27 @@
   .gm-ctrl select{font-size:11px;padding:2px 5px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--tx);}
   .gm-ctrl .gm-hint{color:var(--tx3);font-size:10px;}
   .gm-scroll{overflow-x:auto;}
+  /* v7.86 缺口分布图（面板⑤顶部，与矩阵同源） */
+  .gm-chart{margin:2px 0 8px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fbfcfe;}
+  .gm-chart-head{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;color:var(--tx2);margin-bottom:2px;}
+  .gm-chart-head .kpd-tabs{margin-left:auto;}
+  .gm-chart svg{width:100%;height:auto;display:block;}
+  .gm-chart-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--tx3);margin-top:2px;align-items:center;}
+  .gm-chart-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:3px;vertical-align:-1px;}
+  .gm-chart-legend .dash i{width:13px;height:0;border-top:2px dashed #ef3b39;border-radius:0;vertical-align:3px;background:none;}
+  /* v7.86 高风险清单图表（到期分布 + 排名横条） */
+  .rk-charts{display:flex;gap:12px;flex-wrap:wrap;margin:6px 0 8px;}
+  .rk-chart{flex:1;min-width:270px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:#fbfcfe;}
+  .rk-chart-t{font-size:11px;font-weight:700;color:var(--tx2);margin-bottom:4px;}
+  .rk-chart svg{width:100%;height:auto;display:block;}
+  .rk-rank-row{display:flex;align-items:center;gap:6px;padding:3px 4px;border-radius:6px;cursor:pointer;}
+  .rk-rank-row:hover{background:#f1f5fb;}
+  .rk-rank-name{width:104px;flex:none;font-size:11px;color:var(--tx);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .rk-rank-track{flex:1;height:12px;background:#eef1f5;border-radius:6px;position:relative;overflow:hidden;}
+  .rk-rank-track i{position:absolute;left:0;top:0;bottom:0;border-radius:6px;min-width:2px;}
+  .rk-rank-val{font-size:10px;color:var(--tx3);white-space:nowrap;display:inline-flex;align-items:center;gap:4px;}
+  .rk-rank-val b{font-size:11px;color:var(--tx);}
+  .rk-rank-val em{font-style:normal;color:var(--tx3);}
   .gm{width:100%;border-collapse:collapse;font-size:11px;}
   .gm th{font-size:9.5px;color:var(--tx3);font-weight:700;padding:3px 4px;border-bottom:1px solid var(--line);text-align:center;line-height:1.35;white-space:nowrap;}
   .gm th span{font-weight:600;color:var(--tx3);}
