@@ -666,6 +666,10 @@
   .bar-task.dup-src::after{content:'＋';position:absolute;top:-9px;right:-7px;width:18px;height:18px;line-height:17px;text-align:center;font-size:13px;font-weight:800;color:#fff;background:#3370ff;border:1.5px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.3);z-index:31;}
   .bar-task.flash{animation:barflash .9s ease;}
   @keyframes barflash{0%{box-shadow:0 0 0 3px rgba(51,112,255,.6),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}100%{box-shadow:0 1px 3px rgba(0,0,0,.20),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}}
+  /* v7.83 定位持久高亮：.flash 仅 0.9s 单次，平滑滚动落地时已放完，用户看不到。
+     locate-hl 呼吸 1.2s×3=3.6s，滚动到位后挂载，与 .flash 叠加保证任何滚动时长下都醒目。 */
+  .bar-task.locate-hl{animation:locatehl 1.2s ease-in-out 3;z-index:8;}
+  @keyframes locatehl{0%,100%{box-shadow:0 0 0 2px rgba(51,112,255,.55),0 0 6px 1px rgba(51,112,255,.35),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}50%{box-shadow:0 0 0 4px rgba(51,112,255,.95),0 0 16px 4px rgba(51,112,255,.60),inset 3px 0 0 0 var(--gcol,rgba(0,0,0,.24))}}
   /* v7.56：条色改为读取 CSS 变量，由 🎨 配色面板「甘特图条」分组驱动（见 app.js applyMsPalette）。
      var() 的**兜底值逐字取自原硬编码色**，未设变量时渲染结果与改动前完全一致，零视觉变化。
      变量作用域在 :root，改色后浏览器立即重绘 = 实时生效，无需 rerender。 */

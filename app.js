@@ -4425,6 +4425,7 @@ function renderHR(){
 let cfgDim = 'grade';                          // ① 当前维度（paint 重渲染后保持）
 let gapRangeMode = 'week';                     // ⑤ 时间段模式：week / month / custom
 let gapRangeCustom = {from:null, to:null};     // ⑤ 自定义区间（teamLoadWeeks().weeks 下标）
+let gapShowAll = false;                        // ⑤ 行过滤：false=仅显示区间内有缺口的角色线（v7.83）
 
 /* 周起点短标签（M/D），w = {s: dayIdx} */
 function wkStartLabel(w){ const d = new Date(START.getTime() + w.s*dayMs); return (d.getMonth()+1)+'/'+d.getDate(); }
@@ -4586,8 +4587,14 @@ function kpiLocateReq(id){
     const bar = document.querySelector(`.bar-task[data-req="${r.id}"]`);
     if(bar){ try{ bar.scrollIntoView({behavior:'smooth', block:'center', inline:'center'}); }catch(_){ bar.scrollIntoView(); } }
   });
-  // 任务条脉冲高亮（与既有定位一致的 .flash 动画），等平滑滚动落地后触发
-  setTimeout(() => flashReq(r.id), 480);
+  // 任务条高亮：等平滑滚动落地（~620ms）后挂 3.6s 呼吸高亮 + .flash 脉冲。
+  // v7.83 修复：原先只触发 0.9s 的 .flash，滚动本身就要 ~600ms，动画放完用户才看到条，等于没高亮。
+  setTimeout(() => {
+    const bars = document.querySelectorAll(`.bar-task[data-req="${r.id}"]`);
+    bars.forEach(b => { b.classList.remove('locate-hl'); void b.offsetWidth; b.classList.add('locate-hl'); });
+    setTimeout(() => bars.forEach(b => b.classList.remove('locate-hl')), 3800);
+    flashReq(r.id);
+  }, 620);
 }
 /* ④ mini 色带点击：把该周滚到时间轴可视区左侧 1/3 处（与 scrollToToday 同一容器与算法） */
 function kpiScrollToDay(dayIdx){
@@ -4601,10 +4608,12 @@ function kpiScrollToDay(dayIdx){
   if(typeof syncTodayLabel === 'function') syncTodayLabel();
 }
 
-/* ① 编制构成环形图 */
+/* ① 编制构成环形图
+   v7.83 账目闭合修复：各维度分组 = 实人分组 + 灰色「暂缺占位」组，分母 = 各组之和（=HR.base）。
+   修复前：品级只渲染 金/橙/红 三个硬编码 key，grade 为空串的成员整组消失（19/25）；
+           分母用 HR.base（含暂缺），模块维度按实人聚合 → 人数与百分比都对不上分母。 */
 function renderCfgCharts(HR){
   const el = document.getElementById('kpdCfgBody'); if(!el) return;
-  const total = HR.base || 0;
   let items = [];
   if(cfgDim === 'grade'){
     items = [
@@ -4612,6 +4621,10 @@ function renderCfgCharts(HR){
       {k:'橙角品级', v:HR.gradeCount['橙']||0, c:'#f59e0b'},
       {k:'红角品级', v:HR.gradeCount['红']||0, c:'#ef3b39'},
     ];
+    // 其余非零 key（空串等）合并为「未标品级」，不再整组丢弃
+    let other = 0;
+    Object.keys(HR.gradeCount||{}).forEach(k => { if(k!=='金' && k!=='橙' && k!=='红') other += HR.gradeCount[k]||0; });
+    if(other > 0) items.push({k:'未标品级', v:other, c:'#9aa1af'});
   }else if(cfgDim === 'corp'){
     const CN = {reg:'正编', base:'基地', loan:'外借', sub:'其他'};
     const CC = {reg:'#1d6fd6', base:'#1fae5a', loan:'#8b5cf6', sub:'#9aa1af'};
@@ -4622,7 +4635,11 @@ function renderCfgCharts(HR){
     items = Object.entries(agg).map(([k,v]) => ({k:modMeta(k).s, v, c:modFamC(k)})).sort((a,b) => b.v - a.v);
     if(items.length > 6){ const rest = items.splice(6); items.push({k:'其他', v:rest.reduce((s,x)=>s+x.v,0), c:'#9aa1af'}); }
   }
+  // 暂缺占位单列灰色组（三维度统一），账目闭合：实人各组 + 暂缺 = HR.base
+  const vacN = HR.vacantCount || 0;
+  if(vacN > 0) items.push({k:'暂缺占位', v:vacN, c:'#d7dce3'});
   items = items.filter(x => x.v > 0);
+  const total = items.reduce((s,x) => s + x.v, 0);   // 分母 = 各组之和，必闭合
   if(!total || !items.length){ el.innerHTML = '<div class="kpd-empty">暂无在岗成员数据</div>'; return; }
   let acc = 0;
   const segs = items.map(it => { const from = acc/total*100; acc += it.v; const to = acc/total*100; return `${it.c} ${from.toFixed(2)}% ${to.toFixed(2)}%`; }).join(',');
@@ -4631,7 +4648,7 @@ function renderCfgCharts(HR){
     <div class="dc-donut" style="background:conic-gradient(${segs})"><div class="dc-hole"><b>${total}</b><span>在岗</span></div></div>
     <div class="dc-legend">${legend}</div>
   </div>
-  <div class="kpd-foot">口径：computeHR() 实时聚合（在岗 = 未 effLeft 且非暂缺占位）；品级 = members[].grade，编制 = members[].corp，模块 = members[].mod（色取模块色族）。</div>`;
+  <div class="kpd-foot">口径：computeHR() 实时聚合（在岗 = 未 effLeft；暂缺占位单列灰组）；品级 = members[].grade（空 → 未标品级），编制 = members[].corp，模块 = members[].mod（色取模块色族）。${cfgDim==='mod' ? ' 需求侧其余管线（本体/3C、MVP、TPP 等）由上述成员跨线支援，不另占人头。' : ''}</div>`;
 }
 
 /* ③ 高风险需求清单 */
@@ -4664,7 +4681,7 @@ function renderRiskList(){
   }).join('');
   el.innerHTML = `<div class="rt-wrap"><table class="rt-tbl">
     <tr><th>需求</th><th>剩余</th><th>人力</th><th>缺口</th><th>主因</th><th></th></tr>${rows}</table></div>
-  <div class="kpd-foot">口径：reqRisk().lvl='高'（产能紧迫度 与 人力缺口 两维取高）；主因取 reqRisk().cause / overloaded / gapPpl；「定位」复用 flashReq 滚动定位+高亮。</div>`;
+  <div class="kpd-foot">口径：reqRisk().lvl='高'（产能紧迫度 与 人力缺口 两维取高）；主因取 reqRisk().cause / overloaded / gapPpl；「定位」滚动到任务条并持续高亮 3.6s。</div>`;
 }
 
 /* ④ 高峰负载率 · 色带峰值解读 */
@@ -4718,9 +4735,15 @@ function renderGapMatrix(){
   const colPeak = (arr, rg) => { let pk = 0, pi = rg[0]; for(let i = rg[0]; i < rg[0]+rg[1]; i++){ if((arr[i]||0) > pk){ pk = arr[i]; pi = i; } } return {v:pk, wl:wkStartLabel(flatW[pi])}; };
   const head = `<tr><th class="gm-l">角色线</th><th>标配</th>${cols.map(c => `<th>${c.label}${c.sub?`<br><span>${c.sub}</span>`:''}</th>`).join('')}<th>区间峰值</th></tr>`;
   let body = '';
+  let shownLines = 0, totalLines = 0;
   groups.forEach((g, gi) => {
+    // v7.83：默认仅显示「区间内有缺口」的角色线；组内全零 → 整组（含组头/小计）隐藏
+    const visLines = g.lines.filter(l => gapShowAll || l.cells.some(c => c.gap > 0));
+    totalLines += g.lines.length;
+    if(!visLines.length) return;
+    shownLines += visLines.length;
     body += `<tr class="gm-grp"><td colspan="${cols.length+3}">${effEsc(modMeta(g.mod).s)}管线</td></tr>`;
-    g.lines.forEach(l => {
+    visLines.forEach(l => {
       let ci = 0;
       const tds = cols.map((c, k) => {
         let pk = {gap:0, std:0, wl:'', hits:[]};
@@ -4743,8 +4766,13 @@ function renderGapMatrix(){
   const totTds = colRanges.map(rg => { const p = colPeak(wkTot, rg); return `<td>${p.v>0?'-'+p.v:'0'}</td>`; }).join('');
   const totAll = colPeak(wkTot, [0, flatW.length]);
   body += `<tr class="gm-total"><td class="gm-l">合计（全管线）</td><td>—</td>${totTds}<td>${totAll.v>0?'-'+totAll.v:'0'} <span class="gm-w">${totAll.wl}</span></td></tr>`;
+  const rangeTxt = {week:'近 4 周', month:'近 3 个月', custom:'自定义区间'}[gapRangeMode] || '';
+  if(!shownLines){
+    el.innerHTML = ctrls + `<div class="kpd-empty">✅ ${rangeTxt}内各管线均无缺口（点右上角「全部」可查看所有 ${totalLines} 条角色线）</div>`;
+    return;
+  }
   el.innerHTML = ctrls + `<div class="gm-scroll"><table class="gm">${head}${body}</table></div>
-  <div class="gm-legend"><span><i class="gm-cell gm-0">—</i> 无缺口</span><span><i class="gm-cell gm-1">-1</i> 缺 1 人</span><span><i class="gm-cell gm-2">-2</i> 缺 ≥2 人</span><span style="margin-left:auto">按月 = 月内各周峰值 ｜ 列合计 = 该时段最紧一周</span></div>
+  <div class="gm-legend"><span><i class="gm-cell gm-0">—</i> 无缺口</span><span><i class="gm-cell gm-1">-1</i> 缺 1 人</span><span><i class="gm-cell gm-2">-2</i> 缺 ≥2 人</span><span style="margin-left:auto">${gapShowAll ? `全部 ${totalLines} 条角色线` : `仅缺口 ${shownLines}/${totalLines} 条`} ｜ 按月 = 月内各周峰值 ｜ 列合计 = 该时段最紧一周</span></div>
   <div class="kpd-foot">口径：角色线集合与聚合键同 buildRoleLines()（与「人力分配」视图同源）；该周有未完成需求覆盖 ⇒ 标配 std 生效；cfg = 在岗基地真人（离职/暂缺/支援/正编不占）；gap(w)=max(0, std−cfg)。悬停单元格查看该周构成。</div>`;
 }
 
@@ -4756,6 +4784,11 @@ function setCfgDim(dim, btn){
 function setGapRange(mode, btn){
   gapRangeMode = mode;
   document.querySelectorAll('#gapRangeTabs button').forEach(b => b.classList.toggle('on', b === btn));
+  try{ renderGapMatrix(); }catch(e){ console.warn('[kpi⑤]', e); }
+}
+function setGapShowAll(all, btn){
+  gapShowAll = all;
+  document.querySelectorAll('#gapFilterTabs button').forEach(b => b.classList.toggle('on', b === btn));
   try{ renderGapMatrix(); }catch(e){ console.warn('[kpi⑤]', e); }
 }
 function setGapCustom(which, sel){
