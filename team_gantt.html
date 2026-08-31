@@ -12,7 +12,7 @@
      cache-control:max-age=600 独立缓存，会出现「index.html 已更新、styles.css/app.js 仍是旧缓存」
      的版本错配 → 视图崩坏（左栏空白/任务条不渲染）。版本号一变 URL 即变，强制重新拉取。
      ⚠️ 改动 styles.css 或 app.js 后，必须同步递增此处 ?v= 版本号。 -->
-<link rel="stylesheet" href="styles.css?v=7.88">
+<link rel="stylesheet" href="styles.css?v=7.89">
 
 </head>
 <body>
@@ -34,7 +34,7 @@
 <div class="wrap">
   <div class="hd-row">
     <h1>逆战商业化角色特效 · 排期协同甘特看板</h1>
-    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.88 · build 2026-08-31 20:45</span>
+    <span class="build-stamp" id="buildStamp" title="构建版本戳——用于确认浏览器已加载到最新版（若与预期编号不一致，说明还在吃缓存，请 Ctrl+Shift+R 硬刷新）">v7.89 · build 2026-08-31 21:05</span>
     <span class="cloud-ind hd-cloud" id="cloudInd" title="编辑权状态：同一时刻仅一人可编辑，其他人只读。点击申请编辑 / 提交释放" onclick="cloudUnlock()"><i class="ci-dot"></i><span class="ci-tx">连接中…</span></span>
     <button class="ubtn discard-edit-btn" id="discardEditBtn" style="display:none" onclick="discardEdit()" title="放弃本次编辑：数据回滚到获取编辑权那一刻的状态，编辑期间自动保存到云端的改动会被一并撤销">✕ 放弃编辑</button>
   </div>
@@ -142,7 +142,7 @@
       <span class="org-group" id="viewCtl" title="👁 视图：超期归档 / 隐藏已完成 / 条内标签 —— 统一控制「看到什么」">
         <button class="org-btn" onclick="toggleViewPop()" title="打开视图面板：超期归档天数、隐藏已完成、条内标签开关">👁 视图</button>
       </span>
-      <span class="org-group" id="colorCtl" title="🎨 自定义配色：本机自助改 联调(待启动/进行中) 与 超期 的颜色，实时预览并自动保存，不影响其他成员与任何数据">
+      <span class="org-group" id="colorCtl" title="🎨 自定义配色：本机自助改 联调(待启动/进行中) / 超期 / 关键节点 / KPI图表（饼图·缺口柱状图） 的颜色，实时预览并自动保存，不影响其他成员与任何数据">
         <button class="org-btn" onclick="toggleColorPop()" title="打开配色色盘，自行选择联调/超期条的颜色">🎨 配色</button>
       </span>
       <span class="org-group" id="displayCtl" title="⚙️ 显示设置：调节栅格透明度、底纹、阴影浓度等视觉参数，实时预览">
@@ -163,7 +163,7 @@
     </div>
     <span class="spacer"></span>
     <span class="org-hint" id="orgHint"></span>
-    <button class="reset" onclick="resetLocalView()" title="仅重置你本机的查看设置：配色（含关键节点色板）、显示参数、左侧栏宽、排序规则权重、条内标签、分组折叠、焦点筛选。不改动任何排期数据，不影响其他成员，也不会同步到云端">重置</button>
+    <button class="reset" onclick="resetLocalView()" title="仅重置你本机的查看设置：配色（含关键节点色板、图表配色）、显示参数、左侧栏宽、排序规则权重、条内标签、分组折叠、焦点筛选。不改动任何排期数据，不影响其他成员，也不会同步到云端">重置</button>
   </div>
 
   <!-- v7.35 配色色盘弹层：本机自助改色 + 吸管 + 预设CRUD + 最近颜色 + 撤销重做 -->
@@ -178,6 +178,12 @@
       <div class="mp-sec-t">🚩 关键节点配色 <small>集中调整 · 均为不透明色</small></div>
       <div id="msPaletteBox"></div>
       <div class="mp-foot"><button type="button" class="mp-reset" onclick="resetMsPalette()">↺ 恢复节点配色默认</button></div>
+    </div>
+    <!-- v7.89：图表统一色板（编制构成饼图 · 管线缺口柱状图；编制色两处共用，改色实时生效） -->
+    <div class="mp-sec">
+      <div class="mp-sec-t">📊 图表配色 <small>饼图 + 缺口柱状图 · 编制色两处共用 · 实时生效</small></div>
+      <div id="chPaletteBox"></div>
+      <div class="mp-foot"><button type="button" class="mp-reset" onclick="resetChPalette()">↺ 恢复图表配色默认</button></div>
     </div>
     <div class="cp-note">子色（文字/圆点/渐变/边框）由所选主色自动派生，保证任意主色下都清晰可读。💧=吸管取色，点击后拾取屏幕上任意颜色。点击页面其它处可关闭本面板。</div>
 
@@ -568,7 +574,7 @@
   </div>
 </div>
 
-<script src="app.js?v=7.88"></script>
+<script src="app.js?v=7.89"></script>
 
 </body>
 </html>

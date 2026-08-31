@@ -2653,6 +2653,93 @@ function renderMsPaletteUI(){
   });
   box.innerHTML=h;
 }
+/* ── v7.89 图表配色（KPI 编制构成饼图 + 管线缺口柱状图 统一色板） ─────────────────
+   与 MS_PALETTE 同构：DEF 默认值 / META 分组渲染 / localStorage 持久化 / 单点写入口 / 恢复默认。
+   取色走 CSS 变量（--ch-*）：饼图 conic-gradient、图例色块、SVG 柱 fill 全部引用变量，
+   改色只写变量、零重渲、实时预览（同 v7.56 条色方案）；两处图表共用同一组编制色（统一管理）。
+   覆盖：饼图「品级构成」页签 6 色 + 饼图「编制类型」页签与缺口柱状图共用的 5 编制色（含无在岗）。
+   不覆盖：模块色族 modFamC（属甘特全局色系）、产能需求趋势线蓝/橙（口径说明色）。 */
+const CH_PALETTE_DEF={
+  gradeJ:'#f6cf3f', gradeC:'#f59e0b', gradeR:'#ef3b39', gradeT:'#3b82f6', gradeN:'#9aa1af', gradeV:'#f87171',
+  corpReg:'#0052d9', corpBase:'#1fae5a', corpSub:'#2b6fe3', corpLoan:'#f59e0b', corpNone:'#9aa1af',
+};
+const CH_PALETTE_META=[
+  {group:'🍩 饼图 · 品级构成', items:[
+    {k:'gradeJ',label:'金角品级',desc:'编制构成饼图 · 金角品级分段'},
+    {k:'gradeC',label:'橙角品级',desc:'编制构成饼图 · 橙角品级分段'},
+    {k:'gradeR',label:'红角品级',desc:'编制构成饼图 · 红角品级分段'},
+    {k:'gradeT',label:'通用级',desc:'编制构成饼图 · 通用级分段'},
+    {k:'gradeN',label:'未标品级',desc:'编制构成饼图 · 未标品级分段（灰 = 元数据缺失）'},
+    {k:'gradeV',label:'暂缺占位',desc:'编制构成饼图 · 暂缺占位分段（红 = 缺人告警，图例为斜纹）'},
+  ]},
+  {group:'📊 编制色 · 饼图「编制类型」与缺口柱状图共用', items:[
+    {k:'corpReg',label:'正编',desc:'编制构成「编制类型」页签 · 正编分段'},
+    {k:'corpBase',label:'基地',desc:'编制类型页签分段 + 缺口柱状图「基地为主」柱（两处共用）'},
+    {k:'corpSub',label:'子公司',desc:'编制类型页签分段 + 缺口柱状图「子公司为主」柱（两处共用）'},
+    {k:'corpLoan',label:'外借',desc:'编制类型页签分段 + 缺口柱状图「外借为主」柱（两处共用）'},
+    {k:'corpNone',label:'无在岗（全缺）',desc:'缺口柱状图「无在岗（全缺）」柱'},
+  ]},
+];
+const CH_PAL_KEY='gantt_ch_palette';
+let CH_PALETTE=Object.assign({},CH_PALETTE_DEF);
+try{
+  const _p=JSON.parse(localStorage.getItem(CH_PAL_KEY)||'null');
+  if(_p) Object.keys(CH_PALETTE_DEF).forEach(k=>{ if(typeof _p[k]==='string' && /^#[0-9a-fA-F]{6}$/.test(_p[k])) CH_PALETTE[k]=_p[k]; });
+}catch(_){}
+/* key → CSS 变量名/引用：gradeJ → --ch-grade-j，corpNone → --ch-corp-none */
+function chVarName(k){ return '--ch-'+k.replace(/([A-Z])/g,'-$1').toLowerCase(); }
+function chVar(k){ return 'var('+chVarName(k)+')'; }
+/* 只写 CSS 变量，零重渲实时生效（同 v7.56：变量一变浏览器立即重绘，连续选色不打断） */
+function applyChPalette(){
+  Object.keys(CH_PALETTE_DEF).forEach(k=>document.documentElement.style.setProperty(chVarName(k),CH_PALETTE[k]));
+}
+/* 改单个图表色。校验：仅接受不透明 #RRGGBB。不重建面板 DOM，就地刷新 hex 文本。 */
+function changeChPalette(k,val){
+  if(!(k in CH_PALETTE_DEF)) return;
+  if(!/^#[0-9a-fA-F]{6}$/.test(val)){ toast('颜色必须是不透明的 #RRGGBB 格式'); return; }
+  CH_PALETTE[k]=val;
+  try{localStorage.setItem(CH_PAL_KEY,JSON.stringify(CH_PALETTE));}catch(_){}
+  /* 连续选色屏蔽面板误关（与 changeMsPalette 同一约束），600ms 后自动解除 */
+  msPalettePicking=true;
+  clearTimeout(changeChPalette._t);
+  changeChPalette._t=setTimeout(()=>{ msPalettePicking=false; },600);
+  applyChPalette();
+  let i=0, hit=null;
+  for(const g of CH_PALETTE_META){
+    for(const it of g.items){ if(it.k===k){ hit=i; break; } i++; }
+    if(hit!=null) break;
+  }
+  if(hit!=null){
+    const el=document.querySelectorAll('#chPaletteBox .mp-item')[hit];
+    if(el){ const hex=el.querySelector('.mp-hex'); if(hex) hex.textContent=val.toUpperCase(); }
+  }
+  if(typeof _addRecentColors==='function') _addRecentColors([val]);
+}
+function resetChPalette(){
+  CH_PALETTE=Object.assign({},CH_PALETTE_DEF);
+  try{localStorage.setItem(CH_PAL_KEY,JSON.stringify(CH_PALETTE));}catch(_){}
+  applyChPalette(); renderChPaletteUI();
+  toast('🎨 图表配色已恢复默认（饼图 + 缺口柱状图）');
+}
+/* 渲染图表色板 UI（挂进 #colorPop 的 #chPaletteBox 容器，与 renderMsPaletteUI 同构，每项带 💧 吸管） */
+function renderChPaletteUI(){
+  const box=document.getElementById('chPaletteBox'); if(!box) return;
+  let h='';
+  CH_PALETTE_META.forEach(g=>{
+    h+=`<div class="mp-grp"><div class="mp-grp-t">${g.group}</div><div class="mp-items">`;
+    g.items.forEach(it=>{
+      const v=CH_PALETTE[it.k];
+      h+=`<div class="mp-item" title="${escAttr(it.desc)}">
+        <input type="color" class="mp-color" value="${v}" oninput="changeChPalette('${it.k}',this.value)">
+        <span class="mp-lab">${escHtml(it.label)}</span>
+        <code class="mp-hex">${v.toUpperCase()}</code>
+        <button class="cp-eye" type="button" title="💧 吸管取色 — 从屏幕或页面任意位置拾取颜色" onclick="startEyeDrop('${it.k}')">💧</button>
+      </div>`;
+    });
+    h+='</div></div>';
+  });
+  box.innerHTML=h;
+}
 let msCtx=null;   // {mode:'add'|'edit'|'phase', reqId, msIdx, phkey, which}
 function msColorSwatches(cur){
   return MS_COLORS.map(c=>`<span class="ms-sw${c===cur?' on':''}" data-c="${c}" style="background:${c}" onclick="msPickColor('${c}')"></span>`).join('');
@@ -4626,22 +4713,23 @@ function renderCfgCharts(HR){
   const el = document.getElementById('kpdCfgBody'); if(!el) return;
   let items = [];
   if(cfgDim === 'grade'){
+    /* v7.89：品级色改引 --ch-* 变量（🎨 配色面板「图表配色」可自定义，实时生效） */
     items = [
-      {k:'金角品级', v:HR.gradeCount['金']||0, c:'#f6cf3f'},
-      {k:'橙角品级', v:HR.gradeCount['橙']||0, c:'#f59e0b'},
-      {k:'红角品级', v:HR.gradeCount['红']||0, c:'#ef3b39'},
+      {k:'金角品级', v:HR.gradeCount['金']||0, c:chVar('gradeJ')},
+      {k:'橙角品级', v:HR.gradeCount['橙']||0, c:chVar('gradeC')},
+      {k:'红角品级', v:HR.gradeCount['红']||0, c:chVar('gradeR')},
       /* v7.85：通用级单列（与 L4215 品级统计条口径一致），此前并入「未标品级」会误标 */
-      {k:'通用级', v:HR.gradeCount['通用']||0, c:(HR_GRADE['通用']||{}).col||'#3b82f6'},
+      {k:'通用级', v:HR.gradeCount['通用']||0, c:chVar('gradeT')},
     ];
     // 其余非零 key（空串等）合并为「未标品级」，不再整组丢弃
     let other = 0;
     Object.keys(HR.gradeCount||{}).forEach(k => { if(k!=='金' && k!=='橙' && k!=='红' && k!=='通用') other += HR.gradeCount[k]||0; });
-    if(other > 0) items.push({k:'未标品级', v:other, c:'#9aa1af'});
+    if(other > 0) items.push({k:'未标品级', v:other, c:chVar('gradeN')});
   }else if(cfgDim === 'corp'){
     /* v7.84：sub 正式名为「子公司」（与 app.js L370 badge 语义一致，此前误标「其他」）；
-       配色对齐甘特编制徽标：正编/子公司蓝系、基地绿、外借橙 */
+       v7.89：编制色改引 --ch-corp-* 变量，与缺口柱状图同一组色板（统一管理） */
     const CN = {reg:'正编', sub:'子公司', base:'基地', loan:'外借'};
-    const CC = {reg:'#0052d9', sub:'#2b6fe3', base:'#1fae5a', loan:'#f59e0b'};
+    const CC = {reg:chVar('corpReg'), sub:chVar('corpSub'), base:chVar('corpBase'), loan:chVar('corpLoan')};
     items = Object.keys(CN).map(k => ({k:CN[k], v:HR.corpCount[k]||0, c:CC[k]}));
   }else if(cfgDim === 'modReq'){
     /* v7.84 需求管线口径：九条管线按角色线标配人数（std）加权，与「人力分配」视图同源；
@@ -4661,9 +4749,10 @@ function renderCfgCharts(HR){
     if(items.length > 6){ const rest = items.splice(6); items.push({k:'其他', v:rest.reduce((s,x)=>s+x.v,0), c:'#9aa1af'}); }
   }
   /* v7.84 暂缺占位改红色系：与甘特缺人占位条（.vacant-bar 红斜纹 / .vacant-badge #dc2626）语义一致——
-     红 = 缺人告警；灰 = 元数据缺失（未标品级）。donut 段用纯色 #f87171，图例色块用甘特同款红斜纹 */
+     红 = 缺人告警；灰 = 元数据缺失（未标品级）。donut 段用纯色，图例色块用甘特同款斜纹；
+     v7.89 色引 --ch-grade-v 变量，斜纹浅色由 color-mix 从主色派生（换色后斜纹自动跟随） */
   const vacN = HR.vacantCount || 0;
-  if(vacN > 0 && cfgDim !== 'modReq') items.push({k:'暂缺占位', v:vacN, c:'#f87171', stripe:true});
+  if(vacN > 0 && cfgDim !== 'modReq') items.push({k:'暂缺占位', v:vacN, c:chVar('gradeV'), stripe:true});
   items = items.filter(x => x.v > 0);
   const total = items.reduce((s,x) => s + x.v, 0);   // 分母 = 各组之和，必闭合
   if(!total || !items.length){ el.innerHTML = '<div class="kpd-empty">暂无在岗成员数据</div>'; return; }
@@ -4671,7 +4760,7 @@ function renderCfgCharts(HR){
   const segs = items.map(it => { const from = acc/total*100; acc += it.v; const to = acc/total*100; return `${it.c} ${from.toFixed(2)}% ${to.toFixed(2)}%`; }).join(',');
   const unit = cfgDim === 'modReq' ? ' 人·标配' : ' 人';
   const legend = items.map(it => {
-    const sw = it.stripe ? 'repeating-linear-gradient(-45deg,#f87171 0 3px,#fca5a5 3px 6px)' : it.c;
+    const sw = it.stripe ? `repeating-linear-gradient(-45deg,${chVar('gradeV')} 0 3px,color-mix(in srgb, ${chVar('gradeV')} 38%, #ffffff) 3px 6px)` : it.c;
     return `<div class="dc-row"><i style="background:${sw}"></i><span class="dc-k">${effEsc(it.k)}</span><b>${it.v}${unit}</b><span class="dc-p">${Math.round(it.v/total*100)}%</span></div>`;
   }).join('');
   const holeSub = cfgDim === 'modReq' ? '标配' : '在岗';
@@ -4751,7 +4840,7 @@ function renderRefPanel(){
   const diffRows = diffs.slice(0,6).map(({r, std, mix, staffed, diff}) => {
     const c = diff < 0 ? '#dc2626' : '#2b6fe3';
     const t = diff < 0 ? `缺配 ${-diff}` : `超配 +${diff}`;
-    const mixT = ['base','sub','loan'].filter(k => mix[k] > 0).map(k => `<span style="color:${GM_CORPC[k]};font-weight:600">${GM_CORPT[k]} ${mix[k]}</span>`).join('·') || '<span style="color:#9aa1af">无在岗</span>';
+    const mixT = ['base','sub','loan'].filter(k => mix[k] > 0).map(k => `<span style="color:${chVar('corp'+k[0].toUpperCase()+k.slice(1))};font-weight:600">${GM_CORPT[k]} ${mix[k]}</span>`).join('·') || `<span style="color:${chVar('corpNone')}">无在岗</span>`;
     const regT = mix.reg > 0 ? ` <span style="color:#8f959e">· 正编带队 ${mix.reg}</span>` : '';
     return `<div class="ref-row"><span class="ref-txt"><b>${effEsc(charShort(r.char)||r.name||'')}</b> · ${effEsc(modMeta(r.mod).s)} · 标配 ${std}｜${mixT}${regT}</span><span class="ref-tag" style="color:${c}">${t}</span>${locBtn(r)}</div>`;
   }).join('');
@@ -4954,7 +5043,8 @@ function gmReqBarSVG(bars){
   const y = v => padT + ih - (v/maxV)*ih;
   const grid = [0, maxV].map(t => `<line x1="${padL}" y1="${y(t)}" x2="${W-padR}" y2="${y(t)}" stroke="${t===0?'#c9ced6':'#e6e9ee'}"/><text x="${padL-4}" y="${y(t)+3}" text-anchor="end" font-size="9" fill="#8f959e">${t}</text>`).join('');
   const body = bars.map((b,i) => {
-    const col = GM_CORPC[b.dom];
+    /* v7.89：柱色引 --ch-corp-* 变量（🎨 配色面板可改）；SVG 须用 style="fill:var()"，fill 属性不支持 var */
+    const col = chVar('corp'+b.dom[0].toUpperCase()+b.dom.slice(1));
     const bx = x(i), by = y(b.gap);
     const safeId = b.reqId ? String(b.reqId).replace(/[^\w-]/g, '') : '';
     const clk = safeId ? `style="cursor:pointer" onclick="kpiLocateReq('${safeId}')"` : '';
@@ -4963,8 +5053,8 @@ function gmReqBarSVG(bars){
     const tip = `${effEsc(b.name)}｜${effEsc(b.label)}<br>标配 ${b.std} · 在岗 ${b.cfg}（${mixT}） · 区间峰值缺口 -${b.gap}${regT}${safeId?'<br>点击定位甘特条':''}`;
     const nm = b.name.length > 5 ? b.name.slice(0,4)+'…' : b.name;
     return `<g ${clk} onmousemove="showTip(event,\`${tip}\`)" onmouseleave="hideTip()">
-      <rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2,(y(0)-by)).toFixed(1)}" rx="2" fill="${col}"/>
-      <text x="${(bx+bw/2).toFixed(1)}" y="${(by-4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" fill="${col}">-${b.gap}</text>
+      <rect x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(2,(y(0)-by)).toFixed(1)}" rx="2" style="fill:${col}"/>
+      <text x="${(bx+bw/2).toFixed(1)}" y="${(by-4).toFixed(1)}" text-anchor="middle" font-size="10" font-weight="700" style="fill:${col}">-${b.gap}</text>
       <text x="${(bx+bw/2).toFixed(1)}" y="${H-16}" text-anchor="middle" font-size="9" fill="#646a73">${effEsc(nm)}</text>
       <text x="${(bx+bw/2).toFixed(1)}" y="${H-5}" text-anchor="middle" font-size="8" fill="#8f959e">${effEsc(b.grade||'')}角·${effEsc(modMeta(b.mod).s)}</text>
     </g>`;
@@ -4979,7 +5069,7 @@ function gmChartHtml(groups, wkTotByGrp, wkTot, flatW){
   const head = `<div class="gm-chart-head">缺口分布（与下表同源 · 区间峰值合计 -${Math.max(...wkTot)} 人）${tabs}</div>`;
   if(gapChartMode === 'req'){
     return `<div class="gm-chart">${head}${gmReqBarSVG(gmGapBars(groups))}
-    <div class="gm-chart-legend"><span><i style="background:#1fae5a"></i>基地为主</span><span><i style="background:#2b6fe3"></i>子公司为主</span><span><i style="background:#f59e0b"></i>外借为主</span><span><i style="background:#9aa1af"></i>无在岗（全缺）</span><span style="margin-left:auto">每柱 = 该需求一条角色线的峰值缺口（标配 − 在岗真人）｜柱色 = 在岗主力编制｜悬停看构成 · 点击定位</span></div></div>`;
+    <div class="gm-chart-legend"><span><i style="background:${chVar('corpBase')}"></i>基地为主</span><span><i style="background:${chVar('corpSub')}"></i>子公司为主</span><span><i style="background:${chVar('corpLoan')}"></i>外借为主</span><span><i style="background:${chVar('corpNone')}"></i>无在岗（全缺）</span><span style="margin-left:auto">每柱 = 该需求一条角色线的峰值缺口（标配 − 在岗真人）｜柱色 = 在岗主力编制（🎨 配色面板可自定义）｜悬停看构成 · 点击定位</span></div></div>`;
   }
   /* line 模式：管线缺口趋势曲线（按周） */
   const W = 760, H = 172, padL = 30, padR = 10, padT = 20, padB = 26;
@@ -8024,6 +8114,7 @@ function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.p
    【允许覆盖 —— 纯本机查看偏好，每项只写自己的 localStorage key】
      1. 配色 · 联调/超期三色            → resetUserColors()
      2. 配色 · 关键节点色板              → resetMsPalette()
+     2b. 配色 · 图表色板（饼图/缺口柱）   → resetChPalette()
      3. 显示 · 六项滑块（饱和/条宽/阴影/底纹/栅格/弱化）→ resetDisplaySettings()
      4. 显示 · 竖虚线浓度                → setMsLinkOpac(100)
      5. 显示 · 栅格间隙                  → setGridGap(0)（0=自动）
@@ -8051,13 +8142,14 @@ function loadSaved(){try{const v=localStorage.getItem(KEY);if(v)applySnap(JSON.p
        只显示最后一条，故末尾统一再提示一次即可。 */
 function resetLocalView(){
   if(!confirm('恢复本机查看设置为默认？\n\n'
-    +'将重置：配色（含关键节点色板）、显示参数、左侧栏宽、排序规则权重、条内标签、分组折叠、焦点筛选。\n\n'
+    +'将重置：配色（含关键节点色板、图表配色）、显示参数、左侧栏宽、排序规则权重、条内标签、分组折叠、焦点筛选。\n\n'
     +'不会影响：任何排期数据、成员顺序、超期归档、隐藏已完成（后两项为团队共享）、你保存的自定义配色预设。\n\n'
     +'此操作只作用于你自己的浏览器，不影响其他成员。'))return;
 
   /* ① 配色 */
   if(typeof resetUserColors==='function')resetUserColors();
   if(typeof resetMsPalette==='function')resetMsPalette();
+  if(typeof resetChPalette==='function')resetChPalette();   // v7.89 图表配色（饼图/缺口柱状图）
   /* ② 显示参数 */
   if(typeof resetDisplaySettings==='function')resetDisplaySettings();
   if(typeof setMsLinkOpac==='function')setMsLinkOpac(100);
@@ -10584,7 +10676,7 @@ function togglePop(id,onOpen){
   p.classList.add('show');
   if(typeof syncCtlOn==='function')syncCtlOn();
 }
-function toggleColorPop(){ togglePop('colorPop',function(){ if(typeof renderMsPaletteUI==='function')renderMsPaletteUI(); }); }
+function toggleColorPop(){ togglePop('colorPop',function(){ if(typeof renderMsPaletteUI==='function')renderMsPaletteUI(); if(typeof renderChPaletteUI==='function')renderChPaletteUI(); }); }
 function toggleDisplayPop(){ togglePop('displayPop',syncDisplayPopValues); }
 function toggleSortRulePop(){ togglePop('sortRulePop',renderSortRulePop); }
 function toggleViewPop(){ togglePop('viewPop',syncViewPopValues); }
@@ -10697,8 +10789,8 @@ function _elemColorHex(el){
 async function startEyeDrop(key){
   if(typeof window.EyeDropper!=='undefined'){
     COLOR_PICKING=true;
-    // v7.47：统一色板的 key（msBg/msLine/msL1/…）走 changeMsPalette，其余仍走 changeColor
-    const setter=(typeof MS_PALETTE_DEF==='object' && (key in MS_PALETTE_DEF))?changeMsPalette:changeColor;
+    // v7.47：统一色板的 key（msBg/msLine/msL1/…）走 changeMsPalette；v7.89：图表色板 key 走 changeChPalette，其余仍走 changeColor
+    const setter=(typeof MS_PALETTE_DEF==='object' && (key in MS_PALETTE_DEF))?changeMsPalette:(typeof CH_PALETTE_DEF==='object' && (key in CH_PALETTE_DEF))?changeChPalette:changeColor;
     try{const ed=new EyeDropper();const res=await ed.open();const hex=(res&&res.sRGBHex)||'';if(/^#[0-9a-fA-F]{6}$/.test(hex))setter(key,hex);}
     catch(_){/* 用户取消或未授权，静默 */}
     COLOR_PICKING=false;return;
@@ -10707,7 +10799,7 @@ async function startEyeDrop(key){
 }
 function startClickPick(key){
   COLOR_PICKING=true;
-  const setter=(typeof MS_PALETTE_DEF==='object' && (key in MS_PALETTE_DEF))?changeMsPalette:changeColor;   // v7.47：同上分发
+  const setter=(typeof MS_PALETTE_DEF==='object' && (key in MS_PALETTE_DEF))?changeMsPalette:(typeof CH_PALETTE_DEF==='object' && (key in CH_PALETTE_DEF))?changeChPalette:changeColor;   // v7.47/v7.89：同上分发
   document.body.classList.add('cp-picking');
   const hint=document.createElement('div');hint.id='cpPickHint';hint.textContent='🎯 点击页面任意处吸取颜色（Esc 取消）';document.body.appendChild(hint);
   function cleanup(){COLOR_PICKING=false;document.body.classList.remove('cp-picking');if(hint.parentNode)hint.parentNode.removeChild(hint);document.removeEventListener('mousedown',onPick,true);document.removeEventListener('keydown',onKey,true);}
@@ -11108,6 +11200,7 @@ initLeftW();
 applyLblShow();
 _migrateMsBg();       // v7.47 老版 gantt_ms_bg → 统一色板 MS_PALETTE.msBg
 applyMsPalette();    // v7.47 应用「关键节点统一色板」（汇总行底色 / 虚线色 / 阶段色 / 候选色板）
+applyChPalette();    // v7.89 应用「图表配色」（KPI 饼图 / 缺口柱状图 --ch-* 变量，无则默认）
 applyUserColors();   // v7.30 应用本机自定义配色（无则保持 :root 默认）
 _pushColorHistory();   // v7.35 初始化撤销/重做栈
 renderPresetList();   // v7.32 渲染一键预设色板
