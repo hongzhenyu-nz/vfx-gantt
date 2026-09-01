@@ -2417,25 +2417,3 @@ body.cp-picking{cursor:crosshair!important;}
   #colorPop.show,#displayPop.show,#sortRulePop.show,
   #viewPop.show,#addPop.show,#sharePop.show,#editPop.show{animation:none!important;}
 }
-
-/* v7.90 在岗空闲高亮（调度参考卡③"在图上高亮"联动） */
-.ref-hl-btn{margin-left:6px;font-size:9.5px;font-weight:600;color:#16a34a;background:#f4fbf6;border:1px solid #b6e5c3;border-radius:3px;padding:1px 6px;cursor:pointer;line-height:1.5;}
-.ref-hl-btn:hover{background:#e3f7e8;}
-.timeline{position:relative;}
-.idle-hl-layer{position:absolute;inset:0;pointer-events:none;z-index:2;}
-.idle-hl{position:absolute;top:4px;bottom:4px;border-radius:3px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:2px;overflow:hidden;
-  background:repeating-linear-gradient(-45deg,rgba(52,199,89,.26) 0 5px,rgba(52,199,89,.09) 5px 10px);
-  box-shadow:inset 0 0 0 1px rgba(52,199,89,.55),0 0 0 1px rgba(52,199,89,.18);
-  transition:opacity .2s ease;}
-.idle-hl .ill-tx-top{font-size:9px;font-weight:700;color:#15803d;background:rgba(255,255,255,.93);
-  padding:1px 5px;border-radius:9px;line-height:1.35;white-space:nowrap;letter-spacing:.2px;
-  border:1px solid rgba(22,163,74,.32);max-width:calc(100% - 4px);overflow:hidden;text-overflow:ellipsis;}
-.idle-hl .ill-tx-bot{font-size:8px;font-weight:600;color:#b45309;background:rgba(254,243,199,.94);
-  padding:0 4px;border-radius:3px;line-height:1.35;white-space:nowrap;}
-/* 窄块（宽度放不下双行胶囊）按宽度降级：ill-narrow 只留上排，ill-tiny 纯斜纹 */
-.idle-hl.ill-narrow .ill-tx-bot{display:none;}
-.idle-hl.ill-tiny .ill-tx-top,.idle-hl.ill-tiny .ill-tx-bot{display:none;}
-.idle-hl-none{display:none;}
-.row[data-mem].idle-flash .idle-hl{animation:idlefl 1.4s ease-in-out 2;}
-@keyframes idlefl{0%,100%{opacity:.45;box-shadow:inset 0 0 0 1px rgba(52,199,89,.55),0 0 0 1px rgba(52,199,89,.18);}50%{opacity:1;box-shadow:inset 0 0 0 2px rgba(52,199,89,.95),0 0 10px 2px rgba(52,199,89,.45);}}

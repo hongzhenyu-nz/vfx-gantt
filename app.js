@@ -3090,124 +3090,6 @@ function vacantRowHTML(m,inArc){
     </div>`;
 }
 /* 渲染单个成员行（inArc=是否归档区内，仅加淡化样式类） */
-/* ===== v7.91 在岗空闲高亮：视野自适应 =====
-   规则（替代 v7.90 的「TODAY+30 天死窗口 + 无门槛」）：
-   ① 窗口 = 甘特图当前可视范围（#scroll 的 scrollLeft 到 scrollLeft+可视宽），不绑固定日期期限，
-      滚到哪儿就算哪儿 —— 排期表往后翻到 11 月、12 月照样能看出谁空着。
-   ② 门槛 = 随视野自适应：阈值取「视野内工作日总数的 1/8」，下限 3 工作日、上限 15 工作日。
-      视野越宽（能看到一个季度）要求越长，视野窄（放大到只看两周）就放低到 3 天，
-      避免一滚远就满屏绿、一放大又什么都看不见。
-   ③ 只标「连续工作日全无未完成任务段」的真空档，不看投入比 —— 半投入的天不算空，
-      这层要严格对应"这人这些天真的没排活"，才能直接往里插任务。 */
-/* 可视范围 → dayIdx 区间（口径同 kpiScrollToDay：内容 x = 天索引 × DAY_W，左侧 --left-w 为冻结名栏） */
-function visibleDayRange(){
-  const sc=document.getElementById('scroll');
-  if(!sc || !(DAY_W>0)) return null;
-  const lw=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--left-w'))||340;
-  const viewW=Math.max(120, sc.clientWidth-lw);
-  const day0=Math.max(0, Math.floor(sc.scrollLeft/DAY_W));
-  const day1=Math.max(day0, Math.min(DAYS-1, Math.floor((sc.scrollLeft+viewW)/DAY_W)));
-  return {day0, day1, viewW};
-}
-/* 自适应门槛：视野工作日的 1/8，钳在 [3,15] */
-function idleGapThreshold(workdays){ return Math.max(3, Math.min(15, Math.ceil(workdays/8))); }
-function weekdayName(d){ return ['日','一','二','三','四','五','六'][d.getDay()]; }
-/* 月内周序：周一为每周起点，每月 1 号所在周 = 第 1 周 */
-function weekOfMonth(d){
-  const fw=(new Date(d.getFullYear(), d.getMonth(), 1).getDay()+6)%7;   // 月首是周几（周一=0）
-  return Math.floor((d.getDate()-1+fw)/7)+1;
-}
-function weeksInMonth(y,m){
-  const last=new Date(y, m+1, 0).getDate();
-  const fw=(new Date(y, m, 1).getDay()+6)%7;
-  return Math.floor((last-1+fw)/7)+1;
-}
-/* 全员「忙碌区间」索引：一次遍历 reqs 建好，避免每行各扫一遍全表（滚动重算时省 30 倍开销）。
-   数据一变就作废 —— rerender() 开头会调 invalidateIdleBusy()。 */
-let _idleBusyCache=null;
-function invalidateIdleBusy(){ _idleBusyCache=null; }
-function idleBusyMap(){
-  if(_idleBusyCache) return _idleBusyCache;
-  const map=new Map();
-  for(const r of reqs){
-    if(r.kind==='qa') continue;
-    for(const s of (r.segs||[])){
-      if(!s.m || s.status==='done' || s.open) continue;
-      if(!segHasDuration(s)) continue;
-      let arr=map.get(s.m); if(!arr){ arr=[]; map.set(s.m, arr); }
-      arr.push([idx(s.s), idx(s.e)]);            // 半开区间 [s, e)
-    }
-  }
-  _idleBusyCache=map;
-  return map;
-}
-/* v7.90 在岗空闲高亮（与面板③「空闲可排人员」卡口径同源 memLoad<50%），v7.91 改为视野自适应：
-   在 .timeline 上叠一层绿色斜纹覆盖层，标出「可视范围内连续够长的无任务工作日区间」。
-   与 memLoad 的口径差：这里用工作日（isWorkday），不用 segEffInvOnDay 分摊——只标"没活"的日子。
-   始终返回 layer 节点（哪怕内容为空），这样滚动后视野变了还能原地补画，不必 rerender 全表。 */
-function idleHilightHTML(m){
-  const wrap=inner=>`<div class="idle-hl-layer" data-mem="${m.id}">${inner}</div>`;
-  if(isVacantMem(m) || effLeft(m) || leftLong(m)) return wrap('');   // 暂缺/请假/离职不参与
-  const v=visibleDayRange(); if(!v) return wrap('');
-  const t0=v.day0, t1=v.day1;
-  if(t1<t0) return wrap('');
-  const len=t1-t0+1;
-  /* 该成员在可视窗口内被未完成任务段覆盖的工作日 */
-  const busy=new Array(len).fill(false);
-  const ivs=idleBusyMap().get(m.id);
-  if(ivs){
-    for(const [ss,se] of ivs){
-      const a=Math.max(ss,t0), b=Math.min(se,t1+1);
-      for(let t=a;t<b;t++) busy[t-t0]=true;
-    }
-  }
-  /* 空闲工作日区间（休息日本就不上班，夹在中间的周末/假期不算把空档打断） */
-  const gaps=[]; let g=null;
-  for(let t=t0;t<=t1;t++){
-    if(busy[t-t0]){ if(g){ gaps.push(g); g=null; } continue; }   // 有任务的日子才断开
-    if(!isWorkday(t)) continue;                                   // 休息日跳过、不断开
-    if(g) g.b=t; else g={a:t,b:t};
-  }
-  if(g) gaps.push(g);
-  const workdays=workdaysIdx(t0, t1+1);
-  const MIN=idleGapThreshold(workdays);
-  const big=gaps.filter(x => (x.b-x.a+1)>=MIN);
-  if(!big.length) return wrap(`<i class="idle-hl-none" data-window="${workdays}" data-threshold="${MIN}"></i>`);
-  /* 输出覆盖层；left/width = dayIdx*DAY_W，与任务条同一坐标系 */
-  return wrap(big.map(g => {
-    const n=g.b-g.a+1;
-    const left=g.a*DAY_W, w=n*DAY_W;
-    const d0=i2d(g.a), d1=i2d(g.b);
-    const F=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
-    const wi=weekOfMonth(d0), wy=weeksInMonth(d0.getFullYear(), d0.getMonth());
-    const wd=weekdayName(d0);
-    /* 块太窄就降级：≥70px 双行完整标注，42~70px 只留上排短标，<42px 纯斜纹（悬停看 title） */
-    const cls = w>=70 ? '' : (w>=42 ? ' ill-narrow' : ' ill-tiny');
-    const topTx = w>=70 ? `空闲 ${n} 工作日` : `空 ${n}日`;
-    return `<div class="idle-hl${cls}" style="left:${left}px;width:${w}px" title="空闲 ${n} 工作日：${F(d0)} ~ ${F(d1)}（${d0.getMonth()+1}月第${wi}周/共${wy}周 · 周${wd}起）"
-      data-from="${F(d0)}" data-to="${F(d1)}" data-len="${n}" data-threshold="${MIN}" data-window="${workdays}">
-      <span class="ill-tx-top">${topTx}</span><span class="ill-tx-bot">${wi}/${wy} 周${wd}</span></div>`;
-  }).join(''));
-}
-/* 滚动后按新视野重画全部高亮（不 rerender，只换 layer 内容，避免滚动卡顿） */
-function refreshIdleHilights(){
-  const layers=document.querySelectorAll('.idle-hl-layer');
-  if(!layers.length) return;
-  layers.forEach(layer => {
-    const m=memById(layer.dataset.mem); if(!m) return;
-    layer.outerHTML=idleHilightHTML(m);
-  });
-}
-let _idleScrollTimer=null;
-function bindIdleScrollRefresh(){
-  const sc=document.getElementById('scroll');
-  if(!sc || sc.dataset.idleHlBound==='1') return;
-  sc.dataset.idleHlBound='1';
-  sc.addEventListener('scroll', () => {
-    if(_idleScrollTimer) return;                     // 前沿节流：滚动中最多每 120ms 重算一次
-    _idleScrollTimer=setTimeout(()=>{ _idleScrollTimer=null; refreshIdleHilights(); }, 120);
-  }, {passive:true});
-}
 function personRowHTML(m,inArc){
     /* v5.34：暂缺成员 → 渲染为「缺人占位状态卡」，不再伪装成真人行 */
     if(isVacantMem(m)) return vacantRowHTML(m,inArc);
@@ -3357,7 +3239,7 @@ function personRowHTML(m,inArc){
         <div class="load"><div class="pct" style="color:${L.col}">${L.pct}% ${L.cls}</div>
           <div class="bar-l${L.pct>110?' over':''}"><i style="width:${Math.min(L.pct,100)}%;background:${L.col}"></i></div></div>
       </div>
-      <div class="timeline" style="width:${DAYS*DAY_W}px;box-shadow:inset 3px 0 0 0 ${(G||HR_GRADE['']).col}">${idleHilightHTML(m)}${bars}</div>
+      <div class="timeline" style="width:${DAYS*DAY_W}px;box-shadow:inset 3px 0 0 0 ${(G||HR_GRADE['']).col}">${bars}</div>
     </div>`;
 }
 
@@ -4811,51 +4693,6 @@ function kpiLocateMem(id){
   }
   if(typeof revealEntity === 'function') revealEntity('mem', m.id);
 }
-/* v7.90：面板③"📍 在图上高亮"入口——把卡③中"图上能画出绿斜纹"的空闲人员
-   （即 30 天窗口内确实存在无任务工作日的那部分人）切到按人看视图、滚动到首位、
-   给他们的 .idle-hl 加 2.8s 闪烁呼吸。
-   注：卡③按 memLoad<50% 排序可能首位无图上空档（如郑博文 30% 负载但满工作日覆盖），
-   故滚动目标取「首位存在 .idle-hl 块的人员」——只标看得见的空，让按钮点击必有视觉反馈。 */
-function idleHighlightAll(){
-  const crew = members.filter(m => !effLeft(m) && !leftLong(m) && !isVacantMem(m)).map(m => ({m, ld: memLoad(m.id)}));
-  const idle = crew.filter(x => x.ld.pct < 50).sort((a,b) => a.ld.pct - b.ld.pct);
-  if(!idle.length){ toast('当前无空闲人员'); return; }
-  if(typeof view !== 'undefined' && view !== 'person'){
-    const btn = [...document.querySelectorAll('#viewTabs button')].find(b => /按人看/.test(b.textContent));
-    if(btn) setView('person', btn);
-  } else {
-    try{ rerender(); }catch(_){ }
-  }
-  setTimeout(() => {
-    /* 找出"图上能画出绿斜纹"的成员（DOM 内存在 .idle-hl）——v7.91：按当前视野判定 */
-    const hitIds = idle.map(x => x.m.id).filter(id => document.querySelector(`.row[data-mem="${id}"] .idle-hl`));
-    /* 视野自适应后卡③成员可能只是"当前这一屏"没空档，兜底扫全表：谁有空档就翻到谁 */
-    let fallback = false;
-    const targets = hitIds.length ? hitIds : (fallback = true,
-      [...document.querySelectorAll('.idle-hl-layer')].filter(l => l.querySelector('.idle-hl')).map(l => l.dataset.mem));
-    if(!targets.length){
-      const none = document.querySelector('.idle-hl-none');
-      toast(none ? `当前视野内无 ≥${none.dataset.threshold} 工作日的连续空档（视野共 ${none.dataset.window} 工作日，放大或往后滚可放宽）`
-                 : '当前视野内无连续空档可高亮');
-      return;
-    }
-    /* 滚动到首位 */
-    if(typeof revealEntity === 'function') revealEntity('mem', targets[0]);
-    /* revealEntity 内部 rAF 后才滚到位；等 350ms 再加 flash，避免与滚动打架 */
-    setTimeout(() => {
-      targets.forEach(id => {
-        const row = document.querySelector(`.row[data-mem="${id}"]`);
-        if(!row) return;
-        row.classList.add('idle-flash');
-        setTimeout(() => row.classList.remove('idle-flash'), 3000);
-      });
-      const none = document.querySelector('.idle-hl-none');
-      const th = none ? `≥${none.dataset.threshold} 工作日` : '连续空档';
-      toast(fallback ? `📍 卡③人员这一屏无 ${th} 的空档，已定位到其他有空档的 ${targets.length} 人`
-                     : `📍 已高亮 ${targets.length} 名空闲人员的图上空档（绿斜纹 3 秒呼吸）`);
-    }, 350);
-  }, 220);
-}
 /* ④ mini 色带点击：把该周滚到时间轴可视区左侧 1/3 处（与 scrollToToday 同一容器与算法） */
 function kpiScrollToDay(dayIdx){
   const sc = document.getElementById('scroll'); if(!sc) return;
@@ -4945,8 +4782,8 @@ function renderRefPanel(){
   const safeId = id => String(id).replace(/[^\w-]/g, '');
   const locBtn = r => `<button class="rk-loc" title="定位到甘特条" onclick="kpiLocateReq('${safeId(r.id)}')">📍</button>`;
   const memLocBtn = m => `<button class="rk-loc" title="定位到人员行" onclick="kpiLocateMem('${safeId(m.id)}')">📍</button>`;
-  const card = (icon, title, note, rows, empty, extra) =>
-    `<div class="ref-card"><div class="ref-t">${icon} ${title}<span>${note}</span>${extra||''}</div>${rows || `<div class="ref-empty">${empty}</div>`}</div>`;
+  const card = (icon, title, note, rows, empty) =>
+    `<div class="ref-card"><div class="ref-t">${icon} ${title}<span>${note}</span></div>${rows || `<div class="ref-empty">${empty}</div>`}</div>`;
 
   /* 卡① 需求更新记录：CHANGELOG 中需求相关条目，按时间倒序 */
   const REQ_KW = ['需求','任务','排期','拖拽','改派','进度','评论','关键节点','阶段节点','工时','拆分','设为','改期','新增'];
@@ -4988,7 +4825,6 @@ function renderRefPanel(){
   const idle = crew.filter(x => x.ld.pct < 50).sort((a,b) => a.ld.pct - b.ld.pct);
   const idleRows = idle.slice(0,6).map(({m, ld}) =>
     `<div class="ref-row"><span class="ref-who">${effEsc(m.name)}</span><span class="ref-txt">${effEsc(modMeta(m.mod).s)} · 效率 ${m.eff}</span><span class="ref-tag" style="color:#16a34a">负载 ${ld.pct}%</span>${memLocBtn(m)}</div>`).join('');
-  const idleHLBtn = idle.length ? `<button class="ref-hl-btn" onclick="idleHighlightAll()">📍 在图上高亮</button>` : '';
 
   /* 卡④ 排期异常人员：memLoad > 110% 超载，降序 */
   const over = crew.filter(x => x.ld.pct > 110).sort((a,b) => b.ld.pct - a.ld.pct);
@@ -5020,7 +4856,7 @@ function renderRefPanel(){
   el.innerHTML = `<div class="ref-grid">`
     + card('🕘', '需求更新记录', '近 6 条', logRows, '暂无需求相关改动记录')
     + card('🎯', '下一关键节点', '最近 3 个', nodeRows, '未来暂无节点/排期末')
-    + card('🟢', '空闲可排人员', '负载<50%', idleRows, '当前无空闲人员', idleHLBtn)
+    + card('🟢', '空闲可排人员', '负载<50%', idleRows, '当前无空闲人员')
     + card('🔴', '排期异常人员', '负载>110%', overRows, '当前无超载人员')
     + card('⚖️', '标配差异需求', '|差|≥2', diffRows, '各需求投入均在标配 ±1 内')
     + card('📝', '特别备注', 'comment 非空', noteRows, '暂无备注')
@@ -10493,7 +10329,6 @@ function rerender(){
   // 安全清理：每次重渲染时强制隐藏所有拖拽残留（drop-guide、dragging 状态等）
   ['dropG0','dropG1','dropBand'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('show');});
   document.querySelectorAll('.dragging,.dup-src,.row-target').forEach(el=>el.classList.remove('dragging','dup-src','row-target'));
-  invalidateIdleBusy();                 // v7.91：排期可能变更→作废忙碌区间索引，空闲高亮按新数据重算
   _resetPeakParCache();                 // 排期可能变更→清空并行峰值缓存，确保人级并行判定实时
   document.body.classList.toggle('hr-view',view==='hr');  // 人力视图隐藏左列拖拽手柄
   if(typeof buildMeSel==='function') buildMeSel();        // 刷新「我是谁」下拉（成员/角色可能已变）
@@ -11366,7 +11201,6 @@ applyLblShow();
 _migrateMsBg();       // v7.47 老版 gantt_ms_bg → 统一色板 MS_PALETTE.msBg
 applyMsPalette();    // v7.47 应用「关键节点统一色板」（汇总行底色 / 虚线色 / 阶段色 / 候选色板）
 applyChPalette();    // v7.89 应用「图表配色」（KPI 饼图 / 缺口柱状图 --ch-* 变量，无则默认）
-bindIdleScrollRefresh();  // v7.91 空闲高亮跟随视野：滚动时按可视范围重算空档
 applyUserColors();   // v7.30 应用本机自定义配色（无则保持 :root 默认）
 _pushColorHistory();   // v7.35 初始化撤销/重做栈
 renderPresetList();   // v7.32 渲染一键预设色板
