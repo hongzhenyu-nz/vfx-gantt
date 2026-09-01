@@ -3141,6 +3141,47 @@ function idleBusyMap(){
   _idleBusyCache=map;
   return map;
 }
+/* v7.92 共享空闲判定（与 idleHilightHTML 同源）：
+   给定视野范围，列出"在岗成员中、当前视野内有 ≥ 阈值 连续工作日无任务覆盖"的那批成员。
+   卡③「空闲可排人员」与 idleHighlightAll 按钮复用此函数，保证两处判定口径完全一致。
+   内部复用 idleBusyMap() / visibleDayRange() / idleGapThreshold()，与 .idle-hl 高亮走同一份事实。 */
+function idleCrewInView(v){
+  const range = v || visibleDayRange();
+  if(!range) return [];
+  const t0=range.day0, t1=range.day1;
+  if(t1<t0) return [];
+  const len=t1-t0+1;
+  const workdays=workdaysIdx(t0, t1+1);
+  const threshold=idleGapThreshold(workdays);
+  const map=idleBusyMap();
+  const out=[];
+  for(const m of members){
+    if(isVacantMem(m) || effLeft(m) || leftLong(m)) continue;
+    const busy=new Array(len).fill(false);
+    const ivs=map.get(m.id);
+    if(ivs){
+      for(const [ss,se] of ivs){
+        const a=Math.max(ss,t0), b=Math.min(se,t1+1);
+        for(let t=a;t<b;t++) busy[t-t0]=true;
+      }
+    }
+    /* 与 idleHilightHTML 完全同口径：只有"有任务的日子"才断开区间，休息日 continue 但不断开 */
+    const gaps=[]; let g=null;
+    for(let t=t0;t<=t1;t++){
+      if(busy[t-t0]){ if(g){ gaps.push(g); g=null; } continue; }
+      if(!isWorkday(t)) continue;
+      if(g) g.b=t; else g={a:t,b:t,n:1};
+    }
+    if(g) gaps.push(g);
+    const big=gaps.filter(x => (x.b-x.a+1)>=threshold);
+    if(big.length){
+      let longest=0;
+      for(const x of big){ const n=x.b-x.a+1; if(n>longest) longest=n; }
+      out.push({m, threshold, workdays, gapCount: big.length, longest, gaps: big});
+    }
+  }
+  return out;
+}
 /* v7.90 在岗空闲高亮（与面板③「空闲可排人员」卡口径同源 memLoad<50%），v7.91 改为视野自适应：
    在 .timeline 上叠一层绿色斜纹覆盖层，标出「可视范围内连续够长的无任务工作日区间」。
    与 memLoad 的口径差：这里用工作日（isWorkday），不用 segEffInvOnDay 分摊——只标"没活"的日子。
@@ -4817,9 +4858,9 @@ function kpiLocateMem(id){
    注：卡③按 memLoad<50% 排序可能首位无图上空档（如郑博文 30% 负载但满工作日覆盖），
    故滚动目标取「首位存在 .idle-hl 块的人员」——只标看得见的空，让按钮点击必有视觉反馈。 */
 function idleHighlightAll(){
-  const crew = members.filter(m => !effLeft(m) && !leftLong(m) && !isVacantMem(m)).map(m => ({m, ld: memLoad(m.id)}));
-  const idle = crew.filter(x => x.ld.pct < 50).sort((a,b) => a.ld.pct - b.ld.pct);
-  if(!idle.length){ toast('当前无空闲人员'); return; }
+  /* v7.92 口径同源：直接复用 idleCrewInView()，与卡③列表、.idle-hl 高亮共享同一判定 */
+  const idle = idleCrewInView();
+  if(!idle.length){ toast('当前视野内无空闲人员'); return; }
   if(typeof view !== 'undefined' && view !== 'person'){
     const btn = [...document.querySelectorAll('#viewTabs button')].find(b => /按人看/.test(b.textContent));
     if(btn) setView('person', btn);
@@ -4983,15 +5024,16 @@ function renderRefPanel(){
     return `<div class="ref-row"><span class="ref-when" style="font-weight:700;color:${left<=3?'#dc2626':'#1f2329'}">${mdL(n.d)}</span><span class="ref-txt"><b>${effEsc(charShort(n.r.char)||n.r.name||'')}</b> · ${effEsc(n.label)}${n.ms?'':''}</span><span class="ref-tag" style="color:${lvlC}">${rk.lvl==='高'?'高风险':rk.lvl==='中'?'中风险':'低风险'} · 剩${left}天</span>${locBtn(n.r)}</div>`;
   }).join('');
 
-  /* 卡③ 空闲可排人员：memLoad（未来 30 天负载窗口）< 50% 的在岗成员，升序 */
-  const crew = members.filter(m => !effLeft(m) && !leftLong(m) && !isVacantMem(m)).map(m => ({m, ld: memLoad(m.id)}));
-  const idle = crew.filter(x => x.ld.pct < 50).sort((a,b) => a.ld.pct - b.ld.pct);
-  const idleRows = idle.slice(0,6).map(({m, ld}) =>
-    `<div class="ref-row"><span class="ref-who">${effEsc(m.name)}</span><span class="ref-txt">${effEsc(modMeta(m.mod).s)} · 效率 ${m.eff}</span><span class="ref-tag" style="color:#16a34a">负载 ${ld.pct}%</span>${memLocBtn(m)}</div>`).join('');
+  /* 卡③ 空闲可排人员（v7.92 口径与甘特图 .idle-hl 同源：当前视野内 ≥ 阈值 连续工作日无任务覆盖；
+     阈值随视野工作日 1/8 自适应 3~15 工作日 —— 共享 idleCrewInView()。表现/字段保持原样。） */
+  const idle = idleCrewInView();
+  const idleRows = idle.slice(0,6).map(({m}) =>
+    `<div class="ref-row"><span class="ref-who">${effEsc(m.name)}</span><span class="ref-txt">${effEsc(modMeta(m.mod).s)} · 效率 ${m.eff}</span><span class="ref-tag" style="color:#16a34a">负载 ${memLoad(m.id).pct}%</span>${memLocBtn(m)}</div>`).join('');
   const idleHLBtn = idle.length ? `<button class="ref-hl-btn" onclick="idleHighlightAll()">📍 在图上高亮</button>` : '';
 
-  /* 卡④ 排期异常人员：memLoad > 110% 超载，降序 */
-  const over = crew.filter(x => x.ld.pct > 110).sort((a,b) => b.ld.pct - a.ld.pct);
+  /* 卡④ 排期异常人员：memLoad > 110% 超载，降序（v7.92 卡③口径同源改造后 crew 变量已移除，卡④独立构造） */
+  const overCrew = members.filter(m => !effLeft(m) && !leftLong(m) && !isVacantMem(m)).map(m => ({m, ld: memLoad(m.id)}));
+  const over = overCrew.filter(x => x.ld.pct > 110).sort((a,b) => b.ld.pct - a.ld.pct);
   const overRows = over.slice(0,6).map(({m, ld}) =>
     `<div class="ref-row"><span class="ref-who">${effEsc(m.name)}</span><span class="ref-txt">${effEsc(modMeta(m.mod).s)} · 已排 ${ld.assigned}/${ld.avail} 人天</span><span class="ref-tag" style="color:#dc2626">超载 ${ld.pct}%</span>${memLocBtn(m)}</div>`).join('');
 
@@ -5025,7 +5067,7 @@ function renderRefPanel(){
     + card('⚖️', '标配差异需求', '|差|≥2', diffRows, '各需求投入均在标配 ±1 内')
     + card('📝', '特别备注', 'comment 非空', noteRows, '暂无备注')
     + `</div>
-  <div class="kpd-foot">口径：更新记录 = CHANGELOG 审计日志（需求相关关键词过滤，含操作人与时间）；关键节点 = 需求 milestones（未来）优先、最近排期末日补足；空闲/超载 = memLoad() 未来 30 天负载窗口（与左栏负载灯同源），效率 = 成员效率系数（1.0 = 标准熟手）；标配差异 = 非正编投入人数（基地/子公司/外借分开去重计数，与缺口矩阵 cfg 同口径）− STD_CFG 标配，|差|≥2 列出，正编带队单列不占口径；备注 = 需求 comment 字段。📍 点击定位甘特条/人员行并高亮。</div>`;
+  <div class="kpd-foot">口径：更新记录 = CHANGELOG 审计日志（需求相关关键词过滤，含操作人与时间）；关键节点 = 需求 milestones（未来）优先、最近排期末日补足；空闲 = 当前视野内 ≥ 阈值连续工作日无任务覆盖（与甘特图 .idle-hl 同源，阈值随视野工作日 1/8 自适应 3~15 工作日），超载 = memLoad() 未来 30 天负载窗口 >110%（与左栏负载灯同源），效率 = 成员效率系数（1.0 = 标准熟手）；标配差异 = 非正编投入人数（基地/子公司/外借分开去重计数，与缺口矩阵 cfg 同口径）− STD_CFG 标配，|差|≥2 列出，正编带队单列不占口径；备注 = 需求 comment 字段。📍 点击定位甘特条/人员行并高亮。</div>`;
 }
 
 /* ④b 产能与需求趋势（v7.87，挂在高峰负载率面板底部）
