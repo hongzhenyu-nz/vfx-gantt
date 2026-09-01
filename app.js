@@ -3090,6 +3090,49 @@ function vacantRowHTML(m,inArc){
     </div>`;
 }
 /* 渲染单个成员行（inArc=是否归档区内，仅加淡化样式类） */
+/* v7.90 在岗空闲高亮（与面板③「空闲可排人员」卡口径同源 memLoad<50%）：
+   计算未来 30 天窗口中、该成员「无任何未完成任务段覆盖」的工作日连续区间，
+   在 .timeline 上叠一层绿色斜纹覆盖层；并暴露 meta 供「📍 在图上高亮」按钮定位。
+   与 memLoad 的口径差：这里用工作日（isWorkday），不用 segEffInvOnDay 分摊——只标"没活"的日子，
+   看起来"半投入"的天（30% 负载常见）不在此层；这是为了让高亮区域严格对应"真正的空档"，
+   便于把卡③成员"翻成图上的可点位置"。 */
+function idleHilightHTML(m){
+  if(isVacantMem(m) || effLeft(m) || leftLong(m)) return '';   // 暂缺/请假/离职不参与
+  const t0=idx(TODAY);
+  const t1=idx(new Date(TODAY.getTime()+30*dayMs));
+  if(t1<=t0) return '';
+  /* 收集该成员未来 30 天内、未完成、且有时段的 seg 覆盖的 dayIdx 集合（仅工作日） */
+  const busy=new Set();
+  for(const r of reqs){
+    if(r.kind==='qa') continue;
+    for(const s of (r.segs||[])){
+      if(s.m!==m.id || s.status==='done' || s.open) continue;
+      if(!segHasDuration(s)) continue;
+      const ss=idx(s.s), se=idx(s.e);
+      const a=Math.max(ss, t0), b=Math.min(se, t1);
+      for(let t=a; t<b; t++){ if(isWorkday(t)) busy.add(t); }
+    }
+  }
+  /* 取空闲工作日并合并连续段 */
+  const free=[];
+  for(let t=t0; t<t1; t++){ if(isWorkday(t) && !busy.has(t)) free.push(t); }
+  if(!free.length) return '';
+  const gaps=[]; let g=null;
+  for(const d of free){
+    if(g && d===g.b+1) g.b=d;
+    else { if(g) gaps.push(g); g={a:d,b:d}; }
+  }
+  if(g) gaps.push(g);
+  /* 输出覆盖层 div；用 left/width = dayIdx*DAY_W */
+  const H=`<div class="idle-hl-layer" data-mem="${m.id}">${
+    gaps.map(g => {
+      const left=g.a*DAY_W, w=(g.b-g.a+1)*DAY_W;
+      const lab = g.b-g.a+1>=3 ? `空 ${g.b-g.a+1}d` : '空';
+      return `<div class="idle-hl" style="left:${left}px;width:${w}px" data-from="${i2d(g.a).toISOString().slice(0,10)}" data-to="${i2d(g.b).toISOString().slice(0,10)}" data-len="${g.b-g.a+1}"><span class="ill-tx">${lab}</span></div>`;
+    }).join('')
+  }</div>`;
+  return H;
+}
 function personRowHTML(m,inArc){
     /* v5.34：暂缺成员 → 渲染为「缺人占位状态卡」，不再伪装成真人行 */
     if(isVacantMem(m)) return vacantRowHTML(m,inArc);
@@ -3239,7 +3282,7 @@ function personRowHTML(m,inArc){
         <div class="load"><div class="pct" style="color:${L.col}">${L.pct}% ${L.cls}</div>
           <div class="bar-l${L.pct>110?' over':''}"><i style="width:${Math.min(L.pct,100)}%;background:${L.col}"></i></div></div>
       </div>
-      <div class="timeline" style="width:${DAYS*DAY_W}px;box-shadow:inset 3px 0 0 0 ${(G||HR_GRADE['']).col}">${bars}</div>
+      <div class="timeline" style="width:${DAYS*DAY_W}px;box-shadow:inset 3px 0 0 0 ${(G||HR_GRADE['']).col}">${idleHilightHTML(m)}${bars}</div>
     </div>`;
 }
 
@@ -4693,6 +4736,39 @@ function kpiLocateMem(id){
   }
   if(typeof revealEntity === 'function') revealEntity('mem', m.id);
 }
+/* v7.90：面板③"📍 在图上高亮"入口——把卡③中"图上能画出绿斜纹"的空闲人员
+   （即 30 天窗口内确实存在无任务工作日的那部分人）切到按人看视图、滚动到首位、
+   给他们的 .idle-hl 加 2.8s 闪烁呼吸。
+   注：卡③按 memLoad<50% 排序可能首位无图上空档（如郑博文 30% 负载但满工作日覆盖），
+   故滚动目标取「首位存在 .idle-hl 块的人员」——只标看得见的空，让按钮点击必有视觉反馈。 */
+function idleHighlightAll(){
+  const crew = members.filter(m => !effLeft(m) && !leftLong(m) && !isVacantMem(m)).map(m => ({m, ld: memLoad(m.id)}));
+  const idle = crew.filter(x => x.ld.pct < 50).sort((a,b) => a.ld.pct - b.ld.pct);
+  if(!idle.length){ toast('当前无空闲人员'); return; }
+  if(typeof view !== 'undefined' && view !== 'person'){
+    const btn = [...document.querySelectorAll('#viewTabs button')].find(b => /按人看/.test(b.textContent));
+    if(btn) setView('person', btn);
+  } else {
+    try{ rerender(); }catch(_){ }
+  }
+  setTimeout(() => {
+    /* 找出"图上能画出绿斜纹"的成员（DOM 内存在 .idle-hl） */
+    const hitIds = idle.map(x => x.m.id).filter(id => document.querySelector(`.row[data-mem="${id}"] .idle-hl`));
+    if(!hitIds.length){ toast('卡③ 6 名空闲人员未来 30 天均有任务覆盖，无图上空档可高亮'); return; }
+    /* 滚动到首位 */
+    if(typeof revealEntity === 'function') revealEntity('mem', hitIds[0]);
+    /* revealEntity 内部 rAF 后才滚到位；等 350ms 再加 flash，避免与滚动打架 */
+    setTimeout(() => {
+      hitIds.forEach(id => {
+        const row = document.querySelector(`.row[data-mem="${id}"]`);
+        if(!row) return;
+        row.classList.add('idle-flash');
+        setTimeout(() => row.classList.remove('idle-flash'), 3000);
+      });
+      toast(`📍 已高亮 ${hitIds.length} 名空闲人员的图上空档（绿斜纹 3 秒呼吸）`);
+    }, 350);
+  }, 220);
+}
 /* ④ mini 色带点击：把该周滚到时间轴可视区左侧 1/3 处（与 scrollToToday 同一容器与算法） */
 function kpiScrollToDay(dayIdx){
   const sc = document.getElementById('scroll'); if(!sc) return;
@@ -4782,8 +4858,8 @@ function renderRefPanel(){
   const safeId = id => String(id).replace(/[^\w-]/g, '');
   const locBtn = r => `<button class="rk-loc" title="定位到甘特条" onclick="kpiLocateReq('${safeId(r.id)}')">📍</button>`;
   const memLocBtn = m => `<button class="rk-loc" title="定位到人员行" onclick="kpiLocateMem('${safeId(m.id)}')">📍</button>`;
-  const card = (icon, title, note, rows, empty) =>
-    `<div class="ref-card"><div class="ref-t">${icon} ${title}<span>${note}</span></div>${rows || `<div class="ref-empty">${empty}</div>`}</div>`;
+  const card = (icon, title, note, rows, empty, extra) =>
+    `<div class="ref-card"><div class="ref-t">${icon} ${title}<span>${note}</span>${extra||''}</div>${rows || `<div class="ref-empty">${empty}</div>`}</div>`;
 
   /* 卡① 需求更新记录：CHANGELOG 中需求相关条目，按时间倒序 */
   const REQ_KW = ['需求','任务','排期','拖拽','改派','进度','评论','关键节点','阶段节点','工时','拆分','设为','改期','新增'];
@@ -4825,6 +4901,7 @@ function renderRefPanel(){
   const idle = crew.filter(x => x.ld.pct < 50).sort((a,b) => a.ld.pct - b.ld.pct);
   const idleRows = idle.slice(0,6).map(({m, ld}) =>
     `<div class="ref-row"><span class="ref-who">${effEsc(m.name)}</span><span class="ref-txt">${effEsc(modMeta(m.mod).s)} · 效率 ${m.eff}</span><span class="ref-tag" style="color:#16a34a">负载 ${ld.pct}%</span>${memLocBtn(m)}</div>`).join('');
+  const idleHLBtn = idle.length ? `<button class="ref-hl-btn" onclick="idleHighlightAll()">📍 在图上高亮</button>` : '';
 
   /* 卡④ 排期异常人员：memLoad > 110% 超载，降序 */
   const over = crew.filter(x => x.ld.pct > 110).sort((a,b) => b.ld.pct - a.ld.pct);
@@ -4856,7 +4933,7 @@ function renderRefPanel(){
   el.innerHTML = `<div class="ref-grid">`
     + card('🕘', '需求更新记录', '近 6 条', logRows, '暂无需求相关改动记录')
     + card('🎯', '下一关键节点', '最近 3 个', nodeRows, '未来暂无节点/排期末')
-    + card('🟢', '空闲可排人员', '负载<50%', idleRows, '当前无空闲人员')
+    + card('🟢', '空闲可排人员', '负载<50%', idleRows, '当前无空闲人员', idleHLBtn)
     + card('🔴', '排期异常人员', '负载>110%', overRows, '当前无超载人员')
     + card('⚖️', '标配差异需求', '|差|≥2', diffRows, '各需求投入均在标配 ±1 内')
     + card('📝', '特别备注', 'comment 非空', noteRows, '暂无备注')
